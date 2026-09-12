@@ -2,7 +2,16 @@
   "$comment": "Source spec for scripts/rocket/extract-sprites.js. `names` are applied to the detected sprites in reading order (rows top->bottom, left->right). `exclude` rects (fractions of the sheet unless \"unit\":\"px\") hide baked-in text that survives the text filter. `regions` are hand-placed crops for content the detector cannot judge (e.g. grey UI stars look exactly like caption glyphs).",
   "defaults": {
     "pad": 12,
-    "minSize": 30
+    "minSize": 30,
+    "maxDim": 160,
+    "$comment": "Sprites are drawn small on a 1280x720 canvas, so 160px is plenty for anything but hero/background art. Cartoon art with soft glows is very expensive as 32-bit PNG (~80 KB at 256px), so exports are palette-quantised: that is what keeps the whole set in the low single-digit MB instead of ~20.",
+    "png": {
+      "compressionLevel": 9,
+      "palette": true,
+      "quality": 92,
+      "effort": 8,
+      "dither": 0.6
+    }
   },
   "sheets": [
     {
@@ -27,8 +36,8 @@
         }
       ],
       "regions": [
-        { "name": "ui-star-gold", "x": 0.04, "y": 0.7, "w": 0.042, "h": 0.076 },
-        { "name": "ui-star-empty", "x": 0.146, "y": 0.7, "w": 0.042, "h": 0.076 }
+        { "name": "ui-star-gold", "x": 0.03658, "y": 0.67188, "w": 0.0348, "h": 0.06771 },
+        { "name": "ui-star-empty", "x": 0.11328, "y": 0.67188, "w": 0.0348, "h": 0.06771 }
       ],
       "names": [
         "ui-play",
@@ -153,18 +162,21 @@
       "id": "planets-a",
       "title": "Pickups, power-ups and hazards grid",
       "file": "Gemini_Generated_Image_hsmqvghsmqvghsmq.jpg",
-      "options": {},
+      "options": {
+        "maxDim": 320
+      },
       "exclude": [],
       "regions": [],
       "gridNames": {
         "rows": 5,
         "cols": 9,
+        "expectGaps": "Row 3's column 8-9 area holds a rocket plus several loose debris fragments, which legitimately cut as more leaves than the grid has cells; the extras take a -2/-3 suffix.",
         "names": [
           "medal-star-gold", "medal-star-gold-2", "medal-star-gold-3", "medal-star-red", "orb-water", "orb-shield-blue", "mine-spike-red", "mine-spike-red-2", "mine-alert-grey",
           "medal-star-gold-4", "medal-star-green", "gem-diamond-green", "gem-brilliant-green", "power-bolt-yellow", "power-bolt-yellow-2", "mine-spike-red-3", "mine-core-orange", "mine-dome-red",
-          "medal-star-gold-5", "orb-green", "gem-diamond-emerald", "fuel-can-orange", "power-bolt-blue", "power-bolt-blue-2", "rocket-retro", "debris-panel-grey", "debris-shards-grey",
+          "medal-star-gold-5", "orb-green", "gem-diamond-emerald", "fuel-can-orange", "power-bolt-blue", "power-bolt-blue-2", "rocket-retro", "debris-hull-panel", "debris-shards-metal",
           "medal-star-gold-6", "gem-diamond-green-2", "fuel-can-red", "fuel-can-red-2", "tool-wrench-grey", "tool-wrenches-grey", "tool-wrenches-red", "satellite-grey", "satellite-grey-2",
-          "medal-star-gold-7", "fuel-can-grey", "fuel-can-red-3", "fuel-can-orange-2", "tool-wrenches-grey-2", "tool-wrenches-red-2", "tool-wrenches-grey-3", "satellite-grey-3", "satellite-grey-4"
+          "medal-star-gold-7", "fuel-can-silver", "fuel-can-red-3", "fuel-can-orange-2", "tool-wrenches-grey-2", "tool-wrenches-red-2", "tool-wrenches-grey-3", "satellite-grey-3", "satellite-grey-4"
         ]
       }
     },
@@ -172,7 +184,9 @@
       "id": "rockets",
       "title": "Rockets, components, exhaust",
       "file": "Gemini_Generated_Image_k96ag9k96ag9k96a.jpg",
-      "options": {},
+      "options": {
+        "maxDim": 384
+      },
       "exclude": [],
       "regions": [],
       "names": [
@@ -266,7 +280,8 @@
       "title": "Worlds, moons, asteroids, satellites",
       "file": "Gemini_Generated_Image_uao4j1uao4j1uao4.jpg",
       "options": {
-        "minGutterCol": 14
+        "minGutterCol": 14,
+        "maxDim": 320
       },
       "exclude": [
         {
@@ -290,6 +305,7 @@
       "gridNames": {
         "rows": 5,
         "cols": 9,
+        "expectGaps": "Rows 1-4 columns 1-2 are supplied as manual regions (fused ring pairs), so those eight cells are expected to come back empty.",
         "names": [
           "planet-saturn-tan", "planet-earth-ringed", "planet-water", "moon-grey", "moon-grey-2", "asteroid-orange", "asteroid-blue", "asteroid-teal", "asteroid-green",
           "planet-striped-purple", "planet-earth-ringed-2", "planet-lava", "moon-tan", "moon-grey-3", "debris-shards-grey", "debris-panel-grey", "satellite-dish", "debris-solar-panel",
@@ -305,7 +321,8 @@
       "file": "Gemini_Generated_Image_ybokitybokitybok.jpg",
       "options": {
         "minGutterCol": 8,
-        "minGutterRow": 8
+        "minGutterRow": 8,
+        "maxDim": 512
       },
       "exclude": [
         {
@@ -329,7 +346,7 @@
         "planet-saturn-moons",
         "debris-panel-crumpled",
         "debris-dish",
-        "debris-solar-panel",
+        "debris-solar-array",
         "debris-satellite",
         "debris-satellite-wreck",
         "debris-bolts",

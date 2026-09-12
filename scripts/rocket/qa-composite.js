@@ -22,7 +22,8 @@ const ROOT = path.join(__dirname, '..', '..');
 const sharp = require(path.join(ROOT, 'backend', 'node_modules', 'sharp'));
 
 const OUT_DIR = path.join(ROOT, 'frontend', 'public', 'rocket');
-const PREVIEW_DIR = path.join(OUT_DIR, '_preview');
+// same location the extractor uses: review artefacts, never shipped
+const PREVIEW_DIR = path.join(ROOT, 'docs', 'images', 'rocket', 'preview');
 const SPEC_PATH = path.join(__dirname, 'sheets.json');
 
 const CELL = 168; // cell edge in the composite

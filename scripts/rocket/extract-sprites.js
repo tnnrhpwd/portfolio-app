@@ -70,8 +70,15 @@ const sharp = loadSharp();
 
 const SRC_DIR = path.join(ROOT, 'frontend', 'src', 'assets', 'rocket');
 const OUT_DIR = path.join(ROOT, 'frontend', 'public', 'rocket');
-const PREVIEW_DIR = path.join(OUT_DIR, '_preview');
+// Previews deliberately live OUTSIDE frontend/public: they are review artefacts
+// and must never ship to production with the game.
+const PREVIEW_DIR = path.join(ROOT, 'docs', 'images', 'rocket', 'preview');
 const SPEC_PATH = path.join(__dirname, 'sheets.json');
+
+/** Every file name handed out so far, across ALL sheets. */
+const usedFileNames = new Map();
+const assetHref = (file) =>
+  path.relative(PREVIEW_DIR, path.join(OUT_DIR, file)).split(path.sep).join('/');
 
 /**
  * Detection / export tuning. `sheets.json` may override any of these globally
@@ -106,7 +113,7 @@ const BASE_OPTS = {
   alphaLo: 14, // rgb distance where alpha starts to ramp up
   alphaHi: 62, // rgb distance where alpha reaches fully opaque
   defringe: true, // un-matte partially transparent edge pixels
-  maxDim: 512, // cap the longest side of an exported asset
+  maxDim: 256, // cap the longest side of an exported asset
   minExport: 16, // drop anything that exports smaller than this on both axes
   png: { compressionLevel: 9 },
 };
@@ -725,7 +732,7 @@ function writePreviewHtml(sheetsReport) {
       ${s.items
         .map(
           (it) => `<figure class="cell">
-        <div class="thumb"><img src="../${escapeXml(it.file)}" alt="${escapeXml(it.name)}" loading="lazy"></div>
+        <div class="thumb"><img src="${escapeXml(assetHref(it.file))}" alt="${escapeXml(it.name)}" loading="lazy"></div>
         <figcaption><code>${escapeXml(it.name)}</code><span class="muted">${it.w}×${it.h}</span></figcaption>
       </figure>`,
         )
@@ -909,8 +916,13 @@ async function processSheet(spec, defaults, args, detectedOut) {
         items.push({ name: `${spec.id}-extra-${String(i + 1).padStart(2, '0')}`, kind: 'auto', box: leaf });
       });
       if (missing || shared || extra.length) {
+        // Some sheets legitimately have gaps (fused neighbours handled as
+        // manual regions, or clusters that cut into more leaves than cells).
+        // `expectGaps` documents that, so it is a note rather than a warning.
+        const paint = g.expectGaps ? C.dim : C.yellow;
+        const mark = g.expectGaps ? '·' : '!';
         console.log(
-          `${C.yellow}  ! ${spec.id}: grid ${g.rows}×${g.cols} — ${missing} empty cell(s), ${shared} shared cell(s), ${extra.length} outside${C.reset}`,
+          `${paint}  ${mark} ${spec.id}: grid ${g.rows}×${g.cols} — ${missing} empty cell(s), ${shared} shared cell(s), ${extra.length} outside${C.reset}`,
         );
       }
     }
@@ -933,22 +945,25 @@ async function processSheet(spec, defaults, args, detectedOut) {
   manual.forEach((m) => items.push({ name: sanitizeName(m.name), kind: 'manual', box: m.box }));
 
   // De-duplicate names BEFORE writing files, so a filename always matches the
-  // manifest entry (never rename after the PNG is on disk).
-  const seenNames = new Set();
-  const dupeNames = new Set();
+  // manifest entry (never rename after the PNG is on disk). Names must be
+  // unique across ALL sheets, not just within one: exports land in a single
+  // flat folder, so a clash between two sheets would silently overwrite.
+  const crossSheet = [];
   for (const it of items) {
-    if (!seenNames.has(it.name)) {
-      seenNames.add(it.name);
-      continue;
+    let candidate = it.name;
+    if (usedFileNames.has(candidate)) {
+      crossSheet.push(candidate);
+      let n = 2;
+      while (usedFileNames.has(`${candidate}-${n}`)) n++;
+      candidate = `${candidate}-${n}`;
+      it.name = candidate;
     }
-    dupeNames.add(it.name);
-    let n = 2;
-    while (seenNames.has(`${it.name}-${n}`)) n++;
-    it.name = `${it.name}-${n}`;
-    seenNames.add(it.name);
+    usedFileNames.set(candidate, spec.id);
   }
-  if (dupeNames.size) {
-    console.log(`${C.yellow}  ! ${spec.id}: duplicate names auto-suffixed: ${[...dupeNames].join(', ')}${C.reset}`);
+  if (crossSheet.length) {
+    console.log(
+      `${C.yellow}  ! ${spec.id}: name(s) already used by another sheet, suffixed: ${[...new Set(crossSheet)].join(', ')}${C.reset}`,
+    );
   }
 
   const exportItems = [];
@@ -1117,11 +1132,38 @@ async function main() {
   if (pruned) console.log(`${C.dim}  pruned ${pruned} stale PNG(s)${C.reset}`);
 
   // ---- preview -----------------------------------------------------------
+  // Built from the MANIFEST, not from this run's sheets, so the proof sheet and
+  // its overlays always describe the complete exported set even when the run was
+  // scoped with --sheet.
   if (args.preview) {
-    for (const r of report) {
-      await writeOverlay(r.file, r.items, path.join(PREVIEW_DIR, r.overlay), args.numbers);
+    const bySheet = new Map();
+    for (const a of assets) {
+      if (!bySheet.has(a.sheet)) bySheet.set(a.sheet, []);
+      bySheet.get(a.sheet).push(a);
     }
-    fs.writeFileSync(path.join(PREVIEW_DIR, 'index.html'), writePreviewHtml(report), 'utf8');
+
+    const sections = [];
+    const ids = [...spec.sheets.map((s) => s.id), ...bySheet.keys()].filter(
+      (id, i, all) => all.indexOf(id) === i,
+    );
+    for (const id of ids) {
+      const list = bySheet.get(id);
+      if (!list || !list.length) continue;
+      const meta = spec.sheets.find((s) => s.id === id) || {};
+      const overlay = `${id}-regions.png`;
+      const srcFile = meta.file ? path.join(SRC_DIR, meta.file) : null;
+      if (srcFile && fs.existsSync(srcFile)) {
+        await writeOverlay(
+          srcFile,
+          list.map((a) => ({ name: a.name, kind: a.kind, box: a.source })),
+          path.join(PREVIEW_DIR, overlay),
+          args.numbers,
+        );
+      }
+      sections.push({ id, title: meta.title || id, file: srcFile, overlay, items: list });
+    }
+
+    fs.writeFileSync(path.join(PREVIEW_DIR, 'index.html'), writePreviewHtml(sections), 'utf8');
     console.log(`${C.dim}  proof sheet: ${path.relative(ROOT, path.join(PREVIEW_DIR, 'index.html'))}${C.reset}`);
   }
 }

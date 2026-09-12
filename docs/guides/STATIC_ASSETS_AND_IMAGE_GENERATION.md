@@ -1,14 +1,18 @@
 # Static Assets & AI Image Generation Guide
 
-One reference for the two related asset pipelines in this app:
+One reference for the three related asset pipelines in this app:
 
 - **Part 1 — Static asset management** (S3 + CloudFront): serving images, videos,
   and documents from the CDN instead of the frontend bundle.
 - **Part 2 — AI image generation** (AWS Bedrock → repo asset): calling the app's
   text-to-image generator and wiring the result into the repo as a usable asset.
+- **Part 3 — Sprite sheets → individual sprites**: generating a white-background
+  "poster" of cartoon assets and slicing it into named, transparent, individually
+  cropped sprites.
 
-Use Part 1 for "where do I put an image and how do I serve it?" and Part 2 for
-"how do I generate a new image for a project card and check it in?"
+Use Part 1 for "where do I put an image and how do I serve it?", Part 2 for
+"how do I generate a new image for a project card and check it in?", and Part 3
+for "how do I turn one AI image full of little drawings into a usable sprite set?"
 
 ---
 
@@ -625,8 +629,294 @@ active.
 
 ---
 
+## Part 3 — Sprite Sheets → Individual Transparent Sprites
+
+This part documents the pipeline that produced the `/rocket` game's art:
+**8 AI-generated white-background "posters" → 282 named, transparent, tightly
+cropped PNGs (~4 MB)**. It is source-agnostic: as long as the source is a white
+background covered in separated cartoon drawings, the extractor handles it.
+
+> **🤖 Agent TL;DR — slicing a sheet.**
+> 0. Need a sheet in the first place? Generate one (§ "Generating the source
+>    sheet" below) — `backend/scripts/generate-sprite-sheet.js --dry-run` first.
+> 1. Drop the image in `frontend/src/assets/rocket/`.
+> 2. Add an entry to `scripts/rocket/sheets.json` (`id`, `title`, `file`).
+> 3. `node scripts/rocket/extract-sprites.js --sheet <id> --numbers --dump-detected`
+> 4. Read the numbered overlay, write the `names` array in reading order (or a
+>    `gridNames` table for a regular grid), then re-run until the counts line up.
+> 5. Review `docs/images/rocket/preview/index.html` (names) and
+>    `qa-<sheet>.png` (halo/hole check). Fix the **spec**, never the script.
+>
+> Deep reference: `docs/guides/Rocket-Asset-Pipeline.md`.
+
+### What was actually built
+
+| Item | Value |
+|------|-------|
+| Source | 8 JPEG "posters", **2816×1536**, ~2.1–2.5 MB each |
+| Source origin | Google Gemini. User prompt: *"the prompt will be describing a white background image with cartoon assets to be used in a 2D rocket game"* — see "Generating the source sheet" below to do this with Bedrock instead |
+| Extractor | `scripts/rocket/extract-sprites.js` (Node + `sharp`) |
+| Spec | `scripts/rocket/sheets.json` |
+| QA | `scripts/rocket/qa-composite.js` |
+| Output | `frontend/public/rocket/*.png` (282 files) + `manifest.json` |
+| Review artefacts | `docs/images/rocket/preview/` (**not** shipped) |
+| Total weight | **4.0 MB** (was 22 MB before sizing + quantisation) |
+
+Notes that matter:
+
+- `sharp` is loaded from `backend/node_modules/sharp` — it is **not** hoisted to
+  the repo root, so a new script must resolve it the same way:
+  `require(path.join(ROOT, 'backend', 'node_modules', 'sharp'))`.
+- Output goes to `frontend/public/`, **not** `frontend/src/assets/` — this is the
+  Coliseum raster convention: the sprites are fetched by URL at runtime and stay
+  out of the JS bundle. See Part 1 for when to prefer the CDN instead.
+- Review images go under `docs/` deliberately. Anything in `frontend/public/`
+  ships to production, and the proof sheets are ~22 MB.
+
+### Generating the source sheet (Bedrock instead of Gemini)
+
+Gemini produced the original eight sheets, but the same thing is one Bedrock call.
+A ready-made script ships in the repo — it calls `services/bedrockImageService.js`
+directly (no server, no JWT, no rate limit), so it only needs the AWS credentials
+already in `backend/.env`:
+
+```bash
+# What would be sent, and do credentials resolve? Costs nothing:
+node backend/scripts/generate-sprite-sheet.js \
+  --slug rocket-pack-2 --ratio 16:9 --candidates 3 --dry-run \
+  --assets "four retro rockets in different sizes, six capsule modules, five engine nozzles"
+
+# Generate it:
+node backend/scripts/generate-sprite-sheet.js \
+  --slug rocket-pack-2 --ratio 16:9 --candidates 3 \
+  --assets "four retro rockets in different sizes, six capsule modules, five engine nozzles"
+
+node backend/scripts/generate-sprite-sheet.js --list-models
+```
+
+| Flag | Purpose |
+| --- | --- |
+| `--slug <name>` | required; output base name → `<slug>.png` |
+| `--assets "<list>"` | required; the objects to put on the sheet |
+| `--title <text>` | echoed into the printed `sheets.json` snippet |
+| `--style <text>` | optional look hint ("chrome and matte-red livery") |
+| `--ratio <r>` | default `16:9`; landscape gives more columns |
+| `--model <id>` | default from `BEDROCK_IMAGE_MODEL_ID`, else SD3.5 Large |
+| `--candidates <n>` | variants → `<slug>.png`, `<slug>-v2.png`, … (max 4) |
+| `--seed <int>` | deterministic seed (Stability models only) |
+| `--out <dir>` | default `frontend/src/assets/rocket` |
+| `--dry-run` | print the prompt + resolved settings; never call Bedrock |
+| `--list-models` | print each model and the ratios it supports |
+
+It writes straight into `frontend/src/assets/rocket/` (where the extractor looks)
+and finishes by printing the exact `sheets.json` entry plus the extractor commands
+to run next, so the hand-off from generation to slicing is one command.
+`--dry-run` also reports whether AWS credentials resolve — the fastest way to tell
+"my prompt is wrong" apart from "my env is wrong", and it validates the ratio
+against the chosen model before you spend anything.
+
+> **ℹ️ Image generation is pre-authorized** by the repo owner (2026-09-12) when a
+> task genuinely requires a new sprite sheet. Running `--dry-run` first is still
+> the rule — it catches prompt and credential mistakes for free.
+
+#### Prompt template that produces a *sliceable* sheet
+
+The prompt matters more than the pipeline. This is the shape to use — the
+critical parts are **pure white background**, **wide even gaps**, and **no text**:
+
+```
+A single sprite sheet of cartoon 2D game assets on a PURE WHITE background,
+arranged in a neat grid with wide, even gaps between every item. Flat vector
+cartoon style, bold dark outlines, vivid saturated colours, even flat lighting.
+Every object is fully separated with generous white space around it, nothing
+touches or overlaps, no shadows on the background. NO text, NO labels, NO
+numbers, NO captions, NO borders, NO panels, NO grid lines. The sheet contains:
+<comma-separated list of the assets you want>.
+```
+
+Practical tips:
+
+- **List the assets explicitly** ("four retro rockets in different sizes, six
+  capsule modules, five engine nozzles…"). Vague lists produce a pretty poster,
+  not a sheet.
+- **16:9 or 21:9** gives the most columns. SD3.5 Large supports both; 21:9 needs
+  `stability.stable-image-ultra-v1:1` or `sd3-5-large-v1:0` (check
+  `GET /api/data/image/models`, and remember the **us-west-2** gotcha in Part 2).
+- **The Gemini model ignores aspect ratio.** `gemini-2.5-flash-image` accepts an
+  `aspectRatio` argument and then does not use it — the returned shape is up to
+  the model. For a sprite sheet, where the layout is the whole point, use a
+  Stability model. The script warns when you pick Gemini.
+- **Keep the source as PNG.** This is the one place where Part 2's usual
+  "PNG → JPG at quality 90" step is **skipped**. JPEG puts ringing artifacts
+  around every outline, and those are exactly what the extractor's de-speckle
+  step has to fight. The original `/rocket` sheets were JPEGs and still worked,
+  but a PNG source extracts measurably more cleanly.
+- **One theme per sheet.** Mixing rockets, planets and UI icons on one image
+  makes the detector's job much harder.
+- **Avoid anything the extractor must drop anyway**: progress bars, percentage
+  badges, star-rating demo rows, rounded panel frames — that is all UI chrome
+  better drawn in code.
+- Generate 2–4 candidates and pick the cleanest. Sheets with touching items or a
+  grey-tinted background cost manual `regions` work later.
+
+#### What makes a sheet easy vs painful
+
+| Source trait | Effect on extraction |
+| --- | --- |
+| Pure white background | ✅ cleanly classified as background |
+| Light **grey / tinted** background or panels | ⚠️ survives as a solid shape (see "Gotchas" below) |
+| Wide even gutters | ✅ XY-cut separates cleanly and reading order is obvious |
+| Items touching / overlapping | ❌ fuse into one sprite — needs hand-placed `regions` |
+| Dark, low-saturation captions | ✅ auto-removed by the text filter |
+| Bright/coloured text, digits, badges | ⚠️ survives as sprites — `exclude` them |
+| Neat rows/columns | ✅ `gridNames` can name the whole sheet by cell position |
+
+### How the extractor works
+
+The full walkthrough is in `docs/guides/Rocket-Asset-Pipeline.md`. The short
+version, because knowing *why* is what lets you debug a new sheet:
+
+1. **Classify pixels.** "Light **and** unsaturated" = background. That covers the
+   page white *and* the light-grey panel fill in one rule.
+2. **De-speckle.** JPEG ringing pushes a few percent of a flat light area under
+   the threshold. Left alone, those stray pixels bridge every gutter and the
+   whole sheet collapses into one blob.
+3. **Erase the furniture before segmenting.** Connected components are dropped as
+   `tiny` (speck), `frame` (big but nearly empty = an outline), `bar` (solid and
+   extremely elongated = a progress bar) or `text` (short + desaturated + sparse
+   = a caption). Erasing text *first* is what lets a caption row collapse so the
+   icon rows above and below it merge into one clean gutter.
+4. **XY-cut.** Recursively split the remaining mask on its empty gutters — rows
+   first, then columns. A leaf is one sprite. Depth-first order *is* reading
+   order (top→bottom, left→right), which is the order `names` applies in.
+5. **Export each leaf.** Alpha ramps from the RGB distance to the crop's **local**
+   background colour (estimated from its border ring), then partially transparent
+   edge pixels are un-matted (de-fringed) so there is no white halo, then a flood
+   fill from the crop border makes sure **enclosed** light pixels — a white rocket
+   body, a visor highlight — stay opaque instead of being punched into holes.
+   Finally: trim to content, cap the longest side, write PNG.
+
+### The spec (`scripts/rocket/sheets.json`)
+
+```jsonc
+{
+  "defaults": { "pad": 12, "minSize": 30, "maxDim": 160, "png": { "palette": true } },
+  "sheets": [
+    {
+      "id": "effects",                 // used for output names + --sheet
+      "title": "Explosions, shield hits, sparks, plasma",
+      "file": "Gemini_Generated_Image_9981k79981k79981.jpg",
+      "options": { "minGutterRow": 14 }, // per-sheet detector/export overrides
+      "exclude": [{ "x": 0.58, "y": 0.02, "w": 0.41, "h": 0.58 }],
+      "regions": [{ "name": "ui-star-gold", "x": 0.0366, "y": 0.6719, "w": 0.0348, "h": 0.0677 }],
+      "names": ["explosion-small-red", "explosion-small-red-2"],
+      "gridNames": { "rows": 5, "cols": 9, "names": ["planet-saturn-tan"] }
+    }
+  ]
+}
+```
+
+- **`names`** — for auto-detected sprites, in reading order. A count mismatch
+  prints exactly how many were found versus supplied, which is the signal to
+  re-read the numbered overlay.
+- **`gridNames`** — for regular r×c sheets. Names are matched **by cell centre,
+  not by detection order**, so a merged pair or a missed item can never shift
+  every later name by one. Add `expectGaps` (a string reason) to downgrade the
+  "empty cell" report to an informational note when the gaps are deliberate.
+- **`exclude`** — rectangles whose contents must never become assets.
+- **`regions`** — hand-placed crops for anything the detector cannot judge.
+- Rects are **fractions of the sheet** unless `"unit": "px"` is set.
+
+### CLI
+
+```bash
+node scripts/rocket/extract-sprites.js                    # every sheet
+node scripts/rocket/extract-sprites.js --sheet effects    # one sheet
+node scripts/rocket/extract-sprites.js --numbers          # overlay labels are #index
+node scripts/rocket/extract-sprites.js --dump-detected    # -> scripts/rocket/detected.json
+node scripts/rocket/extract-sprites.js --debug-mask       # foreground mask PNGs
+node scripts/rocket/qa-composite.js [--sheet <id>]        # sprites on magenta
+```
+
+Verification behaviour worth knowing: the run **prunes stale PNGs** (renaming an
+asset cannot leave an orphan behind) and **enforces names unique across all
+sheets**, because every sheet exports into one flat folder — otherwise two sheets
+with a `debris-panel.png` would silently overwrite each other.
+
+### Recipe: add another sheet
+
+1. Put the image in `frontend/src/assets/rocket/`.
+2. Add `{ "id", "title", "file" }` to `scripts/rocket/sheets.json`.
+3. `node scripts/rocket/extract-sprites.js --sheet <id> --numbers --dump-detected`.
+   The overlay (and `detected.json`) now tell you what was found, in order.
+4. Write the names:
+   - regular grid → `gridNames` (measure the cell geometry if it is uneven;
+     column/row profiles are the reliable way, not eyeballing);
+   - irregular → `names` in the numbered-overlay order;
+   - add `exclude` for baked-in text/badges you do not want, and `regions` for
+     anything the detector misjudges.
+5. Re-run, then review `docs/images/rocket/preview/index.html` and
+   `qa-<sheet>.png`. **Only ever edit the spec** — the script's defaults are
+   tuned for white-background sheets and should not need changing per sheet.
+
+### Sizing & weight
+
+Cartoon art with soft glows is expensive as 32-bit PNG — roughly **80 KB for a
+256px sprite**, which put the first full export at **22 MB**. What brought the
+282-sprite set to **4 MB**:
+
+- **`maxDim: 160`** by default (sprites are drawn small on a 1280×720 canvas),
+  raised per sheet where it matters: **320** for the two grids, **384** for the
+  rockets, **512** for the backdrops.
+- **PNG palette quantisation** (`png.palette` + `quality: 92`) — the single
+  biggest win and visually lossless on this art.
+- Pruning stale exports.
+
+If a smaller payload is ever needed, switching `png` to WebP is a one-line spec
+change. Prefer **Path A** in Part 2 for anything under ~100 KB that is intrinsic
+to the UI, and Part 1's S3/CloudFront path for large or rarely-changing sheets.
+
+### Gotchas (each of these cost real debugging time)
+
+1. **Strip long runs only when they are also thin.** "Remove every long run"
+   deletes tall sprites — a rocket body is a long run. Panel frames and progress
+   bars are long *and* thin.
+2. **Erase furniture before stripping lines.** Judge a panel outline as a *whole*
+   outline. Strip its straight edges first and a blank panel is reduced to four
+   corner arcs that look exactly like four small sprites.
+3. **Do not merge blobs by proximity.** It cascades: merging two neighbours grows
+   the box, which reaches the next one, and whole panels get swallowed. XY-cut
+   only ever cuts on genuinely empty space.
+4. **Hand-placed regions need a smaller pad** (`regionPad: 2`, not `pad: 12`).
+   They are authored precisely, so a wide pad only pulls in whatever sits on the
+   other side of the gutter — e.g. the neighbouring planet's ring.
+5. **Grey/tinted backgrounds beat the background classifier.** A light panel that
+   is *lower* than the background threshold becomes a solid shape and exports as a
+   border with a ghost fill. Fix by `exclude`-ing that area, not by raising the
+   luminance threshold (which would start eating pale sprites).
+6. **Fused items cannot be split by any gutter setting.** If two drawings are
+   physically connected in the pixels (an overlapping ring, a shadow, a touch),
+   `exclude` the fusion and re-take each sprite as a `regions` crop. Get the
+   geometry by measuring the column/row profile, not by eye.
+7. **Near-white sprites can be eaten by the text filter.** Very faint spark/debris
+   frames fail "short + desaturated + sparse" and are erased. Check the QA sheet
+   for missing animation frames before assuming the art is complete.
+8. **`frontend/public/` ships.** Never let a review artefact land there.
+9. **Windows shell flakiness** in this workspace: `node`/`npx` intermittently
+   vanish from `PATH` and a leading `&` can be rejected. Reliable forms:
+   `$env:Path += ';C:\Program Files\nodejs'; node <script>` or
+   `& 'C:\Program Files\nodejs\node.exe' '<abs script>'`.
+
+---
+
 ## Related docs
 
+- `backend/scripts/generate-sprite-sheet.js` — generates a white-background sprite
+  sheet via Bedrock (Part 3's source step).
+- `docs/guides/Rocket-Asset-Pipeline.md` — the sprite-extraction pipeline in full
+  (Part 3's deep reference).
+- `scripts/rocket/extract-sprites.js`, `scripts/rocket/sheets.json`,
+  `scripts/rocket/qa-composite.js` — the pipeline itself.
 - `docs/guides/AWS_SETUP_GUIDE.md` — one-time S3/CloudFront setup.
 - `docs/guides/SECRETS_MANAGEMENT.md` — where `BEDROCK_IMAGE_MODEL_ID` and AWS
   credentials live in production.
