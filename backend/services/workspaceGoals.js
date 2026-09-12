@@ -113,6 +113,11 @@ function toListEntry(item) {
         constraints: item.constraints || null,
         createdBy: item.createdBy || 'user',
         agent: item.agent || null,
+        // Dream-board fields (see workspaceController.ALLOWED_KINDS → goal).
+        // Carried here so a goal read through this service keeps its tile.
+        vision: item.vision || null,
+        cover: item.cover || null,
+        targetDate: item.targetDate || null,
     };
 }
 
@@ -229,6 +234,18 @@ async function upsertGoal(userId, opts = {}) {
         ...(opts.autoAbandon != null
             ? { autoAbandon: !!opts.autoAbandon }
             : (existing?.autoAbandon != null ? { autoAbandon: existing.autoAbandon } : {})),
+        // Dream-board fields. This write is a whole-item Put, so anything not
+        // carried forward here is dropped — the agent's `save_goal` path would
+        // otherwise wipe a cover the user had chosen on /plans.
+        ...(opts.vision != null
+            ? (opts.vision ? { vision: String(opts.vision).slice(0, 280) } : {})
+            : (existing?.vision ? { vision: existing.vision } : {})),
+        ...(opts.cover != null
+            ? (opts.cover ? { cover: String(opts.cover).slice(0, 600) } : {})
+            : (existing?.cover ? { cover: existing.cover } : {})),
+        ...(opts.targetDate != null
+            ? (opts.targetDate ? { targetDate: String(opts.targetDate).slice(0, 10) } : {})
+            : (existing?.targetDate ? { targetDate: existing.targetDate } : {})),
         ...(Array.isArray(opts.tags) && opts.tags.length ? { tags: opts.tags.slice(0, 20) } : {}),
         ...(existing?.agent ? { agent: existing.agent } : {}),
     };

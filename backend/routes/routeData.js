@@ -54,7 +54,8 @@ const {
   requestUploadUrl,
   confirmUpload,
   deleteUploadedFile,
-  getUploadConfig
+  getUploadConfig,
+  uploadCoverImage
 } = require('../controllers/fileUploadController');
 
 // Analytics controller
@@ -456,6 +457,24 @@ router.post('/upload-url', protect, uploadLimiter, requestUploadUrl);
 router.post('/upload-confirm', protect, uploadLimiter, confirmUpload);
 router.get('/upload-config', protect, getUploadConfig);
 router.delete('/file/:s3Key', protect, deleteUploadedFile);
+
+// Small images that the API stores itself (Dream board covers).
+//
+// Deliberately NOT a presigned browser→S3 PUT: that path needs a CORS rule on
+// the bucket allowing the app's origin, and the bucket has none — the browser
+// preflight is rejected, so an upload from the site fails outright. Here the
+// bytes come through the API instead: one request, no CORS dependency, and the
+// server actually sees the content it is storing. The limit is small because
+// covers are resized client-side to 1600px before they get here.
+const coverUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024, files: 1 },
+  fileFilter: (req, file, cb) => {
+    if (/^image\//.test(file.mimetype)) return cb(null, true);
+    cb(new Error('Cover uploads must be an image.'));
+  },
+});
+router.post('/upload-cover', protect, uploadLimiter, coverUpload.single('cover'), uploadCoverImage);
 
 // ============================================================================
 // OCR (Optical Character Recognition)

@@ -740,6 +740,145 @@ mutating scripts turned out to be mostly well-behaved (dry-run by default, and
   any of them that builds AWS clients at module load has the same latent failure.
   Worth a run-through before the next time one of them is needed.
 
+### 13.11 New findings (eleventh audit pass, 2026-09-12)
+
+Surfaced while building the Dream board (§17), which is the first frontend feature
+to actually *use* the upload surface. Two real bugs, both in code nothing had
+called since the feature that used it was removed — which is exactly why nobody
+had noticed.
+
+- ⚠️ **The presigned upload path is unusable from a browser — S3 has no CORS rule
+  for the app's origin.** `POST /upload-url` mints a signed PUT correctly, but the
+  browser then refuses it: `Response to preflight request doesn't pass access
+  control check: No 'Access-Control-Allow-Origin' header`. So *any* browser upload
+  via `upload-url` → PUT → `upload-confirm` fails, and `frontend/src/features/data/dataService.js`
+  had already noted that no client calls that path today. Dream-board covers
+  therefore go through a new server-side endpoint (`POST /api/data/upload-cover`,
+  multer → S3) instead: one request, no CORS dependency, and the server sees the
+  bytes it stores rather than a declared content type. **The presigned path is
+  still broken** and needs a bucket CORS rule before it can be used by anything
+  else.
+- ✅ **`DELETE /api/data/file/:s3Key` 500'd on every bodyless request** — it read
+  `const { dataId } = req.body`, and `express.json` leaves `req.body` *undefined*
+  when there is nothing to parse. A DELETE with no body is the natural way to call
+  it, so the endpoint deleted nothing and reported a 500. Now `req.body || {}`.
+  (The s3Key also has to be percent-encoded: it contains slashes, and `:s3Key`
+  matches one path segment, which is why the handler calls `decodeURIComponent`
+  on it.)
+- ⚠️ **Deleting a cover object is not the same as releasing the storage it used.**
+  `uploadImageBuffer` writes the object; the *counted* bytes live in a separate
+  `files[].size` record (that is how `getUserStorageUsage` sees them at all).
+  Removing only the object leaves those bytes on the user's quota forever, so the
+  upload returns its `recordId` and the delete passes it back as `dataId`.
+  Two gaps remain: replacing a cover leaves the **previous** object behind (its
+  key isn't recoverable from the URL the goal stored), and deleting a *goal* never
+  touches its cover at all.
+
+### 13.12 New findings (twelfth audit pass — responsive & colour modes, 2026-09-12)
+
+Found by measuring the Dream board across 280→1920px in light + dark and under
+`prefers-reduced-motion` / `prefers-contrast`. Every one of these is a *page-wide*
+defect that had nothing to do with the board.
+
+- ✅ **`prefers-contrast: high` was dead code — everywhere on the site.**
+  `prefers-contrast` accepts `no-preference | less | more | custom`; **`high` is not
+  a valid value** (it was a draft value that shipped). So all five blocks that were
+  meant to provide high-contrast support — `index.css`'s token overrides and its
+  `--focus-outline: 4px solid`, plus `App.css`, `ErrorBoundary.css`, `Pay.css`,
+  `Support.css` — had never applied for anyone. Verified in Chrome:
+  `matchMedia('(prefers-contrast: high)').matches === false` while `more` matches.
+  All six blocks (incl. DreamBoard's) now use `more`, and the effect is confirmed:
+  `--text-color-accent` darkens (`#4a4a4d` → `#2d2d2e`), the focus outline becomes
+  `4px solid`, `--bg-1` snaps to `--white0`.
+- ✅ **`.plans-shell` overflowed** every viewport under ~364px. It used
+  `repeat(auto-fit, minmax(320px, 1fr))`, and a bare px inside `minmax()` is a hard
+  track **minimum** — so on a 320px phone the shell's track (320px) was wider than
+  the 276px it had, and the whole page spilled ~44px sideways. Now
+  `minmax(min(320px, 100%), 1fr)`. Note the failure mode: it *clipped* rather than
+  scrolled, so `document.scrollWidth === clientWidth` and a normal overflow check
+  reported "fine". The probe that catches it compares every descendant's
+  `rect.right` against its container's.
+- ✅ **The three-tab view switcher didn't fit a phone** — `.plans-switch` is an
+  inline-flex stadium pill whose three tabs need ~300px, so adding the 🌟 Board tab
+  pushed the page sideways below ~344px. Below 400px it now drops the enclosing pill
+  and the tabs become separate pills in a wrapping row, the same shape `.plans-tabs`
+  already used.
+- ℹ️ **Verified, not changed:** text contrast is AA-or-better in all four
+  combinations for every text-on-plane pair on the board (light 16.1 / dark 11.4 for
+  the title; the accent-tinted vision line is the tightest at 4.98 in dark, and
+  high-contrast lifts it to 12.8). The footer's primary button is the house
+  `--text-color-inv`-on-gradient pattern and reads correctly, but a contrast checker
+  cannot measure it — the background is a gradient, so it must be judged by eye.
+
+### 13.13 New findings (thirteenth audit pass — the Goals tab, 2026-09-12)
+
+Same treatment applied to the Goals list (and the Library list, which shares its
+shell). Measured 240→1920px, both themes, all four `prefers-*` combinations.
+
+- ✅ **`.plans-controls { grid-column: span 2 }` created an implicit grid column.**
+  `.plans-shell` is a single-column grid, so `span 2` made the browser invent a
+  second track; the shell's *content* ended up 655px wide inside a 386px box — 269px
+  of spill on the Goals and Library views at 430px. It **clipped**, so
+  `document.scrollWidth > clientWidth` was `false` and a normal overflow check said
+  "fine". Base rule is now `grid-column: 1 / -1`, with
+  `@media (min-width: 769px) { .plans-switch { grid-column: 1 } .plans-controls { grid-column: 2 / -1 } }`.
+- ✅ **Same `minmax()` px-floor bug as the shell, second and third instances.**
+  `.plans-goal-grid` used `minmax(300px, 1fr)` (+24px spill at 320px). Both grids now
+  use `minmax(min(<n>px, 100%), 1fr)`. **Rule: never put a bare px inside `minmax()`
+  in a grid template that has to fit a phone.**
+- ✅ **Tap targets were 22×22px** — `.plans-goal-check` and `.plans-icon-btn`, below
+  WCAG 2.5.8's 24×24 minimum, and at that size genuinely awkward with a thumb. New
+  `--plans-ctl-size: calc(var(--nav-size) * 0.66)` (≈32px) declared on `.plans-page`.
+- ✅ **Goal titles were crushed to 12–24px wide (1325px tall) at 280px.** The title
+  is a flex item with `overflow-wrap: anywhere`, so its min-content is ~0 and it
+  shrinks past the point of legibility while the `flex-shrink: 0` chip and buttons
+  hold their size. Fixed with `flex-wrap: wrap` on `.plans-goal-head` plus
+  `min-width: min(100%, 14ch)` on the title; `.plans-lib-head` / `.plans-lib-title`
+  got the same treatment.
+- ✅ **On a phone the header is reordered into a deliberate two-row layout** (✓ ·
+  status · ✎/× on row 1, full-width title on row 2) instead of a squeeze. Two traps
+  here: (1) relying on the generic wrap alone left the two icon buttons dangling
+  alone on their own row, which reads as a bug; (2) `order` won the cascade from
+  where the media query sat, but **`flex-basis`/`min-width` did not** — they are
+  same-specificity declarations, so the block had to be moved *below*
+  `.plans-goal-title`'s base rule. Before the move, ≤420px got the two-row layout and
+  430–480px got a third layout with the title squeezed to ~161px.
+- ✅ **The reduced-motion block stopped animations but not transitions.** It set
+  `animation: none` on the animated selectors, so hover/focus/state transitions still
+  ran at full speed for motion-sensitive users. Added `transition: none` for 16
+  selectors.
+- ✅ **Dark-mode muted text on hue-washed panels was 3.89:1** (AA needs 4.5) — it sat
+  on `--text-color-accent`, which is tuned for a *plain* page background, and the
+  goal/library cards are tinted. New `--plans-muted` token on `.plans-page`
+  (defaults to `var(--text-color-accent)`) overridden by
+  `.dark-theme .plans-page { --plans-muted: color-mix(in srgb, var(--text-color-accent) 70%, var(--text-color)); }`.
+  13 rules switched to it. 3.89 → **5.12**. **Rule: a token tuned for the page
+  background needs a lift before it lands on a tinted panel.**
+- ✅ **Light-mode group headings were 2.08:1 (mint) and 3.13:1 (pink)** — the raw
+  `--fg-mint`/`--fg-pink` are display colours, not text colours. Now mixed toward
+  `--text-color`: `color-mix(in srgb, var(--fg-mint) 35%, var(--text-color))` →
+  7.95, and `... var(--fg-pink) 40% ...` → 9.38.
+- ℹ️ **Measurement gotcha, worth keeping:** Chrome returns `color(srgb r g b)` with
+  0–1 floats for `color-mix()` results but `rgb()` with 0–255 for plain values, so
+  the probe must handle both — and translucent layers must be **composited with
+  alpha** before the ratio is computed, or it reports false failures
+  (`.plans-info-note` measured 2.29 this way, actually 6.26).
+- ⚠️ **Found and reported, deliberately not fixed: goal descriptions never render on
+  `/plans`.** `workspaceController.toListEntry` omits `content` (only `toFullEntry`
+  has it) while `workspaceGoalToItem` maps `description: entry.content`, so the field
+  is permanently `''`. Confirmed by round-trip: a PUT with `content` returns
+  `contentLen: 0` from the list endpoint. Including it would change the list payload
+  contract (size + shape), so it needs a decision rather than a drive-by edit. Cheap
+  fix if approved: include `content` truncated to ~200 chars in `toListEntry`.
+- ⚠️ **Cover orphans (known, not fixed):** replacing a goal's cover leaves the
+  previous S3 object behind, and deleting a goal never touches its cover. The upload
+  path returns a `recordId` so a future cleanup job (or delete hook) can release the
+  counted bytes.
+- ⚠️ **Presigned upload is still broken:** the bucket has no CORS rule allowing the
+  app origin, so the preflight fails and the browser `PUT` never happens — which is
+  why cover upload uses `POST /api/data/upload-cover` instead. Restoring the presigned
+  path needs a bucket CORS rule.
+
 ---
 
 ## 14. Repo agent via /net chat (DeepSeek) — goal & plan
@@ -1234,6 +1373,66 @@ What follows from that:
 The line is **intent**: a visitor who came looking for the price, or who is already
 using the product, gets sold to. A visitor who has not tried it gets handed the
 product.
+
+---
+
+## 17. Dream board — `/plans` 🌟
+
+Status: ✅ shipped (2026-09-12). The `/plans` toolbar switches between three views
+of **one** store: `🎯 Goals` (the list), `🌟 Board` (the same goals as a visual
+board), and `📚 Library` (plans/actions/notes).
+
+### 17.1 What it is, and the one decision behind it
+
+A dream board is a wall of aspirations you can look at. The reason it lives on
+`/plans` rather than on its own page is that **a dream is a goal** — it rides the
+canonical workspace goal store (`kind='goal'`) with three extra optional
+attributes:
+
+| Attribute | Purpose | Cap |
+|---|---|---|
+| `vision` | The user's own words, shown on the tile | 280 chars |
+| `cover` | A preset key (`health`) **or** an image URL (uploaded / generated / pasted) | 600 chars |
+| `targetDate` | A bare `YYYY-MM-DD`, read through the planner's local-day parser | 10 chars |
+
+One string for both cover kinds is deliberate: the tile only ever needs *a*
+picture, and two fields could disagree with no rule for which wins.
+`workspaceController.resolveGoalField` makes these **explicitly clearable** (send
+`''`) while still carrying them forward when a body doesn't mention them — the
+write is a whole-item Put, so without that a status update from the addon would
+silently wipe someone's cover.
+
+That tie-in is the whole feature: every tile can say **🤖 Enlist agent**, and the
+run's progress shows back up on the tile. A dream board you can't act on is a
+poster; this one is a to-do list with pictures.
+
+### 17.2 Covers — four ways, in the order people use them
+
+1. **Presets** (12: home, work, money, health, travel, learning, people, creative,
+   play, calm, adventure, milestone). Real artwork, not icon tiles —
+   `FRONTEND_UI_STANDARD.md` §5 is explicit about "imagery over emoji". Generated
+   by `backend/scripts/generate-dream-art.js` (Bedrock, PNG → JPG via sharp) into
+   `frontend/src/assets/art/dream-*.jpg`. **The script's `key` list and
+   `frontend/src/pages/Simple/Plans/dreamCovers.js` are one list** — a key renamed
+   in one and not the other leaves a goal pointing at art that isn't there.
+2. **Upload** (`POST /api/data/upload-cover`) — see §13.11 for why this is *not*
+   the presigned path. Resized client-side to a 1600px JPEG first.
+3. **Paste a URL** — also how an image `/net` generated for you gets onto a board.
+4. **✨ Make one from my words** — `dreamCoverPrompt()` wraps the goal's title +
+   vision in the house art direction and calls the existing metered
+   `/api/data/image/generate`, then uploads the result.
+
+A goal that has never chosen a cover still gets a tile: `coverSource()` borrows one
+**deterministically from the goal's slug**, so a board is never a wall of
+placeholders and a goal keeps the same picture across reloads and devices.
+
+### 17.3 Still open
+
+- ⬜ Replacing a cover, or deleting a goal, leaves the old S3 object behind (§13.11).
+- ⬜ A bucket CORS rule, so the presigned path works in a browser again and larger
+  uploads can skip the API.
+- ⬜ `/plans` in the addon dashboard, and the surface switcher's board entry, if the
+  board turns out to be where people actually live.
 
 ---
 

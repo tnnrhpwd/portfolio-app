@@ -204,7 +204,7 @@
 }
 
 /* High contrast mode support */
-@media (prefers-contrast: high) {
+@media (prefers-contrast: more) {
     .planit-pay-card {
         border: 3px solid var(--text-color);
         background: var(--bg-1);

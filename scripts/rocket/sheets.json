@@ -1,0 +1,364 @@
+{
+  "$comment": "Source spec for scripts/rocket/extract-sprites.js. `names` are applied to the detected sprites in reading order (rows top->bottom, left->right). `exclude` rects (fractions of the sheet unless \"unit\":\"px\") hide baked-in text that survives the text filter. `regions` are hand-placed crops for content the detector cannot judge (e.g. grey UI stars look exactly like caption glyphs).",
+  "defaults": {
+    "pad": 12,
+    "minSize": 30
+  },
+  "sheets": [
+    {
+      "id": "ui-icons",
+      "title": "UI: controls, panels, ratings, resources",
+      "file": "Gemini_Generated_Image_4lzhhw4lzhhw4lzh.jpg",
+      "options": {},
+      "exclude": [
+        {
+          "x": 0.02,
+          "y": 0.595,
+          "w": 0.45,
+          "h": 0.405,
+          "$comment": "Ratings panel: the star rows are a demo grid and the grey (empty) stars are indistinguishable from caption glyphs. One gold + one grey star are taken as manual regions instead."
+        },
+        {
+          "x": 0.585,
+          "y": 0.03,
+          "w": 0.4,
+          "h": 0.56,
+          "$comment": "Blank Panels: pale rounded panels whose fill lands inside the alpha ramp, so they export as a border plus a ghost fill. Panel chrome is drawn in code."
+        }
+      ],
+      "regions": [
+        { "name": "ui-star-gold", "x": 0.04, "y": 0.7, "w": 0.042, "h": 0.076 },
+        { "name": "ui-star-empty", "x": 0.146, "y": 0.7, "w": 0.042, "h": 0.076 }
+      ],
+      "names": [
+        "ui-play",
+        "ui-trophy",
+        "ui-settings",
+        "ui-exit",
+        "ui-shop",
+        "ui-volume-off",
+        "ui-high-score",
+        "ui-volume-on",
+        "gems-collection",
+        "crystals",
+        "coins-stack"
+      ]
+    },
+    {
+      "id": "effects",
+      "title": "Explosions, shield hits, sparks, plasma",
+      "file": "Gemini_Generated_Image_9981k79981k79981.jpg",
+      "options": {
+        "minGutterRow": 14
+      },
+      "exclude": [],
+      "regions": [],
+      "names": [
+        "explosion-small-red",
+        "explosion-small-red-2",
+        "explosion-small-red-3",
+        "explosion-red",
+        "explosion-red-2",
+        "explosion-red-3",
+        "explosion-orange",
+        "explosion-orange-2",
+        "explosion-dark",
+        "explosion-blast",
+        "explosion-blast-2",
+        "explosion-dark-2",
+        "smoke-trail",
+        "smoke-trail-2",
+        "smoke-trail-3",
+        "smoke-wisp",
+        "smoke-wisp-2",
+        "shield-hit-grey-burst",
+        "shield-hit-blue-burst",
+        "shield-hit-blue-burst-2",
+        "shield-hit-grey-burst-2",
+        "shield-hit-cyan-burst",
+        "shield-bubble-blue",
+        "shield-hit-bright-burst",
+        "shield-bubble-cyan",
+        "shield-bubble-pale",
+        "shield-bright",
+        "shield-bubble-blue-large",
+        "spark-burst",
+        "spark-burst-2",
+        "spark-burst-3",
+        "spark-burst-4",
+        "spark-burst-5",
+        "spark-burst-6",
+        "spark-burst-7",
+        "spark-burst-8",
+        "spark-burst-9",
+        "spark-burst-10",
+        "spark-burst-11",
+        "plasma-ball-blue",
+        "plasma-ball-blue-2",
+        "plasma-ball-arcs",
+        "shield-gold-burst",
+        "shield-gold-hatch",
+        "shield-gold",
+        "shield-gold-core",
+        "shield-gold-slashed",
+        "shield-gold-swirl",
+        "shield-gold-ornate"
+      ]
+    },
+    {
+      "id": "pilots",
+      "title": "Pilots, avatars, helmets, space objects",
+      "file": "Gemini_Generated_Image_csjb90csjb90csjb.jpg",
+      "options": {
+        "minGutterCol": 12
+      },
+      "exclude": [
+        {
+          "x": 0.605,
+          "y": 0.02,
+          "w": 0.395,
+          "h": 0.575,
+          "$comment": "Pilot Assets: blank rounded panels whose lavender fill sits just under the background luma threshold, so they register as solid shapes rather than outlines."
+        }
+      ],
+      "regions": [],
+      "names": [
+        "pilot-red-waving",
+        "coin-gold",
+        "helmet-dark-green",
+        "pilot-blue-thumbs-up",
+        "helmet-pink-antenna",
+        "pilot-green-floating",
+        "pilot-pink-cheering",
+        "pilot-red-pointing",
+        "helmet-red",
+        "helmet-red-dark",
+        "helmet-blue",
+        "helmet-blue-star",
+        "helmet-green",
+        "helmet-green-star",
+        "helmet-pink",
+        "helmet-pink-antenna-2",
+        "helmet-pink-antenna-dark",
+        "helmet-astronaut-grey",
+        "oxygen-tank",
+        "dog-astronaut",
+        "flag-rocket",
+        "tool-wrench",
+        "fuel-can-grey",
+        "crystal-cluster-pink"
+      ]
+    },
+    {
+      "id": "planets-a",
+      "title": "Pickups, power-ups and hazards grid",
+      "file": "Gemini_Generated_Image_hsmqvghsmqvghsmq.jpg",
+      "options": {},
+      "exclude": [],
+      "regions": [],
+      "gridNames": {
+        "rows": 5,
+        "cols": 9,
+        "names": [
+          "medal-star-gold", "medal-star-gold-2", "medal-star-gold-3", "medal-star-red", "orb-water", "orb-shield-blue", "mine-spike-red", "mine-spike-red-2", "mine-alert-grey",
+          "medal-star-gold-4", "medal-star-green", "gem-diamond-green", "gem-brilliant-green", "power-bolt-yellow", "power-bolt-yellow-2", "mine-spike-red-3", "mine-core-orange", "mine-dome-red",
+          "medal-star-gold-5", "orb-green", "gem-diamond-emerald", "fuel-can-orange", "power-bolt-blue", "power-bolt-blue-2", "rocket-retro", "debris-panel-grey", "debris-shards-grey",
+          "medal-star-gold-6", "gem-diamond-green-2", "fuel-can-red", "fuel-can-red-2", "tool-wrench-grey", "tool-wrenches-grey", "tool-wrenches-red", "satellite-grey", "satellite-grey-2",
+          "medal-star-gold-7", "fuel-can-grey", "fuel-can-red-3", "fuel-can-orange-2", "tool-wrenches-grey-2", "tool-wrenches-red-2", "tool-wrenches-grey-3", "satellite-grey-3", "satellite-grey-4"
+        ]
+      }
+    },
+    {
+      "id": "rockets",
+      "title": "Rockets, components, exhaust",
+      "file": "Gemini_Generated_Image_k96ag9k96ag9k96a.jpg",
+      "options": {},
+      "exclude": [],
+      "regions": [],
+      "names": [
+        "retro-rocket-1",
+        "lifter-rocket-1",
+        "probe-rocket-1",
+        "retro-rocket-2",
+        "retro-rocket-3",
+        "lifter-rocket-2",
+        "lifter-rocket-3",
+        "probe-rocket-2",
+        "probe-rocket-3",
+        "retro-rocket-4",
+        "lifter-rocket-4",
+        "probe-rocket-4",
+        "retro-rocket-5",
+        "retro-capsule",
+        "lifter-rocket-5",
+        "lifter-rocket-launch",
+        "probe-rocket-5",
+        "probe-rocket-6",
+        "capsule-window-red",
+        "capsule-window-small",
+        "capsule-window-blue",
+        "capsule-fins-grey",
+        "capsule-fins-grey-2",
+        "capsule-module-grey",
+        "nozzle-bell-grey",
+        "booster-fins-red",
+        "booster-fins-red-2",
+        "booster-fins-orange",
+        "booster-fins-orange-2",
+        "tank-basic",
+        "tank-stripe-orange",
+        "tank-dark",
+        "tank-orange",
+        "nozzle-bell-grey-2",
+        "nozzle-bell-ridged",
+        "nozzle-bell-ridged-2",
+        "nozzle-bell-wide",
+        "nozzle-bell-tall",
+        "engine-block-grey",
+        "engine-block-grey-2",
+        "engine-part-rings",
+        "engine-part-rings-2",
+        "engine-part-capped",
+        "engine-part-capped-2",
+        "flame-small",
+        "flame-thin",
+        "flame-burst",
+        "flame-tall",
+        "flame-explosion",
+        "exhaust-trail-blue"
+      ]
+    },
+    {
+      "id": "economy",
+      "title": "Currencies, progression, loot boxes",
+      "file": "Gemini_Generated_Image_qkyqjaqkyqjaqkyq.jpg",
+      "options": {
+        "minGutterRow": 14
+      },
+      "exclude": [
+        {
+          "x": 0.583,
+          "y": 0.02,
+          "w": 0.41,
+          "h": 0.58,
+          "$comment": "Progression panel: progress bars, percent badges, the LEVEL UP! wordmark and the digit font are UI chrome drawn in code, not sprites."
+        }
+      ],
+      "regions": [],
+      "names": [
+        "currency-coins",
+        "currency-coin-pedestal",
+        "currency-gold-bars",
+        "currency-cards-grey",
+        "currency-cubes-blue",
+        "currency-cards-gold",
+        "loot-chest-common",
+        "loot-key",
+        "loot-chest-common-open",
+        "loot-chest-rare",
+        "loot-chest-rare-open",
+        "loot-chest-legendary",
+        "loot-chest-legendary-open"
+      ]
+    },
+    {
+      "id": "planets-b",
+      "title": "Worlds, moons, asteroids, satellites",
+      "file": "Gemini_Generated_Image_uao4j1uao4j1uao4.jpg",
+      "options": {
+        "minGutterCol": 14
+      },
+      "exclude": [
+        {
+          "x": 0,
+          "y": 0,
+          "w": 0.27,
+          "h": 0.75,
+          "$comment": "Rows 1-4, columns 1-2: the ringed planet's ring is drawn OVER the neighbouring planet, so the two are physically connected in the pixels and no gutter can separate them. They cut as single wide leaves, which are dropped here and re-taken as the eight manual regions below."
+        }
+      ],
+      "regions": [
+        { "name": "planet-saturn-tan", "x": 0.0178, "y": 0.0345, "w": 0.1271, "h": 0.1823 },
+        { "name": "planet-earth-ringed", "x": 0.1491, "y": 0.0345, "w": 0.114, "h": 0.1823 },
+        { "name": "planet-striped-purple", "x": 0.0419, "y": 0.2253, "w": 0.0827, "h": 0.1823 },
+        { "name": "planet-earth-ringed-2", "x": 0.1396, "y": 0.2253, "w": 0.1236, "h": 0.1823 },
+        { "name": "planet-saturn-teal", "x": 0.0192, "y": 0.4121, "w": 0.1303, "h": 0.1823 },
+        { "name": "planet-earth", "x": 0.1623, "y": 0.4121, "w": 0.0799, "h": 0.1823 },
+        { "name": "planet-saturn-purple", "x": 0.0217, "y": 0.6055, "w": 0.1225, "h": 0.1823 },
+        { "name": "planet-earth-ringed-3", "x": 0.1491, "y": 0.6055, "w": 0.1076, "h": 0.1823 }
+      ],
+      "gridNames": {
+        "rows": 5,
+        "cols": 9,
+        "names": [
+          "planet-saturn-tan", "planet-earth-ringed", "planet-water", "moon-grey", "moon-grey-2", "asteroid-orange", "asteroid-blue", "asteroid-teal", "asteroid-green",
+          "planet-striped-purple", "planet-earth-ringed-2", "planet-lava", "moon-tan", "moon-grey-3", "debris-shards-grey", "debris-panel-grey", "satellite-dish", "debris-solar-panel",
+          "planet-saturn-teal", "planet-earth", "moon-tan-2", "moon-grey-4", "moon-grey-5", "asteroid-orange-2", "asteroid-blue-2", "asteroid-green-2", "satellite-sputnik",
+          "planet-saturn-purple", "planet-earth-ringed-3", "moon-tan-3", "moon-grey-6", "moon-brown", "satellite-panels", "satellite-panels-2", "satellite-dish-2", "sun-spiky-orange",
+          "planet-saturn-pink", "planet-earth-2", "moon-tan-4", "moon-grey-7", "satellite-sputnik-2", "sun-spiky-gold", "sun-spiky-red", "sun-spiky-blue", "sun-spiky-teal"
+        ]
+      }
+    },
+    {
+      "id": "backdrop",
+      "title": "Celestial backdrops and space debris",
+      "file": "Gemini_Generated_Image_ybokitybokitybok.jpg",
+      "options": {
+        "minGutterCol": 8,
+        "minGutterRow": 8
+      },
+      "exclude": [
+        {
+          "x": 0.752,
+          "y": 0.02,
+          "w": 0.245,
+          "h": 0.575,
+          "$comment": "Scale and Layering Examples: two composed mock-ups at tiny scale, not usable sprites."
+        }
+      ],
+      "regions": [],
+      "names": [
+        "bg-galaxy",
+        "bg-nebula-blue",
+        "star-sparkle-blue",
+        "star-sparkle-gold",
+        "bg-nebula-purple",
+        "planet-saturn-dark",
+        "moon-dark",
+        "bg-nebula-pink",
+        "planet-saturn-moons",
+        "debris-panel-crumpled",
+        "debris-dish",
+        "debris-solar-panel",
+        "debris-satellite",
+        "debris-satellite-wreck",
+        "debris-bolts",
+        "debris-screws",
+        "debris-bolts-2",
+        "debris-nuts",
+        "debris-bolt-nut",
+        "helmet-astronaut",
+        "comet-small",
+        "debris-shard",
+        "debris-shards",
+        "debris-fragments",
+        "debris-shards-2",
+        "tool-wrench-screwdriver",
+        "debris-shards-3",
+        "debris-blade",
+        "debris-nozzle",
+        "debris-lantern",
+        "debris-tank",
+        "debris-chips",
+        "debris-nose-cone",
+        "helmet-visor",
+        "comet-large",
+        "debris-shards-4",
+        "tool-wrench-2",
+        "tool-screwdriver",
+        "snack-pack",
+        "snack-pack-2"
+      ]
+    }
+  ]
+}

@@ -334,7 +334,7 @@
 }
 
 /* ── High contrast: drop the tint, keep an explicit edge ── */
-@media (prefers-contrast: high) {
+@media (prefers-contrast: more) {
   .error-boundary-content {
     background: var(--bg-page);
     box-shadow: none;

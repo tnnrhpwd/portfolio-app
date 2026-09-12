@@ -22,6 +22,7 @@ import {
 } from '../../../services/simpleAddonApi.js';
 import { useAddonDetection } from '../../../hooks/simpleAddon/useAddonDetection';
 import SimpleNav from '../../../components/Simple/SimpleNav/SimpleNav.jsx';
+import DreamBoard from './DreamBoard.jsx';
 import {
   OOGPA_STAGES,
   LOOP_LABELS,
@@ -302,7 +303,14 @@ function Plans() {
   const activeStage = stageIndex(agentLive?.stage);
   const runningWorkers = agentLive?.workerCount || 0;
   const hasFilters = Boolean(search) || statusFilter !== 'all' || priorityFilter !== 'all';
+  // Three views of one store: the goal list, the dream board over the same
+  // goals, and the supporting memory (plans/actions/notes). The dream board owns
+  // its own controls, search and create form, so the goals/library ones are
+  // explicitly gated on the OTHER two views rather than on `!isGoalsView`.
   const isGoalsView = view === 'goals';
+  const isLibraryView = view === 'library';
+  const isDreamView = view === 'dream';
+  const viewTitle = isGoalsView ? 'Goals' : isDreamView ? 'Dream board' : 'Library';
 
   // -- Form helpers ----------------------------------------------------------
 
@@ -530,7 +538,7 @@ function Plans() {
               live state, primary action: a service page leads with the tool, not
               with a description of itself (FRONTEND_UI_STANDARD.md §5.7). */}
           <header className="plans-bar">
-            <h1 className="plans-bar-title">Goals</h1>
+            <h1 className="plans-bar-title">{viewTitle}</h1>
 
             {isConnected ? (
               <span className="plans-bar-readout">
@@ -558,7 +566,7 @@ function Plans() {
               </span>
             )}
 
-            {user && (
+            {user && !isDreamView && (
               <div className="plans-bar-actions">
                 <button type="button" className="plans-btn plans-btn--primary" onClick={openCreate}>
                   + New goal
@@ -697,8 +705,21 @@ function Plans() {
                 <button
                   type="button"
                   role="tab"
-                  aria-selected={!isGoalsView}
-                  className={`plans-switch-btn ${!isGoalsView ? 'is-active' : ''}`}
+                  aria-selected={isDreamView}
+                  className={`plans-switch-btn ${isDreamView ? 'is-active' : ''}`}
+                  onClick={() => setView('dream')}
+                  aria-label="Dream board"
+                  title="Dream board"
+                >
+                  {/* The tab label stays one word so all three tabs are the same
+                      height; the page's own <h1> spells out "Dream board". */}
+                  🌟 Board
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={isLibraryView}
+                  className={`plans-switch-btn ${isLibraryView ? 'is-active' : ''}`}
                   onClick={() => setView('library')}
                 >
                   📚 Library <span className="plans-switch-count">{libraryItems.length}</span>
@@ -706,7 +727,7 @@ function Plans() {
               </div>
 
               {/* Library sub-tabs */}
-              {!isGoalsView && (
+              {isLibraryView && (
                 <div className="plans-tabs" role="tablist" aria-label="Library type">
                   {LIBRARY_TABS.map((tab) => (
                     <button
@@ -724,7 +745,9 @@ function Plans() {
                 </div>
               )}
 
-              {/* Controls */}
+              {/* Controls — goals + library. The dream board renders its own
+                  (search, board filters, + New dream) inside DreamBoard. */}
+              {!isDreamView && (
               <section className="plans-controls">
                 <form className="plans-quickadd" onSubmit={handleQuickAdd}>
                   <span className="plans-quickadd-icon" aria-hidden="true">{isGoalsView ? '🎯' : currentTab.icon}</span>
@@ -800,9 +823,10 @@ function Plans() {
                   )}
                 </div>
               </section>
+              )}
 
               {/* Create / edit form */}
-              {showForm && (
+              {!isDreamView && showForm && (
                 <form className="plans-form" onSubmit={handleSubmit}>
                   <div className="plans-form-head">
                     <h2 className="plans-form-title">
@@ -952,7 +976,7 @@ function Plans() {
               )}
 
               {/* Loading skeleton */}
-              {loading && (
+              {loading && !isDreamView && (
                 <div className="plans-skeleton-list" aria-label="Loading">
                   {[0, 1, 2].map((i) => (
                     <div className="plans-skeleton-card" key={i}>
@@ -1002,8 +1026,24 @@ function Plans() {
                 </section>
               )}
 
+              {/* Dream board view — the same goals, seen instead of listed. */}
+              {isDreamView && (
+                <DreamBoard
+                  goals={goals}
+                  token={user?.token}
+                  loading={loading}
+                  onChanged={load}
+                  onDelete={requestDelete}
+                  onStatusChange={handleStatusChange}
+                  onOpen={openGoal}
+                  onEnlist={handleEnlist}
+                  onViewAgent={handleViewAgent}
+                  enlisting={enlisting}
+                />
+              )}
+
               {/* Library view */}
-              {!loading && !isGoalsView && (
+              {!loading && isLibraryView && (
                 <section className="plans-goals">
                   {filteredLibrary.length === 0 ? (
                     <EmptyState
@@ -1064,6 +1104,7 @@ function Plans() {
       {pendingDelete && (
         <DeleteConfirm
           item={pendingDelete}
+          noun={isDreamView ? 'dream' : undefined}
           busy={deleting}
           onCancel={() => setPendingDelete(null)}
           onConfirm={confirmDelete}
@@ -1084,8 +1125,10 @@ function Plans() {
  * confirm button carries the real verb ("Delete goal") and reads as destructive,
  * the least-destructive action holds focus, and Escape / the scrim cancel.
  */
-function DeleteConfirm({ item, busy, onCancel, onConfirm }) {
-  const noun = item.type === 'goal' ? 'goal' : item.type;
+function DeleteConfirm({ item, noun: nounProp, busy, onCancel, onConfirm }) {
+  // The board calls these "dreams"; everywhere else they're "goals". Same object,
+  // so the dialog borrows whichever word the view the user is looking at uses.
+  const noun = nounProp || (item.type === 'goal' ? 'goal' : item.type);
   const title = item.data?.title || 'this item';
 
   return (

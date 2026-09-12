@@ -1741,7 +1741,7 @@
 }
 
 /* High Contrast Mode */
-@media (prefers-contrast: high) {
+@media (prefers-contrast: more) {
     .support-container {
         border: 3px solid var(--text-color);
         background: var(--bg-1);

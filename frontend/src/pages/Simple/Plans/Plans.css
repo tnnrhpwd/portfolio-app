@@ -15,12 +15,32 @@
   position: relative;
   min-height: 100vh;
   min-height: 100svh;
+  /* The square size of a compact control — the ✓ toggle and the ✎ / × icon
+     buttons. One token so they can't drift apart, and 0.66 rather than the
+     original 0.46 because 0.46 x 48 was 22px: under the 24px WCAG 2.5.8
+     minimum, and a genuinely hard tap on a phone (the ✓ sits right beside a
+     delete ×, so a miss did the wrong thing). 0.66 ≈ 32px clears the floor with
+     margin and still reads as compact on a dense page. */
+  --plans-ctl-size: calc(var(--nav-size) * 0.66);
+  /* Muted (secondary) text. The shared `--text-color-accent` is tuned against
+     `--bg-page` and plain `--bg-1`, where it measures 6.26:1 in dark mode. A
+     hue-washed panel lifts the plane's luminance and drops it under AA —
+     measured 3.89:1 on a 15%-mint goal card, against a 4.5 requirement for text
+     this small. Blending 30% of the primary text back into the token lifts the
+     worst case to ~5.1, and is the cheap side of the trade: the alternative is
+     flattening the panel washes, which is what makes neighbouring blocks read as
+     different blocks at all. Light mode already passes, so only dark is adjusted. */
+  --plans-muted: var(--text-color-accent);
   /* NO `overflow-x: hidden` here: it makes this element a scroll container, and
      a `position: sticky` toolbar inside one offsets itself instead of sticking.
      Nothing overflows now that the decorative circles are gone. */
   padding: calc(var(--nav-size) * 1.15) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
   color: var(--text-color);
   background: var(--bg-page);
+}
+
+.dark-theme .plans-page {
+  --plans-muted: color-mix(in srgb, var(--text-color-accent) 70%, var(--text-color));
 }
 
 /* ── Shell: one grid, panels as its items ────────────────────────────────────
@@ -32,7 +52,12 @@
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  /* `min()` inside `minmax()`: a bare `minmax(320px, 1fr)` sets a hard 320px
+     track MINIMUM, so on a 320px phone (Galaxy Fold's outer screen, iPhone SE)
+     the shell's own track was wider than the space it had and every view on this
+     page overflowed sideways by ~44px. `min(320px, 100%)` keeps the 320px
+     desktop target but lets the track collapse when there is less room. */
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
   gap: calc(var(--nav-size) * 0.25);
   align-items: start;
   width: 100%;
@@ -166,7 +191,7 @@
   margin: 0;
   font-size: var(--font-size-small);
   line-height: var(--line-height-base);
-  color: var(--text-color-accent);
+  color: var(--plans-muted);
 }
 .plans-agent-sub a { color: var(--fg-blue); font-weight: var(--font-weight-semibold); }
 
@@ -210,14 +235,14 @@
   height: calc(var(--nav-size) * 0.34);
   border-radius: 50%;
   background: var(--bg-accent);
-  color: var(--text-color-accent);
+  color: var(--plans-muted);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
 }
 .plans-stage-label {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  color: var(--text-color-accent);
+  color: var(--plans-muted);
 }
 .plans-stage.is-done .plans-stage-key {
   background: color-mix(in srgb, var(--fg-blue) 22%, transparent);
@@ -246,7 +271,7 @@
 }
 .plans-agent-chip--warn   { background: color-mix(in srgb, var(--fg-orange) 18%, transparent); color: var(--fg-orange); }
 .plans-agent-chip--accent { background: color-mix(in srgb, var(--fg-mint) 18%, transparent); color: var(--fg-mint); }
-.plans-agent-chip--muted  { background: color-mix(in srgb, var(--text-color) 10%, transparent); color: var(--text-color-accent); }
+.plans-agent-chip--muted  { background: color-mix(in srgb, var(--text-color) 10%, transparent); color: var(--plans-muted); }
 .plans-agent-link {
   margin-left: auto;
   font-size: var(--font-size-small);
@@ -306,7 +331,7 @@
 .plans-suggestion-desc {
   margin: calc(var(--nav-size) * 0.08) 0 0;
   font-size: var(--font-size-small);
-  color: var(--text-color-accent);
+  color: var(--plans-muted);
   line-height: var(--line-height-base);
 }
 .plans-suggestion-tags { display: flex; flex-wrap: wrap; gap: calc(var(--nav-size) * 0.1); margin-top: calc(var(--nav-size) * 0.14); }
@@ -349,6 +374,23 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
 }
+
+/* Three tabs need ~300px; below that the stadium pill is wider than the shell on
+   a small phone (Galaxy Fold's outer screen, iPhone SE) and its content spilled
+   out of the page. Dropping the enclosing pill lets the tabs become three pills
+   that wrap naturally — the same shape `.plans-tabs` already uses — instead of
+   one long pill that has to be squeezed or clipped. */
+@media (max-width: 400px) {
+  .plans-switch {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    padding: 0;
+    gap: calc(var(--nav-size) * 0.14);
+    background: none;
+  }
+  .plans-switch-btn { background: color-mix(in srgb, var(--text-color) 9%, transparent); }
+}
 .plans-switch-btn.is-active .plans-switch-count { background: color-mix(in srgb, var(--text-color-inv) 22%, transparent); }
 
 /* ── Library tabs ─────────────────────────────────────────────────────────── */
@@ -390,8 +432,17 @@
 
 .plans-controls {
   --plans-hue: var(--fg-blue);
-  /* Takes the rest of its row: the switch sits left, the filters fill out. */
-  grid-column: span 2;
+  /* Full width by default, and DELIBERATELY not `span 2`.
+     `grid-column: span 2` in a grid whose `auto-fit` has collapsed to a single
+     track makes Grid invent an IMPLICIT second column to satisfy the span. The
+     shell's content then laid out in two tracks (~643px) inside a 386px box —
+     measured 269px of sideways spill on this view, and invisible to a plain
+     `scrollWidth > clientWidth` check because it clips instead of scrolling.
+     `1 / -1` can never exceed the tracks that exist. The desktop arrangement
+     (filters beside the view switch) is opt-in in the min-width block below, so
+     if that rule ever loses the cascade the page degrades to full width rather
+     than to an overflow. */
+  grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
   gap: calc(var(--nav-size) * 0.2);
@@ -424,7 +475,7 @@
   font-size: var(--font-size-base);
   outline: none;
 }
-.plans-quickadd-input::placeholder { color: var(--text-color-accent); }
+.plans-quickadd-input::placeholder { color: var(--plans-muted); }
 .plans-quickadd-btn {
   flex-shrink: 0;
   padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.5);
@@ -467,7 +518,7 @@
   font-size: var(--font-size-small);
   outline: none;
 }
-.plans-search-input::placeholder { color: var(--text-color-accent); }
+.plans-search-input::placeholder { color: var(--plans-muted); }
 .plans-search-clear {
   border: none;
   background: none;
@@ -494,6 +545,14 @@
 .plans-filter-select:focus { border-color: var(--fg-blue); }
 
 .plans-chips { display: flex; flex-wrap: wrap; gap: calc(var(--nav-size) * 0.12); }
+
+/* From two columns up, the view switch takes the first and the filters the rest
+   of the same row — the arrangement `auto-fit` was already aiming for, now stated
+   explicitly. Below this the switch and the filters simply stack. */
+@media (min-width: 769px) {
+  .plans-switch { grid-column: 1; }
+  .plans-controls { grid-column: 2 / -1; }
+}
 .plans-chip {
   padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.34);
   background: color-mix(in srgb, var(--text-color) 9%, transparent);
@@ -798,6 +857,13 @@
 .plans-group-title--blocked { color: var(--fg-pink); }
 .plans-group-title--done    { color: var(--text-color-accent); }
 .plans-group-title--active  { color: var(--fg-mint); }
+/* `--fg-mint` and `--fg-pink` are tuned for a dark plane. As bare text on the
+   light page they measure 2.08:1 and 3.13:1 — the page's structural labels were
+   effectively unreadable in light mode. Light mode blends them toward the text
+   colour until they clear AA while staying recognisably teal/pink; dark mode
+   keeps them vivid (14.6:1), so only light is touched. */
+.light-theme .plans-group-title--active  { color: color-mix(in srgb, var(--fg-mint) 35%, var(--text-color)); }
+.light-theme .plans-group-title--blocked { color: color-mix(in srgb, var(--fg-pink) 40%, var(--text-color)); }
 .plans-group-count {
   padding: 0 calc(var(--nav-size) * 0.16);
   border-radius: 999px;
@@ -808,7 +874,10 @@
 
 /* auto-FILL (not auto-fit): empty tracks are kept, so a single goal stays one
    card wide instead of stretching the whole row. */
-.plans-goal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: calc(var(--nav-size) * 0.25); }
+/* `min()` inside `minmax()` for the same reason as the shell above: a bare 300px
+   is a hard track minimum, so on a 280–320px phone the cards were wider than the
+   column they sat in and pushed past the page (measured +24px at 320px). */
+.plans-goal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: calc(var(--nav-size) * 0.25); }
 .plans-item-list { display: flex; flex-direction: column; gap: calc(var(--nav-size) * 0.22); }
 
 /* ── Goal card ────────────────────────────────────────────────────────────── */
@@ -838,15 +907,24 @@
   display: flex;
   align-items: flex-start;
   gap: calc(var(--nav-size) * 0.18);
+  /* Wraps so the title can never be crushed. The ✓, the status chip and the two
+     icon buttons are all `flex-shrink: 0`, and the title's own min-content is
+     ~0 (it has `overflow-wrap: anywhere`), so as a flex item it would happily
+     shrink to nothing: at 280px it measured 12-24px wide and wrapped one
+     character per line, 1325px tall. With `flex-wrap` plus the floor below, the
+     status and actions move to a second line instead. (On a phone the header is
+     reordered into two rows outright — see the 480px block after
+     `.plans-icon-btn`.) */
+  flex-wrap: wrap;
 }
 .plans-goal-check {
   flex-shrink: 0;
   /* Reset the global `button` padding + `min-width: auto`; as a flex item the
      automatic minimum size would otherwise inflate this to the padding width. */
-  width: calc(var(--nav-size) * 0.46);
-  height: calc(var(--nav-size) * 0.46);
-  min-width: calc(var(--nav-size) * 0.46);
-  min-height: calc(var(--nav-size) * 0.46);
+  width: var(--plans-ctl-size);
+  height: var(--plans-ctl-size);
+  min-width: var(--plans-ctl-size);
+  min-height: var(--plans-ctl-size);
   padding: 0;
   box-sizing: border-box;
   display: flex;
@@ -868,7 +946,9 @@
 
 .plans-goal-title {
   flex: 1;
-  min-width: 0;
+  /* Never narrower than ~14 characters — the floor that makes the wrap above
+     happen instead of the crush. `min()` keeps it inside its container. */
+  min-width: min(100%, 14ch);
   padding: 0;
   border: none;
   background: none;
@@ -918,11 +998,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* Same global-`button` reset as .plans-goal-check — these sit in a flex row. */
-  width: calc(var(--nav-size) * 0.46);
-  height: calc(var(--nav-size) * 0.46);
-  min-width: calc(var(--nav-size) * 0.46);
-  min-height: calc(var(--nav-size) * 0.46);
+  /* Same global-`button` reset as .plans-goal-check — these sit in a flex row —
+     and the same shared size token, so a target is a target whatever it does. */
+  width: var(--plans-ctl-size);
+  height: var(--plans-ctl-size);
+  min-width: var(--plans-ctl-size);
+  min-height: var(--plans-ctl-size);
   padding: 0;
   box-sizing: border-box;
   border: none;
@@ -937,11 +1018,32 @@
 .plans-icon-btn:hover { background: var(--bg-accent); }
 .plans-icon-btn--danger:hover { color: var(--fg-pink); }
 
+/* Phones get a deliberate two-row card header instead of a squeeze: the ✓, the
+   status chip and the icon buttons share one compact row and the title takes the
+   full width underneath.
+
+   This block lives HERE, after .plans-goal-title/.plans-goal-status/.plans-goal-actions,
+   and not beside .plans-goal-head where it belongs conceptually — `flex-basis` and
+   `min-width` are same-specificity declarations, so anything placed earlier loses
+   to those base rules. Without `flex-basis: 100%` the title only wrapped below
+   ~420px, so 430-480px got a third, narrower layout (title squeezed to ~161px). */
+@media (max-width: 480px) {
+  .plans-goal-check { order: 1; }
+  .plans-goal-status { order: 2; margin-left: auto; }
+  .plans-goal-actions { order: 3; }
+  .plans-goal-title {
+    order: 4;
+    /* Own line, full width — the whole point of the two-row header. */
+    flex-basis: 100%;
+    min-width: 0;
+  }
+}
+
 .plans-goal-desc {
   margin: 0;
   font-size: var(--font-size-small);
   line-height: var(--line-height-base);
-  color: var(--text-color-accent);
+  color: var(--plans-muted);
   overflow-wrap: anywhere;
 }
 
@@ -955,7 +1057,7 @@
   gap: calc(var(--nav-size) * 0.1);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  color: var(--text-color-accent);
+  color: var(--plans-muted);
 }
 .plans-phase-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .plans-phase.phase-running     { color: var(--fg-mint); }
@@ -965,8 +1067,8 @@
 .plans-phase.phase-interrupted { color: var(--fg-orange); }
 .plans-phase.phase-failed      { color: var(--red0); }
 
-.plans-goal-steps { font-size: var(--font-size-xs); color: var(--text-color-accent); }
-.plans-goal-time { margin-left: auto; font-size: var(--font-size-xs); color: var(--text-color-accent); white-space: nowrap; }
+.plans-goal-steps { font-size: var(--font-size-xs); color: var(--plans-muted); }
+.plans-goal-time { margin-left: auto; font-size: var(--font-size-xs); color: var(--plans-muted); white-space: nowrap; }
 
 .plans-track {
   height: calc(var(--nav-size) * 0.16);
@@ -1046,15 +1148,18 @@
 .plans-lib-card.is-done { opacity: 0.75; }
 .plans-lib-card.is-overdue { --plans-hue: var(--fg-pink); }
 
-.plans-lib-head { display: flex; align-items: flex-start; gap: calc(var(--nav-size) * 0.18); }
+.plans-lib-head { display: flex; align-items: flex-start; gap: calc(var(--nav-size) * 0.18); flex-wrap: wrap; }
 .plans-lib-title-row { display: flex; align-items: center; gap: calc(var(--nav-size) * 0.18); flex: 1; min-width: 0; }
 .plans-lib-title {
+  /* Same floor as the goal title: a library card's name must not be squeezed to
+     a sliver by the row's fixed-size neighbours. */
+  min-width: min(100%, 14ch);
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-tight);
   overflow-wrap: anywhere;
 }
-.plans-lib-title.is-struck { text-decoration: line-through; color: var(--text-color-accent); }
+.plans-lib-title.is-struck { text-decoration: line-through; color: var(--plans-muted); }
 
 /* ── Info note ────────────────────────────────────────────────────────────── */
 
@@ -1108,6 +1213,26 @@
   .plans-btn:hover:not(:disabled),
   .plans-chip:hover,
   .plans-tab:hover { transform: none; }
+
+  /* The block above stopped the *animations* but left every transition running,
+     so hover state changes still faded and the progress bar still slid. Motion
+     here is decoration — nothing is revealed by it — so all of it goes. */
+  .plans-login,
+  .plans-stage,
+  .plans-switch-btn,
+  .plans-tab,
+  .plans-quickadd,
+  .plans-quickadd-btn,
+  .plans-search,
+  .plans-select,
+  .plans-chip,
+  .plans-btn,
+  .plans-goal-card,
+  .plans-lib-card,
+  .plans-goal-check,
+  .plans-goal-actions,
+  .plans-icon-btn,
+  .plans-track-fill { transition: none; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

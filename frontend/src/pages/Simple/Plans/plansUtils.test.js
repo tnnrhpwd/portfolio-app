@@ -19,6 +19,15 @@ import {
   isTerminalStatus,
   isAgentReady,
   hasBeenEnlisted,
+  DREAM_FILTERS,
+  DREAM_VISION_MAX,
+  isImageCover,
+  classifyCover,
+  defaultCoverKey,
+  dreamVision,
+  dreamCoverPrompt,
+  dreamTargetLabel,
+  dreamTiles,
 } from './plansUtils';
 
 const goal = (over = {}) => ({
@@ -159,6 +168,26 @@ describe('plansUtils · workspaceGoalToItem', () => {
     expect(item.data.createdBy).toBe('agent');
   });
 
+  test('carries the dream-board fields through', () => {
+    const item = workspaceGoalToItem({
+      slug: 'marathon',
+      name: 'Half marathon',
+      vision: 'Cross the line feeling strong',
+      cover: 'health',
+      targetDate: '2027-04-18',
+    });
+    expect(item.data.vision).toBe('Cross the line feeling strong');
+    expect(item.data.cover).toBe('health');
+    expect(item.data.targetDate).toBe('2027-04-18');
+  });
+
+  test('leaves the dream-board fields null when a goal has none', () => {
+    const item = workspaceGoalToItem({ slug: 'plain' });
+    expect(item.data.vision).toBeNull();
+    expect(item.data.cover).toBeNull();
+    expect(item.data.targetDate).toBeNull();
+  });
+
   test('returns null for no entry and defaults missing fields', () => {
     expect(workspaceGoalToItem(null)).toBeNull();
     const item = workspaceGoalToItem({ slug: 'x' });
@@ -283,5 +312,90 @@ describe('plansUtils · terminal / agent-ready', () => {
     expect(hasBeenEnlisted(goal({ agent: { steps: [{ kind: 'tool' }] } }))).toBe(true);
     expect(hasBeenEnlisted(goal({ agent: { steps: 4 } }))).toBe(true);
     expect(hasBeenEnlisted(null)).toBe(false);
+  });
+});
+
+describe('plansUtils · dream board', () => {
+  test('isImageCover separates a URL from a preset key', () => {
+    expect(isImageCover('home')).toBe(false);
+    expect(isImageCover('')).toBe(false);
+    expect(isImageCover(null)).toBe(false);
+    expect(isImageCover('https://cdn.example.com/c.jpg')).toBe(true);
+    expect(isImageCover('http://cdn.example.com/c.jpg')).toBe(true);
+    expect(isImageCover('data:image/png;base64,AAA')).toBe(true);
+    // A pasted path that isn't a real URL must not be treated as a cover.
+    expect(isImageCover('/local/thing.jpg')).toBe(false);
+    expect(isImageCover('javascript:alert(1)')).toBe(false);
+  });
+
+  test('classifyCover names the three states the tile can be in', () => {
+    expect(classifyCover('')).toEqual({ kind: 'none', value: '' });
+    expect(classifyCover(null).kind).toBe('none');
+    expect(classifyCover('calm')).toEqual({ kind: 'preset', value: 'calm' });
+    expect(classifyCover('  calm  ').value).toBe('calm');
+    expect(classifyCover('https://x.test/a.jpg').kind).toBe('image');
+  });
+
+  test('defaultCoverKey is stable and always in range', () => {
+    const keys = ['a', 'b', 'c', 'd'];
+    expect(defaultCoverKey('marathon', keys)).toBe(defaultCoverKey('marathon', keys));
+    expect(keys).toContain(defaultCoverKey('marathon', keys));
+    expect(keys).toContain(defaultCoverKey('', keys));
+    expect(defaultCoverKey('x', [])).toBe('');
+    expect(defaultCoverKey('x', undefined)).toBe('');
+    // Different seeds should not all collapse onto one cover.
+    const picked = new Set(['one', 'two', 'three', 'four', 'five', 'six'].map((s) => defaultCoverKey(s, keys)));
+    expect(picked.size).toBeGreaterThan(1);
+  });
+
+  test('dreamVision falls back to the description, then truncates', () => {
+    expect(dreamVision(goal({ vision: 'Be brave' }))).toBe('Be brave');
+    expect(dreamVision(goal({ vision: '', description: 'Fallback' }))).toBe('Fallback');
+    expect(dreamVision(goal({ vision: '', description: '' }))).toBe('');
+    expect(dreamVision(null)).toBe('');
+
+    const long = dreamVision(goal({ vision: 'x'.repeat(400) }));
+    expect(long.length).toBeLessThanOrEqual(DREAM_VISION_MAX);
+    expect(long.endsWith('…')).toBe(true);
+  });
+
+  test('dreamCoverPrompt uses the goal words + the house art direction', () => {
+    const prompt = dreamCoverPrompt({ title: 'Half marathon', vision: 'Feeling strong' });
+    expect(prompt).toContain('Half marathon');
+    expect(prompt).toContain('Feeling strong');
+    expect(prompt).toContain('no text');
+    // A vision alone is enough to describe a cover.
+    expect(dreamCoverPrompt({ vision: 'Calm mornings' })).toContain('Calm mornings');
+    // Nothing to describe → no prompt, so the caller can refuse to charge a call.
+    expect(dreamCoverPrompt({})).toBe('');
+    expect(dreamCoverPrompt()).toBe('');
+  });
+
+  test('dreamTargetLabel reads as achieved once the dream is done', () => {
+    const future = new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10);
+    expect(dreamTargetLabel(future, 'active')).toMatch(/days left/);
+    expect(dreamTargetLabel(future, 'done')).toBe('Achieved');
+    expect(dreamTargetLabel('', 'active')).toBe('');
+  });
+
+  test('dreamTiles filters by board state and searches title + vision', () => {
+    const board = [
+      goal({ slug: 'a', title: 'Half marathon', status: 'active', priority: 'low' }),
+      goal({ slug: 'b', title: 'Learn piano', status: 'done', priority: 'high' }),
+      goal({ slug: 'c', title: 'Save a deposit', vision: 'marathon energy', status: 'active', priority: 'high' }),
+    ];
+
+    expect(dreamTiles(board, 'all').map((g) => g._id)).toEqual(['c', 'a', 'b']);
+    expect(dreamTiles(board, 'flight').map((g) => g._id)).toEqual(['c', 'a']);
+    expect(dreamTiles(board, 'achieved').map((g) => g._id)).toEqual(['b']);
+    // 'marathon' is in one title and in another's vision line. Order still
+    // follows the board's own rules (both active, so priority breaks the tie).
+    expect(dreamTiles(board, 'all', 'marathon').map((g) => g._id)).toEqual(['c', 'a']);
+    expect(dreamTiles([], 'all')).toEqual([]);
+    expect(dreamTiles(undefined, 'all')).toEqual([]);
+  });
+
+  test('every offered board filter is answerable', () => {
+    expect(DREAM_FILTERS.map((f) => f.key)).toEqual(['all', 'flight', 'achieved']);
   });
 });

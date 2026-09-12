@@ -11,7 +11,7 @@
  *
  *   { _id, type: 'goal', workspace: true, data: { title, description, status,
  *     priority, deadline, agent, successCriteria, maxSteps, autoAbandon,
- *     createdBy }, createdAt, updatedAt }
+ *     createdBy, vision, cover, targetDate }, createdAt, updatedAt }
  */
 
 // ── O-O-G-P-A loop ──────────────────────────────────────────────────────────
@@ -180,6 +180,12 @@ export function workspaceGoalToItem(entry) {
       maxSteps: typeof entry.maxSteps === 'number' ? entry.maxSteps : null,
       autoAbandon: !!entry.autoAbandon,
       createdBy: entry.createdBy || 'user',
+      // Dream-board fields. `deadline` stays null for workspace goals (the
+      // workspace schema has none) — a dream's date is `targetDate`, which the
+      // board reads instead of reusing the memory store's field.
+      vision: entry.vision || null,
+      cover: entry.cover || null,
+      targetDate: entry.targetDate || null,
     },
     createdAt: entry.createdAtReal || entry.updatedAt || null,
     updatedAt: entry.updatedAt || null,
@@ -332,4 +338,148 @@ export function hasBeenEnlisted(goal) {
   if (!agent) return false;
   if (agent.status && agent.status !== 'idle') return true;
   return agentStepCount(agent) > 0;
+}
+
+// ── Dream board ─────────────────────────────────────────────────────────────
+
+/** Cap on a tile's aspiration line — mirrors the backend's goal `vision` cap. */
+export const DREAM_VISION_MAX = 280;
+
+/**
+ * True when a stored `cover` is an image URL rather than a preset key.
+ *
+ * The two live in one attribute on purpose: the tile only ever needs *a*
+ * picture, and splitting it across two fields would let them disagree (a preset
+ * key *and* a URL both set, with no rule for which wins).
+ *
+ * `data:` is accepted so a just-generated cover renders before it's uploaded.
+ */
+export function isImageCover(cover) {
+  const c = String(cover || '').trim();
+  return /^https?:\/\//i.test(c) || /^data:image\//i.test(c);
+}
+
+/**
+ * Classify a stored cover for rendering.
+ *
+ * @param {string} cover - Preset key, image URL, or empty
+ * @returns {{kind: 'none'|'image'|'preset', value: string}}
+ */
+export function classifyCover(cover) {
+  const c = String(cover || '').trim();
+  if (!c) return { kind: 'none', value: '' };
+  return { kind: isImageCover(c) ? 'image' : 'preset', value: c };
+}
+
+/**
+ * Stable preset key for a goal that never picked a cover.
+ *
+ * A dream board with four grey placeholders reads as broken, and asking someone
+ * to choose a picture before they can see their board is the wrong order. So
+ * every goal gets a tile immediately; this just decides *which* preset it
+ * borrows until the user overrides it. It is a hash, not a random pick, so a
+ * goal keeps the same cover across reloads and devices.
+ *
+ * @param {string} seed - Something stable per goal (its slug or title)
+ * @param {string[]} keys - Preset keys to choose from
+ * @returns {string} One of `keys`, or '' when there are none
+ */
+export function defaultCoverKey(seed, keys) {
+  if (!Array.isArray(keys) || keys.length === 0) return '';
+  const s = String(seed || '');
+  let hash = 0;
+  for (let i = 0; i < s.length; i += 1) {
+    // eslint-disable-next-line no-bitwise
+    hash = (hash * 31 + s.charCodeAt(i)) | 0;
+  }
+  return keys[Math.abs(hash) % keys.length];
+}
+
+/**
+ * A tile's aspiration line: what the goal *means*, not what it *is*.
+ *
+ * Falls back to the goal's description so a tile is never blank, then to ''.
+ */
+export function dreamVision(goal, max = DREAM_VISION_MAX) {
+  const d = goal?.data || {};
+  const text = String(d.vision || d.description || '').trim();
+  if (!text) return '';
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+}
+
+/**
+ * Build the image prompt for a tile's generated cover.
+ *
+ * The goal's own words carry the subject; the rest is the house art direction
+ * (the same language the preset covers in `assets/art/dream-*.jpg` were made
+ * with), so a generated cover sits beside a preset one without looking foreign.
+ * `no text` is deliberate — Stability garbles lettering.
+ *
+ * @param {{title?: string, vision?: string}} goal - Flat, not a goal object
+ * @returns {string} A prompt, or '' when there's nothing to describe
+ */
+export function dreamCoverPrompt({ title, vision } = {}) {
+  const subject = String(title || '').trim().slice(0, 200);
+  const mood = String(vision || '').trim().slice(0, 120);
+  if (!subject && !mood) return '';
+  return [
+    subject ? `An aspirational dream-board cover image representing: ${subject}.` : 'An aspirational dream-board cover image.',
+    mood ? `Mood: ${mood}.` : '',
+    'Glossy 3D render or premium editorial still life, soft dramatic light, shallow depth of field,',
+    'blurred bokeh background in mint, cyan, hot pink, orange and blue, vibrant and optimistic,',
+    'no text, no lettering, no numbers, no watermark.',
+  ].filter(Boolean).join(' ');
+}
+
+/**
+ * A goal's target date, as a display label.
+ *
+ * Reuses `deadlineLabel` so "due today"/"3 days left" mean the same thing on a
+ * dream tile as they do on a goal card — and so a passed date reads "Overdue"
+ * rather than a stale countdown.
+ */
+export function dreamTargetLabel(targetDate, status, now = Date.now()) {
+  if (!targetDate) return '';
+  if (isTerminalStatus(status)) return 'Achieved';
+  return deadlineLabel(targetDate, now);
+}
+
+/** Board filters, in display order. */
+export const DREAM_FILTERS = [
+  { key: 'all', label: 'Everything' },
+  { key: 'flight', label: 'In flight' },
+  { key: 'achieved', label: 'Achieved' },
+];
+
+/**
+ * Filter + order goals for the board.
+ *
+ * Ordered like a board rather than like a list: still-in-flight first (the
+ * things you're actually reaching for), then the achieved ones, which read as
+ * evidence rather than as work.
+ *
+ * @param {Array} goals - Goal items
+ * @param {string} filter - One of DREAM_FILTERS' keys
+ * @param {string} search - Free-text query over title + vision
+ */
+export function dreamTiles(goals, filter = 'all', search = '') {
+  const q = String(search || '').trim().toLowerCase();
+  const matched = (Array.isArray(goals) ? goals : []).filter((goal) => {
+    const achieved = isTerminalStatus(goal?.data?.status);
+    if (filter === 'flight' && achieved) return false;
+    if (filter === 'achieved' && !achieved) return false;
+    if (!q) return true;
+    const hay = `${goal?.data?.title || ''} ${goal?.data?.vision || ''} ${goal?.data?.description || ''}`;
+    return hay.toLowerCase().includes(q);
+  });
+
+  return [...matched].sort((a, b) => {
+    const aa = isTerminalStatus(a?.data?.status) ? 1 : 0;
+    const bb = isTerminalStatus(b?.data?.status) ? 1 : 0;
+    if (aa !== bb) return aa - bb;
+    const pa = PRIORITY_ORDER[a?.data?.priority] ?? 3;
+    const pb = PRIORITY_ORDER[b?.data?.priority] ?? 3;
+    if (pa !== pb) return pa - pb;
+    return String(b?.updatedAt || '').localeCompare(String(a?.updatedAt || ''));
+  });
 }

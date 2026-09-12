@@ -786,6 +786,12 @@ sentence on screen that could be a label? Is there a line on screen that could b
 pages built to this section. Each owns its page shell; there is deliberately **no shared band
 component** for them, because there are no bands to share.
 
+`/plans` holds **three views of one store** behind a tab row — the goal list, the Dream board
+(`DreamBoard.jsx`, a cover-art tile grid) and the Library. So a view inside a service page is
+still a service page: the board uses one flat surface, a dense grid of colour planes, and copy
+that is labels rather than sentences. It is also why the third tab is labelled `🌟 Board` while
+the page's `<h1>` reads "Dream board" — three one-word tabs stay the same height.
+
 ---
 
 ## 6. Standard component recipes
@@ -1047,6 +1053,7 @@ header. It hides below `820px`, so anything placed there must also be reachable 
 | Annuities | `frontend/src/pages/Projects/Annuities/` | **Built entirely to this standard** — full-bleed bands via a local `RevealBand`, borderless surfaces, staggered reveals, and a theme-aware canvas chart (`useChartTheme.js`) |
 | Control (`/simple`) | `frontend/src/pages/Simple/Simple/` | **Service page (§5.7)** — sticky toolbar + dense panel grid on one flat surface, no bands |
 | Goals (`/plans`) | `frontend/src/pages/Simple/Plans/` | **Service page (§5.7)** — same shape: live state in the toolbar, panels grouped into grid rows |
+| Dream board (`/plans` 🌟) | `frontend/src/pages/Simple/Plans/DreamBoard.jsx` | **Service page view (§5.7)** — a third tab over the *same* goals: a cover-art tile grid where each tile is a goal you can hand to the agent. Panels stay colour planes; no bands, no reveals. Covers are real artwork (`assets/art/dream-*.jpg`), never emoji tiles (§5) |
 
 The earlier entries predate the editorial structure; **Annuities is the markup reference for it.** When
 in doubt about how a band, a staggered reveal, a borderless readout or a themed canvas should be built,

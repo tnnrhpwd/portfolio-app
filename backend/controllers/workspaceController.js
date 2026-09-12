@@ -346,7 +346,35 @@ function toListEntry(item) {
         maxSteps: typeof item.maxSteps === 'number' ? item.maxSteps : null,
         autoAbandon: !!item.autoAbandon,
         agent: item.agent || null,
+        // Dream-board fields — included in the LIST entry (not just the full
+        // one) because the board renders every tile from a single list read;
+        // a per-goal GET would be one request per tile.
+        vision: item.vision || null,
+        cover: item.cover || null,
+        targetDate: item.targetDate || null,
     };
+}
+
+/**
+ * Pick the value to write for an optional goal field.
+ *
+ * The request body is authoritative when it *mentions* the key — including
+ * with an empty value, which clears the field: this write is a whole-item Put,
+ * so an omitted key really is a removed attribute. When the body says nothing
+ * the stored value is carried forward, so a partial update (e.g. the addon
+ * setting `status`) can't silently drop a cover or a vision line.
+ *
+ * @param {object} body     Validated request body
+ * @param {object} existing Currently stored item (may be undefined)
+ * @param {string} key      Storage attribute name
+ * @param {string} [value]  Value from the body, when mentioned
+ * @returns {object} A one-key object to spread, or `{}` to omit/clear
+ */
+function resolveGoalField(body, existing, key, value) {
+    if (Object.prototype.hasOwnProperty.call(body, key)) {
+        return value ? { [key]: value } : {};
+    }
+    return existing?.[key] ? { [key]: existing[key] } : {};
 }
 
 function toFullEntry(item) {
@@ -464,6 +492,11 @@ const upsertWorkspaceItem = asyncHandler(async (req, res) => {
     const goalMaxSteps  = req.body?.maxSteps;
     const goalAutoAbandon = req.body?.autoAbandon;
     const goalSourceMemory = req.body?.sourceMemoryId;
+    // Dream-board fields (all optional): the aspiration line shown on the tile,
+    // its cover (a preset key or an image URL), and a target date.
+    const goalVision     = req.body?.vision;
+    const goalCover      = req.body?.cover;
+    const goalTargetDate = req.body?.targetDate;
     if (kind === 'goal') {
         if (goalStatus != null && !GOAL_STATUSES.has(goalStatus)) {
             badRequest(res, `Invalid goal status. Allowed: ${[...GOAL_STATUSES].join(', ')}`);
@@ -485,6 +518,18 @@ const upsertWorkspaceItem = asyncHandler(async (req, res) => {
         }
         if (goalAutoAbandon != null && typeof goalAutoAbandon !== 'boolean') {
             badRequest(res, 'goal autoAbandon must be a boolean');
+        }
+        if (goalVision != null && (typeof goalVision !== 'string' || goalVision.length > 280)) {
+            badRequest(res, 'goal vision must be a string (max 280 chars)');
+        }
+        if (goalCover != null && (typeof goalCover !== 'string' || goalCover.length > 600)) {
+            badRequest(res, 'goal cover must be a string (max 600 chars)');
+        }
+        // A bare YYYY-MM-DD only — the same local-calendar-day form the planner
+        // already parses (`plansUtils.parseDeadline`), so a timezone can't shift
+        // the day a dream is aimed at.
+        if (goalTargetDate != null && goalTargetDate !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(goalTargetDate)) {
+            badRequest(res, 'goal targetDate must be YYYY-MM-DD');
         }
     }
 
@@ -538,6 +583,11 @@ const upsertWorkspaceItem = asyncHandler(async (req, res) => {
             ...(goalConstraints ? { constraints: goalConstraints }  : (existing?.constraints    ? { constraints: existing.constraints }     : {})),
             ...(goalMaxSteps != null ? { maxSteps: goalMaxSteps }   : (existing?.maxSteps != null ? { maxSteps: existing.maxSteps } : {})),
             ...(goalAutoAbandon != null ? { autoAbandon: !!goalAutoAbandon } : (existing?.autoAbandon != null ? { autoAbandon: existing.autoAbandon } : {})),
+            // Dream-board fields. Unlike the fields above these are explicitly
+            // clearable: sending `vision: ''` removes it from the tile.
+            ...resolveGoalField(req.body || {}, existing, 'vision', goalVision),
+            ...resolveGoalField(req.body || {}, existing, 'cover', goalCover),
+            ...resolveGoalField(req.body || {}, existing, 'targetDate', goalTargetDate),
             createdBy:     existing?.createdBy || goalCreatedBy || 'user',
             // Preserve the agent run-state JSON across human edits (the goal
             // agent writes `agent` directly via workspaceGoals.setGoalAgent).

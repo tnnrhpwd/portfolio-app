@@ -1,16 +1,18 @@
 // File Upload Controller for S3 Integration
 const asyncHandler = require('express-async-handler');
 const { checkIP } = require('../utils/accessData.js');
-const { 
+const {
     generatePresignedUploadUrl, 
     generateCloudFrontUrl, 
     checkFileExists, 
     deleteFile,
     getFileMetadata,
     getObjectHead,
+    uploadImageBuffer,
 } = require('../services/s3Service.js');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, UpdateCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, UpdateCommand, QueryCommand, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const { randomUUID } = require('crypto');
 const { logger } = require('../utils/logger');
 const { checkStorageCapacity, invalidateStorageUsage } = require('../utils/storageTracker');
 const {
@@ -378,6 +380,89 @@ const confirmUpload = asyncHandler(async (req, res) => {
     }
 });
 
+// @desc    Upload a small image (e.g. a Dream board cover) through the API
+// @route   POST /api/data/upload-cover
+// @access  Private
+const uploadCoverImage = asyncHandler(async (req, res) => {
+    if (!req.user) {
+        res.status(401);
+        throw new Error('User not found');
+    }
+    if (!req.file?.buffer?.length) {
+        res.status(400);
+        throw new Error('No image uploaded');
+    }
+
+    const contentType = req.file.mimetype || '';
+    if (!contentType.startsWith('image/')) {
+        res.status(400);
+        throw new Error('Cover uploads must be an image');
+    }
+
+    const bytes = req.file.buffer.length;
+
+    // Quota first: refusing before the S3 write is the cheapest outcome, and it
+    // is the same gate the presigned path applies at request time.
+    const capacity = await checkStorageCapacity(req.user.id, bytes);
+    if (!capacity.canStore) {
+        res.status(413).json({
+            success: false,
+            error: 'Storage limit exceeded',
+            details: capacity.reason,
+            storageLimitFormatted: capacity.storageLimitFormatted,
+            currentUsageFormatted: capacity.currentUsageFormatted,
+        });
+        return;
+    }
+
+    const uploaded = await uploadImageBuffer(
+        req.user.id,
+        req.file.buffer,
+        contentType,
+        'generated',
+        req.file.originalname
+    );
+
+    // Same lightweight record `netTools.generate_image` writes: without it
+    // getUserStorageUsage() never counts these bytes and the cover would be
+    // stored for free, quietly under-enforcing the plan.
+    const now = new Date().toISOString();
+    // The id is returned to the client so it can hand it back when deleting an
+    // upload it no longer needs — the S3 object going away isn't enough on its
+    // own, the recorded bytes have to stop counting against the quota too.
+    const recordId = `dream_cover_${req.user.id}_${Date.now()}_${randomUUID().slice(0, 8)}`;
+    await dynamodb.send(new PutCommand({
+        TableName: 'Simple',
+        Item: {
+            id: recordId,
+            text: `Creator:${req.user.id}|DreamCover|${JSON.stringify({
+                s3Key: uploaded.s3Key,
+                url: uploaded.url,
+                bytes,
+                createdAt: now,
+            })}`,
+            files: [{
+                filename: uploaded.s3Key.split('/').pop(),
+                contentType,
+                size: bytes,
+            }],
+            createdAt: now,
+            updatedAt: now,
+        },
+    }));
+
+    // The user's total just grew — the cached figure is now wrong.
+    invalidateStorageUsage(req.user.id);
+
+    res.status(200).json({
+        success: true,
+        url: uploaded.url,
+        s3Key: uploaded.s3Key,
+        recordId,
+        bytes,
+    });
+});
+
 // @desc    Delete file from S3 and database
 // @route   DELETE /api/data/file/:s3Key
 // @access  Private
@@ -400,7 +485,11 @@ const deleteUploadedFile = asyncHandler(async (req, res) => {
     }
 
     const s3Key = decodeURIComponent(req.params.s3Key);
-    const { dataId } = req.body;
+    // `req.body` is undefined on a bodyless DELETE (express.json only populates
+    // it when there is something to parse), so destructuring it directly threw a
+    // 500 on every request that didn't send a body — which is the natural way to
+    // call this endpoint.
+    const { dataId } = req.body || {};
 
     logger.debug('File deletion data:', {
         userId: req.user.id,
@@ -491,5 +580,6 @@ module.exports = {
     requestUploadUrl,
     confirmUpload,
     deleteUploadedFile,
-    getUploadConfig
+    getUploadConfig,
+    uploadCoverImage,
 };

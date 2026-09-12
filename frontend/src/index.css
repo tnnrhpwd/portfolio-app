@@ -421,8 +421,12 @@ label {
 
 /* WCAG AA Accessibility Enhancements */
 
-/* High contrast mode support */
-@media (prefers-contrast: high) {
+/* High contrast mode support.
+   `prefers-contrast` accepts no-preference | less | more | custom — `high` is not
+   a valid value, so this block never matched anything. Verified in Chrome:
+   matchMedia('(prefers-contrast: high)').matches === false under contrast:'more',
+   while '(prefers-contrast: more)' matches. */
+@media (prefers-contrast: more) {
   :root {
     --focus-outline: 4px solid;
     --focus-outline-offset: 4px;

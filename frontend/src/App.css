@@ -361,7 +361,7 @@
 }
 
 /* High contrast mode support */
-@media (prefers-contrast: high) {
+@media (prefers-contrast: more) {
     .App-content,
     .App-main,
     .App-section,

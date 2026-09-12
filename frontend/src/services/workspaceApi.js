@@ -589,3 +589,142 @@ export async function getWorkspaceTemplates(token) {
   if (!res.ok) throw new Error(`getWorkspaceTemplates failed: ${res.status}`);
   return res.json();
 }
+
+// ─── Dream board covers (image generation + upload) ─────────────────────────
+//
+// A dream tile's cover is a single string on the goal: either a preset key
+// (`home`) or an image URL. Two of the three ways to get a URL need the backend,
+// and they're here rather than in a component so the upload lives in one place.
+//
+// Why a generated/uploaded cover has to become a URL: `cover` sits inside a
+// workspace goal, whose whole content is capped at 16 KB (KIND_SIZE_CAP_BYTES).
+// A single 1 MB image is ~1.4 MB of base64 — 87x the cap — so the bytes go to
+// S3 and only the URL is stored.
+
+/** Aspect ratio used for every generated cover — the presets' own ratio. */
+export const COVER_ASPECT_RATIO = '3:2';
+
+/**
+ * Generate a cover image from a text prompt (AWS Bedrock — metered).
+ *
+ * This is the same rate-limited, credit-metered Bedrock path /net's
+ * `generate_image` tool uses, so a cover costs the user credits and can 429/402.
+ *
+ * @returns {Promise<{images: Array<{mimeType: string, base64: string}>, model: string, seed: number, dataUrl: string}>}
+ */
+export async function generateCoverImage(token, prompt, { aspectRatio = COVER_ASPECT_RATIO, model } = {}) {
+  const res = await fetch(`${getPortfolioApiUrl()}/image/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      prompt,
+      aspectRatio,
+      numberOfImages: 1,
+      ...(model ? { model } : {}),
+    }),
+  });
+
+  const text = await res.text().catch(() => '');
+  let json;
+  try { json = JSON.parse(text); } catch { json = null; }
+  if (!res.ok || !json?.success) {
+    throw _errorFromResponse(res, json, text, `Cover generation failed (${res.status})`);
+  }
+  const image = json.images?.[0];
+  if (!image?.base64) throw new Error('Cover generation returned no image');
+  // A ready-to-render data URL, so the tile can show the result immediately and
+  // `uploadCoverDataUrl` can turn it back into bytes without the caller caring
+  // which mime type the model chose.
+  const dataUrl = `data:${image.mimeType || 'image/png'};base64,${image.base64}`;
+  return { ...json, image, dataUrl };
+}
+
+/**
+ * Upload image bytes as a cover and return its public URL.
+ *
+ * One request, through the API — deliberately *not* the presigned
+ * browser→S3 PUT that `/upload-url` + `/upload-confirm` exist for. That path
+ * needs a CORS rule on the bucket allowing this site's origin, and the bucket
+ * has none (the preflight is rejected, so the upload fails outright in the
+ * browser). Posting the bytes here has no CORS dependency, and the server sees
+ * the image it is storing instead of trusting a declared content type.
+ *
+ * Covers are resized to 1600px before they arrive (`downscaleImageFile`), so a
+ * few hundred KB is the normal size and 8 MB is the server's ceiling.
+ *
+ * @param {Blob} blob - Image bytes
+ * @param {object} [opts]
+ * @param {string} [opts.filename] - Name used to derive the S3 key's extension
+ * @returns {Promise<{s3Key: string, url: string, filename: string, size: number}>}
+ *
+ * The caller gets `s3Key` back so it can undo an upload it turns out not to
+ * need (the picker tracks these per form session and calls `deleteCoverImage` on
+ * cancel — see DreamBoard). One case is still uncovered: replacing a cover the
+ * goal already had leaves *that* older object behind, because its key isn't
+ * recoverable from the URL the goal stored.
+ */
+export async function uploadCoverImage(token, blob, { filename = 'dream-cover.jpg' } = {}) {
+  if (!blob?.size) throw new Error('Nothing to upload — the image is empty');
+
+  const form = new FormData();
+  form.append('cover', blob, filename);
+
+  const res = await fetch(`${getPortfolioApiUrl()}/upload-cover`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+
+  const text = await res.text().catch(() => '');
+  let json;
+  try { json = JSON.parse(text); } catch { json = null; }
+  if (!res.ok || json?.success === false) {
+    throw _errorFromResponse(res, json, text, `Cover upload failed (${res.status})`);
+  }
+  if (!json?.url) throw new Error('Cover upload returned no URL');
+  return { s3Key: json.s3Key, url: json.url, recordId: json.recordId, filename, size: json.bytes };
+}
+
+/**
+ * Delete a cover object we uploaded earlier in the same form session.
+ *
+ * Uploading as soon as the user picks a picture gives them a real preview and a
+ * URL that is already durable, but it means an abandoned form would leave an
+ * object in S3 counting against their quota. The picker therefore remembers the
+ * keys it minted and hands them back here when the form closes without saving
+ * (`s3Key` is only known to whoever did the upload, so this can't be derived
+ * from the URL).
+ *
+ * Best-effort by design: a leftover object is untidy, never broken, and must not
+ * be able to block closing a form or saving a cover.
+ *
+ * `recordId` is the storage-tracking row the upload created. Deleting only the
+ * S3 object would leave those bytes counted against the user's quota forever, so
+ * it is sent along as `dataId` — the endpoint drops the file from that record.
+ *
+ * @param {string} token - JWT
+ * @param {string} s3Key - Key of the object to remove
+ * @param {string} [recordId] - Storage record the upload created
+ */
+export async function deleteCoverImage(token, s3Key, recordId) {
+  if (!s3Key || !token) return;
+  try {
+    // The key contains slashes, which Express won't match inside one `:param`
+    // segment — the handler expects them percent-encoded and decodes them itself.
+    await fetch(`${getPortfolioApiUrl()}/file/${encodeURIComponent(s3Key)}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      // An explicit body keeps `req.body` defined server-side.
+      body: JSON.stringify(recordId ? { dataId: recordId } : {}),
+    });
+  } catch { /* best effort — see above */ }
+}
+
+/**
+ * Upload a data URL (what `generateCoverImage` returns) as a cover.
+ * @param {string} dataUrl - `data:image/png;base64,...`
+ */
+export async function uploadCoverDataUrl(token, dataUrl, opts = {}) {
+  const blob = await (await fetch(dataUrl)).blob();
+  return uploadCoverImage(token, blob, { filename: 'dream-cover.png', ...opts });
+}
