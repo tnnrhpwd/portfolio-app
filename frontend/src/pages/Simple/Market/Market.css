@@ -1,99 +1,178 @@
-/* Simple Marketplace — modern editorial marketplace (§FRONTEND_UI_STANDARD) */
+/* Simple Marketplace — a service workspace (FRONTEND_UI_STANDARD.md §5.7)
+   ------------------------------------------------------------------------
+   One flat surface, a sticky toolbar (name + what-to-browse switch + search +
+   the publish action), then one panel holding the results. No bands, no
+   gradient behind the data, no decorative circles, no scroll reveal — and
+   nothing separated by a border: the toolbar's rule is a gradient, and the
+   cards are planes of color (§5 "color beside color"). */
 
-/* ── Page root: animated vibrant gradient + floating circles ─────────────── */
+.mkt-surface {
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding: calc(var(--nav-size) * 1.15) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
+  background: var(--bg-page);
+  color: var(--text-color);
+}
 
 .mkt {
   position: relative;
-  overflow-x: hidden;
-  min-height: 100vh;
-  min-height: 100svh;
-  color: var(--text-color);
-  background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
-  background-size: 400% 400%;
-  animation: mktGradientShift 16s ease infinite;
-  padding: calc(var(--nav-size) * 1.4) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.5);
   display: flex;
   flex-direction: column;
+  gap: calc(var(--nav-size) * 0.25);
+  width: 100%;
+  max-width: 1180px;
+  min-width: 0;
+}
+
+/* ── Toolbar: the page's "hero", collapsed onto one sticky row ───────────── */
+
+.mkt-bar {
+  position: sticky;
+  top: var(--nav-size);            /* just under the fixed site header */
+  z-index: 5;                      /* below the header's 10, above the panel */
+  display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.25);
+  padding: calc(var(--nav-size) * 0.18) 0;
+  background: var(--bg-page);      /* opaque — no glassmorphism */
 }
-
-.light-theme .mkt { animation-duration: 18s; }
-.dark-theme .mkt { animation-duration: 12s; }
-
-@keyframes mktGradientShift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-/* Decorative, non-interactive floating circles */
-.mkt-floating {
-  pointer-events: none;
+/* The one piece of brand on the page. */
+.mkt-bar::after {
+  content: '';
   position: absolute;
-  inset: 0;
-  z-index: 0;
+  left: 0; right: 0; bottom: 0; height: 2px;
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint) 42%, transparent 72%);
+  pointer-events: none;
+}
+
+.mkt-bar-title {
+  margin: 0;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+/* Skills | Goals — a segmented control, planes of color rather than a box. */
+.mkt-switch {
+  display: inline-flex;
+  justify-self: start;
+  gap: calc(var(--nav-size) * 0.08);
+  padding: calc(var(--nav-size) * 0.06);
+  background: color-mix(in srgb, var(--text-color) 9%, transparent);
+  border-radius: 999px;
+}
+.mkt-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.1);
+  min-height: 0;                   /* undo the global 44px button min-height */
+  padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.32);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-color);
+  font-family: inherit;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+.mkt-switch-btn:hover:not(.is-active) { background: color-mix(in srgb, var(--text-color) 12%, transparent); }
+.mkt-switch-btn.is-active {
+  background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+  color: var(--text-color-inv);
+}
+
+.mkt-bar-search { display: flex; flex: 1 1 320px; flex-wrap: wrap; gap: calc(var(--nav-size) * 0.15); min-width: 0; }
+.mkt-bar-actions { margin-left: auto; display: flex; gap: calc(var(--nav-size) * 0.12); }
+
+/* ── The results panel ───────────────────────────────────────────────────── */
+
+.mkt-panel {
+  --mkt-hue: var(--fg-blue);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: color-mix(in srgb, var(--mkt-hue) 7%, var(--bg-1));
+  border-radius: var(--border-radius-lg);
   overflow: hidden;
 }
-.mkt-circle {
-  position: absolute;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--white1-transp) 0%, transparent 70%);
-  animation: mktFloat 10s ease-in-out infinite;
+.dark-theme .mkt-panel { background: color-mix(in srgb, var(--mkt-hue) 14%, var(--bg-1)); }
+
+.mkt-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--nav-size) * 0.15);
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.28);
+  background: color-mix(in srgb, var(--mkt-hue) 12%, transparent);
 }
-.mkt-circle-1 { width: calc(var(--nav-size) * 3.75); height: calc(var(--nav-size) * 3.75); top: 8%; left: 5%; }
-.mkt-circle-2 { width: calc(var(--nav-size) * 2.5); height: calc(var(--nav-size) * 2.5); top: 58%; right: 6%; animation-duration: 12s; animation-delay: -2s; }
-.mkt-circle-3 { width: calc(var(--nav-size) * 4.5); height: calc(var(--nav-size) * 4.5); bottom: 6%; left: 52%; animation-duration: 14s; animation-delay: -4s; }
-@keyframes mktFloat {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(calc(var(--nav-size) * -0.5)) rotate(180deg); }
+.mkt-panel-title { margin: 0; font-size: var(--font-size-small); font-weight: var(--font-weight-semibold); }
+.mkt-count { font-size: var(--font-size-xs); color: var(--text-color-accent); }
+.mkt-panel-body { padding: calc(var(--nav-size) * 0.28); }
+
+.mkt-note {
+  margin: 0;
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.28);
+  background: color-mix(in srgb, var(--text-color) 7%, transparent);
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-base);
+  color: var(--text-color-accent);
 }
 
-/* ── Sections + hero ─────────────────────────────────────────────────────── */
-
-.mkt-section {
-  position: relative;
-  z-index: 2;
-  width: 100%;
-  max-width: 1100px;
+/* Goal payload blocks inside the detail modal. */
+.mkt-goal-text {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  gap: calc(var(--nav-size) * 0.08);
+  padding: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.3);
+  background: color-mix(in srgb, var(--text-color) 7%, transparent);
+  border-radius: var(--border-radius);
 }
-
-.mkt-hero { padding: calc(var(--nav-size) * 1.5) 0 calc(var(--nav-size) * 0.75); }
-
-.mkt-title-wrap { text-align: center; max-width: 900px; margin: 0 auto; }
-
-.mkt-eyebrow {
-  margin: 0 0 calc(var(--nav-size) * 0.18);
+.mkt-goal-text p { margin: 0 0 calc(var(--nav-size) * 0.15); font-size: var(--font-size-small); line-height: var(--line-height-base); white-space: pre-wrap; }
+.mkt-goal-label {
+  margin: 0;
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.14em;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-color-accent);
 }
 
-.mkt-title {
-  margin: 0 0 calc(var(--nav-size) * 0.25);
-  font-size: var(--font-size-display);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: -0.01em;
-  line-height: var(--line-height-tight);
+/* Share-a-goal dialog: pick one of your own goals. */
+.mkt-field { display: flex; flex-direction: column; gap: calc(var(--nav-size) * 0.12); }
+.mkt-field-label { font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-color-accent); }
+.mkt-field input {
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  color: var(--text-color);
+  background: var(--bg-1);
+  border: 1px solid color-mix(in srgb, var(--fg-blue) 28%, transparent);
+  border-radius: var(--border-radius);
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.28);
 }
+.mkt-field input:focus { outline: none; border-color: var(--fg-blue); }
 
-.mkt-subtitle {
-  margin: 0 auto calc(var(--nav-size) * 0.4);
-  max-width: 640px;
-  font-size: var(--font-size-large);
-  line-height: var(--line-height-relaxed);
-  color: var(--text-color-accent);
+.mkt-share-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: calc(var(--nav-size) * 0.1); }
+.mkt-share-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--nav-size) * 0.2);
+  padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.22);
+  border-radius: var(--border-radius);
+  background: color-mix(in srgb, var(--text-color) 7%, transparent);
 }
+.mkt-share-name { font-size: var(--font-size-small); font-weight: var(--font-weight-semibold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.mkt-hero-link {
-  color: var(--fg-blue);
-  font-weight: var(--font-weight-semibold);
-  white-space: nowrap;
-}
+.mkt-btn--sm { padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.32); font-size: var(--font-size-xs); }
+
+/* ── Search group (lives in the toolbar) ─────────────────────────────────── */
 
 /* ── Search bar ──────────────────────────────────────────────────────────── */
 
@@ -108,21 +187,27 @@
 }
 
 .mkt-search input[type='search'],
-.mkt-search select {
+.mkt-search select,
+.mkt-bar-search input[type='search'],
+.mkt-bar-search select {
   font-family: inherit;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-small);
   color: var(--text-color);
   background: var(--bg-1);
-  border: 1px solid var(--border-nav);
+  border: 1px solid color-mix(in srgb, var(--fg-blue) 28%, transparent);
   border-radius: 999px;
-  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.45);
+  padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.4);
 }
 
-.mkt-search input[type='search'] { flex: 1 1 280px; min-width: 200px; }
-.mkt-search select { cursor: pointer; }
+.mkt-search input[type='search'],
+.mkt-bar-search input[type='search'] { flex: 1 1 220px; min-width: 0; }
+.mkt-search select,
+.mkt-bar-search select { cursor: pointer; flex: 0 0 auto; }
 
 .mkt-search input[type='search']:focus,
-.mkt-search select:focus {
+.mkt-search select:focus,
+.mkt-bar-search input[type='search']:focus,
+.mkt-bar-search select:focus {
   outline: none;
   border-color: var(--fg-blue);
 }
@@ -167,9 +252,7 @@
 .mkt-btn--outline:not(:disabled):hover,
 .mkt-btn--ghost:not(:disabled):hover { background: var(--bg-accent); box-shadow: none; }
 
-/* ── Results / status ────────────────────────────────────────────────────── */
-
-.mkt-results { align-items: stretch; }
+/* ── Status ──────────────────────────────────────────────────────────────── */
 
 .mkt-status {
   text-align: center;
@@ -178,12 +261,6 @@
   padding: var(--spacing-md) 0;
 }
 .mkt-status--error { color: var(--red0); }
-
-.mkt-total {
-  font-size: var(--font-size-small);
-  color: var(--text-color-accent);
-  margin: 0 0 var(--spacing-xs);
-}
 
 /* ── Grid + cards ────────────────────────────────────────────────────────── */
 
@@ -201,33 +278,26 @@
   gap: var(--spacing-xs);
   text-align: left;
   cursor: pointer;
-  border: 1px solid var(--border-nav);
+  border: 1px solid transparent;
   border-radius: var(--border-radius-lg);
-  padding: calc(var(--nav-size) * 0.4);
-  background: var(--bg-1);
+  padding: calc(var(--nav-size) * 0.32);
+  background: color-mix(in srgb, var(--fg-blue) 7%, var(--bg-1));
   color: var(--text-color);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: background 0.18s ease;
 }
-.mkt-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint));
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-.mkt-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--fg-blue);
-}
-.mkt-card:hover::before { opacity: 1; }
-.mkt-card--lowtrust { border-left: 3px solid var(--fg-orange); }
+/* The whole tone is the hue of the card's neighbours' step — no border, no
+   shadow, no accent strip: hover just deepens the plane (§5). */
+.mkt-card--goal { background: color-mix(in srgb, var(--fg-mint) 7%, var(--bg-1)); }
+.dark-theme .mkt-card { background: color-mix(in srgb, var(--fg-blue) 14%, var(--bg-1)); }
+.dark-theme .mkt-card--goal { background: color-mix(in srgb, var(--fg-mint) 14%, var(--bg-1)); }
+.mkt-card:hover { background: color-mix(in srgb, var(--fg-blue) 13%, var(--bg-1)); }
+.mkt-card--goal:hover { background: color-mix(in srgb, var(--fg-mint) 13%, var(--bg-1)); }
+.mkt-card--lowtrust { background: color-mix(in srgb, var(--fg-orange) 10%, var(--bg-1)); }
+.dark-theme .mkt-card--lowtrust { background: color-mix(in srgb, var(--fg-orange) 16%, var(--bg-1)); }
+/* Hover must stay in the card's own hue — a low-trust card that warmed up would
+   look like a different kind of thing on mouse-over. Doubled class so it also
+   beats `.dark-theme .mkt-card:hover`. */
+.mkt-card.mkt-card--lowtrust:hover { background: color-mix(in srgb, var(--fg-orange) 16%, var(--bg-1)); }
 
 .mkt-card-head {
   display: flex;
@@ -624,15 +694,6 @@
   border: 1px solid color-mix(in srgb, var(--fg-orange) 30%, transparent);
 }
 
-/* ── Scroll reveal ───────────────────────────────────────────────────────── */
-
-.mkt-reveal {
-  opacity: 0;
-  transform: translateY(28px);
-  transition: opacity 0.7s ease, transform 0.7s ease;
-}
-.mkt-reveal.is-visible { opacity: 1; transform: translateY(0); }
-
 /* ── Focus visibility ────────────────────────────────────────────────────── */
 
 .mkt-btn:focus-visible,
@@ -651,17 +712,26 @@
 
 /* ── Responsive + reduced motion ─────────────────────────────────────────── */
 
-@media (orientation: portrait) {
-  .mkt-search { flex-direction: column; align-items: stretch; }
-  .mkt-search input[type='search'] { flex: none; width: 100%; }
+@media (max-width: 900px) {
+  /* A wrapped toolbar would eat the screen if it stayed pinned — the same
+     trade /plans and /simple make below this width. */
+  .mkt-bar { position: static; }
+  .mkt-bar-search { flex: 1 1 100%; }
+  .mkt-bar-actions { margin-left: 0; }
+  .mkt-switch { order: -1; }
+}
+
+@media (max-width: 640px) {
+  .mkt-bar-search { flex-direction: column; align-items: stretch; }
+  .mkt-bar-search input[type='search'],
+  .mkt-bar-search select { flex: 1 1 auto; width: 100%; }
+  .mkt-bar-actions { flex-wrap: wrap; }
+  .mkt-panel-body { padding: calc(var(--nav-size) * 0.2); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mkt { animation: none; }
-  .mkt-circle { animation: none; }
   .mkt-card,
   .mkt-btn,
   .mkt-rate-star,
-  .mkt-reveal { transition: none; }
-  .mkt-reveal { opacity: 1; transform: none; }
+  .mkt-switch-btn { transition: none; }
 }

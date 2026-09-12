@@ -172,6 +172,55 @@ and `workspace-client.js` wrappers.
 
 - 🟡 Backend contract tests for pagination/sort stability/install-rate constraints (offline tests cover these; a live-DynamoDB integration pass, `back.test.js`-style, remains).
 
+### 4.6 Ranking weights as explicit config
+
+Ranking weights (`services/marketplaceRanking.js`) are still inline constants; make them config so trust tuning doesn't need a deploy.
+
+### 4.7 Shared GOALS — ✅ shipped (2026-09-12)
+
+The marketplace carries **goals alongside skills**: a user can share one of their own
+goals, and anyone else can save a copy of it into their workspace.
+
+**Design: one namespace, two kinds.** A goal rides the exact same machinery as a
+skill — the same `csimple_market_*` meta/version/install/rating/flag items, the same
+trust ranking and `lowTrust` classification, the same install-attestation gate — with
+`kind: 'goal'` on the meta item (absent means `'skill'`, so every pre-existing entry
+is read correctly) and the goal's **text** in place of a compiled `steps` array:
+`content`, `successCriteria`, `constraints`, `priority`.
+
+- **A goal's `marketId` is its slug.** A slug is the thing someone can share, so
+  `POST /market/goals` defaults `marketId` to the slugified name and refuses a slug
+  already taken by a *skill* (the two would be indistinguishable in search) or by
+  another author's goal (409). Publishing a new version of your own goal passes its
+  `marketId` explicitly, exactly like a skill.
+- **The goal's text is scrubbed** with the same PII/secret pass a skill's steps get
+  (`scrubForPublish`, §6.1) before it is persisted — the reported `scrubReport`
+  doubles as the pre-publish review data.
+- **"Install" means "save a copy into my workspace"**, not "put it on my PC".
+  `POST /market/goals/:marketId/install` writes an ordinary goal via
+  `services/workspaceGoals.upsertGoal` under a *free* slug (a second save becomes
+  "… (2)", never a clobber), bumps `downloads`/`installs`, and records the install
+  attestation — so a saved goal can be rated through the existing rate endpoint.
+- **Endpoints** (all `protect`ed; mounted next to the skill routes):
+
+| Route (prefix `/api/data`) | Purpose |
+|---|---|
+| `GET /market/goals?q=&sort=trust\|downloads\|recent&page=&perPage=` | Browse shared goals |
+| `POST /market/goals` | Share a goal (or publish a new version of your own) |
+| `GET /market/goals/:marketId` | One shared goal |
+| `POST /market/goals/:marketId/install` | Save it into my workspace |
+| `POST /market/skills/:marketId/rate` / `/flag` | Shared route — a goal's marketId works here too |
+
+**Frontend:** `/market` is now a **service page** (§5.7 of the UI standard — flat
+surface, sticky toolbar with a **Skills | Goals** switch, dense panel grid) and the
+fourth room in the header switcher (`SIMPLE_NAV_SURFACES`). Sharing is picked from
+the user's own goals (`listWorkspace(kind:'goal')`); saving shows the goal text, its
+"done when" criteria, and one **＋ Save to my goals** button.
+
+**Still open:** a live-DynamoDB pass, ratings that reflect a *run* of the saved goal,
+and `/market` in the addon dashboard (`renderer/dashboard.html` still links skills
+only).
+
 ## 6. Safety & permissions — 🟡 partially implemented (backend seams + consent UI shipped; deny-path audit + future multimodal wiring open)
 
 Keep and extend the existing permission model (`server/automation/permissions.js`,

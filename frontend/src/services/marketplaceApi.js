@@ -179,3 +179,72 @@ export async function publishMarketSkill(token, payload) {
   if (!res.ok) await readError(res, 'Failed to publish the skill');
   return parseJson(res);
 }
+
+/* ── Shared GOALS (§4.7) ────────────────────────────────────────────────────
+   Same shape as the skill helpers, against /market/goals. A goal has no steps:
+   it is its text. "Install" saves a private copy into the caller's workspace
+   goal store, so the caller ends up owning an ordinary editable goal.
+   Rating and flagging a goal reuse the skill endpoints (marketId-addressed). */
+
+const GOALS_BASE = 'market/goals';
+
+/** Browse shared goals. Returns { goals, total, page, perPage }. */
+export async function searchMarketGoals(token, { q, sort = 'trust', page = 1, perPage = 20 } = {}) {
+  if (!token) throw new Error('Sign in required to browse shared goals');
+  const params = new URLSearchParams({ sort, page: String(page), perPage: String(perPage) });
+  if (q && String(q).trim()) params.set('q', String(q).trim());
+
+  let res;
+  try {
+    res = await fetch(`${getApiBase()}${GOALS_BASE}?${params.toString()}`, { headers: headers(token) });
+  } catch (networkErr) {
+    throw new Error(`Network error: ${networkErr.message}`);
+  }
+  if (!res.ok) await readError(res, 'Failed to load shared goals');
+  return parseJson(res);
+}
+
+/** Publish a goal (`kind: 'goal'`) — `marketId` omitted means "create". */
+export async function publishMarketGoal(token, payload) {
+  if (!token) throw new Error('Sign in required to share a goal');
+  let res;
+  try {
+    res = await fetch(`${getApiBase()}${GOALS_BASE}`, {
+      method: 'POST',
+      headers: headers(token),
+      body: JSON.stringify(payload),
+    });
+  } catch (networkErr) {
+    throw new Error(`Network error: ${networkErr.message}`);
+  }
+  if (!res.ok) await readError(res, 'Failed to share the goal');
+  return parseJson(res);
+}
+
+/** Save a shared goal into the signed-in user's own workspace. */
+export async function installMarketGoal(token, marketId) {
+  if (!token) throw new Error('Sign in required to save shared goals');
+  let res;
+  try {
+    res = await fetch(`${getApiBase()}${GOALS_BASE}/${encodeURIComponent(marketId)}/install`, {
+      method: 'POST',
+      headers: headers(token),
+    });
+  } catch (networkErr) {
+    throw new Error(`Network error: ${networkErr.message}`);
+  } if (!res.ok) await readError(res, 'Failed to save the goal');
+  return parseJson(res);
+}
+
+/** One shared goal (summary — the goal text is on the summary itself). */
+export async function getMarketGoal(token, marketId) {
+  if (!token) throw new Error('Sign in required to view shared goals');
+  let res;
+  try {
+    res = await fetch(`${getApiBase()}${GOALS_BASE}/${encodeURIComponent(marketId)}`, { headers: headers(token) });
+  } catch (networkErr) {
+    throw new Error(`Network error: ${networkErr.message}`);
+  }
+  if (!res.ok) await readError(res, 'Failed to load the goal');
+  return parseJson(res);
+}

@@ -82,12 +82,15 @@ describe('SimpleCtaBand', () => {
       SIMPLE_SURFACES.map(({ to, label }) => ({ to, label }))
     );
 
-    // …and the switcher, so the two can never diverge in copy.
+    // …and the switcher. The band tells the three-room journey, so it always
+    // names a PREFIX of the switcher, which may offer more rooms than the
+    // story (it now also lists Market) — but a room the band names must never
+    // be missing from the switcher, and the copy must match word for word.
     const navLinks = [...nav.container.querySelectorAll('.snav-link')].map((a) => ({
       to: a.getAttribute('href'),
       label: letters(a.querySelector('.snav-link-label')),
     }));
-    expect(bandSurfaces(band.container)).toEqual(navLinks);
+    expect(bandSurfaces(band.container)).toEqual(navLinks.slice(0, SIMPLE_SURFACES.length));
   });
 
   it('is a band, not a card grid: every surface link is a real internal <Link>', () => {

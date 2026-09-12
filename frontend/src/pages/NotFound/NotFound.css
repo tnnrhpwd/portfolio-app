@@ -1,139 +1,280 @@
-/* 404 page — reuses Home.css's animated container/floating-shapes/content-tile
- * system so the sizing, spacing, and overall vibe match the homepage. */
+/* ── 404 page ─────────────────────────────────────────────────────────────────
+   Built to docs/guides/FRONTEND_UI_STANDARD.md §5: the animated vibrant
+   gradient is a bookend (the hero), the rest of the page is one flat band, and
+   the destinations are color planes rather than bordered cards. Every color is
+   a token and every size is off --nav-size, so it holds in both themes and at
+   every width without media queries.
 
-.not-found-section {
-    flex: 1;
+   No scroll reveals and no stagger on purpose: a 404's whole job is to help
+   right now, so nothing here is allowed to arrive late. (Style note only —
+   this is a Discovery-shaped page, not a service page.)
+
+   The page itself is a flex column with the band taking the leftover height,
+   so on a tall screen the tint runs all the way down behind the (transparent)
+   footer instead of leaving a stray strip of page background. */
+
+.not-found {
     display: flex;
+    flex-direction: column;
+    min-height: 100svh;
+    overflow-x: hidden;
+    color: var(--text-color);
+    background: var(--bg-page);
+}
+
+/* ── Hero: animated gradient + floating circles ──
+   The padding clears the fixed site header (roughly 2 × --nav-size). */
+.not-found-hero {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 0;
-}
-
-/* #content-tile is a shared id from Home.css that forces text-align: left
- * (including in its landscape media query); combine id + class so this
- * still wins on specificity and the 404 tile stays centered everywhere. */
-.not-found-tile,
-#content-tile.not-found-tile {
     text-align: center;
-    max-width: 800px;
-    width: 100%;
-    margin: 0 auto;
-    box-sizing: border-box;
+    padding: calc(var(--nav-size) * 2.2) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.7);
+    background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+    background-size: 400% 400%;
+    animation: notFoundGradientShift 12s ease infinite;
+}
+.light-theme .not-found-hero { animation-duration: 15s; }
+.dark-theme .not-found-hero { animation-duration: 10s; }
+@keyframes notFoundGradientShift {
+    0% { background-position: 0% 50%; }
+    25% { background-position: 100% 50%; }
+    50% { background-position: 100% 100%; }
+    75% { background-position: 0% 100%; }
+    100% { background-position: 0% 50%; }
 }
 
+.not-found-hero-floating {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    overflow: hidden;
+}
+.not-found-hero-circle {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--white1-transp, #f4f7fd33) 0%, transparent 70%);
+    animation: notFoundFloat 6s ease-in-out infinite;
+}
+.not-found-hero-circle-1 { width: 180px; height: 180px; top: 8%; left: 6%; animation-duration: 9s; }
+.not-found-hero-circle-2 { width: 120px; height: 120px; top: 55%; right: 8%; animation-duration: 11s; animation-delay: -2s; }
+.not-found-hero-circle-3 { width: 220px; height: 220px; bottom: 5%; left: 55%; animation-duration: 13s; animation-delay: -4s; }
+@keyframes notFoundFloat {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-24px) rotate(180deg); }
+}
+
+.not-found-hero-wrap {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+/* ── Opening of the hero: eyebrow → display numerals → heading ── */
+.not-found-eyebrow {
+    margin: 0 0 calc(var(--nav-size) * 0.15);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-color-accent);
+}
+
+/* Decorative — the <h1> carries the meaning for assistive tech. Gradient text
+   is display type only (§6), and CutiveMono is the site's own font face. */
 .not-found-code {
     font-family: 'CutiveMono-Regular', monospace;
-    font-weight: 900;
-    /* vw-driven so the digits scale with the viewport, but capped well
-     * below the old 10rem ceiling — the tile itself maxes out at 800px
-     * wide, so letting the text keep growing with vw past that point
-     * made it balloon (and force extra vertical scrolling) on large
-     * desktop and ultra-wide screens. */
-    font-size: clamp(3.5rem, 18vw, 7rem);
-    line-height: var(--line-height-tight);
-    margin: 0;
+    font-weight: var(--font-weight-bold);
+    font-size: calc(var(--nav-size) * 1.4);
+    line-height: 1;
+    margin: 0 0 calc(var(--nav-size) * 0.2);
     background: linear-gradient(135deg, var(--fg-blue), var(--fg-pink));
     -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
     background-clip: text;
-    text-shadow: none;
+    -webkit-text-fill-color: transparent;
     user-select: none;
+}
+
+.not-found-title {
+    font-size: var(--font-size-display);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: -0.02em;
+    line-height: var(--line-height-tight);
+    margin: 0 0 calc(var(--nav-size) * 0.25);
+    color: var(--text-color);
     overflow-wrap: anywhere;
 }
 
-/* #text-body / #text-subtext are shared ids from Home.css that force
- * text-align: left; combine the id with the local class so this rule wins
- * on specificity and the 404 copy stays centered like the rest of the tile. */
-.not-found-tile .not-found-message,
-#text-body.not-found-message {
-    text-align: center;
-    margin: 0 auto;
-    padding-left: 0;
-    padding-right: 0;
+.not-found-message {
+    margin: 0 auto calc(var(--nav-size) * 0.6);
+    max-width: 560px;
+    color: var(--text-color);
+    font-size: var(--font-size-large);
+    line-height: var(--line-height-relaxed);
 }
 
-.not-found-tile .not-found-subtext,
-#text-subtext.not-found-subtext {
-    text-align: center;
-    margin: 0 auto var(--spacing-md);
-    padding-left: 0;
-    padding-right: 0;
-}
-
+/* ── Actions: one gradient pill + one text link (the §5 button recipe) ──
+   Both are links, so the global `a:hover` (color + 1px lift) is live underneath;
+   the class rules below are more specific and win. */
 .not-found-actions {
     display: flex;
+    flex-wrap: wrap;
     justify-content: center;
-    margin-top: var(--spacing-md);
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.4);
 }
 
 .not-found-btn {
-    min-height: 44px;
+    font-family: inherit;
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-small);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.5);
+    border: 1px solid transparent;
+    color: var(--text-color-inv);
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    text-decoration: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: calc(var(--nav-size) * 0.12);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.not-found-btn:hover {
+    color: var(--text-color-inv);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+.not-found-btn:focus-visible {
+    outline: var(--focus-outline);
+    outline-offset: 3px;
 }
 
-@media (max-width: 768px) {
-    .not-found-actions {
-        margin-top: var(--spacing-sm);
+.not-found-btn-text {
+    background: transparent;
+    color: var(--text-color);
+    text-transform: none;
+    letter-spacing: 0.02em;
+    font-size: var(--font-size-base);
+    padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.2);
+}
+.not-found-btn-text:hover {
+    color: var(--text-color);
+    transform: none;
+    box-shadow: none;
+}
+.not-found-btn-text span { transition: transform 0.2s ease; }
+.not-found-btn-text:hover span { transform: translateX(4px); }
+
+/* ── Destinations band: one flat tint, a head, and four color planes ── */
+.not-found-band {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: calc(var(--nav-size) * 1.4) calc(var(--nav-size) * 0.3);
+    background: color-mix(in srgb, var(--fg-mint) 10%, var(--bg-page));
+}
+
+.not-found-wrap { width: 100%; max-width: 1080px; }
+
+.not-found-section-head {
+    text-align: center;
+    max-width: 760px;
+    margin: 0 auto calc(var(--nav-size) * 0.9);
+}
+.not-found-heading {
+    font-size: var(--font-size-heading);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin: 0 0 calc(var(--nav-size) * 0.15);
+    color: var(--text-color);
+}
+.not-found-lead {
+    margin: 0;
+    color: var(--text-color-accent);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-relaxed);
+}
+
+.not-found-links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: calc(var(--nav-size) * 0.28);
+    width: 100%;
+}
+.not-found-links > li { display: flex; min-width: 0; }
+
+/* A plane of color, not a bordered card (§5): each tile carries its own hue and
+   hover deepens it. No border, no shadow, no lift-and-ring stacking. */
+.not-found-link {
+    --not-found-hue: var(--fg-blue);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.12);
+    width: 100%;
+    min-width: 0;
+    padding: calc(var(--nav-size) * 0.4);
+    border-radius: var(--border-radius-lg);
+    background: color-mix(in srgb, var(--not-found-hue) 9%, var(--bg-1));
+    color: var(--text-color);
+    text-decoration: none;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+.not-found-links > li:nth-child(2) .not-found-link { --not-found-hue: var(--fg-mint); }
+.not-found-links > li:nth-child(3) .not-found-link { --not-found-hue: var(--fg-orange); }
+.not-found-links > li:nth-child(4) .not-found-link { --not-found-hue: var(--fg-pink); }
+
+.not-found-link:hover {
+    background: color-mix(in srgb, var(--not-found-hue) 18%, var(--bg-1));
+    color: var(--text-color);
+    transform: translateY(-2px);
+}
+.not-found-link:focus-visible {
+    outline: var(--focus-outline);
+    outline-offset: 3px;
+}
+
+.not-found-link-title {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.12);
+    font-size: var(--font-size-large);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.2;
+}
+.not-found-link-arrow { margin-left: auto; transition: transform 0.2s ease; }
+.not-found-link:hover .not-found-link-arrow { transform: translateX(4px); }
+
+.not-found-link-desc {
+    color: var(--text-color-accent);
+    font-size: var(--font-size-small);
+    line-height: var(--line-height-base);
+}
+
+/* ── Reduced motion: the gradient stops moving and nothing lifts or slides ── */
+@media (prefers-reduced-motion: reduce) {
+    .not-found-hero,
+    .not-found-hero-circle {
+        animation: none;
+    }
+    .not-found-btn:hover,
+    .not-found-link:hover {
+        transform: none;
+    }
+    .not-found-btn-text:hover span,
+    .not-found-link:hover .not-found-link-arrow {
+        transform: none;
     }
 }
 
-@media (max-width: 480px) {
-    .not-found-code {
-        font-size: clamp(3rem, 22vw, 6rem);
-    }
 
-    .not-found-tile {
-        padding: 0 var(--spacing-xs);
-    }
-
-    .not-found-actions {
-        width: 100%;
-    }
-
-    .not-found-btn {
-        width: 100%;
-        max-width: 280px;
-    }
-}
-
-/* Landscape phones (short viewport height) — Home.css's landscape rules only
- * add horizontal padding, so on a ~375-430px-tall phone in landscape the tile
- * still needed ~2x the viewport height to scroll through. Compress the
- * vertical rhythm so the whole card fits without scrolling. */
-@media (orientation: landscape) and (max-height: 500px) {
-    .not-found-section.hero-section {
-        margin-top: calc(var(--nav-size) * 0.5);
-    }
-
-    #content-tile.not-found-tile {
-        padding-top: calc(var(--nav-size) * 0.3);
-    }
-
-    .not-found-code {
-        font-size: clamp(2.25rem, 9vw, 3.5rem);
-    }
-
-    .not-found-tile .not-found-message,
-    #text-body.not-found-message {
-        padding: calc(var(--spacing-xs) * 0.5) 0;
-        font-size: var(--font-size-base);
-    }
-
-    .not-found-tile .not-found-subtext,
-    #text-subtext.not-found-subtext {
-        padding: calc(var(--spacing-xs) * 0.5) 0;
-        margin-bottom: var(--spacing-xs);
-        font-size: var(--font-size-small);
-    }
-
-    .not-found-actions {
-        margin-top: var(--spacing-xs);
-    }
-
-    #content-button.not-found-btn {
-        padding: calc(var(--spacing-xs) * 0.75) var(--spacing-md);
-        min-height: 36px;
-    }
-}

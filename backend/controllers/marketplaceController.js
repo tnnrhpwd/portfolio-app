@@ -73,6 +73,7 @@ const {
 } = require('../services/marketplaceRanking');
 const { scrubForPublish } = require('../services/marketplaceScrub');
 const { summarizeCapabilities } = require('../services/marketplaceCapabilities');
+const { upsertGoal, getGoalBySlug, slugifyGoal } = require('../services/workspaceGoals');
 
 const client = new DynamoDBClient({
     region: process.env.AWS_REGION,
@@ -91,6 +92,10 @@ const NAME_MAX = 120;
 const DESC_MAX = 2000;
 const MAX_STEPS = 500;
 const MAX_CATEGORIES = 20;
+// Goals (§4.7): a shared goal is text — its description, success criteria and
+// optional constraints — so it has its own size caps and no steps at all.
+const GOAL_CONTENT_MAX = 4000;
+const GOAL_CRITERIA_MAX = 400;
 
 // Author-scope publish rate limit (§4.6: "reduce spam bursts").
 const AUTHOR_PUBLISH_WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -127,6 +132,32 @@ function ageDaysOf(iso) {
     return Math.max(0, ms / (1000 * 60 * 60 * 24));
 }
 
+/**
+ * Author-scope publish rate limit, shared by skill and goal publishing (§4.6).
+ * Reads the author's rolling window, refuses the publish when it's full, and
+ * records this one. (publishSkill still inlines its own copy of this — migrate
+ * it here next time that handler is touched.)
+ */
+async function checkAuthorPublishLimit(userId) {
+    const limiterKey = authorLimiterId(userId);
+    const limiterItem = await getItem(limiterKey);
+    const now = Date.now();
+    const recent = ((limiterItem && limiterItem.recentPublishTimestamps) || [])
+        .filter(ts => now - ts < AUTHOR_PUBLISH_WINDOW_MS);
+    if (recent.length >= AUTHOR_PUBLISH_MAX) {
+        return { ok: false, message: `Publish rate limit exceeded (${AUTHOR_PUBLISH_MAX}/hour). Try again later.` };
+    }
+    await dynamodb.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: {
+            id: limiterKey,
+            createdAt: MARKET_CREATED_AT,
+            recentPublishTimestamps: [...recent, now],
+        },
+    }));
+    return { ok: true };
+}
+
 function metaToSummary(meta) {
     const ratingCount = meta.ratingCount || 0;
     const avgRating = ratingCount > 0 ? (meta.ratingSum || 0) / ratingCount : 0;
@@ -160,6 +191,9 @@ function metaToSummary(meta) {
 
     return {
         marketId: meta.marketId || meta.id?.replace('csimple_market_', ''),
+        // §4.7: one namespace, two kinds. Absent means 'skill' — every entry
+        // written before goals existed is a skill.
+        kind: meta.kind || 'skill',
         authorUserId: meta.authorUserId,
         name: meta.name,
         slug: meta.slug,
@@ -167,6 +201,12 @@ function metaToSummary(meta) {
         toolSchemaVersion: meta.toolSchemaVersion,
         declaredCategories: meta.declaredCategories || [],
         naturalLanguageDescription: meta.naturalLanguageDescription || '',
+        // Goal payload (empty for skills).
+        content: meta.content || '',
+        successCriteria: meta.successCriteria || '',
+        constraints: meta.constraints || '',
+        priority: meta.priority ?? null,
+        sourceGoalSlug: meta.sourceGoalSlug || null,
         downloads: meta.downloads || 0,
         installs: meta.installs || 0,
         creations: meta.creations || 0,
@@ -344,6 +384,9 @@ const searchMarketSkills = asyncHandler(async (req, res) => {
     });
 
     let summaries = items.map(metaToSummary);
+
+    // The skills browser shows skills; goals have their own endpoint (§4.7).
+    summaries = summaries.filter(s => s.kind !== 'goal');
 
     if (q) {
         const needle = String(q).toLowerCase();
@@ -547,6 +590,245 @@ const flagMarketSkill = asyncHandler(async (req, res) => {
     res.status(200).json({ ok: true, flagCount: updatedMeta.flagCount });
 });
 
+/* ── Shared GOALS (§4.7) ─────────────────────────────────────────────────────
+   Goals ride the exact same machinery as skills: one `csimple_market_*`
+   namespace, one trust ranking, one install-attestation gate. The differences
+   are all in the payload — a goal is its text (content + success criteria +
+   constraints) instead of a compiled `steps` array, and its marketId is the
+   goal's slug, because a slug is what someone can share.
+
+   "Install" for a goal means *save a copy into my workspace*, where it becomes
+   an ordinary goal the caller owns and can edit, enlist an agent for, or delete.
+   ────────────────────────────────────────────────────────────────────────── */
+
+// @desc    Publish a goal (new shared goal, or a new version of one this user
+//          already authored). The goal's text is scrubbed with the same
+//          PII/secret pass a skill gets (§6.1) before it is persisted.
+// @route   POST /api/data/market/goals
+// @access  Private
+const publishGoal = asyncHandler(async (req, res) => {
+    if (!req.user) unauthorized(res);
+    const {
+        marketId: inputMarketId,
+        name,
+        slug,
+        content,
+        successCriteria,
+        constraints,
+        priority,
+        naturalLanguageDescription,
+        declaredCategories,
+    } = req.body || {};
+
+    if (!slug || !SLUG_RE.test(slug)) badRequest(res, 'Invalid slug. Lowercase letters/digits/underscore/hyphen, 1-100 chars.');
+    if (typeof name !== 'string' || !name.trim()) badRequest(res, 'name is required');
+    if (typeof content !== 'string' || !content.trim()) badRequest(res, 'content (what the goal is) is required');
+    if (content.length > GOAL_CONTENT_MAX) badRequest(res, `content: max ${GOAL_CONTENT_MAX} chars`);
+    if (successCriteria != null && String(successCriteria).length > GOAL_CRITERIA_MAX) badRequest(res, `successCriteria: max ${GOAL_CRITERIA_MAX} chars`);
+    if (declaredCategories != null && !Array.isArray(declaredCategories)) badRequest(res, 'declaredCategories must be an array');
+    if ((declaredCategories || []).length > MAX_CATEGORIES) badRequest(res, `declaredCategories: max ${MAX_CATEGORIES}`);
+    if (naturalLanguageDescription != null && String(naturalLanguageDescription).length > DESC_MAX) {
+        badRequest(res, `naturalLanguageDescription: max ${DESC_MAX} chars`);
+    }
+
+    let marketId = inputMarketId;
+    let existingMeta = null;
+    if (marketId) {
+        existingMeta = await getItem(metaId(marketId));
+        if (!existingMeta) badRequest(res, `Unknown marketId: ${marketId}`);
+        if ((existingMeta.kind || 'skill') !== 'goal') badRequest(res, 'That marketId is a skill, not a goal.');
+        if (existingMeta.authorUserId !== req.user.id) {
+            res.status(403);
+            throw new Error('Only the original author can publish a new version of this goal.');
+        }
+    } else {
+        // A goal is addressed by its slug. If the slug is taken — by a skill
+        // (which would make the two indistinguishable in search) or by someone
+        // else's goal — say so instead of silently overwriting.
+        marketId = slug;
+        const taken = await getItem(metaId(marketId));
+        if (taken && (taken.kind || 'skill') !== 'goal') {
+            badRequest(res, `"${slug}" is already published as a skill. Give the goal a different name.`);
+        }
+        if (taken && taken.authorUserId !== req.user.id) {
+            res.status(409);
+            throw new Error(`A shared goal with the slug "${slug}" already exists. Give yours a different name.`);
+        }
+        existingMeta = taken || null;
+    }
+
+    const limit = await checkAuthorPublishLimit(req.user.id);
+    if (!limit.ok) { res.status(429); throw new Error(limit.message); }
+
+    // Scrub the goal's text with the same pass a skill's steps go through.
+    const targets = [{ type: 'text', text: content.trim() }];
+    if (successCriteria) targets.push({ type: 'text', text: String(successCriteria) });
+    if (constraints) targets.push({ type: 'text', text: String(constraints) });
+    const { skill: scrubbed, report: scrubReport } = scrubForPublish({ steps: targets, params: [] });
+
+    const version = existingMeta ? (existingMeta.latestVersion || 0) + 1 : 1;
+    const nowIso = new Date().toISOString();
+
+    const versionItem = {
+        id: versionId(marketId, version),
+        createdAt: MARKET_CREATED_AT,
+        marketId,
+        version,
+        kind: 'goal',
+        authorUserId: req.user.id,
+        name: name.trim().slice(0, NAME_MAX),
+        slug,
+        goal: {
+            content: scrubbed.steps[0].text,
+            successCriteria: scrubbed.steps[1]?.text || '',
+            constraints: scrubbed.steps[2]?.text || '',
+        },
+        declaredCategories: declaredCategories || [],
+        naturalLanguageDescription: (naturalLanguageDescription || '').slice(0, DESC_MAX),
+        publishedAt: nowIso,
+    };
+    await dynamodb.send(new PutCommand({ TableName: TABLE_NAME, Item: versionItem }));
+
+    const metaItem = {
+        id: metaId(marketId),
+        createdAt: MARKET_CREATED_AT,
+        marketId,
+        kind: 'goal',
+        authorUserId: req.user.id,
+        name: versionItem.name,
+        slug,
+        latestVersion: version,
+        content: versionItem.goal.content,
+        successCriteria: versionItem.goal.successCriteria,
+        constraints: versionItem.goal.constraints,
+        priority: typeof priority === 'number' ? priority : null,
+        declaredCategories: versionItem.declaredCategories,
+        naturalLanguageDescription: versionItem.naturalLanguageDescription,
+        downloads: existingMeta?.downloads || 0,
+        installs: existingMeta?.installs || 0,
+        creations: (existingMeta?.creations || 0) + (existingMeta ? 0 : 1),
+        ratingCount: existingMeta?.ratingCount || 0,
+        ratingSum: existingMeta?.ratingSum || 0,
+        flagCount: existingMeta?.flagCount || 0,
+        firstPublishedAt: existingMeta?.firstPublishedAt || nowIso,
+        updatedAt: nowIso,
+    };
+    await dynamodb.send(new PutCommand({ TableName: TABLE_NAME, Item: metaItem }));
+
+    res.status(200).json({
+        marketId,
+        version,
+        isNewGoal: !existingMeta,
+        goal: metaToSummary(metaItem),
+        scrubReport,
+    });
+});
+
+// @desc    Search/browse shared goals.
+// @route   GET /api/data/market/goals?q=&sort=trust|downloads|recent&page=&perPage=
+// @access  Private
+const listMarketGoals = asyncHandler(async (req, res) => {
+    if (!req.user) unauthorized(res);
+    const { q, sort = 'trust' } = req.query;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const perPage = Math.min(50, Math.max(1, parseInt(req.query.perPage, 10) || 20));
+
+    const items = await paginatedScan({
+        TableName: TABLE_NAME,
+        ConsistentRead: true,
+        FilterExpression: 'begins_with(id, :prefix) AND attribute_exists(marketId) AND attribute_exists(latestVersion)',
+        ExpressionAttributeValues: { ':prefix': 'csimple_market_' },
+    });
+
+    let goals = items.map(metaToSummary).filter(s => s.kind === 'goal');
+
+    if (q) {
+        const needle = String(q).toLowerCase();
+        goals = goals.filter(g =>
+            (g.name || '').toLowerCase().includes(needle) ||
+            (g.naturalLanguageDescription || '').toLowerCase().includes(needle) ||
+            (g.content || '').toLowerCase().includes(needle) ||
+            (g.slug || '').toLowerCase().includes(needle));
+    }
+
+    goals = sortSkills(goals, sort);
+
+    const total = goals.length;
+    const start = (page - 1) * perPage;
+    res.status(200).json({ goals: goals.slice(start, start + perPage), total, page, perPage });
+});
+
+// @desc    Fetch one shared goal (summary only — the text lives on the meta item).
+// @route   GET /api/data/market/goals/:marketId
+// @access  Private
+const getMarketGoal = asyncHandler(async (req, res) => {
+    if (!req.user) unauthorized(res);
+    const meta = await getItem(metaId(req.params.marketId));
+    if (!meta || (meta.kind || 'skill') !== 'goal') { res.status(404); throw new Error('Shared goal not found'); }
+    res.status(200).json(metaToSummary(meta));
+});
+
+// @desc    "Install" a shared goal: save a private copy into the caller's
+//          workspace goal store (a free slug — saving twice must not clobber
+//          the first copy), bump the counters, and record the install so the
+//          goal can be rated.
+// @route   POST /api/data/market/goals/:marketId/install
+// @access  Private
+const installMarketGoal = asyncHandler(async (req, res) => {
+    if (!req.user) unauthorized(res);
+    const { marketId } = req.params;
+    const meta = await getItem(metaId(marketId));
+    if (!meta || (meta.kind || 'skill') !== 'goal') { res.status(404); throw new Error('Shared goal not found'); }
+
+    const baseName = meta.name || 'Shared goal';
+    let name = baseName;
+    let clash = await getGoalBySlug(req.user.id, slugifyGoal(name));
+    for (let i = 2; clash && i <= 20; i += 1) {
+        const candidate = `${baseName} (${i})`;
+        // eslint-disable-next-line no-await-in-loop
+        clash = await getGoalBySlug(req.user.id, slugifyGoal(candidate));
+        if (!clash) name = candidate;
+    }
+
+    const created = await upsertGoal(req.user.id, {
+        name,
+        content: meta.content || meta.naturalLanguageDescription || baseName,
+        successCriteria: meta.successCriteria || undefined,
+        constraints: meta.constraints || undefined,
+        status: 'active',
+        priority: typeof meta.priority === 'number' ? meta.priority : 50,
+        createdBy: 'user',
+        tags: ['marketplace', marketId],
+    });
+
+    const nowIso = new Date().toISOString();
+    await dynamodb.send(new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: { id: metaId(marketId), createdAt: MARKET_CREATED_AT },
+        UpdateExpression: 'SET downloads = if_not_exists(downloads, :zero) + :one, installs = if_not_exists(installs, :zero) + :one',
+        ExpressionAttributeValues: { ':one': 1, ':zero': 0 },
+    }));
+    await dynamodb.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: {
+            id: installId(marketId, req.user.id),
+            createdAt: MARKET_CREATED_AT,
+            installedAt: nowIso,
+            attemptedRun: false,
+            lastVersion: meta.latestVersion,
+        },
+    }));
+
+    const updated = await getItem(metaId(marketId));
+    res.status(200).json({
+        ok: true,
+        goalSlug: created?.slug || slugifyGoal(name),
+        name: created?.name || name,
+        downloads: updated?.downloads || 0,
+        installs: updated?.installs || 0,
+    });
+});
+
 // @desc    Aggregate one author's marketplace totals (downloads, installs,
 //          creations) across every skill they've published. Not an HTTP
 //          route itself — called by workspaceController.getTelemetrySummary
@@ -578,6 +860,10 @@ module.exports = {
     installMarketSkill,
     rateMarketSkill,
     flagMarketSkill,
+    publishGoal,
+    listMarketGoals,
+    getMarketGoal,
+    installMarketGoal,
     getAuthorMarketplaceTotals,
     // Exported for tests only.
     _internal: { TABLE_NAME, MARKET_CREATED_AT, metaId, versionId, installId, ratingId, authorLimiterId, metaToSummary },

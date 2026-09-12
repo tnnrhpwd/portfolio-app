@@ -1,20 +1,35 @@
+/* ── ErrorBoundary (the crash screen) ─────────────────────────────────────────
+   Built to docs/guides/FRONTEND_UI_STANDARD.md.
+
+   Deliberately self-contained: this is what renders when the app throws, so it
+   cannot depend on Header / Footer / the router / SEO — all of which may be the
+   thing that broke. It uses tokens and its own styles only.
+
+   Shape: the animated vibrant gradient covers the single screen (fine for a
+   short page — §5), the floating circles match the Discovery pages, and the
+   message sits on one flat plane of color rather than in a glassmorphic card.
+   The old version stacked backdrop-filter + rgba(255,255,255,.1) fills +
+   hardcoded reds, none of which survive a theme flip or match the site. */
+
 .error-boundary {
+  position: relative;
   min-height: 100vh;
   min-height: 100svh;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
+  padding: calc(var(--nav-size) * 1.5) calc(var(--nav-size) * 0.3);
+  overflow-x: hidden;
+  color: var(--text-color);
   background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
   background-size: 400% 400%;
-  animation: gradientShift 12s ease infinite;
-  padding: var(--spacing-lg);
-  box-sizing: border-box;
-  font-family: var(--font-family-base);
-  position: relative;
-  overflow-x: hidden;
+  animation: errorBoundaryGradientShift 12s ease infinite;
 }
+.light-theme .error-boundary { animation-duration: 15s; }
+.dark-theme .error-boundary { animation-duration: 10s; }
 
-@keyframes gradientShift {
+@keyframes errorBoundaryGradientShift {
   0% { background-position: 0% 50%; }
   25% { background-position: 100% 50%; }
   50% { background-position: 100% 100%; }
@@ -23,166 +38,152 @@
 }
 
 /* Floating background elements (same family as Home / 404) */
-.error-boundary-shapes {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+.error-boundary-floating {
   pointer-events: none;
+  position: absolute;
+  inset: 0;
   z-index: 1;
+  overflow: hidden;
 }
 
 .error-boundary-circle {
   position: absolute;
   border-radius: 50%;
-  background: radial-gradient(circle, var(--white1-transp) 0%, transparent 70%);
+  background: radial-gradient(circle, var(--white1-transp, #f4f7fd33) 0%, transparent 70%);
   animation: errorBoundaryFloat 6s ease-in-out infinite;
 }
 
 .error-boundary-circle-1 {
-  width: 120px;
-  height: 120px;
-  top: 18%;
-  left: 8%;
-  animation-duration: 8s;
+  width: 180px;
+  height: 180px;
+  top: 8%;
+  left: 6%;
+  animation-duration: 9s;
 }
 
 .error-boundary-circle-2 {
-  width: 80px;
-  height: 80px;
-  top: 58%;
-  right: 12%;
+  width: 120px;
+  height: 120px;
+  top: 55%;
+  right: 8%;
   animation-delay: -2s;
-  animation-duration: 10s;
+  animation-duration: 11s;
 }
 
 .error-boundary-circle-3 {
-  width: 150px;
-  height: 150px;
-  bottom: 14%;
-  left: 58%;
+  width: 220px;
+  height: 220px;
+  bottom: 5%;
+  left: 55%;
   animation-delay: -4s;
-  animation-duration: 12s;
+  animation-duration: 13s;
 }
 
 @keyframes errorBoundaryFloat {
-  0%, 100% {
-    transform: translateY(0px) rotate(0deg);
-    opacity: 0.3;
-  }
-  33% {
-    transform: translateY(-14px) rotate(120deg);
-    opacity: 0.55;
-  }
-  66% {
-    transform: translateY(8px) rotate(240deg);
-    opacity: 0.4;
-  }
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-24px) rotate(180deg); }
 }
 
-/* Centered, vertically-filling section so the tile sits mid-screen */
-.error-boundary-section {
+/* ── The message: one flat plane of color (§5 — no container border, no glass) ──
+   The fill is a wash of --red0 over --bg-page so the panel says "error" in both
+   themes, while the copy stays --text-color: the standard uses red as a tint,
+   never as small type (red ink on a dark panel is ~2.7:1). */
+.error-boundary-content {
   position: relative;
   z-index: 2;
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: 100%;
-}
-
-.error-boundary-content {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: var(--border-radius-lg);
-  padding: var(--spacing-2xl);
-  max-width: 600px;
-  width: 100%;
+  max-width: 620px;
   box-sizing: border-box;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  padding: calc(var(--nav-size) * 1.1) calc(var(--nav-size) * 0.9);
+  border-radius: var(--border-radius-2xl);
+  background: color-mix(in srgb, var(--red0) 7%, var(--bg-page));
   box-shadow: var(--shadow-lg);
   text-align: center;
   opacity: 0;
-  transform: translateY(30px);
-  animation: errorBoundaryFadeInUp 0.8s ease 0.3s forwards;
+  transform: translateY(16px);
+  animation: errorBoundaryEntrance 0.5s ease 0.1s forwards;
 }
 
-@keyframes errorBoundaryFadeInUp {
+@keyframes errorBoundaryEntrance {
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-/* Big gradient exclamation mark — the 404 page's ".not-found-code" equivalent */
+.error-boundary-eyebrow {
+  margin: 0 0 calc(var(--nav-size) * 0.15);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+
+/* Decorative glyph — gradient text is display type only (§6), and CutiveMono is
+   the site's own font face. */
 .error-boundary-code {
   font-family: 'CutiveMono-Regular', monospace;
-  font-weight: 900;
-  font-size: clamp(3rem, 16vw, 5.5rem);
-  line-height: var(--line-height-tight);
-  margin: 0 0 var(--spacing-xs) 0;
+  font-weight: var(--font-weight-bold);
+  font-size: calc(var(--nav-size) * 1.1);
+  line-height: 1;
+  margin: 0 0 calc(var(--nav-size) * 0.1);
   background: linear-gradient(135deg, var(--fg-blue), var(--fg-pink));
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
   background-clip: text;
-  text-shadow: none;
+  -webkit-text-fill-color: transparent;
   user-select: none;
 }
 
 .error-boundary-title {
-  color: var(--red0);
+  color: var(--text-color);
   font-size: var(--font-size-heading);
   font-weight: var(--font-weight-bold);
-  margin: 0 0 var(--spacing-md) 0;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
   line-height: var(--line-height-tight);
+  margin: 0 0 calc(var(--nav-size) * 0.25);
   overflow-wrap: anywhere;
 }
 
 .error-boundary-message {
   color: var(--text-color);
-  font-size: var(--font-size-large);
+  font-size: var(--font-size-base);
   line-height: var(--line-height-relaxed);
-  margin: 0 0 var(--spacing-xl) 0;
-  opacity: 0.9;
+  margin: 0 auto calc(var(--nav-size) * 0.6);
+  max-width: 460px;
 }
 
+/* ── Development-only details: a quiet wash inside the panel, not a box ── */
 .error-boundary-details {
   text-align: left;
-  margin: var(--spacing-lg) 0;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  margin: calc(var(--nav-size) * 0.5) 0;
   border-radius: var(--border-radius);
+  background: color-mix(in srgb, var(--fg-blue) 7%, transparent);
   overflow: hidden;
-  backdrop-filter: blur(5px);
 }
 
 .error-boundary-details summary {
-  padding: var(--spacing-md);
-  background: rgba(255, 255, 255, 0.1);
-  cursor: pointer;
+  padding: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.35);
+  font-size: var(--font-size-small);
   font-weight: var(--font-weight-semibold);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   color: var(--text-color);
-  transition: all 0.3s ease;
+  cursor: pointer;
 }
 
 .error-boundary-details summary:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateX(2px);
+  color: var(--fg-blue);
 }
 
 .error-boundary-error-info {
-  padding: var(--spacing-md);
-  background: rgba(0, 0, 0, 0.1);
+  padding: 0 calc(var(--nav-size) * 0.35) calc(var(--nav-size) * 0.35);
 }
 
 .error-boundary-error-info h3 {
-  color: var(--text-color-strong);
-  font-size: var(--font-size-base);
+  color: var(--text-color);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  margin: var(--spacing-md) 0 var(--spacing-sm) 0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: calc(var(--nav-size) * 0.25) 0 calc(var(--nav-size) * 0.1);
 }
 
 .error-boundary-error-info h3:first-child {
@@ -190,213 +191,172 @@
 }
 
 .error-boundary-error-info pre {
-  background: rgba(0, 0, 0, 0.2);
-  padding: var(--spacing-sm);
-  border-radius: var(--border-radius);
-  overflow-x: auto;
-  font-size: calc(var(--font-size-base) * 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  white-space: pre-wrap;
-  word-wrap: break-word;
+  margin: 0;
+  padding: calc(var(--nav-size) * 0.25);
+  border-radius: var(--border-radius-sm);
+  background: var(--bg-page);
   color: var(--text-color);
-  backdrop-filter: blur(5px);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-base);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: auto;
+  max-height: calc(var(--nav-size) * 5);
 }
 
+/* ── Actions ── */
 .error-boundary-actions {
   display: flex;
-  gap: var(--spacing-md);
-  justify-content: center;
-  margin: var(--spacing-xl) 0 var(--spacing-md) 0;
   flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.35);
+  margin: calc(var(--nav-size) * 0.6) 0 0;
 }
 
+/* `index.css` styles every <button> aggressively — gradient fill, 44px minimum
+   height, overflow: hidden, and a `button:hover:not(:disabled)` gradient that
+   out-ranks a plain class rule — so this one recipe styles both the <button>
+   (Refresh) and the <a> (Go to home), and every hover repeats :not(:disabled). */
 .error-boundary-button {
-  padding: var(--spacing-md) var(--spacing-lg);
-  border: none;
-  border-radius: var(--border-radius);
-  font-size: var(--font-size-base);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
   font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  min-width: 120px;
-  min-height: 44px;
-  position: relative;
-  overflow: hidden;
-  line-height: var(--line-height-base);
+  font-size: var(--font-size-small);
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  box-shadow: var(--shadow-md);
-}
-
-.error-boundary-button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s;
-}
-
-.error-boundary-button:hover::before {
-  left: 100%;
-}
-
-.error-boundary-button-primary {
-  background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+  text-decoration: none;
+  border-radius: 999px;
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.5);
+  min-height: 44px;
+  border: 1px solid transparent;
   color: var(--text-color-inv);
+  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  box-shadow: none;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease,
+    border-color 0.2s ease;
 }
 
-.error-boundary-button-primary:hover {
+.error-boundary-button:hover:not(:disabled) {
+  color: var(--text-color-inv);
   transform: translateY(-2px);
-  box-shadow: 0 calc(var(--nav-size) * 0.4) calc(var(--nav-size) * 1) rgba(0, 123, 255, 0.3);
+  box-shadow: var(--shadow-lg);
 }
 
 .error-boundary-button-secondary {
-  background: linear-gradient(135deg, var(--red0), #c41e3a);
-  color: var(--text-color-inv);
+  background: transparent;
+  color: var(--text-color);
+  border-color: color-mix(in srgb, var(--text-color) 35%, transparent);
 }
 
-.error-boundary-button-secondary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 calc(var(--nav-size) * 0.4) calc(var(--nav-size) * 1) rgba(220, 53, 69, 0.3);
+.error-boundary-button-secondary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text-color) 8%, transparent);
+  color: var(--text-color);
+  border-color: color-mix(in srgb, var(--text-color) 55%, transparent);
+  box-shadow: none;
+  transform: none;
+}
+
+.error-boundary-button:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: 3px;
 }
 
 .error-boundary-error-id {
-  font-size: calc(var(--font-size-base) * 0.85);
+  margin: calc(var(--nav-size) * 0.5) 0 0;
   color: var(--text-color-accent);
-  font-family: 'Courier New', monospace;
-  margin: var(--spacing-md) 0 0 0;
-  padding-top: var(--spacing-md);
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-  opacity: 0.8;
+  font-family: 'CutiveMono-Regular', monospace;
+  font-size: var(--font-size-small);
   overflow-wrap: anywhere;
 }
 
-/* Responsive design */
-@media (max-width: 768px) {
+/* ── Small screens: same rhythm, tighter ── */
+@media (max-width: 480px) {
   .error-boundary {
-    padding: var(--spacing-md);
+    padding: calc(var(--nav-size) * 1.2) calc(var(--nav-size) * 0.3);
   }
 
   .error-boundary-content {
-    padding: var(--spacing-lg);
+    padding: calc(var(--nav-size) * 0.8) calc(var(--nav-size) * 0.5);
+  }
+
+  .error-boundary-code {
+    font-size: var(--nav-size);
   }
 
   .error-boundary-title {
-    font-size: calc(var(--font-size-heading) * 0.85);
-  }
-
-  .error-boundary-message {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-large);
   }
 
   .error-boundary-actions {
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
   }
 
   .error-boundary-button {
     width: 100%;
-    max-width: 250px;
   }
 
   .error-boundary-circle-1,
   .error-boundary-circle-2,
   .error-boundary-circle-3 {
-    width: 90px;
-    height: 90px;
+    width: 120px;
+    height: 120px;
   }
 }
 
-@media (max-width: 480px) {
-  .error-boundary {
-    padding: var(--spacing-sm);
-  }
-
-  .error-boundary-content {
-    padding: var(--spacing-md);
-    border-radius: var(--border-radius-xl);
-  }
-
-  .error-boundary-code {
-    font-size: clamp(2.5rem, 22vw, 4.5rem);
-  }
-
-  .error-boundary-title {
-    font-size: calc(var(--font-size-heading) * 0.7);
-  }
-
-  .error-boundary-actions {
-    margin-top: var(--spacing-lg);
-  }
-}
-
-/* Landscape phones (short viewport) — compress vertical rhythm so the tile
- * fits without scrolling. */
+/* ── Landscape phones: very little height, so drop the garnish ── */
 @media (orientation: landscape) and (max-height: 500px) {
   .error-boundary {
-    padding: calc(var(--spacing-sm) * 0.5);
+    padding: calc(var(--nav-size) * 0.4);
   }
 
   .error-boundary-content {
-    padding: var(--spacing-sm) var(--spacing-md);
+    padding: calc(var(--nav-size) * 0.5) calc(var(--nav-size) * 0.7);
+    border-radius: var(--border-radius-lg);
   }
 
-  .error-boundary-code {
-    font-size: clamp(1.75rem, 8vw, 3rem);
-    margin-bottom: 0;
-  }
-
-  .error-boundary-title {
-    font-size: var(--font-size-large);
-    margin-bottom: var(--spacing-xs);
+  .error-boundary-code,
+  .error-boundary-floating {
+    display: none;
   }
 
   .error-boundary-message {
-    font-size: var(--font-size-small);
-    margin-bottom: var(--spacing-sm);
+    margin-bottom: calc(var(--nav-size) * 0.3);
   }
 
   .error-boundary-actions {
-    flex-direction: row;
-    margin: var(--spacing-sm) 0 var(--spacing-xs) 0;
-  }
-
-  .error-boundary-button {
-    padding: calc(var(--spacing-xs) * 0.75) var(--spacing-md);
-    min-height: 36px;
-  }
-
-  .error-boundary-error-id {
-    margin-top: var(--spacing-xs);
-    padding-top: var(--spacing-xs);
+    margin-top: calc(var(--nav-size) * 0.3);
   }
 }
 
-/* High contrast mode support */
+/* ── High contrast: drop the tint, keep an explicit edge ── */
 @media (prefers-contrast: high) {
   .error-boundary-content {
-    border: 3px solid var(--text-color);
+    background: var(--bg-page);
+    box-shadow: none;
   }
-  
+
   .error-boundary-details {
-    border: 3px solid var(--text-color);
+    background: var(--bg-accent);
   }
-  
+
   .error-boundary-button {
-    border: 2px solid var(--text-color-inv);
+    border-width: 2px;
+    border-color: var(--text-color-inv);
+  }
+
+  .error-boundary-button-secondary {
+    border-color: var(--text-color);
   }
 }
 
-/* Reduced motion preferences */
+/* ── Reduced motion: the gradient stops, nothing slides ── */
 @media (prefers-reduced-motion: reduce) {
-  .error-boundary {
-    animation: none;
-    background: var(--bg-1);
-  }
-
+  .error-boundary,
   .error-boundary-circle {
     animation: none;
   }
@@ -404,20 +364,20 @@
   .error-boundary-content {
     animation: none;
     opacity: 1;
-    transform: translateY(0);
-  }
-  
-  .error-boundary-button:hover,
-  .error-boundary-details summary:hover {
     transform: none;
   }
-  
-  .error-boundary-button::before {
-    display: none;
+
+  .error-boundary-button:hover:not(:disabled) {
+    transform: none;
   }
-  
-  * {
-    transition: none !important;
+
+  /* Scoped to the crash screen on purpose: this stylesheet loads globally, so
+     the old bare `* { animation: none !important }` here switched off every
+     animation on the site for anyone with reduced motion enabled. */
+  .error-boundary *,
+  .error-boundary *::before,
+  .error-boundary *::after {
     animation: none !important;
+    transition: none !important;
   }
 }

@@ -88,7 +88,8 @@ function HeaderDropper(props) {
                 hidden for lack of room. */}
             <Link className="dropper-link" to="/simple" onClick={closeMenu}>Simple</Link>
             <Link className="dropper-link" to="/plans" onClick={closeMenu}>Plans</Link>
-            <Link className="dropper-link" to="/market" onClick={closeMenu}>Marketplace</Link>
+            {/* Same word the header switcher uses for this room. */}
+            <Link className="dropper-link" to="/market" onClick={closeMenu}>Market</Link>
           </li>
         )}
 

@@ -124,6 +124,10 @@ const {
   installMarketSkill,
   rateMarketSkill,
   flagMarketSkill,
+  publishGoal,
+  listMarketGoals,
+  getMarketGoal,
+  installMarketGoal,
 } = require('../controllers/marketplaceController');
 
 // Addon relay controller (cloud command relay for remote execution)
@@ -651,6 +655,17 @@ router.get('/market/skills/:marketId{/:version}', protect, marketReadLimiter, ge
 router.post('/market/skills/:marketId/install', protect, marketWriteLimiter, sanitizeInput, installMarketSkill);
 router.post('/market/skills/:marketId/rate', protect, marketWriteLimiter, sanitizeInput, rateMarketSkill);
 router.post('/market/skills/:marketId/flag', protect, marketWriteLimiter, sanitizeInput, flagMarketSkill);
+
+// Shared GOALS (§4.7) — same namespace, same trust rules, goal payloads.
+// "install" saves a private copy into the caller's workspace goal store.
+// Ratings reuse the skills' install-gated rate endpoint above, since a goal's
+// install attestation is written by installMarketGoal just like a skill's.
+router.route('/market/goals')
+  .get(protect, marketReadLimiter, listMarketGoals)
+  .post(protect, marketPublishLimiter, sanitizeInput, publishGoal);
+
+router.get('/market/goals/:marketId', protect, marketReadLimiter, getMarketGoal);
+router.post('/market/goals/:marketId/install', protect, marketWriteLimiter, sanitizeInput, installMarketGoal);
 
 // ============================================================================
 // ADDON RELAY (cloud command relay for phone → desktop execution)

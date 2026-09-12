@@ -81,10 +81,6 @@ class ErrorBoundary extends React.Component {
     window.location.reload();
   };
 
-  handleGoHome = () => {
-    window.location.href = '/';
-  };
-
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
@@ -93,59 +89,59 @@ class ErrorBoundary extends React.Component {
 
       return (
         <div className="error-boundary" role="alert">
-          {/* Floating elements to match the Home / 404 ambience */}
-          <div className="error-boundary-shapes" aria-hidden="true">
-            <div className="error-boundary-circle error-boundary-circle-1"></div>
-            <div className="error-boundary-circle error-boundary-circle-2"></div>
-            <div className="error-boundary-circle error-boundary-circle-3"></div>
+          {/* Decorative ambience — the same floating circles the Discovery pages use. */}
+          <div className="error-boundary-floating" aria-hidden="true">
+            <div className="error-boundary-circle error-boundary-circle-1" />
+            <div className="error-boundary-circle error-boundary-circle-2" />
+            <div className="error-boundary-circle error-boundary-circle-3" />
           </div>
 
-          <section className="error-boundary-section">
-            <div className="error-boundary-content">
-              <div className="error-boundary-code" aria-hidden="true">!</div>
-              <h1 className="error-boundary-title">
-                Something went wrong
-              </h1>
-              <p className="error-boundary-message">
-                We're sorry, but something unexpected happened. Please try refreshing the page.
-              </p>
+          {/* The message, on one flat plane of color (§5: no glass, no borders). */}
+          <div className="error-boundary-content">
+            <p className="error-boundary-eyebrow">Something broke</p>
+            {/* Decorative — the <h1> below is what a screen reader should read. */}
+            <div className="error-boundary-code" aria-hidden="true">!</div>
+            <h1 className="error-boundary-title">Something went wrong</h1>
+            <p className="error-boundary-message">
+              This part of the site hit an unexpected error. Refreshing usually clears
+              it up — if it keeps happening, the error ID below is worth passing on.
+            </p>
 
-              {process.env.NODE_ENV === 'development' && this.state.error && (
-                <details className="error-boundary-details">
-                  <summary>Error Details (Development Only)</summary>
-                  <div className="error-boundary-error-info">
-                    <h3>Error:</h3>
-                    <pre>{this.state.error.toString()}</pre>
+            {process.env.NODE_ENV === 'development' && this.state.error && (
+              <details className="error-boundary-details">
+                <summary>Error details (development only)</summary>
+                <div className="error-boundary-error-info">
+                  <h3>Error</h3>
+                  <pre>{this.state.error.toString()}</pre>
 
-                    <h3>Component Stack:</h3>
-                    <pre>{this.state.errorInfo?.componentStack}</pre>
+                  <h3>Component stack</h3>
+                  <pre>{this.state.errorInfo?.componentStack}</pre>
 
-                    <h3>Stack Trace:</h3>
-                    <pre>{this.state.error.stack}</pre>
-                  </div>
-                </details>
-              )}
+                  <h3>Stack trace</h3>
+                  <pre>{this.state.error.stack}</pre>
+                </div>
+              </details>
+            )}
 
-              <div className="error-boundary-actions">
-                <button
-                  onClick={this.handleReload}
-                  className="error-boundary-button error-boundary-button-primary"
-                >
-                  Refresh Page
-                </button>
-                <button
-                  onClick={this.handleGoHome}
-                  className="error-boundary-button error-boundary-button-secondary"
-                >
-                  Go to Home
-                </button>
-              </div>
-
-              <p className="error-boundary-error-id">
-                Error ID: {this.state.errorId}
-              </p>
+            <div className="error-boundary-actions">
+              <button
+                type="button"
+                onClick={this.handleReload}
+                className="error-boundary-button"
+              >
+                Refresh page
+              </button>
+              {/* A real <a> on purpose: a full page load is what we want here, and it
+                  still works if React's event system is the thing that broke. */}
+              <a className="error-boundary-button error-boundary-button-secondary" href="/">
+                Go to home
+              </a>
             </div>
-          </section>
+
+            <p className="error-boundary-error-id">
+              Error ID: {this.state.errorId}
+            </p>
+          </div>
         </div>
       );
     }

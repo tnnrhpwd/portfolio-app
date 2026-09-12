@@ -6,16 +6,20 @@ import Header from '../../../components/Header/Header.jsx';
 import Footer from '../../../components/Footer/Footer.jsx';
 import SEO from '../../../components/SEO/SEO.jsx';
 import LoginGate from '../../../components/Simple/LoginGate/LoginGate.jsx';
+import SimpleNav from '../../../components/Simple/SimpleNav/SimpleNav.jsx';
 import { useAddonDetection } from '../../../hooks/simpleAddon/useAddonDetection.js';
-import useScrollReveal from '../../../hooks/useScrollReveal';
-import { importSkillToAddon, previewSkillCompatibility } from '../../../services/simpleAddonApi.js';
+import { importSkillToAddon, previewSkillCompatibility, listWorkspace } from '../../../services/simpleAddonApi.js';
 import {
   searchMarketSkills,
   getMarketSkill,
   installMarketSkill,
   rateMarketSkill,
   flagMarketSkill,
+  searchMarketGoals,
+  publishMarketGoal,
+  installMarketGoal,
 } from '../../../services/marketplaceApi.js';
+import { slugifyGoalTitle } from '../Plans/plansUtils.js';
 import PublishModal from './PublishModal.jsx';
 import './Market.css';
 
@@ -325,11 +329,14 @@ export default function Market() {
   const token = user?.token;
   const addonConnected = !!addonStatus?.isConnected;
 
-  const [gridRef, gridVisible] = useScrollReveal();
+  // What the browser is showing. Skills and goals share this page (and the
+  // backend's ranking) — the switch is the only difference between them.
+  const [kind, setKind] = useState('skill');
 
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState('trust');
   const [skills, setSkills] = useState([]);
+  const [goals, setGoals] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -345,46 +352,63 @@ export default function Market() {
   const [saveBusy, setSaveBusy] = useState(false);
   const [showPublish, setShowPublish] = useState(false);
 
+  // Goals: the open goal, the save-in-progress flag, the share dialog and the
+  // user's own goals (the pool a share can be picked from).
+  const [goalDetail, setGoalDetail] = useState(null);
+  const [savingGoal, setSavingGoal] = useState(false);
+  const [showShareGoal, setShowShareGoal] = useState(false);
+  const [myGoals, setMyGoals] = useState([]);
+  const [myGoalsLoading, setMyGoalsLoading] = useState(false);
+  const [shareBusy, setShareBusy] = useState(null);
+
   const loadFirstPage = useCallback(async (opts = {}) => {
     if (!token) return;
     setLoading(true);
     setError('');
+    const q = opts.q !== undefined ? opts.q : query;
+    const sortBy = opts.sort !== undefined ? opts.sort : sort;
     try {
-      const res = await searchMarketSkills(token, {
-        q: opts.q !== undefined ? opts.q : query,
-        sort: opts.sort !== undefined ? opts.sort : sort,
-        page: 1,
-        perPage: PER_PAGE,
-      });
-      setSkills(res.skills || []);
-      setTotal(res.total || 0);
+      if (kind === 'goal') {
+        const res = await searchMarketGoals(token, { q, sort: sortBy, page: 1, perPage: PER_PAGE });
+        setGoals(res.goals || []);
+        setTotal(res.total || 0);
+      } else {
+        const res = await searchMarketSkills(token, { q, sort: sortBy, page: 1, perPage: PER_PAGE });
+        setSkills(res.skills || []);
+        setTotal(res.total || 0);
+      }
       setPage(1);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [token, query, sort]);
+  }, [token, query, sort, kind]);
 
   const loadMore = useCallback(async () => {
     if (!token || loadingMore) return;
     setLoadingMore(true);
     try {
       const next = page + 1;
-      const res = await searchMarketSkills(token, { q: query, sort, page: next, perPage: PER_PAGE });
-      setSkills((prev) => [...prev, ...(res.skills || [])]);
+      if (kind === 'goal') {
+        const res = await searchMarketGoals(token, { q: query, sort, page: next, perPage: PER_PAGE });
+        setGoals((prev) => [...prev, ...(res.goals || [])]);
+      } else {
+        const res = await searchMarketSkills(token, { q: query, sort, page: next, perPage: PER_PAGE });
+        setSkills((prev) => [...prev, ...(res.skills || [])]);
+      }
       setPage(next);
     } catch (err) {
       toast.error(err.message);
     } finally {
       setLoadingMore(false);
     }
-  }, [token, loadingMore, page, query, sort]);
+  }, [token, loadingMore, page, query, sort, kind]);
 
   useEffect(() => {
     if (token) loadFirstPage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, sort]);
+  }, [token, sort, kind]);
 
   const onSearch = (e) => {
     e.preventDefault();
@@ -438,13 +462,14 @@ export default function Market() {
     }
   };
 
-  const onFlag = async (skill) => {
-    const reason = window.prompt('Why are you reporting this skill? (optional)');
+  const onFlag = async (item) => {
+    const isGoal = item.kind === 'goal';
+    const reason = window.prompt(`Why are you reporting this ${isGoal ? 'goal' : 'skill'}? (optional)`);
     if (reason === null) return; // cancelled
     setFlagBusy(true);
     try {
-      const res = await flagMarketSkill(token, skill.marketId, reason || '');
-      toast.success(`Thanks — this skill has been flagged (${res.flagCount} total).`);
+      const res = await flagMarketSkill(token, item.marketId, reason || '');
+      toast.success(`Thanks — this ${isGoal ? 'goal' : 'skill'} has been flagged (${res.flagCount} total).`);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -490,17 +515,85 @@ export default function Market() {
     loadFirstPage();
   };
 
+  // ── Goals ──────────────────────────────────────────────────────────────
+
+  /** Save a shared goal into the signed-in user's own workspace. */
+  const onSaveGoal = async (goal) => {
+    setSavingGoal(true);
+    try {
+      const res = await installMarketGoal(token, goal.marketId);
+      toast.success(`Saved “${res.name}” to your goals — open it on /plans.`);
+      setGoalDetail(null);
+      setGoals((prev) => prev.map((g) => (g.marketId === goal.marketId
+        ? { ...g, installs: res.installs, downloads: res.downloads }
+        : g)));
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSavingGoal(false);
+    }
+  };
+
+  /** Open the share dialog with the caller's own goals loaded. */
+  const openShareGoal = async () => {
+    setShowShareGoal(true);
+    setMyGoalsLoading(true);
+    try {
+      const res = await listWorkspace(token, { kind: 'goal' });
+      setMyGoals(res?.entries || []);
+    } catch (err) {
+      toast.error(err.message);
+      setMyGoals([]);
+    } finally {
+      setMyGoalsLoading(false);
+    }
+  };
+
+  /** Publish one of my goals to the shared marketplace. */
+  const onShareGoal = async (goal, description) => {
+    if (!goal) return;
+    setShareBusy(goal.slug);
+    try {
+      const res = await publishMarketGoal(token, {
+        name: goal.name || goal.slug,
+        slug: slugifyGoalTitle(goal.name || goal.slug),
+        content: goal.content || goal.name || '',
+        successCriteria: goal.successCriteria || undefined,
+        constraints: goal.constraints || undefined,
+        priority: typeof goal.priority === 'number' ? goal.priority : undefined,
+        naturalLanguageDescription: description || goal.description || '',
+        declaredCategories: [],
+      });
+      toast.success(res.isNewGoal
+        ? 'Shared — anyone can save this goal now.'
+        : 'Updated the shared goal to a new version.');
+      setShowShareGoal(false);
+      setKind('goal');
+      if (res.goal) setGoals((prev) => [res.goal, ...prev.filter((g) => g.marketId !== res.goal.marketId)]);
+      loadFirstPage();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setShareBusy(null);
+    }
+  };
+
+  const isGoals = kind === 'goal';
+  const items = isGoals ? goals : skills;
+
   if (!token) {
     return (
       <>
-        <SEO title="Marketplace" description="Discover and install community-built automations for the Simple desktop addon." path="/market" />
-        <Header />
-        <LoginGate
-          redirectTo="/market"
-          eyebrow="Simple Marketplace"
-          title="Sign in to browse the marketplace"
-          subtitle="Discover community-built PC automations you can install into the Simple addon."
-        />
+        <SEO title="Marketplace" description="Discover and save community-built automations and goals for Simple." path="/market" />
+        <Header center={<SimpleNav compact />} />
+        <div className="mkt-surface">
+          <LoginGate
+            redirectTo="/market"
+            eyebrow="Simple Marketplace"
+            title="Sign in to browse the marketplace"
+            subtitle="Skills to install into the Simple addon, and goals to save into your own workspace."
+          />
+        </div>
         <Footer />
       </>
     );
@@ -508,80 +601,111 @@ export default function Market() {
 
   return (
     <>
-      <SEO title="Marketplace" description="Discover and install community-built automations for the Simple desktop addon." path="/market" />
-      <Header />
-      <main className="mkt">
-        <div className="mkt-floating" aria-hidden="true">
-          <div className="mkt-circle mkt-circle-1" />
-          <div className="mkt-circle mkt-circle-2" />
-          <div className="mkt-circle mkt-circle-3" />
-        </div>
+      <SEO title="Marketplace" description="Discover and save community-built automations and goals for Simple." path="/market" />
+      <Header center={<SimpleNav compact />} />
 
-        <section className="mkt-section mkt-hero">
-          <div className="mkt-title-wrap">
-            <p className="mkt-eyebrow">Marketplace</p>
-            <h1 className="mkt-title">Show it once. Share it with everyone.</h1>
-            <p className="mkt-subtitle">
-              Community-built automations for the Simple addon — browse, inspect what each skill
-              does, then install it into the desktop app.{' '}
-              <Link to="/net" className="mkt-hero-link">Open Net AI Chat →</Link>
-            </p>
-          </div>
+      <div className="mkt-surface">
+        <div className="mkt">
+          {/* Toolbar — the page's "hero", collapsed onto one sticky row (§5.7). */}
+          <header className="mkt-bar">
+            <h1 className="mkt-bar-title">Market</h1>
 
-          <form className="mkt-search" onSubmit={onSearch} role="search">
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search skills — e.g. organize downloads"
-              aria-label="Search skills"
-            />
-            <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort skills">
-              <option value="trust">Top rated</option>
-              <option value="downloads">Most downloaded</option>
-              <option value="recent">Newest</option>
-            </select>
-            <button type="submit" className="mkt-btn mkt-btn--primary">Search</button>
-            <button
-              type="button"
-              className="mkt-btn mkt-btn--outline"
-              onClick={() => setShowPublish(true)}
-            >
-              Publish a skill
-            </button>
-          </form>
-        </section>
+            <div className="mkt-switch" role="tablist" aria-label="What to browse">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={!isGoals}
+                className={`mkt-switch-btn ${!isGoals ? 'is-active' : ''}`}
+                onClick={() => setKind('skill')}
+              >
+                🧩 Skills
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={isGoals}
+                className={`mkt-switch-btn ${isGoals ? 'is-active' : ''}`}
+                onClick={() => setKind('goal')}
+              >
+                🎯 Goals
+              </button>
+            </div>
 
-        <section
-          ref={gridRef}
-          className={`mkt-section mkt-results mkt-reveal ${gridVisible ? 'is-visible' : ''}`}
-          aria-live="polite"
-        >
-          {loading && <p className="mkt-status">Loading marketplace…</p>}
-          {error && <p className="mkt-status mkt-status--error">{error}</p>}
-          {!loading && !error && skills.length === 0 && (
-            <p className="mkt-status">No skills found{query ? ` for "${query}"` : ''}. Be the first to publish one.</p>
-          )}
+            <form className="mkt-bar-search" onSubmit={onSearch} role="search">
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={isGoals ? 'Search shared goals…' : 'Search skills — e.g. organize downloads'}
+                aria-label={isGoals ? 'Search shared goals' : 'Search skills'}
+              />
+              <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort">
+                <option value="trust">Top rated</option>
+                <option value="downloads">Most saved</option>
+                <option value="recent">Newest</option>
+              </select>
+            </form>
 
-          {!loading && skills.length > 0 && (
-            <>
-              <p className="mkt-total">{total} skill{total === 1 ? '' : 's'}</p>
-              <div className="mkt-grid">
-                {skills.map((s) => (
-                  <SkillCard key={s.marketId} skill={s} onOpen={openSkill} />
-                ))}
-              </div>
-              {skills.length < total && (
+            <div className="mkt-bar-actions">
+              {isGoals ? (
+                <button type="button" className="mkt-btn mkt-btn--primary" onClick={openShareGoal}>
+                  Share a goal
+                </button>
+              ) : (
+                <button type="button" className="mkt-btn mkt-btn--primary" onClick={() => setShowPublish(true)}>
+                  Publish a skill
+                </button>
+              )}
+            </div>
+          </header>
+
+          {/* The one panel: whatever the switch is showing. */}
+          <section className="mkt-panel" aria-live="polite">
+            <header className="mkt-panel-head">
+              <h2 className="mkt-panel-title">{isGoals ? '🎯 Shared goals' : '🧩 Community skills'}</h2>
+              {!loading && !error && (
+                <span className="mkt-count">
+                  {total} {isGoals ? `goal${total === 1 ? '' : 's'}` : `skill${total === 1 ? '' : 's'}`}
+                </span>
+              )}
+            </header>
+
+            <div className="mkt-panel-body">
+              {loading && <p className="mkt-status">Loading marketplace…</p>}
+              {error && <p className="mkt-status mkt-status--error">{error}</p>}
+              {!loading && !error && items.length === 0 && (
+                <p className="mkt-status">
+                  {isGoals
+                    ? `No shared goals${query ? ` for "${query}"` : ''} yet — share one of yours and it shows up here.`
+                    : `No skills found${query ? ` for "${query}"` : ''}. Be the first to publish one.`}
+                </p>
+              )}
+
+              {!loading && items.length > 0 && (
+                <div className="mkt-grid">
+                  {isGoals
+                    ? goals.map((g) => <GoalCard key={g.marketId} goal={g} onOpen={setGoalDetail} />)
+                    : skills.map((s) => <SkillCard key={s.marketId} skill={s} onOpen={openSkill} />)}
+                </div>
+              )}
+
+              {!loading && items.length > 0 && items.length < total && (
                 <div className="mkt-more">
                   <button type="button" className="mkt-btn mkt-btn--ghost" onClick={loadMore} disabled={loadingMore}>
                     {loadingMore ? 'Loading…' : 'Load more'}
                   </button>
                 </div>
               )}
-            </>
-          )}
-        </section>
-      </main>
+            </div>
+          </section>
+
+          <p className="mkt-note">
+            {isGoals
+              ? 'Saving a goal copies it into your workspace — edit it, or hand it to your agent, and it becomes yours.'
+              : 'Every skill is scrubbed before publishing, and installed skills still ask for permission on your PC.'}
+          </p>
+        </div>
+      </div>
 
       {(detail || detailLoading) && (
         <SkillModal
@@ -600,6 +724,27 @@ export default function Market() {
         />
       )}
 
+      {goalDetail && (
+        <GoalModal
+          goal={goalDetail}
+          onClose={() => setGoalDetail(null)}
+          onSave={onSaveGoal}
+          saving={savingGoal}
+          onFlag={onFlag}
+          flagBusy={flagBusy}
+        />
+      )}
+
+      {showShareGoal && (
+        <ShareGoalModal
+          myGoals={myGoals}
+          loading={myGoalsLoading}
+          onClose={() => setShowShareGoal(false)}
+          onShare={onShareGoal}
+          busySlug={shareBusy}
+        />
+      )}
+
       {showPublish && (
         <PublishModal
           token={token}
@@ -612,3 +757,141 @@ export default function Market() {
     </>
   );
 }
+
+// ── Goal card (grid item) ──────────────────────────────────────────────────
+
+function GoalCard({ goal, onOpen }) {
+  return (
+    <button
+      type="button"
+      className={`mkt-card mkt-card--goal${goal.lowTrust ? ' mkt-card--lowtrust' : ''}`}
+      onClick={() => onOpen(goal)}
+    >
+      <div className="mkt-card-head">
+        <h3 className="mkt-card-name">{goal.name}</h3>
+        {goal.lowTrust && <span className="mkt-badge mkt-badge--low">New</span>}
+      </div>
+      <p className="mkt-card-slug">@{goal.slug}</p>
+      {/* Only when the sharer said something the title doesn't already say —
+          the goal's own text is long, so it stays in the detail modal. */}
+      {goal.naturalLanguageDescription && goal.naturalLanguageDescription !== goal.name && (
+        <p className="mkt-card-desc">{goal.naturalLanguageDescription}</p>
+      )}
+      <div className="mkt-card-cats">
+        {(goal.declaredCategories || []).slice(0, 3).map((c) => (
+          <span key={c} className={categoryClass(c)}>{c}</span>
+        ))}
+      </div>
+      <div className="mkt-card-stats">
+        <Stars value={goal.avgRating} count={goal.ratingCount} />
+        <span className="mkt-card-dl">＋ {goal.installs || 0} saved</span>
+        <span className="mkt-card-time">{timeAgo(goal.updatedAt || goal.createdAt)}</span>
+      </div>
+    </button>
+  );
+}
+
+// ── Goal detail modal ──────────────────────────────────────────────────────
+
+function GoalModal({ goal, onClose, onSave, saving, onFlag, flagBusy }) {
+  return (
+    <div className="mkt-modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
+      <div className="mkt-modal" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="mkt-modal-close" onClick={onClose} aria-label="Close">×</button>
+
+        <div className="mkt-modal-head">
+          <h2>{goal.name}</h2>
+          <p className="mkt-modal-slug">@{goal.slug} · v{goal.latestVersion}</p>
+        </div>
+
+        <p className="mkt-modal-desc">{goal.naturalLanguageDescription || 'No description provided.'}</p>
+
+        <div className="mkt-goal-text">
+          <h4 className="mkt-goal-label">The goal</h4>
+          <p>{goal.content}</p>
+          {goal.successCriteria && (
+            <>
+              <h4 className="mkt-goal-label">Done when</h4>
+              <p>{goal.successCriteria}</p>
+            </>
+          )}
+        </div>
+
+        <div className="mkt-modal-stats">
+          <Stars value={goal.avgRating} count={goal.ratingCount} size="md" />
+          <span>＋ {goal.installs || 0} saved</span>
+          <span>Updated {timeAgo(goal.updatedAt || goal.createdAt)}</span>
+        </div>
+
+        <div className="mkt-modal-actions">
+          <button type="button" className="mkt-btn mkt-btn--primary" onClick={() => onSave(goal)} disabled={saving}>
+            {saving ? 'Saving…' : '＋ Save to my goals'}
+          </button>
+          <button type="button" className="mkt-btn mkt-btn--ghost" onClick={() => onFlag(goal)} disabled={flagBusy}>
+            Report
+          </button>
+        </div>
+        <p className="mkt-hint">
+          Saving copies the goal into your own workspace, where you can edit it or hand it to your agent.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Share-a-goal modal ─────────────────────────────────────────────────────
+
+function ShareGoalModal({ myGoals, loading, onClose, onShare, busySlug }) {
+  const [desc, setDesc] = useState('');
+
+  return (
+    <div className="mkt-modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
+      <div className="mkt-modal" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="mkt-modal-close" onClick={onClose} aria-label="Close">×</button>
+
+        <div className="mkt-modal-head">
+          <h2>Share a goal</h2>
+          <p className="mkt-modal-slug">Pick one of your goals — anyone can then save a copy of it.</p>
+        </div>
+
+        <label className="mkt-field">
+          <span className="mkt-field-label">Why it&apos;s worth having (optional)</span>
+          <input
+            type="text"
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            maxLength={2000}
+            placeholder="e.g. Keeps my Downloads folder sorted by file type every morning."
+          />
+        </label>
+
+        {loading && <p className="mkt-status">Loading your goals…</p>}
+
+        {!loading && myGoals.length === 0 && (
+          <p className="mkt-hint">
+            You have no goals yet. Create one on <Link to="/plans">/plans</Link>, then share it here.
+          </p>
+        )}
+
+        {!loading && myGoals.length > 0 && (
+          <ul className="mkt-share-list">
+            {myGoals.map((g) => (
+              <li key={g.slug} className="mkt-share-item">
+                <span className="mkt-share-name">{g.name || g.slug}</span>
+                <button
+                  type="button"
+                  className="mkt-btn mkt-btn--primary mkt-btn--sm"
+                  onClick={() => onShare(g, desc)}
+                  disabled={busySlug === g.slug}
+                >
+                  {busySlug === g.slug ? 'Sharing…' : 'Share'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
