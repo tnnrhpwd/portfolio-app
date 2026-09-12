@@ -6,7 +6,8 @@ const {
     generateCloudFrontUrl, 
     checkFileExists, 
     deleteFile,
-    getFileMetadata
+    getFileMetadata,
+    getObjectHead,
 } = require('../services/s3Service.js');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, UpdateCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
@@ -17,6 +18,12 @@ const {
     resolveAllowedFileTypes,
     resolveMaxFileBytes,
 } = require('../constants/upload');
+const {
+    SIGNATURE_HEAD_BYTES,
+    isSignatureCheckEnabled,
+    extensionOf,
+    verifySignature,
+} = require('../utils/fileSignature');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -213,7 +220,47 @@ const confirmUpload = asyncHandler(async (req, res) => {
 
         // Get file metadata from S3
         const fileMetadata = await getFileMetadata(s3Key);
-        
+
+        // Post-upload content check.
+        //
+        // Everything up to here validated what the client *claimed* — the
+        // extension, the declared content type, the declared size. The bytes
+        // travelled client → S3 directly, so this is the first and only look at
+        // what was actually stored. A file whose signature contradicts its
+        // extension is deleted and refused rather than recorded.
+        //
+        // The extension comes from the s3Key, not the body: the key was minted
+        // server-side from the filename that passed validation when the URL was
+        // issued, so it can't be re-declared at confirm time.
+        if (isSignatureCheckEnabled()) {
+            const declaredExt = extensionOf(s3Key) || extensionOf(filename);
+            const verdict = verifySignature(
+                await getObjectHead(s3Key, SIGNATURE_HEAD_BYTES),
+                declaredExt
+            );
+
+            if (!verdict.ok) {
+                // Don't leave the rejected object accruing storage charges.
+                try {
+                    await deleteFile(s3Key);
+                } catch (cleanupError) {
+                    logger.warn(`Could not delete rejected upload ${s3Key}: ${cleanupError.message}`);
+                }
+                res.status(400).json({
+                    success: false,
+                    error: 'Uploaded file content does not match its file type',
+                    details: verdict.reason,
+                });
+                return;
+            }
+
+            // Unreadable or unrecognised content is let through (see the design
+            // note in utils/fileSignature.js) but should be visible in the logs.
+            if (verdict.unverified) {
+                logger.warn(`Could not verify content of ${s3Key} against extension .${declaredExt}`);
+            }
+        }
+
         // Generate CloudFront URL for accessing the file
         const cloudFrontUrl = generateCloudFrontUrl(s3Key);
 

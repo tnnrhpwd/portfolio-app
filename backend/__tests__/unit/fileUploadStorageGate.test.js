@@ -17,6 +17,11 @@ const mockGenerateCloudFrontUrl = jest.fn();
 const mockCheckFileExists = jest.fn();
 const mockDeleteFile = jest.fn();
 const mockGetFileMetadata = jest.fn();
+// The confirm path reads the object's leading bytes to check the content
+// against the extension (see utils/fileSignature.js). Defaulted to a real PNG
+// head below, because the uploads these tests confirm are all `.png`.
+const mockGetObjectHead = jest.fn();
+const PNG_HEAD = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
 
 // The controller reaches DynamoDB through the doc-client's `send`. Routing that
 // to a module-scope mock lets the tests below assert *which* command was issued
@@ -49,6 +54,7 @@ jest.mock('../../services/s3Service.js', () => ({
     checkFileExists: (...args) => mockCheckFileExists(...args),
     deleteFile: (...args) => mockDeleteFile(...args),
     getFileMetadata: (...args) => mockGetFileMetadata(...args),
+    getObjectHead: (...args) => mockGetObjectHead(...args),
 }));
 
 const { requestUploadUrl, confirmUpload, deleteUploadedFile, getUploadConfig } = require('../../controllers/fileUploadController');
@@ -132,6 +138,7 @@ describe('confirmUpload — storage quota re-check', () => {
         mockCheckFileExists.mockResolvedValue(true);
         mockGenerateCloudFrontUrl.mockReturnValue('https://cdn.example.com/key');
         mockGetFileMetadata.mockResolvedValue({ size: 1024, contentType: 'image/png' });
+        mockGetObjectHead.mockResolvedValue(PNG_HEAD);
     });
 
     test('deletes the uploaded object and rejects when usage grew since the URL was issued', async () => {
@@ -180,6 +187,7 @@ describe('confirmUpload — attaching to an existing record', () => {
         mockCheckFileExists.mockResolvedValue(true);
         mockGenerateCloudFrontUrl.mockReturnValue('https://cdn.example.com/key');
         mockGetFileMetadata.mockResolvedValue({ size: 1024, contentType: 'image/png' });
+        mockGetObjectHead.mockResolvedValue(PNG_HEAD);
         mockCheckStorageCapacity.mockResolvedValue(WITHIN_LIMIT);
     });
 

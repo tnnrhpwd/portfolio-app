@@ -299,6 +299,34 @@ const getFileBuffer = async (s3Key) => {
     }
 };
 
+// Read just the leading bytes of an object, so the upload-confirm gate can see
+// what was actually stored (see utils/fileSignature.js). A Range GET keeps this
+// to a few hundred bytes rather than the whole object.
+//
+// Returns null instead of throwing when the read fails. Content verification is
+// defence-in-depth on top of validation that already passed, so an S3 hiccup
+// must not fail an otherwise-good upload — the caller logs and moves on.
+const getObjectHead = async (s3Key, byteCount = 512) => {
+    try {
+        const span = Math.max(1, Number(byteCount) || 1);
+        const command = new GetObjectCommand({
+            Bucket: process.env.AWS_S3_BUCKET,
+            Key: s3Key,
+            Range: `bytes=0-${span - 1}`,
+        });
+
+        const response = await s3Client.send(command);
+        if (!response.Body) return null;
+
+        const chunk = await response.Body.transformToByteArray();
+        return Buffer.from(chunk);
+
+    } catch (error) {
+        logger.warn(`Could not read leading bytes of ${s3Key}: ${error.message}`);
+        return null;
+    }
+};
+
 module.exports = {
     generatePresignedUploadUrl,
     generateCloudFrontUrl,
@@ -306,6 +334,7 @@ module.exports = {
     deleteFile,
     getFileMetadata,
     getFileBuffer,
+    getObjectHead,
     uploadImageBuffer,
     validateFile,
     generateS3Key
