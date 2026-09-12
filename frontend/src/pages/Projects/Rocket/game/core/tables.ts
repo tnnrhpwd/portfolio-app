@@ -31,6 +31,7 @@ export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
       'debris-nuts',
       'debris-bolts',
     ],
+    artPointsUp: false,
     deathEffect: 'spark',
   },
   /** Slow, chunky, worth hitting. The bread-and-butter target. */
@@ -55,6 +56,7 @@ export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
       'moon-tan',
       'moon-brown',
     ],
+    artPointsUp: false,
     deathEffect: 'explosion-small',
   },
   /** Drifts, then lobs a slow orb. Punishes standing still. */
@@ -74,6 +76,7 @@ export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
       'mine-core-orange',
       'mine-alert-grey',
     ],
+    artPointsUp: false,
     deathEffect: 'explosion-small',
   },
   /** Strafes across the screen and fires aimed shots. */
@@ -96,6 +99,7 @@ export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
       'satellite-dish',
       'satellite-dish-2',
     ],
+    artPointsUp: false,
     deathEffect: 'explosion',
   },
   /** Heavy hull, fires a spread. Worth dodging rather than trading with. */
@@ -109,6 +113,8 @@ export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
     fireMs: 1950,
     shotDamage: 1,
     sprites: ['lifter-rocket-2', 'lifter-rocket-3', 'lifter-rocket-4', 'lifter-rocket-5'],
+    // The only vehicle art: a rocket with its nose at the top of the sprite.
+    artPointsUp: true,
     deathEffect: 'explosion',
   },
   /** Wave boss: a screen-filling spiky sun. */
@@ -122,6 +128,7 @@ export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
     fireMs: 1250,
     shotDamage: 2,
     sprites: ['sun-spiky-gold', 'sun-spiky-orange', 'sun-spiky-red', 'sun-spiky-teal'],
+    artPointsUp: false,
     deathEffect: 'explosion',
   },
 };

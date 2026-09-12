@@ -5,7 +5,7 @@ import { sfx, setMuted } from '../audio/sfx';
 import { TUNING } from '../core/constants';
 import { currentBoss, stepWorld } from '../core/engine';
 import { nextPick } from '../core/rng';
-import { STAR_SPRITES, THRUSTER } from '../core/tables';
+import { ENEMY_DEFS, STAR_SPRITES, THRUSTER } from '../core/tables';
 import type { RunInput, World, WorldEvent } from '../core/types';
 import {
   bankCoins,
@@ -416,12 +416,20 @@ export class PlayScene extends Phaser.Scene {
     this.syncGroup(world.enemies, this.enemySprites, (img, enemy, index) => {
       // Chunky rocks tumble; ships and turrets hold their heading.
       const spin = enemy.kind === 'asteroid' || enemy.kind === 'debris' ? (index % 2 ? 0.5 : -0.5) : 0;
+      // Vehicle art is drawn nose-up, and these enemies *aim* at the player, so
+      // the hull is turned to point where their shots actually go. A fixed 180°
+      // would be enough while the player is directly below, but leave the ship
+      // firing sideways out of its flank. (+90° converts "angle to the player"
+      // into Phaser's rotation, whose zero is the art as drawn, nose up.)
+      const facing = ENEMY_DEFS[enemy.kind].artPointsUp
+        ? Math.atan2(world.player.y - enemy.y, world.player.x - enemy.x) + Math.PI / 2
+        : 0;
       this.paint(img, {
         texture: this.tex(enemy.sprite),
         x: enemy.x,
         y: enemy.y,
         size: enemy.radius * 2.5,
-        rotation: spin * time,
+        rotation: facing + spin * time,
       });
     });
 

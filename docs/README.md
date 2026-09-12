@@ -53,6 +53,10 @@ docs/
 - [Secrets Management](./guides/SECRETS_MANAGEMENT.md) - AWS Secrets Manager (Part 1) + encrypted `.env` backup (Part 2) + provider-key worked example (Part 3)
 - [Deployment Topology](./guides/DEPLOYMENT.md) - How Netlify (frontend + keep-warm) and Render (backend) fit together
 
+### Games (canvas / Phaser)
+- [Rocket Game Guide](./guides/Rocket-Game-Guide.md) - **Read before building or changing a canvas game.** Architecture, the two-layout portrait/landscape system, how to test a game in the browser, and the gotchas that cost real time
+- [Rocket Asset Pipeline](./guides/Rocket-Asset-Pipeline.md) - Turning the AI-generated asset posters into 282 named transparent PNGs (`scripts/rocket/extract-sprites.js`)
+
 ### Business
 - [Sales Funnel](./guides/SALES_FUNNEL.md) - Visitor → Pro subscriber funnel map (Discovery → Understanding → Buying)
 - [Business Plan](./guides/BUSINESS_PLAN.md) - What value the product provides, who the customer is, and realistic monetization strategies

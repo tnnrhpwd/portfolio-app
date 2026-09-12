@@ -59,6 +59,13 @@ export interface EnemyDef {
   shotDamage: number;
   /** Sprite names to pick from at spawn. */
   sprites: string[];
+  /**
+   * True when the art is a vehicle drawn nose-up (the rocket family). Every enemy
+   * descends toward the player, so the renderer turns these around — otherwise a
+   * gunship flies backwards and its shots look like they leave the exhaust.
+   * Rocks tumble and orbs are symmetric, so they are left alone.
+   */
+  artPointsUp: boolean;
   /** Explosion animation to play on death. */
   deathEffect: EffectKind;
 }

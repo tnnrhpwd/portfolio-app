@@ -3,6 +3,15 @@
 Turns the eight AI-generated asset "posters" in `frontend/src/assets/rocket/*.jpg`
 into **282 named, tightly-cropped, transparent PNGs** in `frontend/public/rocket/`.
 
+> The game that consumes these sprites (architecture, the two-layout portrait /
+> landscape system, testing and gotchas) is documented in
+> [`Rocket-Game-Guide.md`](./Rocket-Game-Guide.md). One thing to know from there:
+> extracting a sprite is only half the job — it also has to be listed in
+> `game/core/tables.ts` `requiredSprites()` (or `SHIPS` / `UPGRADES`), because the
+> game loads exactly that list and a sprite that is drawn but never loaded shows up
+> as Phaser's green "missing texture" box.
+
+
 The sheets are not tidy sprite sheets — each one is a labelled poster with rounded
 panel frames, baked-in captions ("Play", "HEAVY LIFTER"), progress bars, and items
 of wildly different sizes. So the extraction is spec-driven: a deterministic
