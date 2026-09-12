@@ -232,7 +232,7 @@ export const EXERCISES = [
 
   // ── Push: accessories ──
   { id: 'lateral-raise', name: 'Dumbbell lateral raise', slot: 'push', tier: 'accessory', needs: ['dumbbells'], load: { ref: 'ohp', factor: 0.16, step: 'dumbbell', perHand: true }, tags: ['side-delts'], cue: 'Lead with the elbow, stop at shoulder height.' },
-  { id: 'cable-fly', name: 'Cable chest fly', slot: 'push', tier: 'accessory', needs: ['gym'], load: { ref: 'bench', factor: 0.22, step: 'machine', perHand: true }, tags: ['chest'], cue: 'Squeeze, then let the arms travel back slowly.' },
+  { id: 'cable-fly', name: 'Cable chest fly', slot: 'push', tier: 'accessory', needs: ['gym'], load: { ref: 'bench', factor: 0.22, step: 'machine' }, tags: ['chest'], cue: 'Stack setting per side. Squeeze, then let the arms travel back slowly.', unilateral: true },
   { id: 'db-fly', name: 'Dumbbell fly', slot: 'push', tier: 'accessory', needs: ['dumbbells'], load: { ref: 'bench', factor: 0.3, step: 'dumbbell', perHand: true }, tags: ['chest'], cue: 'Soft elbows, wide arc, no pressing.' },
   { id: 'machine-press', name: 'Machine chest press', slot: 'push', tier: 'accessory', needs: ['gym'], load: { ref: 'bench', factor: 0.85, step: 'machine' }, tags: ['chest'], cue: 'Handles at nipple height.' },
   { id: 'rope-pushdown', name: 'Rope triceps pushdown', slot: 'push', tier: 'accessory', needs: ['gym'], load: { ref: 'bench', factor: 0.35, step: 'machine' }, tags: ['triceps'], cue: 'Elbows glued to your sides, spread the rope.' },

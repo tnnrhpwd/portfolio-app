@@ -147,23 +147,26 @@ export function describeContext(context) {
  * rounding rule and the "beat the top of the range" advice live once per day
  * in the block note instead of being repeated six times down the card.
  */
-function describeBasis({ exercise, context, reps, perHand, step }) {
+function describeBasis({ exercise, context, reps }) {
   const load = exercise.load;
   const factor = load.factor ?? 1;
   const refLabel = ANCHOR_LABELS[load.ref] || load.ref;
   const refE1rm = Math.round(convertWeight(context.e1rmKg[load.ref], 'kg', context.unit));
-  const per = perHand ? ' per hand' : '';
+  const entered = context.source[load.ref] === 'entered';
+  const refPct = Math.round(ANCHOR_STANDARDS[load.ref][context.level] * 100);
 
-  if (context.source[load.ref] === 'entered') {
-    return factor === 1
+  if (factor === 1) {
+    return entered
       ? `your ${refLabel} · ${refE1rm} ${context.unit} est. 1RM · ${reps} reps`
-      : `${Math.round(factor * 100)}% of your ${refLabel} · ${reps} reps`;
+      : `${refLabel} ≈ ${refPct}% of body weight · ${reps} reps`;
   }
-  return factor === 1
-    ? `${refLabel} ≈ ${Math.round(ANCHOR_STANDARDS[load.ref][context.level] * 100)}% of body weight · ${reps} reps`
-    : `${Math.round(factor * 100)}% of ${refLabel} · ${reps} reps${per}`;
-}
 
+  // A supporting movement is a share of a big lift — and when that big lift was
+  // itself estimated, say so, or the number has no visible origin. "per hand" is
+  // deliberately absent: the load line already carries it.
+  const origin = entered ? `your ${refLabel}` : `${refLabel} (${refPct}% of body weight)`;
+  return `${Math.round(factor * 100)}% of ${origin} · ${reps} reps`;
+}
 
 /**
  * The prescription for one plan item, or `null` when no honest number exists
@@ -179,7 +182,9 @@ export function loadForItem(item, context) {
       kind: 'timed',
       seconds: item.holdSeconds,
       text: `${item.holdSeconds}s hold`,
-      basis: `Hold for ${item.holdSeconds}s per set with ${item.restSeconds}s rest. Stop the set when the position breaks, not when the clock runs out.`,
+      // The hold and rest numbers are already on the set line, so the note only
+      // carries the advice that is not printed anywhere else.
+      basis: 'Stop the set when the position breaks, not when the clock runs out.',
     };
   }
 
@@ -188,7 +193,9 @@ export function loadForItem(item, context) {
       return {
         kind: 'bodyweight',
         text: 'Bodyweight',
-        basis: exercise.bwNote || 'Bodyweight — progress by adding reps, slowing the tempo, or moving to a harder variation.',
+        // The movement's own cue prints on the next line, so this must not
+        // repeat it — it explains how to progress instead.
+        basis: 'Add reps, slow the tempo, or swap to a harder variation.',
       };
     }
     return null;
@@ -216,7 +223,7 @@ export function loadForItem(item, context) {
     reps,
     from: context.source[exercise.load.ref] || 'bodyweight',
     text: `${weight} ${context.unit}${perHand ? ' per hand' : ''}`,
-    basis: describeBasis({ exercise, context, reps, perHand, step }),
+    basis: describeBasis({ exercise, context, reps }),
   };
 }
 

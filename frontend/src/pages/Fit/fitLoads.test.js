@@ -160,8 +160,16 @@ describe('loadForItem', () => {
     const withBodyWeight = loadForItem(itemFor('bench'), contextFor());
     expect(withBodyWeight.basis).toBe('bench press ≈ 75% of body weight · 8 reps');
 
-    const derived = loadForItem(itemFor('rope-pushdown'), contextFor());
-    expect(derived.basis).toBe('35% of bench press · 12 reps');
+    const derived = loadForItem(itemFor('rope-pushdown', { reps: '10–12' }), contextFor());
+    // A support movement is a share of a big lift, and the big lift's own
+    // origin stays visible so the number is traceable to something real.
+    expect(derived.basis).toBe('35% of bench press (75% of body weight) · 12 reps');
+
+    const derivedFromEntered = loadForItem(
+      itemFor('rope-pushdown', { reps: '10–12' }),
+      contextFor({ ...PROFILE, lifts: { bench: { weight: 100, reps: 5 } } })
+    );
+    expect(derivedFromEntered.basis).toBe('35% of your bench press · 12 reps');
 
     const fromEntered = loadForItem(
       itemFor('bench'),
@@ -175,12 +183,27 @@ describe('loadForItem', () => {
     const pushup = loadForItem(itemFor('pushup'), contextFor());
     expect(pushup.kind).toBe('bodyweight');
     expect(pushup.text).toBe('Bodyweight');
-    expect(pushup.basis).toMatch(/bench/i); // the regression/progression note
+    // The movement's own cue rides on the plan item and prints on its own line,
+    // so the basis carries only the progression advice — never a repeat.
+    expect(pushup.basis).toMatch(/add reps, slow the tempo/i);
+
+    const plan = buildPlan(PROFILE, 0.42);
+    const bwItems = plan.days
+      .flatMap((day) => day.blocks)
+      .flatMap((block) => block.items)
+      .filter((item) => item.bwNote);
+    expect(bwItems.length).toBeGreaterThan(0);
+    bwItems.forEach((item) => {
+      const load = loadForItem(item, contextFor());
+      if (load && load.kind === 'bodyweight') expect(load.basis).not.toContain(item.bwNote);
+    });
 
     const plank = loadForItem(itemFor('plank', { holdSeconds: 45, restSeconds: 45 }), contextFor());
     expect(plank.kind).toBe('timed');
     expect(plank.seconds).toBe(45);
     expect(plank.basis).toMatch(/stop the set when the position breaks/i);
+    // The hold and rest numbers already print on the set line.
+    expect(plank.basis).not.toMatch(/\d+s/);
   });
 
   it('returns nothing rather than guessing when there is no basis', () => {

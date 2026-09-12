@@ -49,6 +49,39 @@ All colors come from CSS custom properties defined in `frontend/src/index.css`.
   (`1px solid var(--border-nav)`).
 - Test every change in both themes. You can flip themes from the header logo or the hamburger menu.
 
+### Colors CSS variables can't reach
+
+CSS variables only exist for the DOM. Anything that paints itself — Chart.js, WebGL, Phaser — needs a
+real color string, so it has to read the resolved value out of the DOM:
+
+```js
+// frontend/src/pages/Projects/Annuities/useChartTheme.js
+const value = getComputedStyle(document.body).getPropertyValue('--fg-mint');
+// → "rgb(0, 255, 255)"        (or "#4da6ff" for a token defined as var(--other))
+```
+
+Three rules, each of which cost a real debugging session:
+
+- **Resolve after mount, never during the first render.** On render #1 the app isn't committed and the
+  theme class isn't on `<body>` yet, so `getPropertyValue()` returns `''` for every token. A canvas
+  built from those values paints black — and because nothing rebuilds it, it *stays* black: almost
+  plausible in light mode, invisible in dark.
+- **Read from `document.body`, not `<html>`.** The theme class lives on `<body>`, and those blocks are
+  what redefine the palette. `<html>` returns the light-theme default even in dark mode.
+- **Rebuild on theme change.** Key the canvas on a version you bump from a `MutationObserver` on
+  `body.class`; repainting an existing chart with new dataset colors is not reliable.
+
+Also convert alpha yourself for translucent fills — `withAlpha(color, 0.16)` in that same hook handles
+`rgb()`, `#rrggbb` and the `color(srgb r g b)` form Chrome returns for values derived from `color-mix()`.
+
+### `--text-color-inv` is not "the text color for bands"
+
+It is *inverted* text for a **filled gradient button**, so it resolves to a dark color in dark mode.
+That is fine on a CTA band built from `--fg-blue`/`--fg-mint` (bright in both themes), but the
+`--bg-*` gradient corners are **dark in dark mode** — band copy sitting on them must use
+`--text-color`, or it will be unreadable. Same rule for hairlines drawn over a gradient:
+`color-mix(in srgb, var(--text-color) 30%, transparent)`, not `--text-color-inv`.
+
 ### Key tokens
 
 | Token | Purpose |
@@ -271,6 +304,10 @@ export default Foo;
 }
 ```
 
+The header is fixed, so **the first band needs roughly `2 × --nav-size` of top padding** to clear it
+(Home puts it on the hero, the skeleton above on the page root). Put it on one or the other, never on
+every band — the bands would drift apart from each other.
+
 ---
 
 ## 5. Squarespace-inspired layout & motion
@@ -284,12 +321,19 @@ is made.
 
 ### Full-bleed bands, not bordered cards
 
-Squarespace separates content with flat color changes, not boxes — but on our pages the signature
-**animated four-color gradient runs across the entire page** (applied to the page root), and the
-`*-band` sections sit transparently on top of it. The gradient is our "color-to-color transition,"
-not grey slabs: only the CTA gets its own solid gradient block, and surfaces that need contrast use
-a *translucent* `color-mix(... transparent)` instead of an opaque fill. Drop card borders and
-`border-radius` for anything that isn't a compact control:
+Squarespace separates content with flat color changes, not boxes. Two shapes are in use here, and
+choosing between them is the first decision on a page:
+
+- **Gradient bookends — preferred whenever the page holds real content.** The animated gradient covers
+  the hero and (optionally) a closing band; everything between sits on flat, alternating bands, so
+  forms, tables and prose get a calm ground to be read against. `Home` and `Annuities` are built this
+  way, and it is the shape to copy.
+- **Gradient everywhere.** The page root carries the gradient and the bands sit transparently on top of
+  it. This is the older shape and it still looks right on short pages, but a long page of data fights a
+  moving background, and band-to-band transitions stop reading as structure.
+
+Either way the **band is the structural unit** — a full-bleed color change — and borders belong to
+compact controls only:
 
 ```css
 .foo {
@@ -297,13 +341,81 @@ a *translucent* `color-mix(... transparent)` instead of an opaque fill. Drop car
   background-size: 400% 400%;
   animation: fooGradientShift 12s ease infinite;
 }
-.foo-band { padding: calc(var(--nav-size) * 1.6) calc(var(--nav-size) * 0.3); width: 100%; }
-.foo-band--surface { background: transparent; }
-.foo-band--tint { background: color-mix(in srgb, var(--fg-mint) 14%, transparent); }
-.foo-band--cta { background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint)); color: var(--text-color-inv); }
-/* translucent surface for cards/tiles that need contrast */
-.foo-tile { background: color-mix(in srgb, var(--bg-1) 55%, transparent); }
+/* The band is full-bleed; its content is not. Padding lives on the band so the
+   color reaches the viewport edge, and the wrap keeps the copy readable. */
+.foo-band {
+  width: 100%;
+  padding: calc(var(--nav-size) * 1.2) calc(var(--nav-size) * 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.foo-wrap { width: 100%; max-width: 1080px; }
+
+/* Alternate the tone down the page: surface → tint → surface → cta. Two flat
+   washes are enough; more than that reads as decoration. */
+.foo-band--surface { background: var(--bg-page); }
+.foo-band--tint { background: color-mix(in srgb, var(--fg-mint) 12%, var(--bg-page)); }
+.foo-band--wash { background: color-mix(in srgb, var(--fg-blue) 10%, var(--bg-page)); }
+.foo-band--cta {
+  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  color: var(--text-color-inv);
+}
+/* A band built from the --bg-* corners instead needs theme-aware copy: */
+.foo-band--corners { background: linear-gradient(-45deg, var(--bg-blue), var(--bg-mint)); color: var(--text-color); }
+
+/* Translucent surface for tiles that need contrast without a border. On the
+   gradient-everywhere shape use the --bg-1 flavor instead, since --bg-page
+   would hide it: color-mix(in srgb, var(--bg-1) 55%, transparent) */
+.foo-tile { background: color-mix(in srgb, var(--fg-blue) 7%, transparent); }
+.foo-tile:hover { background: color-mix(in srgb, var(--fg-blue) 12%, transparent); }
 ```
+
+**Put one reveal on the band, not on each card inside it** — wrap the band in a tiny local component
+that calls `useScrollReveal` and renders `{children}` into the wrap. `RevealBand.jsx` in
+`frontend/src/pages/Projects/Annuities/` is the reference (tones: `surface | tint | wash | cta`).
+
+**Borders are for controls only.** Inputs, selects, pills and buttons keep a hairline; containers,
+readouts, tiles and tables do not. Separate them with whitespace, a `border-top: 1px solid
+var(--border-nav)` rule, or a tone change — never with a box.
+
+### Opening a band: eyebrow → heading → lead
+
+Every band opens the same way, so the eye learns the rhythm and can skim the page:
+
+```jsx
+<div className="home-section-head">
+  <p className="home-eyebrow">The playground</p>
+  <h2 className="home-heading">Start with a tool you'll love</h2>
+  <p className="home-lead">Pick a project, open it, and start playing — no downloads, no accounts.</p>
+</div>
+```
+
+- The **eyebrow** (`--font-size-xs`, `letter-spacing: 0.14em`, uppercase, `--text-color-accent`) names
+  the section in two or three words. It is a label, **not** a heading — the `<h2>` carries the outline.
+- Cap the head at `max-width: 760px` and center it. A lead paragraph running the full width of a 1080px
+  band, at a font scale that follows `--nav-size`, is genuinely hard to read.
+- One `<h1>` per page (the hero) and one `<h2>` per band. Never pick a heading level for its size —
+  pick the level the outline needs and style it.
+
+### Opening a band: eyebrow → heading → lead
+
+Every band opens the same way, so the eye learns the rhythm and can skim the page:
+
+```jsx
+<div className="home-section-head">
+  <p className="home-eyebrow">The playground</p>
+  <h2 className="home-heading">Start with a tool you'll love</h2>
+  <p className="home-lead">Pick a project, open it, and start playing — no downloads, no accounts.</p>
+</div>
+```
+
+- The **eyebrow** (`--font-size-xs`, `letter-spacing: 0.14em`, uppercase, `--text-color-accent`) names
+  the section in two or three words. It is a label, **not** a heading — the `<h2>` carries the outline.
+- Cap the head at `max-width: 760px` and center it. A lead paragraph running the full width of a
+  1080px band, at a font scale that follows `--nav-size`, is genuinely hard to read.
+- One `<h1>` per page (the hero) and one `<h2>` per band. Never pick a heading level for its size —
+  pick the level the outline needs and style it.
 
 ### Imagery over emoji
 
@@ -315,6 +427,28 @@ arrays, so imagery can be swapped without touching markup. Image rules:
 - `aspect-ratio: 4 / 3` with `object-fit: cover` so every block crops consistently.
 - `border-radius: var(--border-radius-2xl)` on the media itself (rounded image, not a bordered card).
 - `loading="lazy"` and `alt=""` when decorative.
+
+**A full-bleed hero image needs a scrim.** Low opacity alone is not enough: a bright photo still
+competes with the headline, and legibility flips between themes. Layer a radial pool of the page color
+between the artwork and the copy — theme-aware, because `--bg-page` is dark in dark mode — and lift the
+content above it:
+
+```css
+.foo-hero-media { position: absolute; inset: 0; z-index: 0; object-fit: cover; opacity: 0.18; }
+.foo-hero::after {
+  content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: radial-gradient(
+    ellipse 62% 78% at 50% 44%,
+    color-mix(in srgb, var(--bg-page) 78%, transparent) 0%,
+    color-mix(in srgb, var(--bg-page) 45%, transparent) 46%,
+    transparent 78%
+  );
+}
+.foo-hero-wrap { position: relative; z-index: 3; } /* circles sit at 2 */
+```
+
+A short hero crops a 3:2 image hard (`cover` zooms into the middle), so either give the hero generous
+height or accept that the artwork reads as texture rather than as a subject.
 
 **Agents: you can generate new artwork.** This repo has a working AWS Bedrock
 text-to-image pipeline, so "I need a better image here" is a thing you can just do —
@@ -343,11 +477,36 @@ Rules that keep generated art consistent with the existing set:
 
 ### Horizontal carousel with pagination dots
 
-Featured collections scroll horizontally (snap points) and show a dot per page — the active dot
-stretches into a pill. Reuse the `scrollToCard` / `handleTemplatesScroll` pattern from
-`frontend/src/pages/Home/Home.jsx`: measure card width + gap, compute
-`Math.round(scrollLeft / step)` for the active index, and render one dot per item plus prev/next
-arrows. Hide the native scrollbar (`scrollbar-width: none`).
+Featured collections scroll horizontally, one dot per card, with the active dot stretched into a pill.
+The reference implementation is `scrollToCard` / `stepCarousel` / `handleTemplatesScroll` in
+`frontend/src/pages/Home/Home.jsx`. It is pixel-measured rather than index-based, and three details
+there are load-bearing:
+
+```js
+// One "step" is a card plus the row's real gap — read the gap, never assume it.
+const step = card.getBoundingClientRect().width + parseFloat(getComputedStyle(row).columnGap || '0');
+const maxScroll = row.scrollWidth - row.clientWidth;   // clamp every target to [0, maxScroll]
+const index = Math.round(row.scrollLeft / step);       // active dot from the scroll position
+```
+
+- **Arrows step by pixels, not by index.** `row.scrollLeft + step` still moves when parked at the far
+  right, where the last card has no distinct leading-edge position and an index-based target would
+  compute the same offset twice — so "previous" would appear dead.
+- **Snap the indicator to the last dot at the far right** (`if (scrollLeft >= maxScroll - 1)`). The last
+  card can't align to the left edge, so `Math.round` always lands short of it and the final dot would
+  never light up.
+- **Re-measure on `resize`, never cache the step.** Listen on the row's `scroll` (passive) and on
+  `window` `resize`; both the card width and the gap change with the viewport.
+
+There are no CSS scroll-snap points on the reference — the smooth `scrollTo` and the clamped targets do
+the positioning. Hide the native scrollbar (`scrollbar-width: none` plus its `::-webkit-scrollbar`
+twin).
+
+**Accessibility:** the row is `role="list"` with an `aria-label`; each control is a real `<button>` with
+an `aria-label` (`Previous project`, `Next project`, `Go to <name>`); the dots form a `role="tablist"`
+with `role="tab"` + `aria-selected` on each. Arrows and dots both need `min-height: 0; padding: 0` to
+undo the global button styles (§6) — otherwise the dots are 44px tall. The active dot animates `width`
+from a dot to a pill inside `border-radius: 999px`.
 
 ### Alternating media rows
 
@@ -386,6 +545,70 @@ const [ref, visible] = useScrollReveal();
 `prefers-reduced-motion: reduce` must reset these to their resting state (see the reduced-motion block
 in section 4's CSS skeleton).
 
+### Stagger the children of a revealed band
+
+One reveal per band is right, but a row of six identical tiles arriving in lockstep looks mechanical.
+Give the children their own transition and step the delay with `nth-child` — no per-item inline styles,
+no JS:
+
+```css
+.foo-stagger > * {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.foo-reveal.is-visible .foo-stagger > * { opacity: 1; transform: translateY(0); }
+
+.foo-stagger > *:nth-child(1) { transition-delay: 0.04s; }
+.foo-stagger > *:nth-child(2) { transition-delay: 0.10s; }
+.foo-stagger > *:nth-child(3) { transition-delay: 0.16s; }
+/* a flat ~0.06s step reads well up to about ten children */
+```
+
+Reset `.foo-stagger > *` in the `prefers-reduced-motion` block next to `.foo-reveal`, or the children
+stay invisible for anyone who has animations off.
+
+### Content that animates itself (typing, counting)
+
+Two flourishes recur on this site, and both have a trap.
+
+**Animated hero copy cannot use `useScrollReveal`.** It is already in the viewport when the page loads,
+so the observer fires immediately and there is no entrance. Drive it with a timed phase instead: the
+animation (or a `setTimeout`) flips a class, and CSS owns the timing and the stagger.
+
+```jsx
+<h1 className="sr-only">Steven Tanner Hopwood — STHopwood Portfolio</h1>
+<div className="home-title">
+  <span>{displayedText}</span>
+  <span className="home-cursor" aria-hidden="true">|</span>
+</div>
+<p className={`home-subtitle ${phase >= 1 ? 'is-visible' : ''}`}>Let's build a brighter tomorrow!</p>
+```
+
+- **Never make the animated element the heading.** A typewriter is half-written at any moment and
+  meaningless to a screen reader, so the real `<h1>` goes in `.sr-only` (shared utility in
+  `index.css`): still crawlable, still announced, document outline intact. The cursor is `aria-hidden`.
+- **Reserve the height.** `.home-title { min-height: calc(var(--nav-size) * 1.05) }` stops the page
+  reflowing one character at a time.
+- **Restart the effect when the data changes.** Home re-runs it on `titleText`, otherwise a title that
+  arrives after the fallback already finished typing never appears.
+
+**Counting a number up** (`useCountUp` in `Home.jsx`): observe once at `threshold: 0.5`, then animate
+with `requestAnimationFrame` over ~1.4s on an ease-out cubic.
+
+```js
+const eased = 1 - Math.pow(1 - p, 3);
+setValue(Math.round(target * eased));
+```
+
+- **Reduced motion jumps straight to the target** — check
+  `window.matchMedia('(prefers-reduced-motion: reduce)').matches` *before* observing and
+  `setValue(target)`.
+- **The last frame must land exactly on the target**, not one short of it, or the page states a number
+  that is simply wrong.
+- **Don't `aria-hidden` a real figure.** Unlike the typewriter, the count is content — leave it in the
+  accessibility tree. A value that is a string ("Leadership") skips the count and renders as-is.
+
 ---
 
 ## 6. Standard component recipes
@@ -418,6 +641,56 @@ in section 4's CSS skeleton).
 }
 .foo-btn-outline:hover { background: var(--bg-accent); box-shadow: none; }
 ```
+
+#### ⚠️ First, the global element styles you inherit
+
+`frontend/src/index.css` styles bare elements, and those rules will fight your components:
+
+| Selector | What it sets |
+| --- | --- |
+| `button` | gradient fill, `--text-color-inv` text, `2px transparent` border, `min-height: 44px`, `position: relative`, `overflow: hidden` |
+| `button:hover:not(:disabled)` | **the site's blue→mint gradient and inverted text** |
+| `input`, `select`, `textarea` | `2px solid var(--border-nav)`, `var(--bg-1)`, `min-height: 44px`, `padding: var(--spacing-sm)` |
+| `input:focus`, … | the shared focus outline + a blue box-shadow |
+
+The trap is **specificity**. `.foo-btn:hover` is `(0,2,0)`; `button:hover:not(:disabled)` is
+`(0,2,1)` — so the global rule wins and *every* control on your page turns into the site gradient on
+hover, including outline and text buttons.
+
+Fix it by matching the shape, not by fighting it with `!important`:
+
+```css
+.foo-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+/* keep an active state solid while hovered */
+.foo-pill:not(.is-active):hover:not(:disabled) { border-color: var(--fg-blue); }
+```
+
+Note the `min-height: 44px`: it is a good touch target for buttons, but zero it on compact controls —
+Home's dots and carousel arrows both carry an explicit `min-height: 0; /* undo global button
+min-height:44px */`. Because `button` also sets `overflow: hidden` and `position: relative`, a caret or
+badge inside a button will be clipped unless you let it out.
+
+### Gradient text (large display type only)
+
+The accent gradient makes a big number or heading feel like the site, but it is text pretending to be an
+image, so it carries three caveats:
+
+```css
+.foo-stat-value {
+  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+```
+
+- **Display type only** — never body copy, a label, or anything under ~`--font-size-large`. A gradient
+  crossing a small glyph destroys contrast, and it cannot be measured by an accessibility checker.
+- **Keep a plain state for plain values.** A readout that can be empty or a placeholder (`—`) needs a
+  `color`-based variant (`.is-empty`), or the dash renders as invisible transparent text.
+- **Animated gradients are for one hero element at a time** (`background-size: 300% 300%` plus a slow
+  keyframe over `background-position`), and the element must be inside the `prefers-reduced-motion`
+  reset like everything else.
 
 ### Inputs
 
@@ -499,9 +772,11 @@ header. It hides below `820px`, so anything placed there must also be reachable 
 
 - [ ] `SEO` component present with `title`, `description`, and correct `path`.
 - [ ] Uses `Header` (the modern header) — **not** the legacy `NavBar`.
-- [ ] Root wrapper has the animated vibrant gradient + floating circles.
+- [ ] The animated gradient is present — either as the page root or bookending the hero and closing
+      band — with floating circles in the hero (§5).
 - [ ] Hero `section` → `title-wrap` (`eyebrow` → `h1` → `subtitle` → optional `actions`).
-- [ ] Content lives in `*-card` surfaces: hairline border + soft shadow.
+- [ ] Content sits on full-bleed bands rather than in cards; borders are reserved for compact controls
+      (§5).
 - [ ] `Footer` rendered at the bottom.
 - [ ] Project pages include a "View Source Code" link to the correct GitHub path.
 - [ ] All classes prefixed with the page name.
@@ -509,6 +784,18 @@ header. It hides below `820px`, so anything placed there must also be reachable 
 - [ ] Looks right in landscape **and** portrait, at desktop, tablet, and phone widths.
 - [ ] `prefers-reduced-motion` disables entrance/background animation.
 - [ ] Keyboard: every interactive element is focusable; focus is visible.
+- [ ] **Only compact controls carry a border** — no container, readout, tile or table does (§5).
+- [ ] **Hover and focus survive `index.css`** — page `:hover` rules repeat `:not(:disabled)` (§6).
+- [ ] **Canvas-based visuals re-resolve their colors** when the theme changes, and were read after
+      mount (§2).
+- [ ] **No band copy uses `--text-color-inv`** on a `--bg-*` gradient corner (§2).
+- [ ] Interactive states were eyeballed, not assumed: hover, focus, active, empty, disabled (§10).
+- [ ] **Above-the-fold motion is time-driven, not observer-driven**, and the animated headline is not
+      the `<h1>` — the real heading is `.sr-only` (§5).
+- [ ] **A counting number lands exactly on its target**, and skips the animation under
+      `prefers-reduced-motion` (§5).
+- [ ] **Carousel arrows and dots are labelled `<button>`s**, step by pixels rather than index, and zero
+      the global `min-height` (§5).
 
 ---
 
@@ -527,6 +814,8 @@ header. It hides below `820px`, so anything placed there must also be reachable 
 - Give the answer/result an `aria-live` region when it changes without focus moving.
 - Use the shared `useScrollReveal` hook for scroll-triggered fade/rise entrances (section 5) instead of a bespoke observer.
 - Give cards a combined lift + scale + shadow + accent-border hover response (section 5) — a single `transform` alone feels flat.
+- Read theme colors for canvas/WebGL from `document.body` **after mount**, and key the canvas on a theme version so it rebuilds (section 2).
+- Disable every animation and transition in the `prefers-reduced-motion` block, including any new `:not(:disabled)` hover selectors you add.
 
 ### ❌ Don't
 
@@ -539,15 +828,18 @@ header. It hides below `820px`, so anything placed there must also be reachable 
 - Don't reference image assets with `require("...png")` unless the file actually exists in `assets/`.
 - Don't reuse IDs across pages (old pages had `#ethanol-calculator-submit` copy-pasted into other pages).
 - Don't hardcode hex colors anywhere.
+- Don't write a page `:hover` rule without `:not(:disabled)` — the global `button:hover:not(:disabled)` is more specific and will repaint your control with the site gradient (section 6).
+- Don't resolve CSS variables for a canvas during the first render — they are all empty strings until the theme class lands on `<body>` (section 2).
+- Don't put band copy on a `--bg-*` gradient corner in `--text-color-inv`; that token is dark in dark mode (section 2).
 
 ---
 
 ## 9. Reference implementations
 
-> ⚠️ These pages share the same vibrant gradient palette, but predate the editorial structure in this
-> standard (eyebrow labels, pill buttons, hairline borders). Use them for **structure** (SEO,
+> ⚠️ The calculator pages share the same vibrant gradient palette, but predate the editorial structure
+> in this standard (eyebrow labels, pill buttons, hairline borders). Use them for **structure** (SEO,
 > Header/Footer, card anatomy, input validation, state management) — then apply the new hero/button
-> recipes on top.
+> recipes on top. **Annuities** is the one row below that already follows this standard.
 
 | Page | Path | Notes |
 | --- | --- | --- |
@@ -555,7 +847,12 @@ header. It hides below `820px`, so anything placed there must also be reachable 
 | Sonic | `frontend/src/pages/Projects/Sonic/` | Same template with live status dot, tuner meter, spectrum bars |
 | Halfway | `frontend/src/pages/Projects/Halfway/` | Template + midpoint/end/start modes, tolerant 24h & 12h parsing, shareable result URLs, solar-times card (logic in `halfwayUtils.js`, unit tested) |
 | Projects hub | `frontend/src/pages/Projects/Projects/` | Card-grid variant with search + category filters (closest to the new editorial grid) |
-| Home | `frontend/src/pages/Home/Home.jsx` | Hero + typewriter + scroll-reveal sections + oversized template/feature cards (closest to section 5's Squarespace-style motion) |
+| Home | `frontend/src/pages/Home/Home.jsx` | Gradient hero + typewriter headline + counted stats + paginated carousel. **The source for §5's motion recipes** — typing, counting and the carousel are all documented from here |
+| Annuities | `frontend/src/pages/Projects/Annuities/` | **Built entirely to this standard** — full-bleed bands via a local `RevealBand`, borderless surfaces, staggered reveals, and a theme-aware canvas chart (`useChartTheme.js`) |
+
+The earlier entries predate the editorial structure; **Annuities is the markup reference for it.** When
+in doubt about how a band, a staggered reveal, a borderless readout or a themed canvas should be built,
+copy from there rather than re-inventing it — the older pages will lead you back to cards.
 
 ---
 
@@ -578,3 +875,10 @@ actions, notes), so lists, filters, and empty states can be checked for real.
 2. Manually toggle light/dark and eyeball text contrast, borders, and button fills.
 3. Resize the window through phone → tablet → desktop and check nothing overflows or clips.
 4. Tab through the page and confirm focus outlines are visible on every control.
+5. **Hover every control in both themes.** Hover is where the global `button` rules bite (§6), and it
+   is the state a screenshot never shows.
+6. **Check anything on a gradient band in dark mode.** The `--bg-*` corners go dark, so copy that reads
+   fine in light mode can disappear there.
+7. **Canvas visuals: verify by eye.** `getImageData()` returns an all-black buffer in the agent browser
+   tool regardless of what was drawn, so a pixel readback will "prove" a working chart is broken — take
+   a screenshot instead.

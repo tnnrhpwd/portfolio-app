@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import Footer from '../../components/Footer/Footer';
 import Header from '../../components/Header/Header';
 import SEO from '../../components/SEO/SEO.jsx';
+import artFit from '../../assets/art/project-fit.jpg';
 import useScrollReveal from '../../hooks/useScrollReveal';
 import { askFitCoach } from '../../services/fitApi';
 
@@ -157,16 +158,20 @@ function StatTile({ label, value, note }) {
 // ── Section chrome ───────────────────────────────────────────────────────
 // The single list of sections, so the nav chips, the numbering, and the
 // "expand all" control cannot drift apart from what is on the page.
+// `tone` alternates down the page so each section reads as its own band (see
+// docs/guides/FRONTEND_UI_STANDARD.md §5). No two neighbours share a tone.
 const SECTIONS = [
-  { id: 'setup', label: 'Setup', title: '1 · Your week, your rules' },
-  { id: 'body', label: 'Body & weights', title: '2 · Your body & starting weights', signedIn: true },
-  { id: 'week', label: 'The week', title: '3 · Your week' },
-  { id: 'log', label: 'Log a session', title: '4 · Log a session' },
-  { id: 'running', label: 'Running', title: '5 · Running', signedIn: true },
-  { id: 'progress', label: 'Progress', title: '6 · Progress', signedIn: true },
-  { id: 'history', label: 'History', title: '7 · History', signedIn: true },
-  { id: 'coach', label: 'Coach', title: '8 · Ask the coach' },
-  { id: 'notes', label: 'How it’s built', title: '9 · How this plan is built' },
+  { id: 'setup', label: 'Setup', tone: 'tint', title: '1 · Your week, your rules' },
+  // Weights are part of the recommendation, so a guest gets this card too: the
+  // numbers are worked out in the tab and are never written to storage.
+  { id: 'body', label: 'Body & weights', tone: 'surface', title: '2 · Your body & starting weights' },
+  { id: 'week', label: 'The week', tone: 'tint', title: '3 · Your week' },
+  { id: 'log', label: 'Log a session', tone: 'surface', title: '4 · Log a session' },
+  { id: 'running', label: 'Running', tone: 'wash', title: '5 · Running', signedIn: true },
+  { id: 'progress', label: 'Progress', tone: 'surface', title: '6 · Progress', signedIn: true },
+  { id: 'history', label: 'History', tone: 'tint', title: '7 · History', signedIn: true },
+  { id: 'coach', label: 'Coach', tone: 'wash', title: '8 · Ask the coach' },
+  { id: 'notes', label: 'How it’s built', tone: 'surface', title: '9 · How this plan is built' },
 ];
 
 const SECTION_TITLES = SECTIONS.reduce((acc, section) => {
@@ -174,44 +179,68 @@ const SECTION_TITLES = SECTIONS.reduce((acc, section) => {
   return acc;
 }, {});
 
+const SECTION_TONES = SECTIONS.reduce((acc, section) => {
+  acc[section.id] = section.tone;
+  return acc;
+}, {});
+
 /**
- * One collapsible card.
+ * One collapsible band.
  *
  * A disclosure — heading + `aria-expanded` toggle + body — rather than a
  * `<details>` or a hand-rolled accordion: it keeps a real `<h2>` in the
  * document outline, works with a keyboard and a screen reader without extra
  * code, and lets the page control which sections start open. Closed sections
  * render nothing at all, which is the whole point of the exercise.
+ *
+ * The section *is* the band: full-bleed tone, one scroll reveal for the whole
+ * band (never one per card inside it), and an inner `fit-wrap` that holds the
+ * reading measure. The collapsed head keeps the one-line summary so a closed
+ * band still says what is in it — which is what makes collapsing usable.
  */
-function Section({ id, title, summary, open, onToggle, children, className = '' }) {
+function Section({ id, title, summary, tone = 'surface', open, onToggle, children, className = '' }) {
+  const [revealRef, revealed] = useScrollReveal();
   const headingId = `fit-section-${id}-heading`;
   const bodyId = `fit-section-${id}-body`;
   return (
     <section
-      className={`fit-card fit-section${open ? ' is-open' : ''} ${className}`.trim()}
+      ref={revealRef}
+      className={[
+        'fit-band',
+        'fit-section',
+        `fit-band--${tone}`,
+        'fit-reveal',
+        revealed ? 'is-visible' : '',
+        open ? 'is-open' : '',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
       id={`fit-section-${id}`}
       aria-labelledby={headingId}
     >
-      <h2 className="fit-section-heading">
-        <button
-          type="button"
-          className="fit-section-toggle"
-          aria-expanded={open}
-          aria-controls={bodyId}
-          onClick={() => onToggle(id, !open)}
-        >
-          <span className="fit-section-title" id={headingId}>
-            {title}
-          </span>
-          {summary && <span className="fit-section-summary">{summary}</span>}
-          <span className="fit-section-chevron" aria-hidden="true" />
-        </button>
-      </h2>
-      {open && (
-        <div className="fit-section-body" id={bodyId}>
-          {children}
-        </div>
-      )}
+      <div className="fit-wrap">
+        <h2 className="fit-section-heading">
+          <button
+            type="button"
+            className="fit-section-toggle"
+            aria-expanded={open}
+            aria-controls={bodyId}
+            onClick={() => onToggle(id, !open)}
+          >
+            <span className="fit-section-title" id={headingId}>
+              {title}
+            </span>
+            <span className="fit-section-chevron" aria-hidden="true" />
+            {summary && <span className="fit-section-summary">{summary}</span>}
+          </button>
+        </h2>
+        {open && (
+          <div className="fit-section-body" id={bodyId}>
+            {children}
+          </div>
+        )}
+      </div>
     </section>
   );
 }
@@ -300,7 +329,9 @@ function Fit() {
 
   const [state, setState] = useState(() => loadFitState());
   const [guestPlan, setGuestPlan] = useState(null);
-  const [form, setForm] = useState(() => ({ ...DEFAULT_PROFILE, ...loadFitState().profile }));
+  // A guest starts from the defaults rather than from whatever profile the last
+  // account on this browser happened to leave behind.
+  const [form, setForm] = useState(() => ({ ...DEFAULT_PROFILE, ...(isUser ? loadFitState().profile : {}) }));
   const [draft, setDraft] = useState(null);
   const [status, setStatus] = useState('');
   const [confirmId, setConfirmId] = useState(null);
@@ -314,15 +345,19 @@ function Fit() {
   // "clear everything" is the one case where it must not: the athlete asked for
   // an empty slate, so it stays empty until they build a new week.
   const autoGenerate = useRef(true);
-  const [revealRef, revealed] = useScrollReveal();
 
   // Which sections are expanded. Only the parts you are actually using start
   // open — the page is nine sections long and nobody reads it top to bottom.
+  // Setup starts closed even on a first visit: a week is built from sensible
+  // defaults straight away, and the section header already says what those
+  // defaults assume, so the form is a click away instead of a screenful.
   const [open, setOpen] = useState(() => {
     const initial = loadFitState();
     return {
-      setup: !initial.plan,
-      body: !initial.profile.bodyWeight,
+      setup: false,
+      // A signed-in athlete with no body weight on file is nudged straight into
+      // this card; a guest stays on the week and is offered the same link inline.
+      body: isUser && !initial.profile.bodyWeight,
       week: true,
       log: false,
       running: false,
@@ -373,6 +408,9 @@ function Fit() {
   const activeGoal = GOAL_OPTIONS.find((g) => g.id === form.goal) || GOAL_OPTIONS[0];
   const planGoal = GOAL_OPTIONS.find((g) => g.id === plan?.goal);
   const planLevel = LEVEL_OPTIONS.find((l) => l.id === plan?.level);
+  // False until there is something real to anchor the prescribed weights to, so
+  // the week can offer the one input that turns sets and reps into numbers.
+  const hasWeightBasis = Boolean(loadContext.hasBodyWeight || loadContext.hasEnteredLifts);
 
   const history = useMemo(
     () =>
@@ -467,22 +505,21 @@ function Fit() {
     });
   };
 
+  // Only the active store is written: a signed-in athlete's numbers go to the
+  // persisted state, a guest's stay in `form` for the life of the tab.
   const updateProfile = (patch) => {
-    setState((prev) => ({ ...prev, profile: { ...prev.profile, ...patch } }));
-    setForm((prev) => ({ ...prev, ...patch }));
+    if (isUser) setState((prev) => ({ ...prev, profile: { ...prev.profile, ...patch } }));
+    else setForm((prev) => ({ ...prev, ...patch }));
   };
 
   const updateLift = (id, field, value) => {
-    setState((prev) => {
-      const lifts = { ...prev.profile.lifts };
+    const write = (prevProfile) => {
+      const lifts = { ...prevProfile.lifts };
       lifts[id] = { ...lifts[id], [field]: value };
-      return { ...prev, profile: { ...prev.profile, lifts } };
-    });
-    setForm((prev) => {
-      const lifts = { ...prev.lifts };
-      lifts[id] = { ...lifts[id], [field]: value };
-      return { ...prev, lifts };
-    });
+      return { ...prevProfile, lifts };
+    };
+    if (isUser) setState((prev) => ({ ...prev, profile: write(prev.profile) }));
+    else setForm(write);
   };
 
   const useRecommended = () => {
@@ -719,11 +756,9 @@ function Fit() {
         locations.length > 1 ? 'gym + home' : locations[0] === 'home' ? 'at home' : 'at the gym'
       }${plan.runMinutes > 0 ? ` · ${plan.runMinutes} min running` : ''}`
     : null;
-  const bodySummary = isUser
-    ? `${loadContext.bodyWeight ? `${loadContext.bodyWeight} ${units}` : 'no body weight yet'}${
-        loadContext.hasEnteredLifts ? ' · lifts logged' : ''
-      }`
-    : null;
+  const bodySummary = `${loadContext.bodyWeight ? `${loadContext.bodyWeight} ${units}` : 'no body weight yet'}${
+    loadContext.hasEnteredLifts ? ' · lifts logged' : ''
+  }`;
   const logSummary = draft ? `${draft.dayName} in progress` : 'nothing open yet';
   const runningSummary = state.runs.length
     ? `${runSummary.distance} ${distanceUnit} across ${runSummary.count} run${runSummary.count === 1 ? '' : 's'}`
@@ -761,13 +796,14 @@ function Fit() {
       <Header />
 
       <div className="fit">
-        <div className="fit-floating" aria-hidden="true">
-          <div className="fit-circle fit-circle-1" />
-          <div className="fit-circle fit-circle-2" />
-          <div className="fit-circle fit-circle-3" />
-        </div>
-
+        {/* ── Hero: the signature gradient, over a scrimmed cut of the artwork ── */}
         <section className="fit-hero">
+          <img className="fit-hero-media" src={artFit} alt="" />
+          <div className="fit-floating" aria-hidden="true">
+            <div className="fit-circle fit-circle-1" />
+            <div className="fit-circle fit-circle-2" />
+            <div className="fit-circle fit-circle-3" />
+          </div>
           <div className="fit-title-wrap">
             <p className="fit-eyebrow">Training planner</p>
             <h1 className="fit-title">Fit</h1>
@@ -775,6 +811,22 @@ function Fit() {
               A Push / Pull / Legs week built around the equipment you actually have, with a starting weight on every
               bar and a timer for every hold. Sign in and it tracks what you lift, what you run, and what hurts.
             </p>
+            {plan && (
+              <ul className="fit-hero-facts">
+                <li>
+                  <span className="fit-hero-fact-value">{plan.days.length}</span>
+                  <span className="fit-hero-fact-label">days planned</span>
+                </li>
+                <li>
+                  <span className="fit-hero-fact-value">{weeklyTarget}</span>
+                  <span className="fit-hero-fact-label">sessions a week</span>
+                </li>
+                <li>
+                  <span className="fit-hero-fact-value">{plan.runMinutes > 0 ? plan.runMinutes : '–'}</span>
+                  <span className="fit-hero-fact-label">minutes running</span>
+                </li>
+              </ul>
+            )}
             <div className="fit-actions fit-actions--hero">
               <button type="button" className="fit-btn" onClick={() => goTo('setup')}>
                 {plan ? 'Change my week' : 'Build my week'}
@@ -782,7 +834,7 @@ function Fit() {
               <button type="button" className="fit-btn fit-btn-outline" onClick={() => goTo('log')}>
                 {nextDay ? `Log ${nextDay.name}` : 'Log a session'}
               </button>
-              <button type="button" className="fit-btn fit-btn-outline" onClick={() => goTo('week')}>
+              <button type="button" className="fit-btn fit-btn-outline fit-btn--sm" onClick={() => goTo('week')}>
                 See the week
               </button>
             </div>
@@ -805,32 +857,35 @@ function Fit() {
           </div>
         </section>
 
-        <main id="main" ref={revealRef} className={`fit-main fit-reveal ${revealed ? 'is-visible' : ''}`}>
+        <main id="main" className="fit-main">
           {/* ── Section index ─────────────────────────────────────── */}
           <nav className="fit-nav" aria-label="Page sections">
-            {visibleSections.map((section) => (
+            <div className="fit-wrap fit-nav-inner">
+              {visibleSections.map((section) => (
+                <button
+                  key={section.id}
+                  type="button"
+                  className={`fit-nav-chip${open[section.id] ? ' is-open' : ''}`}
+                  aria-expanded={open[section.id]}
+                  onClick={() => goTo(section.id)}
+                >
+                  {section.label}
+                </button>
+              ))}
               <button
-                key={section.id}
                 type="button"
-                className={`fit-nav-chip${open[section.id] ? ' is-open' : ''}`}
-                aria-expanded={open[section.id]}
-                onClick={() => goTo(section.id)}
+                className="fit-nav-action"
+                onClick={() => setAllSections(!allOpen)}
               >
-                {section.label}
+                {allOpen ? 'Collapse all' : 'Expand all'}
               </button>
-            ))}
-            <button
-              type="button"
-              className="fit-nav-action"
-              onClick={() => setAllSections(!allOpen)}
-            >
-              {allOpen ? 'Collapse all' : 'Expand all'}
-            </button>
+            </div>
           </nav>
 
           {/* ── 1 · Profile ───────────────────────────────────────── */}
           <Section
             id="setup"
+            tone={SECTION_TONES.setup}
             title={SECTION_TITLES.setup}
             summary={setupSummary}
             open={open.setup}
@@ -843,7 +898,7 @@ function Fit() {
 
             <fieldset className="fit-fieldset">
               <legend className="fit-label">Where can you train?</legend>
-              <div className="fit-equipment">
+              <div className="fit-equipment fit-stagger">
                 {EQUIPMENT_OPTIONS.map((option) => {
                   const checked = (form.equipment || []).includes(option.id);
                   return (
@@ -991,65 +1046,73 @@ function Fit() {
             </p>
           )}
 
-          {/* ── 2 · Body & starting weights (signed in) ───────────── */}
-          {isUser && (
-            <Section
-              id="body"
-              title={SECTION_TITLES.body}
-              summary={bodySummary}
-              open={open.body}
-              onToggle={toggleSection}
-            >
-              <div className="fit-card-head">
-                <p className="fit-lead fit-lead--tight">
-                  These are what turn &ldquo;4 × 6–8&rdquo; into an actual number on the bar. Every prescribed weight
-                  updates the moment you change one of these.
-                </p>
-                <div className="fit-segmented" role="group" aria-label="Weight unit">
-                  {UNITS.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      className={`fit-segment${units === option.id ? ' is-active' : ''}`}
-                      aria-pressed={units === option.id}
-                      onClick={() => setState((prev) => ({ ...prev, units: option.id }))}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
+          {/* ── 2 · Body & starting weights ─────────────────────── */}
+          <Section
+            id="body"
+            tone={SECTION_TONES.body}
+            title={SECTION_TITLES.body}
+            summary={bodySummary}
+            open={open.body}
+            onToggle={toggleSection}
+          >
+            <div className="fit-card-head">
+              <p className="fit-lead fit-lead--tight">
+                These are what turn &ldquo;4 × 6–8&rdquo; into an actual number on the bar. Every prescribed weight
+                updates the moment you change one of these.
+              </p>
+              <div className="fit-segmented" role="group" aria-label="Weight unit">
+                {UNITS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`fit-segment${units === option.id ? ' is-active' : ''}`}
+                    aria-pressed={units === option.id}
+                    onClick={() => setState((prev) => ({ ...prev, units: option.id }))}
+                  >
+                    {option.label}
+                  </button>
+                ))}
               </div>
+            </div>
 
-              <div className="fit-form-grid">
-                <label className="fit-field" htmlFor="fit-height">
-                  <span className="fit-label">Height (cm)</span>
-                  <input
-                    id="fit-height"
-                    className="fit-input fit-input--number"
-                    type="number"
-                    min="90"
-                    max="260"
-                    inputMode="numeric"
-                    value={state.profile.heightCm}
-                    onChange={(event) => updateProfile({ heightCm: event.target.value })}
-                  />
-                </label>
+            {!isUser && (
+              <p className="fit-hint">
+                Nothing here is saved — these numbers are used in this tab for this visit, and the week below updates as
+                you type.
+              </p>
+            )}
 
-                <label className="fit-field" htmlFor="fit-bodyweight">
-                  <span className="fit-label">Body weight ({units})</span>
-                  <input
-                    id="fit-bodyweight"
-                    className="fit-input fit-input--number"
-                    type="number"
-                    min="20"
-                    max="400"
-                    step="0.1"
-                    inputMode="decimal"
-                    value={state.profile.bodyWeight}
-                    onChange={(event) => updateProfile({ bodyWeight: event.target.value })}
-                  />
-                </label>
+            <div className="fit-form-grid">
+              <label className="fit-field" htmlFor="fit-height">
+                <span className="fit-label">Height (cm)</span>
+                <input
+                  id="fit-height"
+                  className="fit-input fit-input--number"
+                  type="number"
+                  min="90"
+                  max="260"
+                  inputMode="numeric"
+                  value={profile.heightCm}
+                  onChange={(event) => updateProfile({ heightCm: event.target.value })}
+                />
+              </label>
 
+              <label className="fit-field" htmlFor="fit-bodyweight">
+                <span className="fit-label">Body weight ({units})</span>
+                <input
+                  id="fit-bodyweight"
+                  className="fit-input fit-input--number"
+                  type="number"
+                  min="20"
+                  max="400"
+                  step="0.1"
+                  inputMode="decimal"
+                  value={profile.bodyWeight}
+                  onChange={(event) => updateProfile({ bodyWeight: event.target.value })}
+                />
+              </label>
+
+              {isUser && (
                 <div className="fit-field">
                   <span className="fit-label">Today&rsquo;s check-in</span>
                   <div className="fit-inline-row">
@@ -1071,60 +1134,62 @@ function Fit() {
                   </div>
                   <span className="fit-hint">
                     {latestWeight
-                      ? `Last check-in ${latestWeight.weight} ${latestWeight.unit || units} on ${formatDateLabel(latestWeight.date, {
-                          withYear: true,
-                        })}.`
+                      ? `Last check-in ${latestWeight.weight} ${latestWeight.unit || units} on ${formatDateLabel(
+                          latestWeight.date,
+                          { withYear: true }
+                        )}.`
                       : 'One check-in makes your weights personal, not generic.'}
                   </span>
                 </div>
+              )}
 
-                {ANCHOR_LIFTS.map((lift) => (
-                  <div className="fit-field" key={lift.id}>
-                    <span className="fit-label">{lift.label}</span>
-                    <div className="fit-lift-row">
-                      <input
-                        className="fit-input fit-input--number"
-                        type="number"
-                        min="0"
-                        step="0.5"
-                        inputMode="decimal"
-                        aria-label={`${lift.label} weight in ${units}`}
-                        placeholder={units}
-                        value={state.profile.lifts?.[lift.id]?.weight ?? ''}
-                        onChange={(event) => updateLift(lift.id, 'weight', event.target.value)}
-                      />
-                      <span className="fit-lift-times">×</span>
-                      <input
-                        className="fit-input fit-input--number"
-                        type="number"
-                        min="1"
-                        max="30"
-                        inputMode="numeric"
-                        aria-label={`${lift.label} reps`}
-                        placeholder="reps"
-                        value={state.profile.lifts?.[lift.id]?.reps ?? ''}
-                        onChange={(event) => updateLift(lift.id, 'reps', event.target.value)}
-                      />
-                    </div>
-                    <span className="fit-hint">{lift.hint}</span>
+              {ANCHOR_LIFTS.map((lift) => (
+                <div className="fit-field" key={lift.id}>
+                  <span className="fit-label">{lift.label}</span>
+                  <div className="fit-lift-row">
+                    <input
+                      className="fit-input fit-input--number"
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      inputMode="decimal"
+                      aria-label={`${lift.label} weight in ${units}`}
+                      placeholder={units}
+                      value={profile.lifts?.[lift.id]?.weight ?? ''}
+                      onChange={(event) => updateLift(lift.id, 'weight', event.target.value)}
+                    />
+                    <span className="fit-lift-times">×</span>
+                    <input
+                      className="fit-input fit-input--number"
+                      type="number"
+                      min="1"
+                      max="30"
+                      inputMode="numeric"
+                      aria-label={`${lift.label} reps`}
+                      placeholder="reps"
+                      value={profile.lifts?.[lift.id]?.reps ?? ''}
+                      onChange={(event) => updateLift(lift.id, 'reps', event.target.value)}
+                    />
                   </div>
-                ))}
-              </div>
+                  <span className="fit-hint">{lift.hint}</span>
+                </div>
+              ))}
+            </div>
 
-              <div className="fit-context">
-                {describeContext(loadContext).map((line) => (
-                  <p className="fit-hint" key={line}>
-                    {line}
-                  </p>
-                ))}
-              </div>
-            </Section>
-          )}
+            <div className="fit-context">
+              {describeContext(loadContext).map((line) => (
+                <p className="fit-hint" key={line}>
+                  {line}
+                </p>
+              ))}
+            </div>
+          </Section>
 
           {/* ── 3 · The week ──────────────────────────────────────── */}
           {plan && (
             <Section
               id="week"
+              tone={SECTION_TONES.week}
               title={SECTION_TITLES.week}
               summary={weekSummary}
               open={open.week}
@@ -1136,7 +1201,19 @@ function Fit() {
                 point, not a test. Pick a day to see its movements.
               </p>
 
-              <div className="fit-daytabs" role="group" aria-label="Choose a day">
+              {!hasWeightBasis && (
+                <p className="fit-nudge">
+                  No number on the bar yet —{' '}
+                  <button type="button" className="fit-link-btn" onClick={() => goTo('body')}>
+                    add your body weight
+                  </button>{' '}
+                  {isUser
+                    ? 'and every set below gets a starting weight.'
+                    : 'and every set below gets a starting weight. Nothing is saved.'}
+                </p>
+              )}
+
+              <div className="fit-daytabs fit-stagger" role="group" aria-label="Choose a day">
                 {plan.days.map((day) => {
                   const runs = dayRunItems(day);
                   const where = runs.length > 0 ? 'outdoors' : day.location === 'home' ? 'at home' : 'at the gym';
@@ -1181,6 +1258,7 @@ function Fit() {
           {/* ── 4 · Log sheet ─────────────────────────────────────── */}
           <Section
             id="log"
+            tone={SECTION_TONES.log}
             title={SECTION_TITLES.log}
             summary={logSummary}
             open={open.log}
@@ -1399,6 +1477,7 @@ function Fit() {
           {isUser && (
             <Section
               id="running"
+              tone={SECTION_TONES.running}
               title={SECTION_TITLES.running}
               summary={runningSummary}
               open={open.running}
@@ -1513,13 +1592,19 @@ function Fit() {
           {isUser && (
             <Section
               id="progress"
+              tone={SECTION_TONES.progress}
               title={SECTION_TITLES.progress}
               summary={progressSummary}
               open={open.progress}
               onToggle={toggleSection}
             >
 
-              <div className="fit-stats">
+              <p className="fit-figure">
+                <span className="fit-figure-value">{totalVolume(state.sessions, units).toLocaleString()}</span>
+                <span className="fit-figure-label">{units} lifted, all time</span>
+              </p>
+
+              <div className="fit-stats fit-stagger">
                 <StatTile
                   label="sessions this week"
                   value={`${weeklyProgress.done}/${weeklyProgress.target}`}
@@ -1537,7 +1622,7 @@ function Fit() {
               </div>
 
               <h3 className="fit-subheading">What your data says</h3>
-              <ul className="fit-readout">
+              <ul className="fit-readout fit-stagger">
                 {readout.map((item) => (
                   <li key={item.label}>
                     <span className="fit-readout-label">{item.label}</span>
@@ -1608,6 +1693,7 @@ function Fit() {
           {isUser && history.length > 0 && (
             <Section
               id="history"
+              tone={SECTION_TONES.history}
               title={SECTION_TITLES.history}
               summary={historySummary}
               open={open.history}
@@ -1666,6 +1752,7 @@ function Fit() {
           {/* ── 8 · Coach ─────────────────────────────────────────── */}
           <Section
             id="coach"
+            tone={SECTION_TONES.coach}
             title={SECTION_TITLES.coach}
             summary={coachSummary}
             open={open.coach}
@@ -1859,12 +1946,13 @@ function Fit() {
           {plan && (
             <Section
               id="notes"
+              tone={SECTION_TONES.notes}
               title={SECTION_TITLES.notes}
               summary={notesSummary}
               open={open.notes}
               onToggle={toggleSection}
             >
-              <ul className="fit-notes-list">
+              <ul className="fit-notes-list fit-stagger">
                 {plan.notes.map((note) => (
                   <li key={note}>{note}</li>
                 ))}
@@ -1890,40 +1978,56 @@ function Fit() {
           )}
 
           {(isUser && (basePlan || history.length > 0)) && (
-            <div className="fit-danger">
+            <div className={`fit-danger${confirmReset ? ' is-confirming' : ''}`}>
               {confirmReset ? (
                 <>
-                  <span className="fit-hint">Delete your week, every logged session, run, and check-in?</span>
-                  <button type="button" className="fit-btn fit-btn-outline fit-btn--sm" onClick={handleReset}>
-                    Yes, clear everything
-                  </button>
-                  <button type="button" className="fit-btn fit-btn-text fit-btn--sm" onClick={() => setConfirmReset(false)}>
-                    Cancel
-                  </button>
+                  <span className="fit-danger-question">
+                    Delete your week, every logged session, run, and check-in?
+                  </span>
+                  <span className="fit-danger-actions">
+                    <button type="button" className="fit-btn fit-danger-yes" onClick={handleReset}>
+                      Yes, clear everything
+                    </button>
+                    <button
+                      type="button"
+                      className="fit-btn fit-btn-text fit-btn--sm fit-danger-no"
+                      onClick={() => setConfirmReset(false)}
+                    >
+                      Cancel
+                    </button>
+                  </span>
                 </>
               ) : (
-                <button type="button" className="fit-link-btn" onClick={() => setConfirmReset(true)}>
+                <button type="button" className="fit-danger-btn" onClick={() => setConfirmReset(true)}>
                   Clear my plan and history
                 </button>
               )}
             </div>
           )}
-
-          <a
-            className="fit-source-link"
-            href="https://github.com/tnnrhpwd/portfolio-app/tree/master/frontend/src/pages/Fit"
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            View Source Code
-          </a>
-
-          <p className="fit-hint fit-hint--foot">
-            {isUser
-              ? 'Your training data is stored against your account. Logging runs and check-ins is what makes the coaching specific to you.'
-              : 'Guest mode stores nothing — no account, no cookie, no history. Sign in whenever you want Fit to remember.'}
-          </p>
         </main>
+
+        {/* The closing bookend: the same gradient as the hero, corners-only, so
+            the copy stays on the theme text color. */}
+        <section className="fit-band fit-band--corners fit-closing">
+          <div className="fit-wrap fit-closing-inner">
+            <p className="fit-closing-lead">
+              Push, pull, legs — with a number on the bar, a timer on every hold, and a coach that reads your log.
+            </p>
+            <a
+              className="fit-source-link"
+              href="https://github.com/tnnrhpwd/portfolio-app/tree/master/frontend/src/pages/Fit"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              View Source Code
+            </a>
+            <p className="fit-hint fit-hint--foot">
+              {isUser
+                ? 'Your training data is stored against your account. Logging runs and check-ins is what makes the coaching specific to you.'
+                : 'Guest mode stores nothing — no account, no cookie, no history. Sign in whenever you want Fit to remember.'}
+            </p>
+          </div>
+        </section>
       </div>
 
       <Footer />

@@ -59,6 +59,9 @@ const openSection = (name) => {
   return section;
 };
 
+/** The setup form starts collapsed — open its header and scope queries to it. */
+const setupForm = () => within(openSection(/1 · Your week, your rules/i));
+
 /** Pick a day in the week's day picker, then act on the panel it opens. */
 const dayTab = (name) => within(week()).getByRole('button', { name: new RegExp(`^${name} —`, 'i') });
 const selectDay = (name) => fireEvent.click(dayTab(name));
@@ -81,6 +84,7 @@ const storedState = () => {
 /** Every section heading the current mode renders, for the expand-all check. */
 const visibleSections = () => [
   /1 · Your week, your rules/i,
+  /2 · Your body & starting weights/i,
   /3 · Your week/i,
   /4 · Log a session/i,
   /8 · Ask the coach/i,
@@ -117,10 +121,24 @@ describe('Fit — guest mode', () => {
 
   it('hides the tracking-only surfaces rather than showing empty ones', () => {
     renderFit(GUEST);
-    expect(screen.queryByRole('heading', { name: /your body & starting weights/i })).toBeNull();
+    // Weights are part of the recommendation, so a visitor gets the body card —
+    // but nothing that keeps a record of them over time.
     expect(screen.queryByRole('heading', { name: /^5 · Running$/i })).toBeNull();
     expect(screen.queryByRole('heading', { name: /^6 · Progress$/i })).toBeNull();
     expect(screen.queryByRole('heading', { name: /^7 · History$/i })).toBeNull();
+    const body = openSection(/your body & starting weights/i);
+    expect(within(body).queryByText(/check-in/i)).toBeNull();
+  });
+
+  it('turns a body weight into real numbers without storing anything', async () => {
+    renderFit(GUEST);
+    const body = openSection(/your body & starting weights/i);
+    fireEvent.change(within(body).getByLabelText(/^body weight \(/i), { target: { value: '80' } });
+
+    // The recommendation is the whole product, so a visitor gets the numbers —
+    // and the guest promise still holds: nothing is written anywhere.
+    await waitFor(() => expect(week().textContent).toMatch(/of body weight/));
+    expect(window.localStorage.length).toBe(0);
   });
 
   it('gates the coach behind an account, and explains why', () => {
@@ -133,11 +151,15 @@ describe('Fit — guest mode', () => {
 
   it('collapses every section that is not in use, and lets you expand them again', () => {
     renderFit(GUEST);
-    // The setup form and the week are the two things a visitor needs; the
-    // rest of the page is a header they can open when they want it.
-    expect(sectionByHeading(/1 · Your week, your rules/i).querySelector('.fit-section-body')).not.toBeNull();
+    // Only the week starts open: the setup form is a screenful of controls, and
+    // its header already states the goal, the days, the minutes, and the kit the
+    // week assumes, so it stays a click away until it is wanted.
+    expect(sectionByHeading(/1 · Your week, your rules/i).querySelector('.fit-section-body')).toBeNull();
     expect(sectionByHeading(/3 · Your week/i).querySelector('.fit-section-body')).not.toBeNull();
     expect(sectionByHeading(/4 · Log a session/i).querySelector('.fit-section-body')).toBeNull();
+
+    // The section header is the way back in.
+    expect(setupForm().getByRole('checkbox', { name: /full gym/i })).toBeChecked();
 
     fireEvent.click(screen.getByRole('button', { name: /expand all/i }));
     visibleSections().forEach((name) => {
@@ -170,8 +192,9 @@ describe('Fit — equipment is multi-select', () => {
 
   it('lets an athlete pick both the gym and their home kit', () => {
     renderFit(GUEST);
-    const gym = screen.getByRole('checkbox', { name: /full gym/i });
-    const dumbbells = screen.getByRole('checkbox', { name: /dumbbells at home/i });
+    const form = setupForm();
+    const gym = form.getByRole('checkbox', { name: /full gym/i });
+    const dumbbells = form.getByRole('checkbox', { name: /dumbbells at home/i });
     expect(gym).toBeChecked();
     expect(dumbbells).not.toBeChecked();
 
@@ -179,18 +202,19 @@ describe('Fit — equipment is multi-select', () => {
     expect(dumbbells).toBeChecked();
     // Ticking more equipment must never untick what was already chosen.
     expect(gym).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: /barbell \+ bench/i })).toBeChecked();
+    expect(form.getByRole('checkbox', { name: /barbell \+ bench/i })).toBeChecked();
   });
 
   it('can be unticked, and regenerates a week that matches', () => {
     renderFit(GUEST);
-    fireEvent.click(screen.getByRole('checkbox', { name: /full gym/i }));
-    fireEvent.click(screen.getByRole('checkbox', { name: /barbell \+ bench/i }));
-    fireEvent.click(screen.getByRole('checkbox', { name: /running/i }));
+    const form = setupForm();
+    fireEvent.click(form.getByRole('checkbox', { name: /full gym/i }));
+    fireEvent.click(form.getByRole('checkbox', { name: /barbell \+ bench/i }));
+    fireEvent.click(form.getByRole('checkbox', { name: /running/i }));
 
-    expect(screen.getByRole('checkbox', { name: /full gym/i })).not.toBeChecked();
+    expect(form.getByRole('checkbox', { name: /full gym/i })).not.toBeChecked();
 
-    fireEvent.click(screen.getByRole('button', { name: /regenerate my week/i }));
+    fireEvent.click(form.getByRole('button', { name: /regenerate my week/i }));
     const weekSection = week();
     // No gym and no barbell left, so every day has moved home.
     expect(weekSection.textContent).toMatch(/at home/i);
@@ -199,7 +223,7 @@ describe('Fit — equipment is multi-select', () => {
 
   it('explains the barbell in plain language for someone who does not know the name', () => {
     renderFit(GUEST);
-    expect(screen.getByRole('checkbox', { name: /barbell \+ bench/i })).toHaveAccessibleDescription(
+    expect(setupForm().getByRole('checkbox', { name: /barbell \+ bench/i })).toHaveAccessibleDescription(
       /the long bar you load with plates/i
     );
   });
@@ -229,12 +253,17 @@ describe('Fit — signed in: customised weights', () => {
 
   it('prefers a working set you typed over the body-weight estimate', async () => {
     renderFit(USER);
-    fireEvent.change(screen.getByLabelText(/body weight in kg/i), { target: { value: '82' } });
+    fireEvent.change(screen.getByLabelText(/^body weight \(/i), { target: { value: '82' } });
     fireEvent.change(screen.getByLabelText(/bench press weight in kg/i), { target: { value: '100' } });
     fireEvent.change(screen.getByLabelText(/bench press reps/i), { target: { value: '5' } });
 
-    await waitFor(() => expect(week().textContent).toMatch(/your bench press ·/));
-    expect(week().textContent).toMatch(/117 kg est\. 1RM/);
+    // Which chest movement the shuffle picks is not fixed, but every one of
+    // them is now derived from the set that was entered rather than from body
+    // weight — and the readout says so with the real number.
+    await waitFor(() => expect(week().textContent).toMatch(/your bench press/));
+    const body = sectionByHeading(/your body & starting weights/i);
+    expect(within(body).getByText(/Estimated 1RM from your working sets/)).toBeInTheDocument();
+    expect(within(body).getByText(/bench press 117 kg/)).toBeInTheDocument();
   });
 
   it('says what it needs before it can prescribe anything', () => {
@@ -407,8 +436,8 @@ describe('Fit — signed in: running', () => {
     fireEvent.click(within(running).getByRole('button', { name: /log run/i }));
     await waitFor(() => expect(storedState().runs).toHaveLength(1));
 
-    // Regenerate from the setup section, which is still open at this point.
-    fireEvent.click(screen.getByRole('button', { name: /regenerate my week/i }));
+    // Regenerate from the setup section, which is collapsed until it is opened.
+    fireEvent.click(setupForm().getByRole('button', { name: /regenerate my week/i }));
     openSection(/3 · Your week/i);
     // 6:00 /km → a 25 min easy run is ≈4.2 km. The run day is the last tab.
     selectDay('Run');
@@ -532,10 +561,11 @@ describe('Fit — signed in: recommendations and reset', () => {
     window.localStorage.setItem('fit.state.v2', JSON.stringify({ profile: {}, sessions }));
 
     renderFit(USER);
-    await waitFor(() => expect(screen.getByText(/Recommended from your own training/i)).toBeInTheDocument());
+    const form = setupForm();
+    await waitFor(() => expect(form.getByText(/Recommended from your own training/i)).toBeInTheDocument());
     // The recommended options are marked so the suggestion is visible, not silent.
-    expect(screen.getAllByText('★').length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole('button', { name: /use recommended/i }));
+    expect(form.getAllByText('★').length).toBeGreaterThan(0);
+    fireEvent.click(form.getByRole('button', { name: /use recommended/i }));
     expect(screen.getByRole('status')).toHaveTextContent(/Applied the settings your logged history suggests/i);
   });
 
@@ -552,7 +582,7 @@ describe('Fit — signed in: recommendations and reset', () => {
     // The athlete asked for an empty slate, so the week does not come back on
     // its own — it waits for an explicit "Build my week".
     expect(screen.queryByRole('heading', { name: /3 · Your week/i })).toBeNull();
-    const setup = sectionByHeading(/1 · Your week, your rules/i);
+    const setup = openSection(/1 · Your week, your rules/i);
     expect(within(setup).getByRole('button', { name: /build my week/i })).toBeInTheDocument();
   });
 
