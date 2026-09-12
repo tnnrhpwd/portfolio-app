@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Header from '../../components/Header/Header';
 import Footer from '../../components/Footer/Footer';
@@ -210,7 +211,7 @@ function Music() {
 
           {!token && (
             <div className="music-notice" role="status">
-              <a href="/login">Sign in</a> to generate songs and save them to your library.
+              <Link to="/login">Sign in</Link> to generate songs and save them to your library.
             </div>
           )}
 

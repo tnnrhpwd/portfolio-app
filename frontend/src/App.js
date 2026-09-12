@@ -49,7 +49,6 @@ const NotFound = lazy(() => import('./pages/NotFound/NotFound.jsx'));
 const Net = lazy(() => import('./pages/Simple/Net/Net.jsx'));
 const Market = lazy(() => import('./pages/Simple/Market/Market.jsx'));
 const Pay = lazy(() => import('./pages/Simple/Pay/Pay.jsx'));
-const PaymentSuccess = lazy(() => import('./pages/Simple/Pay/PaymentSuccess.jsx'));
 const Plans = lazy(() => import('./pages/Simple/Plans/Plans.jsx'));
 const GoalDetail = lazy(() => import('./pages/Simple/Plans/GoalDetail.jsx'));
 const Polls = lazy(() => import('./pages/Simple/Polls/Polls.jsx'));
@@ -143,7 +142,6 @@ function App() {
               <Route path='/mic-test' element={<MicTest />} />
               <Route path='/simple' element={<Simple />} />
               <Route path='/pay' element={<Pay />} />
-              <Route path='/payment-success' element={<PaymentSuccess />} />
               <Route path="/passgen" element={<PassGen/>} />
               <Route path="/pets" element={<Pets/>} />
               <Route path='/projects' element={<Projects />} />

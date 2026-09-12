@@ -958,18 +958,26 @@ Fixed in this pass:
 - ✅ **`/pay` rendered `null` while its redirect effect ran** (`Pay.jsx`), so a
   signed-out visitor saw a blank page flash before `/login`. It now renders the
   card shell with a spinner and "Taking you to sign in…".
+- ✅ **`/payment-success` was an orphan route — deleted.** Nothing ever navigated
+  to it (both post-checkout paths in `useCheckoutHandlers.js` go straight to
+  `/profile`, which is the right destination: it is the Retention home base and
+  already shows the updated plan), so `PaymentSuccess.jsx` was dead code whose
+  only job was a 5-second countdown *back* to `/profile`. Removed the route, the
+  lazy import, the component and its stylesheet; the path now falls to the `*`
+  NotFound route, which is honest for a URL nobody hands out. `CheckoutForm`'s own
+  inline `.payment-success` state is a different thing and is untouched.
+- ✅ **Internal links no longer force a full page reload.** Converted the raw
+  `<a href>` anchors on SPA routes to `<Link>`: the three `Footer.jsx` links
+  (`/about`, `/privacy`, `/terms`), the `Header.jsx` logo (`/`), the terms/privacy
+  links in `CheckoutForm.jsx`, `/support` in `BillingDisclosure.jsx`, and `/login`
+  in `Music.jsx` and `ResetPassword.jsx`. Deliberately left alone: the
+  `target="_blank"` anchors (a new tab is a fresh document either way) and the FAQ
+  answers in `data/supportData.js`, which are plain strings containing literal
+  `<a>` markup that `HelpFaqTab.jsx` parses with a regex into `<a>` elements — they
+  cannot hold a `<Link>` without restructuring the FAQ data model.
 
 Still open (ordered by funnel impact):
 
-- ⬜ **`/payment-success` is an orphan route.** Nothing navigates to it; both
-  post-payment paths go to `/profile` (`useCheckoutHandlers.js:56,91`), leaving
-  `PaymentSuccess.jsx` dead code. `/pay/success` doesn't exist at all (falls to the
-  `*` NotFound route). **Needs a product decision**: land post-checkout there, or
-  delete the component.
-- ⬜ **Raw `<a href>` for SPA routes** — `Footer.jsx:12–16`, the `Header.jsx` logo,
-  and the terms/privacy links in `CheckoutForm.jsx` all force a full page reload.
-  (`UsageMeter.jsx` and the chat's markdown renderer are fixed; the rest are the
-  same one-line `<Link>` swap.)
 - ⬜ **Home's three surface cards** (`/net`, `/simple`, `/plans`) send guests
   straight into a gate — `/net` is `LoginGate`-gated and `/plans` is soft-gated,
   while `/simple` shows the signed-out journey band. Decide whether Discovery

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
 import React from 'react';
@@ -208,9 +208,9 @@ function ResetPassword() {
                     </section>
                     
                     <div className="planit-reset-actions">
-                        <a href="/login">
+                        <Link to="/login">
                             <button className="planit-reset-back">Back to Login</button>
-                        </a>
+                        </Link>
                     </div>
                 </div>
             </div>

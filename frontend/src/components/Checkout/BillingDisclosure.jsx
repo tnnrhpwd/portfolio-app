@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 /**
  * BillingDisclosure
@@ -27,7 +28,7 @@ const BillingDisclosure = ({ variant = 'full', billingInterval = 'month' }) => {
         <p className="billing-disclosure-links">
           Read the full <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> and{' '}
           <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> for complete details,
-          or contact <a href="/support">support</a> with billing questions.
+          or contact <Link to="/support">support</Link> with billing questions.
         </p>
       )}
     </div>

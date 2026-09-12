@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import "./Footer.css";
 
 function Footer() {
@@ -12,9 +13,9 @@ function Footer() {
         </span>
       </div>
       <div className="footer-space-links">
-        <a className="footer-space-link" href="/about">About Us</a>
-        <a className="footer-space-link" href="/privacy">Privacy Policy</a>
-        <a className="footer-space-link" href="/terms">Terms of Service</a>
+        <Link className="footer-space-link" to="/about">About Us</Link>
+        <Link className="footer-space-link" to="/privacy">Privacy Policy</Link>
+        <Link className="footer-space-link" to="/terms">Terms of Service</Link>
       </div>
     </footer>
   );

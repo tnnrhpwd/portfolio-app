@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import HeaderDropper from './../HeaderDropper/HeaderDropper.jsx';
 import HeaderLogo from '../../../src/assets/Checkmark512.png';
 import { setDarkMode, setLightMode, setSystemColorMode } from '../../utils/theme.js';
@@ -50,16 +51,16 @@ function Header({ center }) {
             onClick={handleThemeToggle}
             alt="STHopwood logo"
           />
-          <a
+          <Link
             className='planit-header-logo-format'
-            href="/" 
+            to="/"
             onClick={() => {
               window.scrollTo(0, 0);
             }}
             >
             <div className="planit-header-logo-format-simple">Simple</div>
             <div className="planit-header-logo-format-sth"> by STHopwood</div>
-          </a>
+          </Link>
         </div>
         {center && <div className="planit-header-center">{center}</div>}
         <HeaderDropper
