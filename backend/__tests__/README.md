@@ -5,10 +5,13 @@ command is `npm test` (or `npx jest`) from `backend/`.
 
 ## Running Tests
 
+Run **only the tests covering what you changed** — the whole suite is for merge time.
+See `.github/copilot-instructions.md`.
+
 ```bash
-cd backend
-npm test                 # run the whole backend suite
-npx jest path/to/test.js # run one file
+# from the repo root
+npm --prefix backend test -- __tests__/unit/foo.test.js   # one file (scoped, ~6 s)
+npm --prefix backend test                                # whole backend suite
 ```
 
 The suite is also run by CI (`.github/workflows/ci.yml` → `test-backend`).

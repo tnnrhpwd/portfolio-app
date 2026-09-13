@@ -32,18 +32,22 @@ export const trackPointer = (event) => {
  * palette" in `pages/Admin/Admin.css`) — one for the console itself, one for
  * anything that wants a human — so a tile has no subject colour to choose.
  *
- * `tone` therefore only ever means STATE, and leaving it off is the normal case:
+ * `tone` therefore only ever means STATE or EMPHASIS, and leaving it off is the
+ * normal case:
  *
  * - Off: the tile sits in the accent like everything else on the page.
+ * - `highlight`: this is the figure the page is about. It earns the highlight
+ *   hue (a rule and a wash), and only one tile per strip should ever have it —
+ *   two highlights are a tie, and a tie is the same as none.
  * - `warn` / `bad`: the figure has crossed something, so the tile flips to the
- *   alert hue and gains its accent rule. Pass it ONLY when that is true — a tone
- *   applied unconditionally is how a colour stops meaning anything.
+ *   alert hue. Pass it ONLY when that is true; a tone applied unconditionally is
+ *   how a colour stops meaning anything.
  * - `ok`: nominal, worth a rule when the same strip carries a warn elsewhere.
  *
  * @param {string} label  Small uppercase caption. A label, never a sentence.
  * @param {React.ReactNode} value  The figure. This is the tile's whole subject.
  * @param {React.ReactNode} [sub]  One short line under it — a delta, a total.
- * @param {string} [tone]  ok | warn | bad | accent. State only.
+ * @param {string} [tone]  ok | highlight | warn | bad | accent.
  */
 export default function KpiTile({ label, value, sub, tone, className = '' }) {
   const toneClass = tone ? ` admin-tone--${tone}` : '';

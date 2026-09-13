@@ -55,13 +55,23 @@
      keeps its blue. */
   --fg-blue: var(--tone-accent);
 
-  /* The primary action, as a gradient WITHIN one hue: the accent to a lighter
-     version of itself. It used to run blue → mint, which spent the second hue
-     on a button. */
+  /* The primary action: a gradient WITHIN one hue, from a light step to a deep
+     one, in the HIGHLIGHT hue. An action is the one thing on the page you are
+     meant to press, so it wears the colour that means "here", not the room's
+     cyan and certainly not the alarm's amber.
+
+     The two stops are tokens rather than "the accent mixed toward white", because
+     this button's label is `--text-color-inv` — white in the light theme and
+     near-black in the dark one — and the LIGHTER stop is what has to carry it.
+     Measured: 6.4 / 9.9 in the light theme, 9.2 / 6.6 in the dark. (Sitting at
+     the panel accent's own lightness instead measured 3.2:1, which is how this
+     got its own levels.) */
+  --tone-l-action-hi: 0.50;
+  --tone-l-action-lo: 0.40;
   --admin-action: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--tone-accent) 86%, var(--white0)),
-    var(--tone-accent)
+    oklch(from var(--fg-pink) var(--tone-l-action-hi) var(--tone-c) h),
+    oklch(from var(--fg-pink) var(--tone-l-action-lo) var(--tone-c) h)
   );
 
   /* The accent a panel carries. Defaults to the console's own colour, so every
@@ -94,9 +104,19 @@
      the corners — so the alpha here is a ceiling the visible area never reaches,
      and the number wants to be higher than it looks. 34% over white gives a
      pastel wash; a little more over `--grey5` gives a deep, saturated glow. One
-     token, so the whole room's intensity is a single number. */
-  --admin-ambient-a: 34%;
-  --admin-ambient-a2: 24%;
+     token, so the whole room's intensity is a single number.
+
+     THREE pools, and `a3` is the one that matters. The room runs the accent in
+     the top-left into the HIGHLIGHT in the bottom-right, so the page carries a
+     hue ramp across it instead of one hue repeated in two corners. That ramp is
+     what stops a console of grey glass reading as a monochrome. The three doses
+     are separate so the diagonal can be tuned without touching the haze.
+
+     The ALERT hue is still absent, deliberately: a colour used as wallpaper
+     cannot mean "look at me". */
+  --admin-ambient-a: 46%;
+  --admin-ambient-a2: 32%;
+  --admin-ambient-a3: 40%;
   /* Anything nested inside a panel — never a second glass surface. */
   --admin-sunken: color-mix(in srgb, var(--text-color) 6%, transparent);
   --admin-sunken-strong: color-mix(in srgb, var(--text-color) 11%, transparent);
@@ -106,6 +126,11 @@
   /* The selected tab. This one IS a signal — "you are here" — so it keeps the
      brand hue, as an opaque tint rather than the saturated plane it used to be. */
   --admin-selected: color-mix(in srgb, var(--fg-blue) 16%, var(--bg-1));
+  /* The active tab runs the two brand hues across itself. It is the only control
+     on the page that marks a PLACE rather than an action, and a place can afford
+     to be the brand. Opaque, like `--admin-selected`: a tinted control needs an
+     edge. */
+  --admin-selected-hi: color-mix(in srgb, var(--fg-pink) 18%, var(--bg-1));
   /* A control's hover, opaque so a button never goes see-through on hover. */
   --admin-btn-hover: color-mix(in srgb, var(--bg-1) 90%, var(--text-color));
   /* The pointer spotlight's light. Neutral-ish: this is a highlight, not a hue
@@ -150,34 +175,49 @@
 
      Because custom properties substitute at the point of USE, `var(--admin-accent)`
      here resolves against whichever element consumes the token — so one shared
-     definition paints a different colour on every panel. */
+     definition paints a different colour on every panel.
+
+     The accent enters as a RAMP, not a fill: strongest in the top-left and gone
+     by the far corner, so a panel has a direction and a light source. With
+     `--admin-accent: transparent` both stops are transparent and the whole layer
+     disappears, which is what keeps a toneless element byte-identical to the one
+     above it. */
   --admin-glass-panel-washed:
     var(--admin-noise) center / 180px 180px repeat padding-box,
-    linear-gradient(color-mix(in srgb, var(--admin-accent) var(--admin-wash), transparent), color-mix(in srgb, var(--admin-accent) var(--admin-wash), transparent)) padding-box,
+    linear-gradient(160deg, color-mix(in srgb, var(--admin-accent) var(--admin-wash), transparent), transparent 82%) padding-box,
     linear-gradient(var(--admin-glass), var(--admin-glass)) padding-box,
     linear-gradient(150deg, var(--admin-edge-hi), var(--admin-edge-lo) 70%, var(--admin-edge-hi)) border-box;
-  /* How much of the accent goes into that wash. Kept low on purpose: this is
-     meant to be felt as a temperature, not read as a colour — but not so low
-     that two neighbours stop being tellable apart. In the light theme money's
-     green and traffic's mint are both pale, so this is tuned to the point where
-     the hue still registers. */
-  --admin-wash: 10%;
-  /* How much of a hue a proportion bar carries. Deliberately stronger than the
-     wash: a bar is data, and data is meant to be read. */
-  --admin-share-dose: 20%;
+  /* How much of the accent goes into that wash, at its STRONGEST corner. This is
+     the top of a ramp, not a flat tint: the wash falls away diagonally, so the
+     number here is a ceiling and the panel's far corner is plain glass. Kept
+     modest on purpose — this is a temperature, not a colour — but it is the main
+     reason a wall of panels now reads as a scheme rather than as grey. */
+  --admin-wash: 15%;
+  /* How much of a hue a proportion bar carries. Stronger than the wash, because
+     a bar is data and data is meant to be read. */
+  --admin-share-dose: 26%;
 
   /* ── The palette ─────────────────────────────────────────────────────────
 
-     Grey, white and black carry every surface, every word and every rule. Two
-     hues do everything else, and nothing here is a third:
+     Grey, white and black carry every surface, every word and every rule. Three
+     hues do the rest, and each has exactly one job:
 
-       accent (cyan)   the console's own colour — interaction, data, healthy
-       alert  (amber)  anything that wants a human
+       accent    (cyan)  the console itself — interaction, data, navigation,
+                         and "nominal"
+       highlight (pink)  what you should look at or PRESS — the primary action,
+                         the headline figure, the brand rule
+       alert     (amber) what has gone wrong
 
-     Both are pinned to ONE lightness and one chroma, so they are the same colour
-     at two angles rather than two colours that happen to share a page. That pin
-     is what makes them read as a scheme — and it also means they land on text at
-     the same contrast, so neither is the cheap one.
+     Cyan is the room; pink is the hand pointing at something; amber is the
+     alarm. Keeping pink and amber apart is the point: if the thing you press and
+     the thing that is broken were the same colour, neither would mean anything.
+     Amber is deliberately absent most of the time — a colour that only shows up
+     when it matters is the only kind that can.
+
+     All three are pinned to ONE lightness and one chroma, so they are the same
+     colour at three angles rather than three colours that happen to share a
+     page. That pin is what makes them read as a scheme — and it also means they
+     land on text at the same contrast, so none is the cheap one.
 
      One hue, one job, and deliberately no hue per data family. Traffic,
      sign-ups and revenue are told apart by their panel's title and by the shape
@@ -195,6 +235,8 @@
   --tone-accent-deep: oklch(from var(--fg-mint) var(--tone-l-deep) var(--tone-c) h);
   --tone-alert: var(--fg-orange);
   --tone-alert: oklch(from var(--fg-orange) var(--tone-l) var(--tone-c) h);
+  --tone-highlight: var(--fg-pink);
+  --tone-highlight: oklch(from var(--fg-pink) var(--tone-l) var(--tone-c) h);
   /* The bar sits a step more opaque: it carries live numbers over whatever is
      scrolling underneath it, so it can afford less of the room. */
   --admin-glass-bar:
@@ -217,18 +259,56 @@
   min-height: 100vh;
   padding: calc(var(--nav-size) * 1.15) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
   color: var(--text-color);
-  background-color: var(--bg-page);
-  /* The room is the ACCENT and nothing else: a neutral base with two pools of
-     the console's own hue, one high and one low, which is enough for depth.
+  /* NO background of its own — the room lives on `::before`, below. An element
+     cannot paint a layer behind its own background, and the room has to sit
+     behind the glass for the drift to be a compositor transform rather than a
+     full-viewport repaint on every frame. The page colour is not lost with it:
+     `body`/`html` in index.css already paint `--bg-page`. */
+}
+/* ── The room ─────────────────────────────────────────────────────────────
+   The brand and nothing else: the accent running into the highlight, top-left to
+   bottom-right, over the neutral base. Two hues, one diagonal — enough to give
+   the page a direction and a light source, and to keep a wall of grey glass from
+   reading as a monochrome.
 
-     Colour that is not data, not state and not interactive has no business here
-     — and the alert hue especially must never be wallpaper, or it stops being
-     able to mean "look at me". Nor does a panel's own wash show up as a second
-     light source: the room belongs to the page, not to the panes. */
+   Colour that is not data, not state and not interactive has no business here —
+   and the ALERT hue especially must never be wallpaper, or it stops being able to
+   mean "look at me". Nor does a panel's own wash show up as a second light
+   source: the room belongs to the page, not to the panes.
+
+   It DRIFTS. The room is the one thing on this page with nothing to say, so it is
+   the one thing allowed to move continuously. `transform` and nothing else: the
+   element is `position: fixed`, so the browser keeps it on its own compositor
+   layer and a frame of animation costs no paint at all — which is the entire
+   reason this is a pseudo-element instead of an animated `background-image` on
+   the surface. `will-change` states that outright rather than hoping for it.
+
+   The slack is kept as small as the keyframes allow, and the pools are sized in
+   VIEWPORT units rather than percentages, with their `at` offsets shifted by the
+   inset (5vw / 5vh) to cancel it out. Percentages would resolve against THIS box,
+   which is deliberately larger than the viewport — so every extra percent of
+   slack would push the pools further off-screen and quietly drain the room. Sized
+   this way the room is identical whatever the slack is: the geometry is stated in
+   the units the eye actually sees, and the drift only has to be big enough that
+   no edge shows.
+
+   `z-index: -1` puts it behind all content while staying in the ROOT stacking
+   context, and that is why `.admin-surface` must never gain `isolation` or a
+   `z-index` of its own: either one would trap `.admin-modal-overlay`'s 200 inside
+   this subtree, dropping the modal UNDER the site header. */
+.admin-surface::before {
+  content: '';
+  position: fixed;
+  inset: -5%;
+  z-index: -1;
+  pointer-events: none;
+  will-change: transform;
+  background-color: var(--bg-page);
   background-image:
-    radial-gradient(58% 46% at 4% -6%, color-mix(in srgb, var(--tone-accent) var(--admin-ambient-a), transparent), transparent 68%),
-    radial-gradient(62% 52% at 96% 106%, color-mix(in srgb, var(--tone-accent) var(--admin-ambient-a2), transparent), transparent 72%);
-  background-attachment: fixed;
+    radial-gradient(58vw 46vh at 9vw -1vh, color-mix(in srgb, var(--tone-accent) var(--admin-ambient-a), transparent), transparent 68%),
+    radial-gradient(42vw 34vh at 95vw -5vh, color-mix(in srgb, var(--tone-accent) var(--admin-ambient-a2), transparent), transparent 70%),
+    radial-gradient(64vw 56vh at 107vw 113vh, color-mix(in srgb, var(--tone-highlight) var(--admin-ambient-a3), transparent), transparent 74%);
+  animation: adminAmbientDrift 44s ease-in-out infinite;
 }
 .dark-theme .admin-surface {
   /* Lift the land off the near-black page, so a panel reads as a raised pane.
@@ -237,15 +317,19 @@
   --admin-land: color-mix(in srgb, var(--bg-1) 93%, var(--white0));
   --admin-glass-a: 82%;
   --admin-glass-raised-a: 90%;
-  --admin-ambient-a: 42%;
-  --admin-ambient-a2: 30%;
-  --admin-wash: 13%;
-  --admin-share-dose: 30%;
+  --admin-ambient-a: 58%;
+  --admin-ambient-a2: 40%;
+  --admin-ambient-a3: 52%;
+  --admin-wash: 18%;
+  --admin-share-dose: 38%;
   /* Same recipe, lifted: on a dark pane the hues need more light behind them to
      read as the same two colours rather than as two dark smudges. */
   --tone-l: 0.76;
   --tone-l-soft: 0.88;
   --tone-l-deep: 0.62;
+  /* Lifted, not lowered: on a dark pane the action's label is near-black. */
+  --tone-l-action-hi: 0.82;
+  --tone-l-action-lo: 0.72;
   --tone-c: 0.13;
   /* In the dark theme the EDGE carries more of the load than the fill does: when
      a land is this dark the specular highlight and a brighter hairline are what
@@ -259,6 +343,7 @@
   --admin-tint: color-mix(in srgb, var(--white0) 4%, transparent);
   --admin-tint-strong: color-mix(in srgb, var(--white0) 7%, transparent);
   --admin-selected: color-mix(in srgb, var(--fg-blue) 30%, var(--bg-1));
+  --admin-selected-hi: color-mix(in srgb, var(--fg-pink) 30%, var(--bg-1));
   --admin-btn-hover: color-mix(in srgb, var(--bg-1) 88%, var(--white0));
   --admin-light: color-mix(in srgb, var(--white0) 11%, transparent);
   --admin-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 30px -12px rgba(0, 0, 0, 0.6);
@@ -311,7 +396,13 @@
   padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.26) calc(var(--nav-size) * 0.16);
   border: 1px solid transparent;
   border-radius: var(--admin-radius);
-  background: var(--admin-glass-bar);
+  /* The bar is where the brand gets stated, so it carries the same cyan→pink ramp
+     as the rule along its lower edge — as a whisper, and clipped to the PADDING
+     box so it cannot paint over the gradient hairline that makes the edge read
+     as glass. */
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tone-accent) 11%, transparent), transparent 56%, color-mix(in srgb, var(--tone-highlight) 11%, transparent)) padding-box,
+    var(--admin-glass-bar);
   /* OPAQUE BASE — and this is not a detail. Translucency is a PANEL property; it
      is not a STICKY property. A panel sits in flow over a still gradient, so
      what shows through it is soft light. The bar has content scrolling *under*
@@ -340,9 +431,28 @@
   bottom: 2px;
   height: 2px;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--tone-accent), transparent 78%);
+/* The page's signature line, and the one place both brand hues meet: the room's
+   cyan running into the highlight. It is a rule, not a fill, so two hues on it
+   read as a gradient rather than as two themes. */
+  background: linear-gradient(90deg, var(--tone-accent), var(--tone-highlight) 58%, transparent 88%);
   background-repeat: no-repeat;
   pointer-events: none;
+}
+/* A light running the length of that line. It is a SEPARATE element from the rule
+   because both want to own `background-position`, and one element cannot run two
+   animations on the same property — the second silently replaces the first. */
+.admin-head::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--admin-radius) * 0.7);
+  right: calc(var(--admin-radius) * 0.7);
+  bottom: 2px;
+  height: 2px;
+  border-radius: 999px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--white0) 80%, transparent) 50%, transparent) no-repeat;
+  background-size: 30% 100%;
+  animation: adminRuleSweep 7.5s ease-in-out infinite;
 }
 
 .admin-bar {
@@ -457,7 +567,7 @@
    saturated plane because the bar already carries the brand rule below it and
    two loud blues in 60px is one too many. */
 .admin-tab.is-active {
-  background: var(--admin-selected);
+  background: linear-gradient(120deg, var(--admin-selected), var(--admin-selected-hi));
   box-shadow: var(--shadow-sm);
   color: var(--text-color);
   font-weight: var(--font-weight-semibold);
@@ -485,10 +595,10 @@
 }
 .admin-grid--two { grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); }
 
-/* Panels are GLASS, and NEUTRAL by default: `--admin-accent` is `transparent`
-   unless something semantic pins it. Deleting the old `nth-child(3n)` hue
-   rotation is the single change that turns color back into information — a
-   panel that is blue because it is third in the DOM was saying nothing. */
+/* Panels are GLASS, and every one of them wears the console's accent by
+   default. What was deleted is the old `nth-child(3n)` hue rotation — a panel
+   that is blue because it is third in the DOM says nothing. A panel's hue comes
+   from what it is ABOUT, never from where it happens to sit. */
 .admin-panel {
   position: relative;
   display: flex;
@@ -513,21 +623,34 @@
   height: 3px;
   background: linear-gradient(90deg, var(--admin-accent), transparent 70%);
   pointer-events: none;
-  display: none;
+  transform-origin: left center;
+  animation: adminRuleWipe 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  /* The rule is on EVERY panel now, at half strength; a tone lifts it to full.
+     Presence used to be the signal, but in a single-hue room that left every
+     unremarkable panel colourless — and a console where only exceptional things
+     have colour reads as grey interrupted by warnings. Panels are told apart by
+     HUE and INTENSITY now, which is the trade `warn`/`bad` already make: a
+     confident accent signature on every block, and the one pink or amber rule is
+     the block with something to report. */
+  opacity: 0.5;
 }
 .admin-panel.admin-tone--ok::before,
+.admin-panel.admin-tone--highlight::before,
 .admin-panel.admin-tone--warn::before,
-.admin-panel.admin-tone--bad::before { display: block; }
+.admin-panel.admin-tone--bad::before { opacity: 1; }
 /* ── The tone vocabulary ──────────────────────────────────────────────────
 
    One definition of "what colour is this thing", consumed by both `.admin-panel`
    and `.kpi-card` (and anything else that paints an accent).
 
-   The three SUBJECT tones are the key: a subject is the same colour everywhere
-   it appears, so a KPI tile's tone matches the panel that expands on it and the
-   eye can go from the summary strip to the detail without reading a word. The
-   rest are state, not subject — reach for them when the colour IS the message.
-   See "The palette" above: there are only two.
+   Three hues, six names. `accent` is the console itself; `ok` is the same hue
+   saying "nominal"; `highlight` is the action/emphasis hue — the one a view uses
+   to point at something; `warn` and `bad` are the alert hue, told apart by how
+   much of it is used (a chip's ink versus a solid fill) rather than by a fourth
+   colour.
+
+   Panels and tiles default to the accent, so what a tone actually buys you is
+   contrast against everything else on the page.
 
    The NEUTRAL default is declared exactly once, on `.admin-surface`, and reaches
    every panel and tile by inheritance. Do not redeclare `--admin-accent` on a
@@ -535,6 +658,7 @@
    further down the file wins on source order and the tone silently disappears. */
 .admin-tone--accent { --admin-accent: var(--tone-accent); }
 .admin-tone--ok { --admin-accent: var(--tone-accent); }
+.admin-tone--highlight { --admin-accent: var(--tone-highlight); }
 .admin-tone--warn { --admin-accent: var(--tone-alert); }
 .admin-tone--bad { --admin-accent: var(--tone-alert); }
 
@@ -554,7 +678,7 @@
   gap: calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.22);
   padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.28);
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--admin-accent) 15%, transparent), transparent 62%),
+    linear-gradient(90deg, color-mix(in srgb, var(--admin-accent) 19%, transparent), transparent 66%),
     linear-gradient(180deg, var(--admin-sheen), transparent);
 }
 .admin-panel-heading { min-width: 0; flex: 1 1 auto; }
@@ -897,7 +1021,7 @@
 .plan-badge.plan-free { color: var(--plane-muted); }
 .plan-badge.plan-pro { --badge-tone: var(--tone-accent); }
 .plan-badge.plan-simple { --badge-tone: var(--tone-accent); }
-.plan-badge.plan-special { --badge-tone: var(--admin-warn); }
+.plan-badge.plan-special { --badge-tone: var(--tone-highlight); }
 .plan-badge--clickable { cursor: pointer; user-select: none; transition: filter 0.15s ease; }
 .plan-badge--clickable:hover { filter: brightness(1.08); }
 .plan-badge--clickable:focus-visible { outline: var(--focus-outline, 2px solid var(--fg-blue)); outline-offset: 2px; }
@@ -947,9 +1071,10 @@
 }
 /* The tile's value gets no colour of its own. The strip used to colour revenue
    green, which read as a state next to a palette that no longer has a green. */
-/* The accent rule on a TILE appears only for a state, and the value stays
-   `--text-color`: six readouts should look like one instrument, and the strip
-   has no bottom line to single out once the palette is down to two hues. */
+/* The accent rule on a TILE is the same rule a panel wears, at the same
+   half-strength default — the strip is an INDEX of the page beneath it, so every
+   tile states its hue and a tone states it louder. The value itself still gets
+   no colour: six readouts should look like one instrument. */
 .kpi-card::before {
   content: '';
   position: absolute;
@@ -957,11 +1082,14 @@
   height: 3px;
   background: linear-gradient(90deg, var(--admin-accent), transparent 88%);
   pointer-events: none;
-  display: none;
+  transform-origin: left center;
+  animation: adminRuleWipe 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  opacity: 0.45;
 }
 .kpi-card.admin-tone--ok::before,
+.kpi-card.admin-tone--highlight::before,
 .kpi-card.admin-tone--warn::before,
-.kpi-card.admin-tone--bad::before { display: block; }
+.kpi-card.admin-tone--bad::before { opacity: 1; }
 /* The spotlight: LIGHT that follows the pointer, not a hue doing work. Driven
    entirely from `--mx`/`--my`, which `trackPointer` (KpiTile.jsx, where it
    belongs — the spotlight is the tile's own business) writes straight onto the
@@ -1154,6 +1282,10 @@
   background-repeat: no-repeat;
   background-position: left center;
   background-size: var(--share, 0%) 100%;
+  /* Bars GROW to a new value rather than jumping to it, so a refresh is visibly
+     a refresh. `background-size` only — the row's own tint is `background-color`,
+     and transitioning that would make the zebra ripple on every update. */
+  transition: background-size 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .recent-signups-list {
@@ -1683,9 +1815,12 @@
        cursor, which is interaction feedback rather than ambience
      · hover/state transitions everywhere a control already had one
 
-   What is deliberately NOT here: any movement in the ambient gradient. It sits
-   directly behind tables and figures, and a drifting background under data is
-   the one thing §5.7 rules out. The room is lit; it does not move.
+   What is here now that was NOT: the room drifts. That reverses the rule this
+   file used to state ("the room is lit; it does not move"), on the user's
+   explicit ask, and the reversal is only safe because of HOW it moves — one
+   promoted compositor layer, `transform` only, 44s, and never in front of the
+   content. Animating `background-position` instead would repaint the viewport on
+   every frame, and would still be a bad idea.
 
    Everything here is disabled under `prefers-reduced-motion` (bottom of file). */
 
@@ -1708,13 +1843,48 @@
 @keyframes adminShimmer {
   to { transform: translateX(100%); }
 }
+/* The room's drift. `transform` and nothing else, so it stays on the compositor.
+   44s across roughly ±3.5% — slow enough to read as light shifting in a room
+   rather than as a picture moving, which is the only way a gradient behind tables
+   is allowed to move at all, and quick enough that the movement is actually
+   THERE. A 1% drift over 84s is technically animation and completely invisible. */
+@keyframes adminAmbientDrift {
+  0%   { transform: translate3d(-3.4%, -2.6%, 0) scale(1.02); }
+  50%  { transform: translate3d(3.2%, 3%, 0)     scale(1.05); }
+  100% { transform: translate3d(-3.4%, -2.6%, 0) scale(1.02); }
+}
+/* A light running the length of the signature line. */
+@keyframes adminRuleSweep {
+  from { background-position: -45% 0; }
+  to   { background-position: 145% 0; }
+}
+/* A block's accent rule wiping in from the left as the block arrives. Deliberately
+   `from`-ONLY: the animation then ends on whatever the rule's own state is (0.5,
+   or 1 when a tone is set), so the entrance can never fight the tone.
+
+   Which is also why every use of this is `backwards` and never `both`. A filling
+   animation OUTRANKS normal declarations in the cascade, so `forwards` would own
+   `opacity` on the rule permanently — and a panel or tile that only LATER gained a
+   tone (Open Bugs crossing zero) would keep the neutral 0.5 for good, while the
+   `opacity: 1` sitting right there in the stylesheet silently lost. `backwards`
+   holds the `from` state through any `animation-delay`, then hands the property
+   straight back. */
+@keyframes adminRuleWipe {
+  from { transform: scaleX(0); opacity: 0; }
+}
 
 /* One rise per top-level block, staggered by ~40ms — enough to read as a page
    assembling itself, short enough that nothing waits. The modal overlay is
    excluded: it is `position: fixed`, and an in-flight `transform` on an
-   ancestor would make it the containing block for its own children. */
+   ancestor would make it the containing block for its own children.
+
+   `backwards`, not `both`: the stagger needs the `from` state held through each
+   delay, but `forwards` would then own `transform` on these blocks forever and
+   kill the hover lift on anything in here that has one (`adminRise` ends at
+   `transform: none`, which is a filling animation beating a normal `:hover`
+   declaration). */
 .admin-main > *:not(.admin-modal-overlay) {
-  animation: adminRise 0.4s ease both;
+  animation: adminRise 0.4s ease backwards;
 }
 .admin-main > *:nth-child(1) { animation-delay: 0s; }
 .admin-main > *:nth-child(2) { animation-delay: 0.04s; }
@@ -1948,7 +2118,14 @@
   /* Motion here only ever means "state changed", so nothing needs to move —
      including the entrance rise and the brand rule's drift. */
   .admin-main > *:not(.admin-modal-overlay) { animation: none; }
-  .admin-head::after { animation: none; }
+  /* Every pseudo-element that moves, listed explicitly: `animation: none` on a
+     parent does NOT reach its own ::before/::after. */
+  .admin-head::after,
+  .admin-head::before,
+  .admin-surface::before,
+  .admin-panel::before,
+  .kpi-card::before { animation: none; }
+  .admin-share { transition: none; }
   .admin-bar-status__dot { animation: none; }
   /* The pointer spotlight is the one piece of motion here that is not a state
      change — it is ambience that happens to answer the cursor — so it is the one
@@ -2023,8 +2200,11 @@
     --admin-edge-lo: var(--text-color);
     --admin-noise: none;
     --admin-shadow: none;
-    background-image: none;
   }
+  /* The room is decoration, and at higher contrast it goes away entirely. Nothing
+     is lost by hiding it: `body`/`html` still paint the page colour underneath,
+     so the glass simply sits on the plain background instead. */
+  .admin-surface::before { display: none; }
 }
 
 /* Safari honours this; the other engines simply ignore the block. Same trade as
@@ -2036,6 +2216,8 @@
   .admin-surface {
     --admin-land: var(--bg-1);
     --admin-noise: none;
-    background-image: none;
   }
+  /* A drifting gradient under text is precisely what "reduce transparency" is
+     asking about, so the room stops here as well as losing its wash. */
+  .admin-surface::before { display: none; }
 }

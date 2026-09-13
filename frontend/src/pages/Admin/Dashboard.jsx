@@ -84,9 +84,10 @@ function Dashboard() {
           about which of the six to look at (Admin.css §7). */}
       {d && (
         <div className="kpi-grid">
-          {/* The strip normalises: every tile wears the console's accent, so the one
-              that changes colour is the one with something to report. Open Bugs is
-              that tile — its alert tone appears only when the count is not zero. */}
+          {/* The strip normalises: every tile wears the console's accent, so the
+              tiles that change colour are the ones with something to say — the
+              headline figure (highlight) and anything that has gone wrong
+              (alert). Open Bugs passes its tone only when the count is not zero. */}
           <KpiTile
             label="Total Users"
             value={fmt(d.overview.totalUsers)}
@@ -96,6 +97,7 @@ function Dashboard() {
             label="Est. MRR"
             value={`$${d.overview.estimatedMRR}`}
             sub={`${d.overview.paidUsers} paid users`}
+            tone="highlight"
           />
           <KpiTile
             label="Visitors (7d)"

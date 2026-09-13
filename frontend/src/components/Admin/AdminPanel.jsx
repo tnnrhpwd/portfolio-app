@@ -25,10 +25,11 @@ import React from 'react';
  * @param {string}   [title]  Panel heading — the view's only heading.
  * @param {string}   [hint]   One short line under the title. A label, not prose.
  * @param {React.ReactNode} [tools] Controls for the panel head (search, filter, save).
- * @param {string}   [tone]   Optional, and only ever for STATE: `ok`, `warn`,
- *   `bad` (or `accent` to be explicit about the default). Leaving it off is the
- *   normal case; passing `warn`/`bad` flips the block to the alert hue and shows
- *   its accent rule, which is what makes the exceptional panel exceptional.
+ * @param {string}   [tone]   Optional, and only ever for STATE or EMPHASIS:
+ *   `ok`, `highlight`, `warn`, `bad` (or `accent` to be explicit about the
+ *   default). Leaving it off is the normal case. `highlight` points at the panel
+ *   the view is about; `warn`/`bad` flip the block to the alert hue and show its
+ *   accent rule, which is what makes the exceptional panel exceptional.
  */
 export default function AdminPanel({ title, hint, tools, tone, className = '', children }) {
   const toneClass = tone ? ` admin-tone--${tone}` : '';

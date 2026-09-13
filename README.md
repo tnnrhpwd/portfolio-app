@@ -15,11 +15,23 @@ See the [`/docs`](./docs) folder for detailed documentation:
 
 ## 🧪 Testing
 
-Each package has its own runner (CI runs these as separate jobs — see `.github/workflows/ci.yml`):
+Each package has its own runner (CI runs these as separate jobs — see `.github/workflows/ci.yml`).
 
-- **Backend** (Jest): `cd backend && npm test`
-- **Frontend** (Jest): `cd frontend && npm test -- --watchAll=false --passWithNoTests`
-- **Simple addon** (plain Node runners): `cd simple-addon && npm run test:unit` (and `npm run eval` for the scenario suite)
+Run **only the tests that cover what you changed**; the full sweep is for merge time, not
+every edit. Rules and failure triage: [`.github/copilot-instructions.md`](./.github/copilot-instructions.md).
+
+- **Backend** (Jest, `node` env): `npm --prefix backend test`
+  — one file: `npm --prefix backend test -- __tests__/unit/foo.test.js`
+- **Frontend** (Jest, jsdom — **must run through the root config**):
+  `node node_modules/jest/bin/jest.js --config package.json frontend/src`
+  — one file: `node node_modules/jest/bin/jest.js --config package.json frontend/src/foo.test.js`
+- **Simple addon** (plain Node runners, no Jest): `npm --prefix simple-addon run test:unit`
+  — one file: `node simple-addon/server/automation/foo.test.js`
+
+> ⚠️ Do **not** run `npm test` from inside `frontend/`. `frontend/package.json` has no
+> `testEnvironment`, so Jest defaults to `node` and every DOM suite dies with
+> `ReferenceError: document is not defined` (~30 phantom failures). The root config above
+> is the canonical frontend runner.
 
 ## 🚀 Recent Improvements
 

@@ -46,15 +46,26 @@
   text-transform: uppercase;
   text-align: left;
   cursor: pointer;
-  transition: filter 0.15s ease;
+  transition: background 0.15s ease;
 }
 
-/* Match the global `button:hover:not(:disabled)` shape so the site gradient
-   doesn't repaint this control on hover (§6). */
+/* The LABEL was never the problem. `color` is claimed correctly below at (0,3,0)
+   — but `background` was left undeclared, so on hover the GLOBAL
+   `button:hover:not(:disabled)` in index.css (0,2,1) beat this control's own base
+   rule (0,1,0) and repainted the whole strip with the site's gradient. The label
+   then sat on top of it in `--text-color`: near-white on bright cyan, about
+   1.2:1 — the one thing on this page you could not read.
+
+   Naming `background` here is the entire fix. `--admin-btn-hover` is the admin
+   surface's "one step off the control's own fill" token, so this hover now agrees
+   with every other button in the console. (`filter: brightness()` is gone: it was
+   brightening whatever the global rule had painted, which is how a contrast bug
+   got worse in the dark theme rather than better.) */
 .collapsible-toggle:hover:not(:disabled) {
-  filter: brightness(1.06);
+  background: var(--admin-btn-hover, color-mix(in srgb, var(--bg-1) 90%, var(--text-color)));
   color: var(--text-color);
   transform: none;
+  box-shadow: none;
 }
 .collapsible-toggle:focus-visible {
   outline: var(--focus-outline, 2px solid var(--fg-blue));
@@ -69,9 +80,14 @@
   font-size: var(--font-size-small);
   line-height: 1;
   color: var(--plane-muted);
-  transition: transform 0.25s ease;
+  transition: transform 0.25s ease, color 0.15s ease;
 }
 .collapsible-caret.is-collapsed { transform: rotate(-90deg); }
+/* The hover cues on the caret, not on the label — so the text never has to move
+   toward or away from the background to say "this is interactive". */
+.collapsible-toggle:hover:not(:disabled) .collapsible-caret {
+  color: var(--admin-accent, var(--fg-blue));
+}
 
 .collapsible-content { min-width: 0; }
 
@@ -80,9 +96,10 @@
   .collapsible-caret { transition: none; }
 }
 
-/* High contrast drops the saturated plane for a neutral surface — the same
-   choice `.admin-panel` makes, so a folded group can't be the one saturated
-   thing left on the page. */
+/* High contrast flattens this control to a plain neutral a step away from the
+   page, the same call `.admin-panel` makes, so a folded group can't be the one
+   tinted thing left. The hover rule above still wins over this one — it is a
+   class more specific — which is correct: a hovered control should look hovered. */
 @media (prefers-contrast: more) {
   .collapsible-toggle { background: var(--bg-accent); }
 }
