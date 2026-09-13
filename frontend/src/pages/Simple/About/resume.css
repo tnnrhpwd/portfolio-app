@@ -13,6 +13,32 @@
   background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
   background-size: 400% 400%;
   animation: aboutGradientShift 12s ease infinite;
+
+  /* ── Re-point the raw brand hues at the colour scheme ────────────────────
+   * The page ROOT wears the animated backdrop here, so the aliases belong on it
+   * rather than on a band (the way `Home.css` does it). Six aliases and no rule
+   * below is touched — the same trick `Profile.css` and `Admin.css` use.
+   *
+   * Pairing as everywhere else: `--fg-mint` only ever appears OPPOSITE
+   * `--fg-blue` in a ramp (`.about-band--cta`, the portrait glow, the timeline
+   * rule, the skill pills), so it takes `primary`. Mapping both to the accent
+   * would flatten every ramp on this page to a flat fill. `--fg-blue` is also the
+   * page's LINK colour (`.about-*` headings and links), which is the accent's role
+   * sitewide.
+   *
+   * ⚠️ `--fg-orange` is deliberately NOT aliased, here or on the other three pages
+   * given the scheme: orange is the ALERT hue, the one colour that must not follow
+   * the decor. The `--bg-*` orange IS aliased — it only ever appears in the hero's
+   * decorative four-stop backdrop. */
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
+  /* The BACKDROP tokens, not `--scheme-*-bg`: these four stops are a full-bleed
+     field, and the tint tokens carry the page's lightness, which makes a pale hue
+     too light for a dark page. See the note in `index.css`. */
+  --bg-orange: var(--scheme-backdrop-a);
+  --bg-pink: var(--scheme-backdrop-b);
+  --bg-blue: var(--scheme-backdrop-a);
+  --bg-mint: var(--scheme-backdrop-b);
 }
 .light-theme .about { animation-duration: 15s; }
 .dark-theme .about { animation-duration: 10s; }

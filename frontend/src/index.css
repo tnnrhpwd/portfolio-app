@@ -2,11 +2,12 @@
 @font-face {
   font-family: 'CutiveMono-Regular';
   src: url('./fonts/CutiveMono-Regular.woff') format('woff'),
-       url('./fonts/CutiveMono-Regular.ttf') format('truetype');
+    url('./fonts/CutiveMono-Regular.ttf') format('truetype');
   font-display: swap;
 }
 
-body, html {
+body,
+html {
   height: 100%;
   margin: 0;
   font-family: var(--font-family-base);
@@ -32,12 +33,15 @@ body, html {
   outline: var(--focus-outline);
   outline-offset: var(--focus-outline-offset);
 }
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
 :root {
-  --toast-duration: 1500; /* Duration in milliseconds */
+  --toast-duration: 1500;
+  /* Duration in milliseconds */
   --light-blue0: #009dff;
   --dark-blue0: #101B22;
   --dark-blue0-grey: #0c141a;
@@ -56,7 +60,7 @@ code {
   --grey5: #151516;
   --grey5-transp: rgb(21, 21, 22, 0.95);
   --grey6: rgb(53, 53, 53);
-  
+
   /* WCAG AA Compliant Color Variables */
   --text-color-accent-strong: var(--grey3-accessible);
   --text-color-accent-dark-strong: #a5a5aa;
@@ -81,29 +85,45 @@ code {
   --border-radius: 8px;
   --speed: 500ms;
   font-size: calc(var(--nav-size) * 0.81);
-  
+
   /* WCAG AA Typography and Spacing Standards */
   --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  --font-size-scale: 1;                                  /* User-adjustable font size scale (0.8–1.4) */
-  --font-size-xs: calc(var(--nav-size) * 0.22 * var(--font-size-scale));       /* Badges, fine print, tooltips */
-  --font-size-small: calc(var(--nav-size) * 0.32 * var(--font-size-scale));    /* Labels, captions, small text */
-  --font-size-base: calc(var(--nav-size) * 0.36 * var(--font-size-scale));     /* Body text, inputs, buttons */
-  --font-size-large: calc(var(--nav-size) * 0.44 * var(--font-size-scale));    /* Section headers, emphasized */
-  --font-size-heading: calc(var(--nav-size) * 0.6 * var(--font-size-scale));   /* Page titles */
-  --font-size-display: calc(var(--nav-size) * 0.8 * var(--font-size-scale));   /* Hero / display text */
+  --font-size-scale: 1;
+  /* User-adjustable font size scale (0.8–1.4) */
+  --font-size-xs: calc(var(--nav-size) * 0.22 * var(--font-size-scale));
+  /* Badges, fine print, tooltips */
+  --font-size-small: calc(var(--nav-size) * 0.32 * var(--font-size-scale));
+  /* Labels, captions, small text */
+  --font-size-base: calc(var(--nav-size) * 0.36 * var(--font-size-scale));
+  /* Body text, inputs, buttons */
+  --font-size-large: calc(var(--nav-size) * 0.44 * var(--font-size-scale));
+  /* Section headers, emphasized */
+  --font-size-heading: calc(var(--nav-size) * 0.6 * var(--font-size-scale));
+  /* Page titles */
+  --font-size-display: calc(var(--nav-size) * 0.8 * var(--font-size-scale));
+  /* Hero / display text */
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
-  --line-height-tight: 1.3;                             /* Headings */
-  --line-height-base: 1.5;                              /* Body text */
-  --line-height-relaxed: 1.6;                           /* Long-form content */
-  --spacing-xs: calc(var(--nav-size) * 0.25);           /* 12px equivalent */
-  --spacing-sm: calc(var(--nav-size) * 0.5);            /* 24px equivalent */
-  --spacing-md: calc(var(--nav-size) * 0.75);           /* 36px equivalent */
-  --spacing-lg: calc(var(--nav-size) * 1);              /* 48px equivalent */
-  --spacing-xl: calc(var(--nav-size) * 1.5);            /* 72px equivalent */
-  --spacing-2xl: calc(var(--nav-size) * 2);             /* 96px equivalent */
+  --line-height-tight: 1.3;
+  /* Headings */
+  --line-height-base: 1.5;
+  /* Body text */
+  --line-height-relaxed: 1.6;
+  /* Long-form content */
+  --spacing-xs: calc(var(--nav-size) * 0.25);
+  /* 12px equivalent */
+  --spacing-sm: calc(var(--nav-size) * 0.5);
+  /* 24px equivalent */
+  --spacing-md: calc(var(--nav-size) * 0.75);
+  /* 36px equivalent */
+  --spacing-lg: calc(var(--nav-size) * 1);
+  /* 48px equivalent */
+  --spacing-xl: calc(var(--nav-size) * 1.5);
+  /* 72px equivalent */
+  --spacing-2xl: calc(var(--nav-size) * 2);
+  /* 96px equivalent */
   --border-radius-sm: 4px;
   --border-radius: 8px;
   --border-radius-lg: 12px;
@@ -116,42 +136,274 @@ code {
   --focus-outline: 3px solid var(--link-color-accessible);
   --focus-outline-offset: 2px;
 }
+
 @media (orientation: landscape) {
-  :root{
+  :root {
     --nav-size: 48px;
   }
 }
+
 @media (orientation: landscape) and (max-height: 200px) {
   :root {
-    --nav-size: min(5vw,5vh);
-    --nav-size: min(5vw,5svh);
+    --nav-size: min(5vw, 5vh);
+    --nav-size: min(5vw, 5svh);
   }
 }
+
 @media (orientation: portrait) {
-  :root{
+  :root {
     --nav-size: 48px;
     --toastify-toast-width: 99% !important;
     --toastify-toast-max-height: calc(var(--nav-size)*10) !important;
     --toastify-toast-min-height: calc(var(--nav-size)*1) !important;
   }
 }
+
 @media (orientation: portrait) and (max-width: 250px) {
   :root {
-    --nav-size: calc( min( 18vw, 9vh ) * 0.775 );
-    --nav-size: calc( min( 18vw, 9svh ) * 0.775 );  }
+    --nav-size: calc(min(18vw, 9vh) * 0.775);
+    --nav-size: calc(min(18vw, 9svh) * 0.775);
+  }
 }
-.light-theme{
-  --bg:var(--white2-transp);
-  --bg-1:var(--input-bg-accessible);
-  --bg-orange:rgb(255, 244, 225);
-  --bg-orange1:rgb(252, 193, 189);
-  --bg-pink:rgb(255, 233, 255);
-  --bg-blue:rgb(224, 224, 255);
-  --bg-mint:rgb(219, 255, 255);
-  --fg-orange:rgb(255, 115, 46);
-  --fg-pink:rgb(255, 55, 155);
-  --fg-blue:var(--link-color-accessible);
-  --fg-mint:rgb(0, 193, 193);
+
+/* ── THE SCHEME: the site's hues, named once ─────────────────────────────
+
+   Everything that needs "the accent" or "the primary" should read one of these
+   rather than reaching for a particular `--fg-*` / `--bg-*` pair. Re-pointing the
+   site's colours is then a change HERE and nowhere else.
+
+   Each hue has two forms, and they must stay pointed at the SAME hue or the site
+   stops looking like one scheme:
+
+     --scheme-<hue>      the working colour: ink, lines, fills, focus rings. Vivid,
+                         one fixed value per theme.
+     --scheme-<hue>-bg   the same hue as a BACKDROP. This is the `--bg-*` family,
+                         which the theme already ships in a pale version in the
+                         light theme and a deep one in the dark — so a background
+                         built from it is a pastel wash in one theme and a
+                         saturated one in the other with no media query.
+
+   Deliberately named `--scheme-*` and not `--accent` / `--primary`: `--accent` is
+   already taken by the addon's own theming (`components/SimpleAddon/SimpleTheme`
+   defines it per addon theme), and a bare `--primary` invites the same collision.
+   A namespace is worth the extra word when the whole point is that this is the one
+   place to look.
+
+   Declared as ONE rule with two selectors, on the same element that carries the
+   palette it points at — so there is still only one place to edit.
+
+   ⚠️ NOT on `:root`, which is the obvious-looking choice and is wrong. A custom
+   property is substituted where it is DECLARED, not where it is used. `:root` is
+   `<html>`, and the `--fg-*` / `--bg-*` palette lives on `<body>` (the element
+   carrying `.light-theme` / `.dark-theme`) — a DESCENDANT of `:root`. So
+   `--scheme-accent: var(--fg-mint)` declared on `:root` resolves against a root
+   element that has never seen `--fg-mint`; the chain collapses to the
+   guaranteed-invalid value and every derived colour disappears. There is no error
+   and no warning — the page just quietly loses its accents and inherits plain text
+   colour instead. Put the scheme on the same element as the palette it points at.
+
+   These are references, not copies: changing `--fg-mint` still moves the accent.
+   Change a SCHEME line only when you mean to change WHICH hue is which. */
+.light-theme,
+.dark-theme {
+  --scheme-accent: var(--fg-mint);
+  --scheme-accent-bg: var(--bg-mint);
+  --scheme-primary: var(--fg-pink);
+  --scheme-primary-bg: var(--bg-pink);
+  --scheme-alert: var(--fg-orange);
+  --scheme-alert-bg: var(--bg-orange);
+}
+
+/* ── The presets ───────────────────────────────────────────────────────────
+
+   A scheme is TWO HUES: `--scheme-hue-accent` and `--scheme-hue-primary` are its
+   whole identity, and everything the site consumes — `--scheme-accent`,
+   `--scheme-primary` and their `-bg` versions — is DERIVED from them by the rule
+   below. Adding a scheme is one line.
+
+   ONE ORDER RULE, and it is the only one: the derivation comes FIRST, the schemes
+   come after it. A scheme that only names two hues does not care, but a scheme MAY
+   override something derived — `neutral` turns the chroma off — and being later in
+   the file at equal specificity is what makes that win. Move a scheme above the
+   derivation and its overrides stop working, with no error to tell you.
+
+   Specificity: `body[data-scheme]` is (0,1,1), a step above the `.light-theme`
+   default block above, so a scheme wins from anywhere in the file with no
+   `!important`. `body.dark-theme[data-scheme]` is (0,2,1), and the mode blocks sit
+   below the scheme blocks for the same later-wins reason.
+
+   ⚠️ The ten named themes are the SimpleAddon's, copied from `SimpleTheme.css` so
+   `/net` and `/profile` offer the visitor the same choices under the same names.
+   They are hue PAIRS here, not the addon's full palettes: an addon theme defines a
+   whole surface — background, text, borders — while a site scheme only decides the
+   two roles. What carries across is each theme's identity hue plus a partner that
+   suits it, and where the addon already HAD a second hue (Monokai's cyan bubble,
+   USA's navy, Cyberpunk's magenta) that IS the partner, so those three are faithful
+   rather than invented.
+
+   ⚠️ `Sunset` pairs an orange accent with an alert that is also orange. That is
+   inherent — the theme IS orange — and it is kept because the point of this set is
+   that it matches `/net`.
+
+   The ALERT is deliberately NOT part of a scheme. It stays the theme's own orange
+   in every scheme, because an alarm that changes colour with the decor is not an
+   alarm. */
+
+/* ── How a scheme becomes tokens ─────────────────────────────────────────── */
+
+/* The accents keep the identity hue's ANGLE and are re-pinned to a lightness per
+   mode — the same move the admin's tones make — so one scheme has a light and a
+   dark version without a second palette, and a pale identity hue (Cyberpunk's
+   yellow, Monokai's lime) is darkened enough to read on white without anyone
+   hand-picking a variant for it.
+
+   Chroma is the admin's tone value (0.125) so the two agree about what "the
+   accent" looks like. Lightness is NOT, and it was measured rather than picked:
+   0.52 is the highest value at which the worst of the twenty-two identity hues
+   still clears 4.5:1 on a light page (worst 4.58:1, best 5.50:1). It has to clear
+   it because the accent is TEXT here — aliasing `--fg-blue` to the scheme made it
+   paint links on `/profile`, and the token it replaced was named
+   `--link-color-accessible`. At the admin's own 0.58 the same sweep came in at
+   3.62:1, i.e. a link nobody could read. The admin's tones are unaffected either
+   way: they take only the HUE from the scheme and re-pin to their own lightness.
+
+   `-l-primary` / `-c-primary` exist so a scheme MAY give its two roles different
+   lightnesses; for every coloured scheme they just mirror the accent's. Only
+   `neutral` uses them, because it is the one scheme whose roles cannot be told
+   apart by hue.
+
+   The backdrops are the identity hue mixed toward this mode's page colour, so a
+   backdrop is pale on a light page and deep on a dark one — the same trick that
+   makes `--admin-room-mix` work, and why neither needs a hand-authored pair. */
+body[data-scheme] {
+  --scheme-l: 0.52;
+  --scheme-c: 0.125;
+  --scheme-l-primary: var(--scheme-l);
+  --scheme-c-primary: var(--scheme-c);
+  --scheme-accent: oklch(from var(--scheme-hue-accent) var(--scheme-l) var(--scheme-c) h);
+  --scheme-primary: oklch(from var(--scheme-hue-primary) var(--scheme-l-primary) var(--scheme-c-primary) h);
+  --scheme-accent-bg: color-mix(in srgb, var(--scheme-hue-accent) 38%, var(--bg-page));
+  --scheme-primary-bg: color-mix(in srgb, var(--scheme-hue-primary) 38%, var(--bg-page));
+
+  /* ⚠️ A BACKDROP is not a TINT, and this pair exists because conflating the two
+     broke three pages. `--scheme-*-bg` is calibrated as a TINT: a small field on
+     the page, so it is mixed toward `--bg-page` and inherits that mode's
+     lightness. Stretched over a full-bleed backdrop the mistake shows up in DARK
+     mode — a PALE identity hue (Cyberpunk's yellow, Monokai's lime) mixes to
+     something like #68621f, far lighter than the theme's own deep planes
+     (rgb(0, 0, 67), rgb(81, 0, 81)), and every muted line of text on top falls from
+     3.8:1 to 2.5:1.
+
+     So a backdrop PINS its lightness per mode and takes only the hue — the same
+     move the accents above make, and what makes it safe for any hue, pale or deep.
+     `min(c, …)` rather than a flat chroma, so a scheme with NO chroma stays grey:
+     `neutral` must give a grey field, not a pink one at hue 0. */
+  --scheme-backdrop-a: oklch(from var(--scheme-hue-accent) 0.9 min(c, 0.07) h);
+  --scheme-backdrop-b: oklch(from var(--scheme-hue-primary) 0.9 min(c, 0.07) h);
+}
+
+/* On a dark page the accents come UP, not down: a hue at 0.58 on near-black is a
+   smudge, and the darker identity hues (USA's navy, Midnight's blue) need it most.
+   The backdrops follow the same logic in the other direction — DOWN, to the depth
+   the theme's own planes sit at, so muted text on top keeps its contrast. */
+body.dark-theme[data-scheme] {
+  --scheme-l: 0.76;
+  --scheme-c: 0.13;
+  --scheme-backdrop-a: oklch(from var(--scheme-hue-accent) 0.3 min(c, 0.07) h);
+  --scheme-backdrop-b: oklch(from var(--scheme-hue-primary) 0.3 min(c, 0.07) h);
+}
+
+/* ── The schemes. One line each — this is the entire palette. ────────────── */
+body[data-scheme='aurora']    { --scheme-hue-accent: #00c1c1; --scheme-hue-primary: #ff379b; }
+body[data-scheme='crimson']   { --scheme-hue-accent: #dc2626; --scheme-hue-primary: #f472b6; }
+body[data-scheme='emerald']   { --scheme-hue-accent: #10b981; --scheme-hue-primary: #06b6d4; }
+body[data-scheme='sakura']    { --scheme-hue-accent: #ec4899; --scheme-hue-primary: #a78bfa; }
+body[data-scheme='midnight']  { --scheme-hue-accent: #3b82f6; --scheme-hue-primary: #8b5cf6; }
+body[data-scheme='sunset']    { --scheme-hue-accent: #f97316; --scheme-hue-primary: #ec4899; }
+body[data-scheme='ocean']     { --scheme-hue-accent: #06b6d4; --scheme-hue-primary: #3b82f6; }
+body[data-scheme='cyberpunk'] { --scheme-hue-accent: #f0e030; --scheme-hue-primary: #e040fb; }
+body[data-scheme='monokai']   { --scheme-hue-accent: #a6e22e; --scheme-hue-primary: #66d9ef; }
+body[data-scheme='usa']       { --scheme-hue-accent: #b22234; --scheme-hue-primary: #3c3b6e; }
+body[data-scheme='forest']    { --scheme-hue-accent: #4d8c57; --scheme-hue-primary: #65a30d; }
+
+/* ── Neutral — black, white and greys ──────────────────────────────────────
+
+   The one scheme with no hue at all, and therefore the one whose two roles cannot
+   be told apart by COLOUR. They are told apart by LIGHTNESS instead: the accent is
+   a reading grey at the shared lightness (it paints links and focus rings, so it
+   still has to clear 4.5:1), and the primary is pushed AWAY from the page — darker
+   on white, lighter on black — so the one thing to PRESS still separates from the
+   thing to READ.
+
+   ⚠️ `--scheme-c: 0` is the load-bearing line, and it has to be in BOTH blocks.
+   The derivation applies the shared chroma to whatever hue it is handed, and a grey
+   handed chroma is NOT a grey — a neutral has no hue, so the angle falls back to 0
+   and 0.125 chroma at hue 0 is pink. `.dark-theme[data-scheme]` sets 0.13 and is
+   more specific than a plain `[data-scheme='neutral']`, so omitting it from the
+   dark block would give the greyscale scheme a pink dark mode. */
+body[data-scheme='neutral'] {
+  --scheme-hue-accent: #808080;
+  --scheme-hue-primary: #808080;
+  --scheme-c: 0;
+  --scheme-c-primary: 0;
+  --scheme-l-primary: 0.36;
+}
+body.dark-theme[data-scheme='neutral'] {
+  --scheme-c: 0;
+  --scheme-c-primary: 0;
+  --scheme-l-primary: 0.86;
+}
+
+/* ── Custom — the pair the visitor picks ───────────────────────────────────
+
+   The only scheme whose hues are not in this file. `utils/scheme.js` writes them
+   as INLINE custom properties on <body>, which is why this block can be the same
+   derivation as the named schemes and still follow the picker.
+
+   Two things do differ, and both are load-bearing:
+
+   1. CHROMA is the visitor's own (`c`), CAPPED at the shared `--scheme-c` rather
+      than replaced by it. The cap is what makes the pickers behave, and it does
+      three separate jobs:
+
+      · A GREY STAYS GREY. Zero is below the cap, so a neutral pick is never handed
+        chroma it has no hue to spend — the same trap `neutral` above exists to
+        avoid. Note it cannot be fixed the way `neutral` fixes it (zeroing
+        `--scheme-c`) because these two hues are not known until they are picked.
+      · A VIVID PICK IS HARMONISED, not just tolerated. Capped, it lands on exactly
+        what a named scheme would do with that hue — so choosing Custom on top of
+        Sakura REPRODUCES Sakura rather than a louder version of it, and a pick
+        like `#0000ff` (chroma ~0.31) cannot spend the contrast budget that the
+        0.52 lightness exists to protect.
+      · A MUTED PICK KEEPS ITS MUTING. It is a `min`, not a replacement: USA's navy
+        (chroma 0.086) arrives at 0.086, so the colour somebody chose on purpose is
+        still recognisably theirs.
+
+   2. The hexes below are only a SEED, for the first paint before the inline pair
+      exists (and for a `custom` id with no pair stored). The seed is Aurora's, so
+      a visitor who lands on the custom scheme with nothing chosen sees the site's
+      own colours rather than a colourless page. */
+body[data-scheme='custom'] {
+  --scheme-hue-accent: #00c1c1;
+  --scheme-hue-primary: #ff379b;
+  --scheme-accent: var(--scheme-hue-accent);
+  --scheme-primary: var(--scheme-hue-primary);
+  --scheme-accent: oklch(from var(--scheme-hue-accent) var(--scheme-l) min(c, var(--scheme-c)) h);
+  --scheme-primary: oklch(from var(--scheme-hue-primary) var(--scheme-l-primary) min(c, var(--scheme-c-primary)) h);
+}
+
+.light-theme {
+  --bg: var(--white2-transp);
+  --bg-1: var(--input-bg-accessible);
+  --bg-orange: rgb(255, 244, 225);
+  --bg-orange1: rgb(252, 193, 189);
+  --bg-pink: rgb(255, 233, 255);
+  --bg-blue: rgb(224, 224, 255);
+  --bg-mint: rgb(219, 255, 255);
+  --fg-orange: rgb(255, 115, 46);
+  --fg-pink: rgb(255, 55, 155);
+  --fg-blue: var(--link-color-accessible);
+  --fg-mint: rgb(0, 193, 193);
   --bg-pagelink: var(--green0);
   --bg-nav1: var(--white0);
   --bg-nav2: var(--grey0);
@@ -195,33 +447,40 @@ code {
      fill — a badge or a status word. The raw accent (`--fg-blue`, `--fg-pink`, …)
      is tuned to sit on `--bg-1`, so on a plane of its own hue it drops to
      2–3:1. The ink pair produces that hue darker in light / lighter in dark. */
-  --plane-l: 0.87;          /* a solid plane (light: bright and saturated) */
-  --plane-l-strong: 0.76;   /* its head, a bar, an active tab */
-  --plane-fallback: 32%;    /* the dose the color-mix fallback line uses */
-  --plane-row: 12%;         /* translucent zebra tint over a plane */
-  --plane-raise: 24%;       /* translucent "raised" block over a plane */
+  --plane-l: 0.87;
+  /* a solid plane (light: bright and saturated) */
+  --plane-l-strong: 0.76;
+  /* its head, a bar, an active tab */
+  --plane-fallback: 32%;
+  /* the dose the color-mix fallback line uses */
+  --plane-row: 12%;
+  /* translucent zebra tint over a plane */
+  --plane-raise: 24%;
+  /* translucent "raised" block over a plane */
   --plane-muted: color-mix(in srgb, var(--text-color-accent) 72%, var(--text-color));
-  --plane-ink-l: 0.38;      /* a hue used as TEXT on a plane */
+  --plane-ink-l: 0.38;
+  /* a hue used as TEXT on a plane */
   --plane-ink-fallback: 55%;
 }
-.dark-theme{
-  --bg:var(--grey6);
-  --bg-1:var(--input-bg-dark-accessible);
-  --bg-orange:rgb(98, 63, 0);
-  --bg-orange1:rgb(255, 111, 97);
-  --bg-pink:rgb(81, 0, 81);
-  --bg-blue:rgb(0, 0, 67);
-  --bg-mint:rgb(0, 62, 62);
-  --text-color:white;
+
+.dark-theme {
+  --bg: var(--grey6);
+  --bg-1: var(--input-bg-dark-accessible);
+  --bg-orange: rgb(98, 63, 0);
+  --bg-orange1: rgb(255, 111, 97);
+  --bg-pink: rgb(81, 0, 81);
+  --bg-blue: rgb(0, 0, 67);
+  --bg-mint: rgb(0, 62, 62);
+  --text-color: white;
   --text-color-strong: var(--text-color-strong-dark);
   --text-color-accent: var(--text-color-accent-dark-strong);
   --text-color-accent-dark-strong: #a5a5aa;
   --text-color-small: var(--text-small-contrast-dark);
   --text-color-inv: var(--dark-blue0);
-  --fg-orange:rgb(255, 115, 46);
-  --fg-pink:rgb(255, 55, 155);
-  --fg-blue:var(--link-color-dark-accessible);
-  --fg-mint:rgb(0, 255, 255);
+  --fg-orange: rgb(255, 115, 46);
+  --fg-pink: rgb(255, 55, 155);
+  --fg-blue: var(--link-color-dark-accessible);
+  --fg-mint: rgb(0, 255, 255);
   --bg-pagelink: var(--green2);
   --bg-nav1: var(--dark-blue0);
   --bg-nav2: var(--dark-blue0-grey);
@@ -248,7 +507,8 @@ code {
   --plane-ink-l: 0.88;
   --plane-ink-fallback: 62%;
 }
-ul{
+
+ul {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -275,7 +535,9 @@ a:active {
 }
 
 /* Enhanced Button Styles */
-button, input[type="submit"], input[type="button"] {
+button,
+input[type="submit"],
+input[type="button"] {
   font-family: var(--font-family-base);
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-medium);
@@ -292,19 +554,25 @@ button, input[type="submit"], input[type="button"] {
   overflow: hidden;
 }
 
-button:hover:not(:disabled), input[type="submit"]:hover:not(:disabled), input[type="button"]:hover:not(:disabled) {
+button:hover:not(:disabled),
+input[type="submit"]:hover:not(:disabled),
+input[type="button"]:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--fg-mint), var(--fg-blue));
   color: var(--text-color-inv);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
 
-button:focus, input[type="submit"]:focus, input[type="button"]:focus {
+button:focus,
+input[type="submit"]:focus,
+input[type="button"]:focus {
   outline: var(--focus-outline);
   outline-offset: var(--focus-outline-offset);
 }
 
-button:disabled, input[type="submit"]:disabled, input[type="button"]:disabled {
+button:disabled,
+input[type="submit"]:disabled,
+input[type="button"]:disabled {
   background: var(--bg-accent);
   color: var(--text-color-accent);
   cursor: not-allowed;
@@ -313,7 +581,9 @@ button:disabled, input[type="submit"]:disabled, input[type="button"]:disabled {
 }
 
 /* Enhanced Form Elements */
-input, select, textarea {
+input,
+select,
+textarea {
   font-family: var(--font-family-base);
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
@@ -332,23 +602,30 @@ select option {
   color: var(--text-color);
 }
 
-input:focus, select:focus, textarea:focus {
+input:focus,
+select:focus,
+textarea:focus {
   outline: var(--focus-outline);
   outline-offset: var(--focus-outline-offset);
   border-color: var(--fg-blue);
   box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
 }
 
-input:invalid, select:invalid, textarea:invalid {
+input:invalid,
+select:invalid,
+textarea:invalid {
   border-color: var(--red0);
 }
 
-input:invalid:focus, select:invalid:focus, textarea:invalid:focus {
+input:invalid:focus,
+select:invalid:focus,
+textarea:invalid:focus {
   box-shadow: 0 0 0 3px rgba(220, 0, 0, 0.1);
 }
 
 /* Placeholder styling */
-input::placeholder, textarea::placeholder {
+input::placeholder,
+textarea::placeholder {
   color: var(--text-color-accent);
   opacity: 0.7;
 }
@@ -368,6 +645,7 @@ label {
   color: var(--text-color-small);
   line-height: var(--line-height-base);
 }
+
 /* ── Toast notifications (vibrant editorial restyle) ── */
 .light-theme,
 .dark-theme {
@@ -431,10 +709,21 @@ label {
   height: 55% !important;
 }
 
-.Toastify__toast--success .Toastify__toast-icon { background: color-mix(in srgb, var(--fg-mint) 18%, transparent) !important; }
-.Toastify__toast--error   .Toastify__toast-icon { background: color-mix(in srgb, var(--red0) 16%, transparent) !important; }
-.Toastify__toast--warning .Toastify__toast-icon { background: color-mix(in srgb, var(--fg-orange) 18%, transparent) !important; }
-.Toastify__toast--info    .Toastify__toast-icon { background: color-mix(in srgb, var(--fg-blue) 18%, transparent) !important; }
+.Toastify__toast--success .Toastify__toast-icon {
+  background: color-mix(in srgb, var(--fg-mint) 18%, transparent) !important;
+}
+
+.Toastify__toast--error .Toastify__toast-icon {
+  background: color-mix(in srgb, var(--red0) 16%, transparent) !important;
+}
+
+.Toastify__toast--warning .Toastify__toast-icon {
+  background: color-mix(in srgb, var(--fg-orange) 18%, transparent) !important;
+}
+
+.Toastify__toast--info .Toastify__toast-icon {
+  background: color-mix(in srgb, var(--fg-blue) 18%, transparent) !important;
+}
 
 .Toastify__close-button {
   color: var(--text-color-accent) !important;
@@ -447,7 +736,7 @@ label {
   opacity: 1 !important;
 }
 
-.Toastify__close-button > svg {
+.Toastify__close-button>svg {
   height: calc(var(--nav-size) * 0.4) !important;
   width: calc(var(--nav-size) * 0.4) !important;
   fill: currentColor !important;
@@ -459,6 +748,7 @@ label {
   bottom: 0 !important;
   opacity: 0.9 !important;
 }
+
 .unclickable-background {
   pointer-events: none;
 }
@@ -479,25 +769,27 @@ label {
     --focus-outline: 4px solid;
     --focus-outline-offset: 4px;
   }
-  
+
   .light-theme {
     --text-color-accent: var(--grey4);
     --bg-1: var(--white0);
     --border-nav: var(--grey4);
   }
-  
+
   .dark-theme {
     --text-color-accent: var(--white0);
     --bg-1: var(--grey4);
     --border-nav: var(--white0);
   }
-  
+
   a {
     text-decoration-thickness: 3px;
     font-weight: 600;
   }
-  
-  button, input[type="submit"], input[type="button"] {
+
+  button,
+  input[type="submit"],
+  input[type="button"] {
     border: 3px solid var(--text-color);
     font-weight: 600;
   }
@@ -511,7 +803,7 @@ label {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  
+
   .gradientShift {
     animation: none !important;
     background: var(--bg-page) !important;
@@ -538,17 +830,45 @@ label {
 }
 
 /* Accessible spacing utilities */
-.margin-xs { margin: var(--spacing-xs); }
-.margin-sm { margin: var(--spacing-sm); }
-.margin-md { margin: var(--spacing-md); }
-.margin-lg { margin: var(--spacing-lg); }
-.margin-xl { margin: var(--spacing-xl); }
+.margin-xs {
+  margin: var(--spacing-xs);
+}
 
-.padding-xs { padding: var(--spacing-xs); }
-.padding-sm { padding: var(--spacing-sm); }
-.padding-md { padding: var(--spacing-md); }
-.padding-lg { padding: var(--spacing-lg); }
-.padding-xl { padding: var(--spacing-xl); }
+.margin-sm {
+  margin: var(--spacing-sm);
+}
+
+.margin-md {
+  margin: var(--spacing-md);
+}
+
+.margin-lg {
+  margin: var(--spacing-lg);
+}
+
+.margin-xl {
+  margin: var(--spacing-xl);
+}
+
+.padding-xs {
+  padding: var(--spacing-xs);
+}
+
+.padding-sm {
+  padding: var(--spacing-sm);
+}
+
+.padding-md {
+  padding: var(--spacing-md);
+}
+
+.padding-lg {
+  padding: var(--spacing-lg);
+}
+
+.padding-xl {
+  padding: var(--spacing-xl);
+}
 
 /* Screen reader only content */
 .sr-only {

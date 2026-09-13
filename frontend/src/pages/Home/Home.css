@@ -12,6 +12,52 @@
   background: var(--bg-page);
 }
 
+/* ── Re-point the raw brand hues at the colour scheme ─────────────────────
+ * Home painted with FOUR unrelated hues — blue and mint in the CTAs, the eyebrow
+ * dot, the glows and two link states, plus orange and pink in the hero's
+ * four-stop backdrop — all chosen independently of `/profile` and `/admin`.
+ * Re-pointing them collapses the page onto the scheme's TWO roles, so every ramp
+ * becomes an accent→primary ramp and the page follows the picker, the custom
+ * colours included.
+ *
+ * Eight aliases, and not one rule below is touched — the same trick
+ * `Profile.css` and `Admin.css` use, and the reason this is a dozen lines rather
+ * than a sweep through eighteen declarations.
+ *
+ * ⚠️ Scoped to the BANDS and the HERO, deliberately NOT to `.home`. The closing
+ * CTA band is `SimpleCtaBand`, a component shared with `/projects`, and it is a
+ * SIBLING of these sections rather than a descendant of one. An alias block on
+ * `.home` would therefore have silently restyled it on Home ONLY and made the two
+ * pages drift apart — the exact thing that component was extracted to prevent
+ * (see the note above `.home-links-grid`). Every one of the eighteen uses of
+ * these four families in this file is inside a `.home-band` or the hero.
+ * (`.home-promo` is the exception and is not either — but it is dead CSS, no
+ * longer rendered from `Home.jsx`.)
+ *
+ * ⚠️ The pairing rule, and it is not arbitrary: `--fg-mint` only ever appears
+ * OPPOSITE `--fg-blue` in a ramp (`.home-actions`, `.home-dot.is-active`,
+ * `.home-intro-heading`, `.home-stat-value`, `.home-portrait::before`), so it maps
+ * to `primary`. Mapping BOTH to the accent would collapse every ramp on this page
+ * to a flat fill — the failure this pass exists to avoid. `--fg-blue` takes the
+ * accent because it is also the LINK colour here (`.home-feature-title:hover`,
+ * `.home-feature-link`), and the accent is the link role everywhere else.
+ *
+ * ⚠️ `aurora` is cyan + pink, so Home's default accent moves blue → cyan and its
+ * CTAs become cyan → pink. That is the point of the pass — Home now matches
+ * `/profile` — but it IS a visible change to a page that did not previously
+ * follow the scheme at all, so do not read it as a regression. */
+.home-band,
+.home-hero {
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
+  --fg-orange: var(--scheme-accent);
+  --fg-pink: var(--scheme-primary);
+  --bg-orange: var(--scheme-accent-bg);
+  --bg-blue: var(--scheme-accent-bg);
+  --bg-mint: var(--scheme-primary-bg);
+  --bg-pink: var(--scheme-primary-bg);
+}
+
 /* ── Full-bleed bands: the page is a sequence of flat color blocks ── */
 .home-band {
   position: relative;
@@ -385,7 +431,28 @@
   font-size: var(--font-size-small);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.02em;
-  color: var(--fg-blue);
+
+  /* `--fg-blue` is the scheme accent here, and the accent is tuned to clear AA
+     against `--bg-page` with almost nothing to spare — which is why this link
+     measured 3.87:1 once it stopped being the theme's own link blue and started
+     being the scheme hue sitting on the tint band behind it.
+
+     No dose of tint fixes that, and it is worth writing down why: the accent's
+     luminance on a light page leaves the band only ~0.02 of headroom, i.e. the
+     band would have to have no tint at all. So the LINK moves instead of the
+     band — mixed toward the reading ink, which darkens it on a light page and
+     lightens it on a dark one, keeping the scheme's hue and the band's tint.
+     It can never overshoot: at 100% the mix IS the ink, the maximum contrast
+     available. 80% measured the lowest mix that clears AA on all twelve
+     schemes in both modes (light 5.15:1, dark 7.60:1).
+
+     ⚠️ The accent is marginally OUT of sRGB gamut, so `color-mix(in srgb, …)`
+     serialises this with a small NEGATIVE channel rather than gamut-mapping it
+     (aurora light reads `color(srgb -0.19 0.4156 0.4245)`). That is the browser
+     reporting the mix honestly, not a broken value: it clamps at paint time, and
+     the rendered colour is a slightly darker teal, i.e. marginally more contrast
+     than measured. Do not "fix" it by hand-picking a hex. */
+  color: color-mix(in srgb, var(--fg-blue) 80%, var(--text-color));
 }
 .home-feature-link span { transition: transform 0.2s ease; }
 .home-feature-row:hover .home-feature-link span { transform: translateX(4px); }

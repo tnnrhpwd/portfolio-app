@@ -13,6 +13,10 @@ jest.mock('./utils/theme.js', () => ({
   setDarkMode: jest.fn(),
   setLightMode: jest.fn(),
   setSystemColorMode: jest.fn(),
+  // The real Header calls these on mount, so the mock has to answer them.
+  initTheme: jest.fn(() => ({ preference: 'system', applied: 'light-theme' })),
+  getThemePreference: jest.fn(() => 'system'),
+  watchSystemTheme: jest.fn(() => () => {}),
   setFontSizeScale: jest.fn(() => 1),
   loadFontSizeScale: jest.fn(() => 1),
   FONT_SCALE_MIN: 0.8,

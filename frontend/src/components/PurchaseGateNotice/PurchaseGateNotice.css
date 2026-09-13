@@ -32,7 +32,13 @@
   align-items: center;
   gap: 4px;
   font-weight: var(--font-weight-semibold);
-  color: var(--fg-blue);
+  /* The SCHEME accent, not `--fg-blue`. This notice is shared by /pricing and
+     /profile; `/pricing` aliases `--fg-blue` to the accent and `/profile` does not,
+     so inheriting here would make the same link two different colours depending on
+     which page it happened to render on. Naming the scheme token directly gives one
+     answer everywhere. The ORANGE wash above is deliberately left alone — this box
+     is a warning, and an alarm that follows the decor is not an alarm. */
+  color: var(--scheme-accent);
   text-decoration: underline;
   text-underline-offset: 3px;
   white-space: nowrap;
@@ -40,7 +46,7 @@
 .gate-notice__link span { transition: transform 0.2s ease; }
 .gate-notice__link:hover span { transform: translateX(4px); }
 .gate-notice__link:focus-visible {
-  outline: var(--focus-outline, 3px solid var(--fg-blue));
+  outline: var(--focus-outline, 3px solid var(--scheme-accent));
   outline-offset: var(--focus-outline-offset, 2px);
 }
 

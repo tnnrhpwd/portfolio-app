@@ -7,6 +7,29 @@
 
 .planit-profile-bg {
     color: var(--text-color);
+    /* ── Re-point the raw brand hues at the colour scheme ─────────────────
+     * Eight aliases, no rule below this touched.
+     *
+     * Profile used to paint with SIX hues: a four-colour backdrop plus fg accents
+     * in four different colours, chosen independently. That is what made it read as
+     * conflicting rather than as a scheme, and this is the fix — everything here
+     * now resolves to the same two role hues the rest of the site uses, so the page
+     * is in the scheme AND follows the picker.
+     *
+     * Scoped to this page's root, so the rest of the site keeps the real tokens.
+     * The pairings matter: `--fg-mint` only ever appeared opposite `--fg-blue` in a
+     * gradient, so it maps to `primary` to keep the two-hue ramps two-hued rather
+     * than collapsing them to a flat fill. Same reasoning for the `--bg-*` group,
+     * which turns the four-colour backdrop into the accent → primary → accent →
+     * primary ramp the admin room uses. */
+    --fg-blue: var(--scheme-accent);
+    --fg-mint: var(--scheme-primary);
+    --fg-orange: var(--scheme-accent);
+    --fg-pink: var(--scheme-primary);
+    --bg-orange: var(--scheme-accent-bg);
+    --bg-blue: var(--scheme-accent-bg);
+    --bg-mint: var(--scheme-primary-bg);
+    --bg-pink: var(--scheme-primary-bg);
     min-height: 100vh;
     padding: calc(var(--nav-size) * 1.6) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
     background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
@@ -679,6 +702,43 @@
 }
 
 .planit-profile-setting-select:focus {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+    border-color: var(--fg-blue);
+}
+
+/* The Custom scheme's two pickers, matched to the select beside them.
+   `input[type=color]` is a native control and takes styling differently: the
+   swatch is drawn INSIDE the padding box, and it is the swatch element itself —
+   not the input — that carries the vendor border. So the wrapper is styled as if
+   it were the select and the swatch's own border is removed, which is what makes
+   the two rows read as one set rather than as a control next to a widget. */
+.planit-profile-setting-color {
+    width: 100%;
+    min-height: calc(var(--nav-size) * 0.85);
+    border: 1px solid var(--border-nav);
+    border-radius: var(--border-radius);
+    background: var(--bg-1);
+    padding: calc(var(--nav-size) * 0.08);
+    cursor: pointer;
+    transition: border-color var(--speed) ease, box-shadow var(--speed) ease;
+}
+
+.planit-profile-setting-color::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.planit-profile-setting-color::-webkit-color-swatch,
+.planit-profile-setting-color::-moz-color-swatch {
+    border: none;
+    border-radius: calc(var(--border-radius) * 0.6);
+}
+
+.planit-profile-setting-color:hover {
+    box-shadow: var(--shadow-sm);
+}
+
+.planit-profile-setting-color:focus {
     outline: var(--focus-outline);
     outline-offset: var(--focus-outline-offset);
     border-color: var(--fg-blue);

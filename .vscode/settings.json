@@ -1,3 +1,40 @@
 {
-  "cSpell.words": ["openaikey"]
+  "cSpell.words": ["openaikey"],
+
+  // ── Keep test runners on-demand ─────────────────────────────────────────────
+  // Three Jest extensions are installed (orta.vscode-jest, kavod-io.vscode-jest-test-adapter,
+  // firsttris.vscode-jest-runner). Their auto-run/watch modes launch the *whole* 133-file
+  // suite; two abandoned runs were found holding 27,729 file handles between them, and that
+  // handle pressure is what pushes the Copilot extension host into
+  // `EMFILE: too many open files, open '…tikTokenizerWorker.js'`.
+  // Full sweeps belong at merge time — see .github/copilot-instructions.md.
+  "jest.runMode": "on-demand",
+  "jest.showCoverageOnLoad": false,
+  "jest.autoRun": "off",
+
+  // ── Don't watch or index generated trees ────────────────────────────────────
+  // Each watched directory costs a file handle in the extension host, and log/artifact
+  // trees also generate a constant stream of watcher events.
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/*/**": true,
+    "**/coverage/**": true,
+    "**/frontend/build/**": true,
+    "**/simple-addon/build/**": true,
+    "**/dist/**": true,
+    "**/.vite/**": true,
+    "**/reports/**": true,
+    "**/logs/**": true,
+    "**/*.log": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/coverage": true,
+    "**/frontend/build": true,
+    "**/simple-addon/build": true,
+    "**/.vite": true,
+    "**/jest-out.txt": true,
+    "**/tmp-final.txt": true
+  }
 }

@@ -71,8 +71,8 @@
   --tone-l-action-lo: 0.40;
   --admin-action: linear-gradient(
     135deg,
-    oklch(from var(--fg-pink) var(--tone-l-action-hi) var(--tone-c) h),
-    oklch(from var(--fg-pink) var(--tone-l-action-lo) var(--tone-c) h)
+    oklch(from var(--scheme-primary) var(--tone-l-action-hi) c h),
+    oklch(from var(--scheme-primary) var(--tone-l-action-lo) c h)
   );
 
   /* The accent a panel carries. Defaults to the console's own colour, so every
@@ -96,32 +96,30 @@
      ~15:1 for the body text even at 60%), so the aesthetic can win. The dark
      theme runs a little higher because there the room is DARKER than the land,
      and letting too much through costs the pane its separation. */
-  --admin-glass-a: 74%;
-  --admin-glass-raised-a: 86%;
+  --admin-glass-a: 80%;
+  --admin-glass-raised-a: 90%;
   --admin-glass: color-mix(in srgb, var(--admin-land) var(--admin-glass-a), transparent);
   --admin-glass-raised: color-mix(in srgb, var(--admin-land) var(--admin-glass-raised-a), transparent);
-  /* How much of an accent goes into an ambient pool. A radial pool is at full
-     strength only at its own origin, and these origins sit just off-screen in
-     the corners — so the alpha here is a ceiling the visible area never reaches,
-     and the number wants to be higher than it looks. 34% over white gives a
-     pastel wash; a little more over `--grey5` gives a deep, saturated glow. One
-     token, so the whole room's intensity is a single number.
+  /* There is no ambient DOSE any more. The room draws its two hues straight from
+     the theme's background tokens (see `.admin-surface::before`), and an ALPHA is
+     the wrong knob for it: below 100% what shows through is the neutral page,
+     which is precisely what a tint is.
 
-     THREE pools, and `a3` is the one that matters. The room runs the accent in
-     the top-left into the HIGHLIGHT in the bottom-right, so the page carries a
-     hue ramp across it instead of one hue repeated in two corners. That ramp is
-     what stops a console of grey glass reading as a monochrome. The three doses
-     are separate so the diagonal can be tuned without touching the haze.
+     `--admin-room-mix` is the knob that works. It mixes the hue toward the page
+     colour, so the room keeps being a colour and simply loses saturation. Full
+     strength was too loud for a page that is mostly numbers — the note was "too
+     colorful", not "not colourful enough" — so this sits deliberately short of
+     `/profile`, which is a marketing backdrop with far less to read on top of it.
 
      The ALERT hue is still absent, deliberately: a colour used as wallpaper
      cannot mean "look at me". */
-  --admin-ambient-a: 46%;
-  --admin-ambient-a2: 32%;
-  --admin-ambient-a3: 40%;
+  --admin-room-mix: 68%;
   /* The halo layer, one step looser than the room and moving at its own rate, so
-     the two read as depth rather than as one flat wash. */
-  --admin-halo-a: 20%;
-  --admin-halo-b: 16%;
+     the two read as depth rather than as one flat wash. Barely there now: the room
+     already supplies the colour, and a second saturated layer on top of a first is
+     exactly how a page ends up too loud. */
+  --admin-halo-a: 10%;
+  --admin-halo-b: 10%;
   /* Anything nested inside a panel — never a second glass surface. */
   --admin-sunken: color-mix(in srgb, var(--text-color) 6%, transparent);
   --admin-sunken-strong: color-mix(in srgb, var(--text-color) 11%, transparent);
@@ -135,7 +133,7 @@
      on the page that marks a PLACE rather than an action, and a place can afford
      to be the brand. Opaque, like `--admin-selected`: a tinted control needs an
      edge. */
-  --admin-selected-hi: color-mix(in srgb, var(--fg-pink) 18%, var(--bg-1));
+  --admin-selected-hi: color-mix(in srgb, var(--scheme-primary) 18%, var(--bg-1));
   /* A control's hover, opaque so a button never goes see-through on hover. */
   --admin-btn-hover: color-mix(in srgb, var(--bg-1) 90%, var(--text-color));
   /* The pointer spotlight's light. Neutral-ish: this is a highlight, not a hue
@@ -224,19 +222,35 @@
      of their bars; spending a hue on each is exactly how a console ends up a
      different colour every 200px. What replaces those hues is INTENSITY — the
      funnel is one hue in three weights, which is a truer chart anyway, because
-     the length was already the encoding and colour was only repeating it. */
+     the length was already the encoding and colour was only repeating it.
+
+     WHICH hues the accent and the primary ARE is not decided here. That is
+     decided once for the whole site, in "THE SCHEME" in `index.css`, and read in
+     as `--scheme-accent` / `--scheme-primary` below. This block only decides what
+     the console DOES with them — the shared lightness that harmonises them, the
+     roles they play, the ramp. Re-pointing the site's colours is a change in one
+     place, and it is deliberately not this one. */
   --tone-l: 0.58;
   --tone-l-soft: 0.72;
   --tone-l-deep: 0.45;
   --tone-c: 0.125;
-  --tone-accent: var(--fg-mint);
-  --tone-accent: oklch(from var(--fg-mint) var(--tone-l) var(--tone-c) h);
-  --tone-accent-soft: oklch(from var(--fg-mint) var(--tone-l-soft) var(--tone-c) h);
-  --tone-accent-deep: oklch(from var(--fg-mint) var(--tone-l-deep) var(--tone-c) h);
-  --tone-alert: var(--fg-orange);
-  --tone-alert: oklch(from var(--fg-orange) var(--tone-l) var(--tone-c) h);
-  --tone-highlight: var(--fg-pink);
-  --tone-highlight: oklch(from var(--fg-pink) var(--tone-l) var(--tone-c) h);
+  /* ⚠️ `c` — the INPUT's chroma — rather than `var(--tone-c)`, on every token that
+     comes from a scheme. Re-pinning the chroma is what harmonises the tones, but it
+     also means a scheme with NO chroma (the `neutral` one) would be handed 0.125
+     anyway, and a grey handed chroma is not a grey: a neutral has no hue, so the
+     angle falls back to 0 and the whole console would turn PINK. Taking the chroma
+     from the scheme keeps the harmonisation for every coloured scheme — they are
+     all authored at exactly this chroma — and lets a grey stay grey.
+     The ALERT keeps the fixed `var(--tone-c)`: it is the theme's orange in every
+     scheme, and an alarm that goes grey with the decor is not an alarm. */
+  --tone-accent: var(--scheme-accent);
+  --tone-accent: oklch(from var(--scheme-accent) var(--tone-l) c h);
+  --tone-accent-soft: oklch(from var(--scheme-accent) var(--tone-l-soft) c h);
+  --tone-accent-deep: oklch(from var(--scheme-accent) var(--tone-l-deep) c h);
+  --tone-alert: var(--scheme-alert);
+  --tone-alert: oklch(from var(--scheme-alert) var(--tone-l) var(--tone-c) h);
+  --tone-highlight: var(--scheme-primary);
+  --tone-highlight: oklch(from var(--scheme-primary) var(--tone-l) c h);
   /* The title's ink, and deliberately NOT a `--tone-*`. Those are UI accents
      tuned to sit next to glass at a shared lightness; a HEADING needs its own,
      and in the light theme that means darker than the accent so the h1 still
@@ -244,10 +258,10 @@
      big headings with a gradient; this is that device, at a lightness chosen so
      the trick costs no legibility. */
   --tone-l-ink: 0.47;
-  --admin-ink-a: var(--fg-mint);
-  --admin-ink-a: oklch(from var(--fg-mint) var(--tone-l-ink) var(--tone-c) h);
-  --admin-ink-b: var(--fg-pink);
-  --admin-ink-b: oklch(from var(--fg-pink) var(--tone-l-ink) var(--tone-c) h);
+  --admin-ink-a: var(--scheme-accent);
+  --admin-ink-a: oklch(from var(--scheme-accent) var(--tone-l-ink) c h);
+  --admin-ink-b: var(--scheme-primary);
+  --admin-ink-b: oklch(from var(--scheme-primary) var(--tone-l-ink) c h);
   /* The head sits a step more opaque than the panels. Not because anything scrolls
      under it — nothing does — but because it is the console's FRAME rather than one
      of its panes, and a frame should not dissolve into the room the way a panel
@@ -274,36 +288,35 @@
   color: var(--text-color);
   /* NO background of its own — the room lives on `::before`, below. An element
      cannot paint a layer behind its own background, and the room has to sit
-     behind the glass for the drift to be a compositor transform rather than a
-     full-viewport repaint on every frame. The page colour is not lost with it:
-     `body`/`html` in index.css already paint `--bg-page`. */
+     behind every pane. The page colour is not lost with it: `body`/`html` in
+     index.css already paint `--bg-page`. */
 }
 /* ── The room ─────────────────────────────────────────────────────────────
-   The brand and nothing else: the accent running into the highlight, top-left to
-   bottom-right, over the neutral base. Two hues, one diagonal — enough to give
-   the page a direction and a light source, and to keep a wall of grey glass from
-   reading as a monochrome.
+   The brand and nothing else: the accent running into the highlight, at FULL
+   STRENGTH, as the page's own background. Two hues, so a wall of grey glass never
+   reads as a monochrome.
 
    Colour that is not data, not state and not interactive has no business here —
    and the ALERT hue especially must never be wallpaper, or it stops being able to
    mean "look at me". Nor does a panel's own wash show up as a second light
    source: the room belongs to the page, not to the panes.
 
-   It DRIFTS. The room is the one thing on this page with nothing to say, so it is
-   the one thing allowed to move continuously. `transform` and nothing else: the
-   element is `position: fixed`, so the browser keeps it on its own compositor
-   layer and a frame of animation costs no paint at all — which is the entire
-   reason this is a pseudo-element instead of an animated `background-image` on
-   the surface. `will-change` states that outright rather than hoping for it.
+   It SWEEPS. This is the marketing pages' device, and it is what was actually
+   missing here: what makes them feel alive is not that a gradient exists, it is
+   that the colour TRAVELS across it — a gradient several times the size of the
+   window, with `background-position` walking from corner to corner. Same four
+   stops, same four positions, in this console's two hues instead of four.
 
-   The slack is kept as small as the keyframes allow, and the pools are sized in
-   VIEWPORT units rather than percentages, with their `at` offsets shifted by the
-   inset (5vw / 5vh) to cancel it out. Percentages would resolve against THIS box,
-   which is deliberately larger than the viewport — so every extra percent of
-   slack would push the pools further off-screen and quietly drain the room. Sized
-   this way the room is identical whatever the slack is: the geometry is stated in
-   the units the eye actually sees, and the drift only has to be big enough that
-   no edge shows.
+   ⚠️ This repaints, and the first version of this file deliberately refused to.
+   Animating `background-position` re-rasterises the gradient every frame, where a
+   `transform` on a promoted layer is free — which is why the room used to drift by
+   `transform` instead. That was reversed on request, and the reason it was wrong
+   is worth keeping: a drift gentle enough to look calm is also too gentle to
+   notice, so it bought no calm and cost the effect. The repaint is a real cost,
+   accepted knowingly and bounded by keeping it to ONE layer at the very back —
+   four stops, `pointer-events: none`, nothing compositing over it, and never in
+   front of content. If it ever needs to be cheaper, the fix is a promoted layer,
+   not fewer stops.
 
    `z-index: -1` puts it behind all content while staying in the ROOT stacking
    context, and that is why `.admin-surface` must never gain `isolation` or a
@@ -312,19 +325,46 @@
 .admin-surface::before {
   content: '';
   position: fixed;
-  inset: -5%;
+  inset: 0;
   z-index: -1;
   pointer-events: none;
-  will-change: transform;
   background-color: var(--bg-page);
-  background-image:
-    radial-gradient(58vw 46vh at 9vw -1vh, color-mix(in srgb, var(--tone-accent) var(--admin-ambient-a), transparent), transparent 68%),
-    radial-gradient(42vw 34vh at 95vw -5vh, color-mix(in srgb, var(--tone-accent) var(--admin-ambient-a2), transparent), transparent 70%),
-    radial-gradient(64vw 56vh at 107vw 113vh, color-mix(in srgb, var(--tone-highlight) var(--admin-ambient-a3), transparent), transparent 74%);
-  animation: adminAmbientDrift 44s ease-in-out infinite;
+  /* Full OPACITY, drawn from the theme's own BACKGROUND tokens — the family
+     `/profile` builds its backdrop from — and then pulled back toward the page by
+     `--admin-room-mix`.
+
+     Opacity would be the wrong knob: below 100% what shows through is the neutral
+     page, and a neutral page showing through is just a tint of grey. MIXING the
+     hue is the right one, because the room stays a real colour and simply carries
+     less saturation.
+
+     `--bg-*` rather than the vivid `--fg-*` accents, because it is the family the
+     theme already ships a pale version of in light and a deep one in dark — so the
+     room is a pastel wash in one theme and a saturated one in the other with no
+     media query doing the work. That is also why `/profile` reads as it does.
+
+     Four stops alternating the two hues, so the ramp crosses both twice in a pass.
+
+     The page's TEXT CONTRAST is not carried by these colours — the glass above
+     them carries it — but this is why `--admin-glass-a` is as high as it is. Do
+     not bring the glass down to "match" a quieter room: less room showing through
+     is simply better for the numbers, and the glass is what the numbers sit on. */
+  background-image: linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--scheme-accent-bg) var(--admin-room-mix), var(--bg-page)),
+    color-mix(in srgb, var(--scheme-primary-bg) var(--admin-room-mix), var(--bg-page)),
+    color-mix(in srgb, var(--scheme-accent-bg) var(--admin-room-mix), var(--bg-page)),
+    color-mix(in srgb, var(--scheme-primary-bg) var(--admin-room-mix), var(--bg-page))
+  );
+  /* Three times the window in each direction. The image has to be WIDER than the
+     box or `background-position` has nowhere to walk — at the default 100% size
+     this animation would do nothing at all. */
+  background-size: 300% 300%;
+  background-repeat: no-repeat;
+  animation: adminRoomSweep 26s ease-in-out infinite;
 }
 /* ── The halo: the second, looser layer of the room ─────────────────────────
-   Two soft colour pools floating at their OWN rate over the drifting room, which
+   Two soft colour pools floating at their OWN rate over the sweeping room, which
    is how the marketing pages' decorative circles work behind their heroes. Two
    layers at two speeds is what reads as depth; one layer is just a wallpaper.
 
@@ -355,13 +395,11 @@
      93/7 is deliberately modest — enough to separate, not so much that the
      console stops being dark. */
   --admin-land: color-mix(in srgb, var(--bg-1) 93%, var(--white0));
-  --admin-glass-a: 82%;
-  --admin-glass-raised-a: 90%;
-  --admin-ambient-a: 58%;
-  --admin-ambient-a2: 40%;
-  --admin-ambient-a3: 52%;
-  --admin-halo-a: 28%;
-  --admin-halo-b: 24%;
+  --admin-glass-a: 88%;
+  --admin-glass-raised-a: 92%;
+  --admin-room-mix: 62%;
+  --admin-halo-a: 12%;
+  --admin-halo-b: 12%;
   --admin-wash: 18%;
   --admin-share-dose: 38%;
   /* Same recipe, lifted: on a dark pane the hues need more light behind them to
@@ -388,7 +426,7 @@
   --admin-tint: color-mix(in srgb, var(--white0) 4%, transparent);
   --admin-tint-strong: color-mix(in srgb, var(--white0) 7%, transparent);
   --admin-selected: color-mix(in srgb, var(--fg-blue) 30%, var(--bg-1));
-  --admin-selected-hi: color-mix(in srgb, var(--fg-pink) 30%, var(--bg-1));
+  --admin-selected-hi: color-mix(in srgb, var(--scheme-primary) 30%, var(--bg-1));
   --admin-btn-hover: color-mix(in srgb, var(--bg-1) 88%, var(--white0));
   --admin-light: color-mix(in srgb, var(--white0) 11%, transparent);
   --admin-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 30px -12px rgba(0, 0, 0, 0.6);
@@ -504,6 +542,26 @@
   -webkit-text-fill-color: transparent;
   color: transparent;
   animation: adminInkShift 9s ease-in-out infinite;
+  /* Gradient ink carries an OUTLINE, and that is a standing rule on this page
+     rather than a flourish. The outline has to read against the GRADIENT, not
+     against the page: the ink is what the eye is on, and the thing it can dissolve
+     into is the bar behind it, which sweeps through the same two hues the title is
+     made of — a cyan "Dash" can end up on a cyan bar.
+
+     So the outline takes `--text-color-inv`, the token that already means "the
+     other side of whatever this sits on": white in the light theme, near-black in
+     the dark. That puts it maximally far from the ink in BOTH themes by
+     construction, which is what "high contrast to the gradient" needs, instead of
+     a mid grey that is a compromise in both.
+
+     Deliberately NOT `paint-order: stroke fill`, for all that it is the prettier
+     option: it draws the stroke behind the fill, which keeps the gradient at full
+     extent but pushes the outline OUTWARD, onto the bar — where a colour chosen to
+     be the bar's opposite can vanish into it. Letting the stroke straddle the glyph
+     edge puts half of it over the gradient, and that is the half that has to show.
+
+     Any gradient text added to this page later carries one too. */
+  -webkit-text-stroke: 0.003em var(--text-color-inv);
 }
 
 .admin-bar-status {
@@ -1846,8 +1904,9 @@
        so the movement *is* the "it loaded")
      · the brand rule under the head drifting (it is the page's one piece of
        brand, and a ruled line that breathes reads as alive, not as a band)
-     · the room behind everything drifting, and its halo floating over it — two
-       layers at two rates, which is what makes the page feel like a place
+     · the room behind everything sweeping its gradient, and its halo floating
+       over it — two layers at two rates, which is what makes the page feel like
+       a place
      · the title's gradient running through the letterforms
      · the live-status dot pulsing
      · the funnel bars growing to their width instead of snapping
@@ -1855,12 +1914,16 @@
        cursor, which is interaction feedback rather than ambience
      · hover/state transitions everywhere a control already had one
 
-   What is here now that was NOT: the room drifts. That reverses the rule this
-   file used to state ("the room is lit; it does not move"), on the user's
-   explicit ask, and the reversal is only safe because of HOW it moves — one
-   promoted compositor layer, `transform` only, 44s, and never in front of the
-   content. Animating `background-position` instead would repaint the viewport on
-   every frame, and would still be a bad idea.
+   What is here now that was NOT: the room MOVES. That reverses the rule this file
+   used to state ("the room is lit; it does not move"), on the user's explicit ask.
+
+   The first attempt moved it with `transform`, to keep every frame free of paint
+   — a promoted compositor layer costs nothing. That was the wrong call for a
+   reason worth recording: a drift gentle enough to look calm is also too gentle
+   to notice, so it bought no calm and cost the effect, and the user had to ask
+   twice more. The room now sweeps its own gradient with `background-position`,
+   which DOES repaint the viewport each frame. Real cost, accepted knowingly, and
+   bounded by keeping it to one layer at the very back.
 
    Everything here is disabled under `prefers-reduced-motion` (bottom of file). */
 
@@ -1898,15 +1961,17 @@
 @keyframes adminShimmer {
   to { transform: translateX(100%); }
 }
-/* The room's drift. `transform` and nothing else, so it stays on the compositor.
-   44s across roughly ±3.5% — slow enough to read as light shifting in a room
-   rather than as a picture moving, which is the only way a gradient behind tables
-   is allowed to move at all, and quick enough that the movement is actually
-   THERE. A 1% drift over 84s is technically animation and completely invisible. */
-@keyframes adminAmbientDrift {
-  0%   { transform: translate3d(-3.4%, -2.6%, 0) scale(1.02); }
-  50%  { transform: translate3d(3.2%, 3%, 0)     scale(1.05); }
-  100% { transform: translate3d(-3.4%, -2.6%, 0) scale(1.02); }
+/* The room's sweep — the marketing pages' `gradientShift`, in this console's two
+   hues instead of their four. Four positions walked in order, so the colour
+   crosses the window diagonally and returns the way it came. 26s: slow enough to
+   read as light moving through a room rather than as a picture being dragged, and
+   quick enough that you actually see it. */
+@keyframes adminRoomSweep {
+  0%   { background-position: 0% 50%; }
+  25%  { background-position: 100% 50%; }
+  50%  { background-position: 100% 100%; }
+  75%  { background-position: 0% 100%; }
+  100% { background-position: 0% 50%; }
 }
 /* A light running the length of the signature line. */
 @keyframes adminRuleSweep {
@@ -2268,6 +2333,10 @@
     background: none;
     -webkit-text-fill-color: currentColor;
     color: var(--text-color);
+    /* The outline was insurance against a background that moves. At this
+       preference the ink is plain and the room is gone, so there is nothing left
+       for it to insure against. */
+    -webkit-text-stroke-width: 0;
   }
 }
 

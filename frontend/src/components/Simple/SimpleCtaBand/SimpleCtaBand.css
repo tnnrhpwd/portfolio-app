@@ -3,10 +3,28 @@
 
    The band's ink is --text-color-inv — white in light mode, deep navy in dark
    mode — so the fill must be DEEP in light mode and BRIGHT in dark mode for that
-   ink to stay legible. The dark-theme tokens already are; in light mode the mint
-   end is darkened toward the ink so white clears WCAG AA (white on the raw
-   --fg-mint teal was only ~2.2:1). Everything on the band derives from that one
-   token, which is why it survives a theme flip with no hardcoded colors.
+   ink to stay legible. `--cta-l-a` / `--cta-l-b` decide exactly that, and they
+   are the only thing a theme flip changes.
+
+   ⚠️ The fill is the COLOUR SCHEME, not the theme's fixed brand blue → teal. It
+   was `--fg-blue`/`--fg-mint`, which made this the one band on the site that
+   ignored the picker — and it read as broken the moment /home and /profile
+   started following it.
+
+   ⚠️ Applied HERE and not from either page. This component is the only place the
+   band is styled — `Projects.css` says so explicitly, because a local override is
+   how /home and /projects drift apart. Driving it from the component means both
+   pages follow the picker together and neither restyles the other's copy.
+
+   The two stops are the scheme's own roles re-pinned to a lightness that clears
+   AA for the band's ink — the same move `Admin.css` makes for its action, and for
+   the same reason: a scheme's identity hues are chosen for contrast ON A PAGE, and
+   a full-bleed band is the opposite problem. Re-pinning also means a PALE identity
+   hue (Cyberpunk's yellow, Monokai's lime) needs no hand-picked variant, which is
+   what the old `.light-theme` rule was doing for the mint end alone.
+
+   Chroma rides along (`c`), so a scheme with no chroma stays grey: `neutral` is
+   deliberately a greyscale band rather than a coloured one.
 
    Geometry mirrors the page bands it bookends (`.home-band` / `.projects-band`):
    full-bleed, flat, centered, with the same vertical rhythm. */
@@ -20,14 +38,26 @@
   padding: calc(var(--nav-size) * 1.6) calc(var(--nav-size) * 0.3);
   color: var(--text-color-inv);
   text-align: center;
-  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
-}
-.light-theme .simple-cta {
+
+  /* Light theme: deep enough that the white ink clears AA on BOTH stops, and on
+     the 12%-white card surfaces above them — the cards are the tightest case,
+     because that overlay lightens the band again underneath the text. Measured
+     worst across all thirteen schemes: 4.87:1 (aurora). 0.48 also passes, at
+     4.55:1, but that is too little margin to survive any later tweak; 0.44 buys
+     5.21:1 at the cost of a noticeably muddier band. */
+  --cta-l-a: 0.46;
+  --cta-l-b: 0.36;
+  background: linear-gradient(45deg, var(--scheme-accent), var(--scheme-primary));
   background: linear-gradient(
     45deg,
-    var(--fg-blue),
-    color-mix(in srgb, var(--fg-mint) 45%, var(--dark-blue0))
+    oklch(from var(--scheme-accent) var(--cta-l-a) c h),
+    oklch(from var(--scheme-primary) var(--cta-l-b) c h)
   );
+}
+/* Dark theme: the ink is the deep navy, so the band comes UP instead of down. */
+.dark-theme .simple-cta {
+  --cta-l-a: 0.80;
+  --cta-l-b: 0.70;
 }
 .simple-cta-wrap { width: 100%; max-width: 1000px; }
 
@@ -83,7 +113,10 @@
   cursor: pointer;
   border: 1px solid transparent;
   color: var(--text-color-inv);
-  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  /* Dead in practice — both variants below override `background` — but it is kept
+     on the scheme tokens rather than the old `--fg-blue`/`--fg-mint` so that it
+     cannot become a landmine if a third variant ever lands on it. */
+  background: linear-gradient(45deg, var(--scheme-accent), var(--scheme-primary));
   text-decoration: none;
   display: inline-flex;
   align-items: center;

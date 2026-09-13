@@ -14,6 +14,32 @@
     box-sizing: border-box;
     color: var(--text-color);
     font-family: var(--font-family-base);
+
+    /* ── Re-point the raw brand hues at the colour scheme ──────────────────
+     * The page ROOT wears the gradient here, so the aliases belong on it rather
+     * than on a band (the way `Home.css` does it). Six aliases and no rule below
+     * is touched — the same trick `Profile.css` and `Admin.css` use.
+     *
+     * Pairing as everywhere else: `--fg-mint` only ever appears OPPOSITE
+     * `--fg-blue` in a ramp, so it takes `primary`. Mapping both to the accent
+     * would flatten every ramp on this page to a flat fill. `--fg-blue` is also
+     * the page's LINK colour, which is the accent's role sitewide.
+     *
+     * ⚠️ `--fg-orange` is deliberately NOT aliased, and this page is the reason
+     * the rule exists: line ~963 uses it as a notice callout's left border. Orange
+     * is the ALERT hue — an alarm that takes its colour from the decor is not an
+     * alarm — so it stays the theme's own orange under every scheme. The `--bg-*`
+     * orange IS aliased: it only ever appears in the hero's decorative four-stop
+     * backdrop. */
+    --fg-blue: var(--scheme-accent);
+    --fg-mint: var(--scheme-primary);
+    /* The BACKDROP tokens, not `--scheme-*-bg`: these four stops are a full-bleed
+       field, and the tint tokens carry the page's lightness, which makes a pale
+       hue too light for a dark page. See the note in `index.css`. */
+    --bg-orange: var(--scheme-backdrop-a);
+    --bg-pink: var(--scheme-backdrop-b);
+    --bg-blue: var(--scheme-backdrop-a);
+    --bg-mint: var(--scheme-backdrop-b);
 }
 
 @keyframes gradientShift {
