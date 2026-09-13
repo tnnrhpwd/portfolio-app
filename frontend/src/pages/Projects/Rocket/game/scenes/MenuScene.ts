@@ -6,7 +6,17 @@ import { sfx, setMuted } from '../audio/sfx';
 import { SHIPS, SHIP_ORDER } from '../core/ships';
 import { deriveStats } from '../core/upgrades';
 import type { ShipKey } from '../core/types';
-import { buyShip, getSave, selectShip, wipeProgress } from '../session';
+import {
+  LEADERBOARD_SIZE,
+  cloudStateLabel,
+  displayName,
+  fetchLeaderboard,
+  findRank,
+  isLoggedIn,
+  onCloudChange,
+  readUser,
+} from '../cloud';
+import { buyShip, getSave, selectShip, whenCloudSynced, wipeProgress } from '../session';
 import { loadSettings, updateSettings } from '../settings';
 import { addPanel, addSpaceBackdrop } from '../ui/backdrop';
 import { addText, createButton, createIconButton, type GameButton } from '../ui/button';
@@ -29,7 +39,12 @@ export class MenuScene extends Phaser.Scene {
   private shipBlurb!: Phaser.GameObjects.Text;
   private shipAction!: GameButton;
   private bankText!: Phaser.GameObjects.Text;
+  private bestText!: Phaser.GameObjects.Text;
+  private cloudText!: Phaser.GameObjects.Text;
   private overlay: Phaser.GameObjects.Container | null = null;
+  /** False once the scene is torn down, so cloud callbacks stop touching it. */
+  private alive = true;
+  private unsubCloud: (() => void) | null = null;
 
   constructor() {
     super('Menu');
@@ -61,6 +76,26 @@ export class MenuScene extends Phaser.Scene {
 
   create(): void {
     this.overlay = null;
+    this.alive = true;
+
+    // The boot sync can still be in flight (see `BootScene`), so redraw whenever it
+    // lands. Both teardown events matter: the shell destroys the whole game on
+    // rotation, so `SHUTDOWN` alone leaves a callback writing into dead text.
+    this.unsubCloud?.();
+    this.unsubCloud = onCloudChange(() => this.refreshCloudUI());
+    const detach = (): void => {
+      this.alive = false;
+      this.unsubCloud?.();
+      this.unsubCloud = null;
+    };
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, detach);
+    this.events.once(Phaser.Scenes.Events.DESTROY, detach);
+
+    // Ordering-independent: whichever of "sync finished" and "menu created" came
+    // first, this scene ends up drawn from the merged save. Waiting on the settled
+    // promise rather than the notification is what makes that true.
+    void whenCloudSynced().then(() => this.refreshCloudUI());
+
     const save = getSave();
     const saved = save.ship;
     this.shipIndex = Math.max(0, SHIP_ORDER.indexOf(saved));
@@ -92,13 +127,23 @@ export class MenuScene extends Phaser.Scene {
       align: 'center',
     });
 
-    addText(
+    this.bestText = addText(
       this,
       this.cx,
       this.portrait ? 196 : 168,
-      `BEST ${fmt(save.bestScore)}   ·   WAVE ${fmt(save.bestWave)}   ·   RUNS ${fmt(save.runs)}`,
+      this.bestLine(save),
       { size: 17, color: TEXT.accent, origin: [0.5, 0.5] },
     );
+
+    // Where this player's progress lives. Silent-ish by design: a guest sees one
+    // muted line, never a nag, and signing in is a page-level action.
+    this.cloudText = addText(this, this.cx, this.portrait ? 224 : 196, this.cloudLine(), {
+      size: 14,
+      color: TEXT.dim,
+      origin: [0.5, 0.5],
+      wrap: this.w - 40,
+      align: 'center',
+    });
 
     this.buildShipPanel();
 
@@ -121,14 +166,29 @@ export class MenuScene extends Phaser.Scene {
       },
     );
 
+    // The two secondary screens sit side by side in landscape (they are narrow
+    // enough to share the row) and stack in portrait, where a 720-wide box has no
+    // room for a second column.
     createButton(
       this,
-      this.cx,
+      this.portrait ? this.cx : this.cx - 140,
       this.portrait ? 1014 : 598,
       'HOW TO PLAY',
       () => {
         sfx.uiClick();
         this.showHowTo();
+      },
+      { width: this.portrait ? 280 : 260, height: 48, fontSize: 18, outline: true },
+    );
+
+    createButton(
+      this,
+      this.portrait ? this.cx : this.cx + 140,
+      this.portrait ? 1090 : 598,
+      'LEADERBOARD',
+      () => {
+        sfx.uiClick();
+        this.showLeaderboard();
       },
       { width: this.portrait ? 280 : 260, height: 48, fontSize: 18, outline: true },
     );
@@ -264,7 +324,7 @@ export class MenuScene extends Phaser.Scene {
     this.refreshShip();
   }
 
-  private refreshShip(): void {
+  private refreshShip(silent = false): void {
     const key = this.selectedShip;
     const def = SHIPS[key];
     const save = getSave();
@@ -296,11 +356,14 @@ export class MenuScene extends Phaser.Scene {
       this.shipAction.setEnabled(true);
     }
 
-    // Announce the selection so the carousel is usable without sight.
-    announce(
-      `${def.name}. ${owned ? 'Owned' : `Locked, costs ${def.cost} coins`}. ` +
-        `Hull ${stats.maxHull}, speed ${Math.round(stats.speed * 100)} percent.`,
-    );
+    // Announce the selection so the carousel is usable without sight. Suppressed
+    // when a background sync triggers the refresh — nothing was chosen.
+    if (!silent) {
+      announce(
+        `${def.name}. ${owned ? 'Owned' : `Locked, costs ${def.cost} coins`}. ` +
+          `Hull ${stats.maxHull}, speed ${Math.round(stats.speed * 100)} percent.`,
+      );
+    }
   }
 
   private shipActionClick(): void {
@@ -385,6 +448,154 @@ export class MenuScene extends Phaser.Scene {
     );
 
     this.overlay = this.add.container(0, 0, [...objects, close.container]).setDepth(50);
+  }
+
+  // ── Cloud progress + leaderboard ─────────────────────────────────────────
+
+  private bestLine(save = getSave()): string {
+    return `BEST ${fmt(save.bestScore)}   ·   WAVE ${fmt(save.bestWave)}   ·   RUNS ${fmt(save.runs)}`;
+  }
+
+  private cloudLine(): string {
+    if (!isLoggedIn()) return 'Playing as a guest — progress stays on this device';
+    return cloudStateLabel() || `Signed in as ${displayName()}`;
+  }
+
+  /**
+   * Redraw the progress-dependent parts of the menu once a background sync lands.
+   * Runs from a cloud callback, so it must survive a scene that is already gone.
+   */
+  private refreshCloudUI(): void {
+    if (!this.alive) return;
+    this.bestText.setText(this.bestLine());
+    this.cloudText.setText(this.cloudLine());
+    // A merge can hand this device coins and upgrades, so the ship panel's numbers
+    // are stale too — silently, because the player did not do anything.
+    this.refreshShip(true);
+  }
+
+  /**
+   * The public board: one row per player, farthest wave first.
+   *
+   * The fetch is fired after the overlay is already on screen so the button feels
+   * instant and an unreachable backend degrades to an explanatory line instead of a
+   * frozen menu. Rows are drawn into the overlay container on arrival, which is why
+   * the callback re-checks that the overlay is still ours.
+   */
+  private showLeaderboard(): void {
+    this.closeOverlay();
+    const cx = this.cx;
+    const cy = this.cy;
+    const portrait = this.portrait;
+    const panelW = portrait ? this.w - 40 : 720;
+    const panelH = portrait ? 760 : 560;
+    const topY = cy - panelH / 2;
+    const rowGap = portrait ? 40 : 28;
+    const rowTop = topY + 136;
+    const me = readUser();
+
+    const shade = this.add.rectangle(cx, cy, this.w, this.h, PALETTE.bg, 0.92);
+    shade.setInteractive();
+    const panel = addPanel(this, cx, cy, panelW, panelH, 0.96);
+
+    const objects: Phaser.GameObjects.GameObject[] = [shade, panel];
+    objects.push(
+      addText(this, cx, topY + 46, 'LEADERBOARD', {
+        size: 26,
+        bold: true,
+        color: TEXT.primary,
+        origin: [0.5, 0.5],
+      }),
+      addText(this, cx, topY + 84, 'Farthest wave reached', {
+        size: 15,
+        color: TEXT.muted,
+        origin: [0.5, 0.5],
+      }),
+    );
+
+    // Four columns; the numbers are right-aligned so the digits line up.
+    const colRank = cx - (portrait ? 290 : 300);
+    const colName = cx - (portrait ? 235 : 245);
+    const colWave = cx + (portrait ? 110 : 120);
+    const colScore = cx + (portrait ? 270 : 300);
+
+    const headerY = topY + 112;
+    objects.push(
+      addText(this, colRank, headerY, '#', { size: 14, bold: true, color: TEXT.dim }),
+      addText(this, colName, headerY, 'PILOT', { size: 14, bold: true, color: TEXT.dim }),
+      addText(this, colWave, headerY, 'WAVE', { size: 14, bold: true, color: TEXT.dim, origin: [1, 0] }),
+      addText(this, colScore, headerY, 'SCORE', { size: 14, bold: true, color: TEXT.dim, origin: [1, 0] }),
+    );
+
+    const loading = addText(this, cx, rowTop + rowGap * 2, 'Loading the board…', {
+      size: 17,
+      color: TEXT.muted,
+      origin: [0.5, 0.5],
+    });
+    objects.push(loading);
+
+    const footer = addText(this, cx, cy + panelH / 2 - 96, '', {
+      size: 15,
+      color: TEXT.muted,
+      origin: [0.5, 0.5],
+      wrap: panelW - 60,
+      align: 'center',
+    });
+    objects.push(footer);
+
+    const close = createButton(this, cx, cy + panelH / 2 - 44, 'CLOSE', () => this.closeOverlay(), {
+      width: 160,
+      height: 44,
+      fontSize: 18,
+      outline: true,
+    });
+    objects.push(close.container);
+
+    const container = this.add.container(0, 0, objects).setDepth(50);
+    this.overlay = container;
+    announce('Leaderboard. Loading the farthest waves.');
+
+    void fetchLeaderboard().then((entries) => {
+      // The board is a snapshot: if the overlay was closed (or replaced) while the
+      // request was in flight, drop the result rather than drawing into nothing.
+      if (!this.alive || this.overlay !== container) return;
+      loading.destroy();
+
+      const best = getSave().bestWave;
+
+      if (!entries.length) {
+        footer.setText(
+          isLoggedIn()
+            ? 'No runs on the board yet — yours would be the first.'
+            : 'No runs on the board yet.',
+        );
+        return;
+      }
+
+      entries.slice(0, LEADERBOARD_SIZE).forEach((entry, index) => {
+        const mine = Boolean(me && entry.userId && entry.userId === me._id);
+        const y = rowTop + index * rowGap;
+        const color = mine ? TEXT.gold : TEXT.primary;
+        container.add(addText(this, colRank, y, String(entry.rank ?? index + 1), { size: 17, color: TEXT.dim }));
+        container.add(addText(this, colName, y, entry.name, { size: 17, bold: mine, color }));
+        container.add(
+          addText(this, colWave, y, String(entry.wave), { size: 17, bold: mine, color: TEXT.accent, origin: [1, 0] }),
+        );
+        container.add(
+          addText(this, colScore, y, fmt(entry.score), { size: 17, color: TEXT.muted, origin: [1, 0] }),
+        );
+      });
+
+      const own = me ? findRank(entries, me._id) : null;
+      footer.setText(
+        own
+          ? `Your best: wave ${fmt(best)} · rank #${own.rank}`
+          : isLoggedIn()
+            ? `Your best: wave ${fmt(best)} — not on the board yet.`
+            : `Sign in to appear here. Your best so far: wave ${fmt(best)}.`,
+      );
+      announce(`Leaderboard: ${entries.length} pilots. Farthest wave ${entries[0].wave}.`);
+    });
   }
 
   private showResetConfirm(): void {

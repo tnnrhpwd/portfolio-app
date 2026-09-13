@@ -13,6 +13,7 @@
 import { applyUpgrades, createWorld, resizeWorld, startWave } from './core/engine';
 import { buyUpgrade, nextCost, UPGRADES } from './core/upgrades';
 import type { ShipKey, UpgradeKey, World } from './core/types';
+import { cloudPushSave, isLoggedIn, submitScore, syncProgressToLocal } from './cloud';
 import { loadSave, persistSave, recordRun, resetSave, unlockShip, type SaveData } from './save';
 import { VIEW_HEIGHT, VIEW_WIDTH } from './ui/theme';
 
@@ -47,9 +48,77 @@ export function getSave(): SaveData {
   return getSession().save;
 }
 
+const CLOUD_PUSH_DELAY_MS = 4000;
+let pushTimer: ReturnType<typeof setTimeout> | null = null;
+let cloudSync: Promise<void> | null = null;
+
+/**
+ * Every save write goes through here, which is what makes cloud sync automatic:
+ * the write is stamped (so the merge can tell which device is newer) and a push is
+ * scheduled a few seconds later. Debouncing matters because coins are banked on
+ * every pickup — without it a single wave would fire dozens of writes.
+ */
 function commit(save: SaveData): void {
-  getSession().save = save;
-  persistSave(save);
+  const stamped = { ...save, updatedAt: Date.now() };
+  getSession().save = stamped;
+  persistSave(stamped);
+  scheduleCloudPush();
+}
+
+function scheduleCloudPush(): void {
+  if (!isLoggedIn()) return;
+  if (pushTimer) clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => {
+    pushTimer = null;
+    void cloudPushSave(getSave());
+  }, CLOUD_PUSH_DELAY_MS);
+}
+
+/**
+ * Adopt the profile's progress into this device, once per game instance.
+ *
+ * Offline-first by design: if the profile is unreachable the local save simply
+ * stands, and play is unaffected. Repeated calls share one attempt, so booting
+ * twice (a rotation) does not re-pull.
+ */
+export function syncCloud(): Promise<void> {
+  if (!cloudSync) {
+    cloudSync = (async () => {
+      const merged = await syncProgressToLocal(getSession().save);
+      getSession().save = merged;
+    })();
+  }
+  return cloudSync;
+}
+
+/**
+ * Resolves once the boot sync has settled — immediately if it already has.
+ *
+ * Scenes read this instead of relying only on a change notification, because the
+ * sync can finish before a scene exists: it would then render pre-merge numbers
+ * and never hear about the merge at all ("signed in on a new device and still saw
+ * zero coins").
+ */
+export function whenCloudSynced(): Promise<void> {
+  return cloudSync ?? Promise.resolve();
+}
+
+/**
+ * Publish a personal-best wave to the public leaderboard.
+ *
+ * Only on a new best: public rows cannot be edited, so re-submitting the same
+ * wave every run would just pile up duplicates on the board.
+ */
+function maybeSubmitScore(summary: RunSummary): void {
+  const save = getSave();
+  if (summary.wave <= save.submittedWave) return;
+  if (!isLoggedIn()) return;
+  void (async () => {
+    const published = await submitScore(summary.wave, summary.score);
+    // Re-read the save: a run is 40 seconds of banked coins, and this resolves
+    // well after `finishRun` returned.
+    if (published) commit({ ...getSession().save, submittedWave: summary.wave });
+  })();
 }
 
 /** A fresh run on the saved ship/upgrades. Any previous run is discarded. */
@@ -174,6 +243,7 @@ export function finishRun(): RunSummary {
   // attempt is over" status, and it is what makes `fitRunToView` refuse it.
   if (world) world.status = 'dead';
 
+  maybeSubmitScore(summary);
   return summary;
 }
 
@@ -183,5 +253,7 @@ export function wipeProgress(): SaveData {
   const s = getSession();
   s.save = fresh;
   s.world = null;
+  // Publish the wipe, or signing in elsewhere would bring the old progress back.
+  scheduleCloudPush();
   return fresh;
 }

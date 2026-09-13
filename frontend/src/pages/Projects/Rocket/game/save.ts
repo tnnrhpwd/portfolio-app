@@ -29,6 +29,13 @@ export interface SaveData {
   ship: ShipKey;
   runs: number;
   kills: number;
+  /**
+   * Epoch ms of the last write, and `0` for a save that has never been written.
+   * Cloud sync uses it to decide who owns the wallet (see `mergeSaves`).
+   */
+  updatedAt: number;
+  /** Farthest wave already sent to the leaderboard, so a run submits once. */
+  submittedWave: number;
 }
 
 function freshSave(): SaveData {
@@ -42,6 +49,10 @@ function freshSave(): SaveData {
     ship: DEFAULT_SHIP,
     runs: 0,
     kills: 0,
+    // Deliberately 0, not `Date.now()`: a brand-new install must lose the wallet
+    // comparison to a real cloud save, so signing in on a fresh device adopts it.
+    updatedAt: 0,
+    submittedWave: 0,
   };
 }
 
@@ -83,6 +94,8 @@ export function migrate(raw: unknown): SaveData {
     ship,
     runs: asCount(data.runs),
     kills: asCount(data.kills),
+    updatedAt: asCount(data.updatedAt),
+    submittedWave: asCount(data.submittedWave),
   };
 }
 
@@ -107,9 +120,61 @@ export function persistSave(data: SaveData): void {
 }
 
 export function resetSave(): SaveData {
-  const fresh = freshSave();
+  // Stamped like any other write: a wipe is a deliberate change that must win
+  // the cloud merge, or signing in again would resurrect the deleted progress.
+  const fresh = { ...freshSave(), updatedAt: Date.now() };
   persistSave(fresh);
   return fresh;
+}
+
+/**
+ * Merge a cloud save into the local one.
+ *
+ * The policy follows what each field *means*, because a naive "newest wins"
+ * loses real progress and a naive "add everything up" mints coins:
+ *
+ *   - Permanent progression merges by max / union: upgrade levels and unlocked
+ *     ships can only ever go up (nothing in the game sells them back), so taking
+ *     the best of both devices is exact and cannot be exploited.
+ *   - Records (best score/wave, runs, kills) merge by max — undercounting a run
+ *     played on another device is better than losing the record.
+ *   - The wallet follows the most recent write, because coins are the one value
+ *     that genuinely moves: `max` would mint coins when a newer save has spent
+ *     some, and summing would duplicate them. `ship` rides along as a preference.
+ *
+ * So "the same upgrades everywhere" is guaranteed; only a wallet that changed on
+ * two devices at once can lose the older side's coins, which is the least-bad
+ * outcome of the three.
+ */
+export function mergeSaves(local: SaveData, cloud: SaveData): SaveData {
+  const wallet = cloud.updatedAt > local.updatedAt ? cloud : local;
+
+  const levels = createUpgradeLevels();
+  for (const key of UPGRADE_ORDER) {
+    levels[key as UpgradeKey] = Math.max(local.levels[key], cloud.levels[key]);
+  }
+
+  const unlocked = new Set<ShipKey>([DEFAULT_SHIP, ...local.unlockedShips, ...cloud.unlockedShips]);
+  const ship = isShipKey(wallet.ship) && unlocked.has(wallet.ship) ? wallet.ship : DEFAULT_SHIP;
+
+  return {
+    version: VERSION,
+    bestScore: Math.max(local.bestScore, cloud.bestScore),
+    bestWave: Math.max(local.bestWave, cloud.bestWave),
+    coins: wallet.coins,
+    levels,
+    unlockedShips: SHIP_ORDER.filter((key) => unlocked.has(key)),
+    ship,
+    runs: Math.max(local.runs, cloud.runs),
+    kills: Math.max(local.kills, cloud.kills),
+    updatedAt: Math.max(local.updatedAt, cloud.updatedAt),
+    submittedWave: Math.max(local.submittedWave, cloud.submittedWave),
+  };
+}
+
+/** True when `a` was written after `b` (a save that was never written is oldest). */
+export function isNewerThan(a: SaveData, b: SaveData): boolean {
+  return a.updatedAt > b.updatedAt;
 }
 
 /** A ship is buyable when it is not owned and the bank covers its price. */
