@@ -252,8 +252,10 @@ function VisitorMapPage() {
                             <span className="user-badge user-badge--in" title={`User ID: ${v.userId}`}>
                               ✓ {nicknameById.get(String(v.userId)) || "Logged in"}
                             </span>
+                            {/* Just the star: in a table the label is noise, and the
+                                `title` carries the meaning on hover. */}
                             {specialIds.has(String(v.userId)) && (
-                              <span className="plan-badge plan-special" title="Flagged Special by an admin">⭐ Special</span>
+                              <span className="plan-badge plan-special" title="Flagged Special by an admin">⭐</span>
                             )}
                           </>
                         : <span className="user-badge user-badge--out" title="No user logged in">Guest</span>}

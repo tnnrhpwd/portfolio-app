@@ -1539,6 +1539,46 @@ watch the funnel without being handed the write surfaces.
   and the popups/tooltips used `--bg-2`, a token that does not exist in `index.css`, so
   they rendered with no background at all (now `--bg-1` + a real shadow).
 
+### 13.16 Making the Special tier actually reachable (2026-09-12)
+
+Trying to *use* §13.15 turned up three things, two of them real bugs and one of them the
+reason it looked broken in the browser.
+
+- ⚠️ **The dev backend was serving pre-change code.** The live `/login` response came back
+  without `isSpecial` even though `postData.js` adds it (and logs the key list), so the
+  Special plumbing added in §13.15 — the middleware, the three widened routes, the login
+  flag — was not in the running process at all. Symptom: a Special-bound account shows the
+  four tabs (client-side, from a stored flag) but every request behind them 403s. Any test
+  of this feature needs a **restarted** backend; nothing in the frontend can paper over it.
+- ✅ **`PUT /admin/users/:id/special` refreshed only one of the two caches.** The flag lives
+  *inside* the record's `text` blob (`|Special:true`), so every cache holding that record
+  answers with the old value until its TTL runs out. The handler dropped the credits cache
+  (`apiUsageTracker.refreshUserDataCache`) but not the auth one
+  (`authMiddleware.invalidateUserCache`, 5-minute TTL) — and it is the auth cache that
+  `isSpecialRequest` reads through `req.user.text`. Both directions were wrong: a freshly
+  tagged account was refused for up to five minutes, and a **revoked** account kept its
+  four views for up to five minutes. Now one call, `refreshAccessCaches(id, item)`, in
+  `middleware/adminAccess.js`, which is also where the invariant is documented. Covered by
+  three tests in `__tests__/unit/adminAccess.test.js`.
+- ✅ **A tag applied mid-session needed a re-login, and no longer does.** `isSpecial` rode
+  only on the login response, so an account flagged *after* it signed in had no way to
+  learn about it on the client. `/usage` already reports the live flag, so
+  `getUserUsage.fulfilled` now raises `state.user.isSpecial` (and `dataService.getUserUsage`
+  persists it), and `AdminLayout` asks the server that one question before deciding "not
+  Special" for a signed-in non-admin. It only ever *raises* the flag, from an explicit
+  `isSpecial: true` in a successful response — the server stays the authority.
+- 🐛 **The new gate had a bug the new tests caught.** Folding "is the check in flight?" into
+  the same flag that told the gate to wait meant the gate stopped waiting the moment the
+  request started, and bounced the account home before the answer arrived. The two are now
+  separate (`awaitingSpecialCheck` for the wait, `shouldAskForSpecial` for the request).
+  `frontend/src/pages/Admin/AdminLayout.test.jsx` pins all of it: 9 tabs for admin, exactly
+  4 for Special, `/admin/users` bounced, a mid-session tag let through, a failed check
+  settling the wait, and no check at all for a signed-out visitor.
+- ✅ **The hidden views really are hidden.** The console's tab row is built from
+  `allowedViews` (admin: all nine; Special: the four in `SPECIAL_ADMIN_PATHS`), verified in
+  the browser as 4 tabs — and the only `/admin/*` link rendered *inside* a view is the
+  Dashboard's referrer rows pointing at `/admin/map`, which a Special account may open.
+
 ---
 
 **Companion doc:** [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md) — threat model, trust boundaries, and the permissions matrix.
