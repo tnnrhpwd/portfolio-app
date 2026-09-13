@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -129,6 +129,23 @@ function AdminLayout() {
   // function and re-subscribe on every render.
   const adminBarValue = useMemo(() => setReadout, []);
 
+  // ═══════════════ "Content is scrolling under the bar" ═══════════════
+  // A 1px sentinel sits at the document position where the bar's top reaches its
+  // own `top:` value, so the observer's answer IS the sticky state — the browser's
+  // scroll knowledge does the work and no scroll listener is added. It only ever
+  // moves the bar's shadow (see `--admin-shadow-bar`), so a missing
+  // IntersectionObserver just leaves the bar un-lifted rather than broken.
+  const sentinelRef = useRef(null);
+  const [stuck, setStuck] = useState(false);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return undefined;
+    const io = new IntersectionObserver(([entry]) => setStuck(!entry.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, [authorized]);
+
   if (!authorized) return null;
 
   const nickname = user?.nickname || user?.email || "admin";
@@ -145,9 +162,11 @@ function AdminLayout() {
 
       <div className="admin-surface">
         <div className="admin-shell">
+          {/* Watched by the observer above; invisible and out of flow. */}
+          <span ref={sentinelRef} className="admin-head-sentinel" aria-hidden="true" />
           {/* Sticky head: name + live state + actions, then the view switcher.
               One sticky block, so it never has to measure the other. */}
-          <div className="admin-head">
+          <div className={`admin-head${stuck ? " is-stuck" : ""}`}>
             <header className="admin-bar">
               <h1 className="admin-bar-title">{view.label}</h1>
               <span className="admin-bar-status">

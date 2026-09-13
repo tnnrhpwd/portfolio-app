@@ -4,9 +4,11 @@ import { useNavigate } from "react-router-dom";
 import dataService from "../../features/data/dataService.js";
 import CollapsibleSection from "../../components/Admin/CollapsibleSection.jsx";
 import AdminPanel from "../../components/Admin/AdminPanel.jsx";
+import KpiTile from "../../components/Admin/KpiTile.jsx";
+import { KpiSkeleton, PanelSkeleton } from "../../components/Admin/AdminSkeleton.jsx";
 import { useAdminReadout } from "./adminBarContext";
 import countryName from "../../utils/countryName.js";
-import { fmt, pct, formatTimestamp } from "./adminShared";
+import { fmt, pct, formatTimestamp, sharePct } from "./adminShared";
 
 /**
  * Dashboard — what you look at, in the order you look at it.
@@ -46,6 +48,17 @@ function Dashboard() {
   const ts = formatTimestamp;
   const d = dashboard; // shorthand
 
+  // Ranked lists get proportion bars, so each needs the largest value in its own
+  // list as the 100% reference. The API returns these sorted, but deriving the
+  // max means a change in that ordering can't silently squash every bar.
+  const maxCountry = Math.max(1, ...(d?.visitors.topCountries ?? []).map((c) => Number(c.count) || 0));
+  const maxReferer = Math.max(1, ...(d?.visitors.topReferers ?? []).map((r) => Number(r.count) || 0));
+  const maxStoreCost = Math.max(
+    1,
+    Number(d?.storage?.estimatedMonthlyS3Cost) || 0,
+    Number(d?.storage?.estimatedMonthlyDynamoCost) || 0
+  );
+
   // The headline numbers live in the sticky toolbar, so they survive a scroll
   // through the long secondary panels below (§5.7).
   useAdminReadout(
@@ -65,43 +78,62 @@ function Dashboard() {
 
   return (
     <>
-      {/* ─── What you come here for: the numbers, above the fold ─── */}
+      {/* ─── What you come here for: the numbers, above the fold ───
+          Neutral glass by default, and a tile only takes a hue when its number
+          has a state to report. Six differently-colored cards told you nothing
+          about which of the six to look at (Admin.css §7). */}
       {d && (
         <div className="kpi-grid">
-          <div className="kpi-card">
-            <span className="kpi-label">Total Users</span>
-            <span className="kpi-value">{fmt(d.overview.totalUsers)}</span>
-            <span className="kpi-sub">+{d.users.newThisMonth} this month</span>
-          </div>
-          <div className="kpi-card kpi-revenue">
-            <span className="kpi-label">Est. MRR</span>
-            <span className="kpi-value">${d.overview.estimatedMRR}</span>
-            <span className="kpi-sub">{d.overview.paidUsers} paid users</span>
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-label">Visitors (7d)</span>
-            <span className="kpi-value">{fmt(d.visitors.uniqueWeek)}</span>
-            <span className="kpi-sub">{fmt(d.visitors.thisWeek)} hits</span>
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-label">Open Bugs</span>
-            <span className="kpi-value">{d.bugs.open}</span>
-            <span className="kpi-sub">{d.bugs.total} total</span>
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-label">Avg Rating</span>
-            <span className="kpi-value">{d.reviews.avgRating} ★</span>
-            <span className="kpi-sub">{d.reviews.total} reviews</span>
-          </div>
-          <div className="kpi-card">
-            <span className="kpi-label">Est. Storage Cost</span>
-            <span className="kpi-value">${d.storage?.estimatedMonthlyCost ?? '0.00'}</span>
-            <span className="kpi-sub">{d.storage?.meteredFormatted ?? '—'} stored</span>
-          </div>
+          {/* The strip normalises: every tile wears the console's accent, so the one
+              that changes colour is the one with something to report. Open Bugs is
+              that tile — its alert tone appears only when the count is not zero. */}
+          <KpiTile
+            label="Total Users"
+            value={fmt(d.overview.totalUsers)}
+            sub={`+${d.users.newThisMonth} this month`}
+          />
+          <KpiTile
+            label="Est. MRR"
+            value={`$${d.overview.estimatedMRR}`}
+            sub={`${d.overview.paidUsers} paid users`}
+          />
+          <KpiTile
+            label="Visitors (7d)"
+            value={fmt(d.visitors.uniqueWeek)}
+            sub={`${fmt(d.visitors.thisWeek)} hits`}
+          />
+          <KpiTile
+            label="Open Bugs"
+            value={d.bugs.open}
+            sub={`${d.bugs.total} total`}
+            tone={d.bugs.open > 0 ? 'warn' : undefined}
+          />
+          <KpiTile
+            label="Avg Rating"
+            value={`${d.reviews.avgRating} ★`}
+            sub={`${d.reviews.total} reviews`}
+          />
+          <KpiTile
+            label="Est. Storage Cost"
+            value={`$${d.storage?.estimatedMonthlyCost ?? '0.00'}`}
+            sub={`${d.storage?.meteredFormatted ?? '—'} stored`}
+          />
         </div>
       )}
 
-      {dashLoading && <div className="admin-loading">Loading dashboard...</div>}
+      {/* First paint: placeholders shaped like the real thing, so the page does
+          not reflow when the numbers land. A REFRESH keeps the data on screen —
+          swapping figures a user is mid-read for grey boxes is worse than a beat
+          of staleness — so the skeletons only ever stand in for a first load. */}
+      {!d && dashLoading && (
+        <>
+          <KpiSkeleton />
+          <PanelSkeleton rows={5} />
+          <span className="sr-only" role="status">Loading dashboard…</span>
+        </>
+      )}
+
+      {d && dashLoading && <div className="admin-loading">Refreshing dashboard…</div>}
       {dashError && (
         <div className="admin-error">
           <span>{dashError}</span>
@@ -111,7 +143,10 @@ function Dashboard() {
 
       {d && (
         <>
-          {/* ─── Conversion story ─── */}
+          {/* ─── Conversion story ───
+              Deliberately NEUTRAL: this is the one panel whose data is already a
+              colour ramp (blue → pink → green down the stages), and a fifth hue
+              on its accent rule would only compete with it. */}
           <AdminPanel
             title="Sales funnel"
             hint="Visitor → registered → paid, from the visitor log and the user records."
@@ -163,8 +198,19 @@ function Dashboard() {
                 </thead>
                 <tbody>
                   {Object.entries(d.revenue.byPlan).map(([plan, info]) => (
-                    <tr key={plan}>
-                      <td className="plan-name">{plan.charAt(0).toUpperCase() + plan.slice(1)}</td>
+                    <tr
+                      key={plan}
+                      className="admin-share"
+                      style={{ '--share': sharePct(info.count, d.overview.totalUsers) }}
+                    >
+                      <td>
+                        {/* Two different questions, two different colours: the
+                            chip answers "which plan?" with the plan's own hue
+                            (the `.plan-badge` convention from /admin/users),
+                            the bar answers "how much of the user base?" with the
+                            panel's money hue. */}
+                        <span className={`plan-badge plan-${plan.toLowerCase()}`}>{plan}</span>
+                      </td>
                       <td>{info.count}</td>
                       <td>${info.revenue}</td>
                     </tr>
@@ -201,12 +247,21 @@ function Dashboard() {
                       <tr><th>Source</th><th>Size</th><th>Est. cost/mo</th></tr>
                     </thead>
                     <tbody>
-                      <tr>
+                      {/* Bars are by COST, not by bytes: the panel's question is
+                          "what is this costing me", and a byte split answers a
+                          different one. */}
+                      <tr
+                        className="admin-share"
+                        style={{ '--share': sharePct(d.storage.estimatedMonthlyS3Cost, maxStoreCost) }}
+                      >
                         <td className="plan-name">S3 attachments</td>
                         <td>{d.storage.s3Formatted}</td>
                         <td>${d.storage.estimatedMonthlyS3Cost}</td>
                       </tr>
-                      <tr>
+                      <tr
+                        className="admin-share"
+                        style={{ '--share': sharePct(d.storage.estimatedMonthlyDynamoCost, maxStoreCost) }}
+                      >
                         <td className="plan-name">DynamoDB records</td>
                         <td>{d.storage.dynamoFormatted}</td>
                         <td>${d.storage.estimatedMonthlyDynamoCost}</td>
@@ -259,7 +314,11 @@ function Dashboard() {
               <AdminPanel title="Top countries">
                 <div className="stat-rows">
                   {d.visitors.topCountries.map((c, i) => (
-                    <div key={i} className="stat-row">
+                    <div
+                      key={i}
+                      className="stat-row admin-share"
+                      style={{ '--share': sharePct(c.count, maxCountry) }}
+                    >
                       {/* The API returns ipinfo's two-letter country code; a
                           report should spell it out. */}
                       <span>{countryName(c.country)}</span>
@@ -277,7 +336,8 @@ function Dashboard() {
                     return (
                       <div
                         key={i}
-                        className="stat-row stat-row--clickable"
+                        className="stat-row stat-row--clickable admin-share"
+                        style={{ '--share': sharePct(r.count, maxReferer) }}
                         onClick={() => navigate("/admin/map", { state: { refererFilter: host } })}
                         title={`Show visitors from ${host}`}
                         role="button"

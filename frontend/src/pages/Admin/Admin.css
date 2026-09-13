@@ -1,38 +1,274 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Admin console — a SERVICE PAGE (FRONTEND_UI_STANDARD.md §5.7)
+   Admin console — a SERVICE PAGE, rebuilt as AMBIENT GLASS (2026-09-13)
    ═══════════════════════════════════════════════════════════════════════════
 
-   The admin console is a tool, not a pitch: one flat surface, a sticky head
-   carrying the room's name + live state + actions, then dense panels ordered by
-   how often they get touched. No bands, no animated gradient behind the data,
-   no floating circles, no scroll reveals — motion here means "state changed".
+   Still a service page, and still the same discipline: a tool rather than a
+   pitch, one surface, a sticky head carrying the room's name + live state +
+   actions, then dense panels ordered by how often they get touched. No bands,
+   no floating circles, no scroll reveals.
 
-   Panels are PLANES OF COLOR: a fill, plus a stronger wash of the same hue for
-   the head, so a block stays one color family. Neighboring panels pick
-   different hues and that difference in tone IS the grouping. Borders are
-   reserved for compact controls; focus rings stay (§5, §10). */
+   What changed is the MATERIAL. The previous pass made every panel a fully
+   saturated color plane (`oklch(from hue var(--plane-l) c h)`) with no shadow
+   and no border, and rotated the hue by `nth-child(3n)`. The result was a stack
+   of highlighter slabs in which color carried no information — when everything
+   is colored, nothing is emphasized — and the brand survived as one 2px
+   hairline. This pass keeps the structure and replaces the surface:
+
+     · The page is an AMBIENT MESH GRADIENT — the four `--bg-*` corners as soft
+       radial pools — so the brand lives in the room, not in the blocks.
+     · Panels are TRANSLUCENT GLASS over it: ~82% surface, a gradient hairline
+       edge, a specular top highlight, a soft layered shadow, and a whisper of
+       grain. Depth comes from layering, the way `/profile` gets it (Profile.css),
+       with NO `backdrop-filter` anywhere — it is a repaint cost on every scroll
+       and it is banned by §8.
+     · The head is the NAVIGATION LAYER, which is where glass actually belongs
+       (Apple's HIG: glass is "most effective for the navigation layer"): a
+       floating rounded glass bar, and the only thing on the page that sticks.
+     · COLOR IS RESERVED FOR SIGNAL. A panel is neutral by default and a hue
+       appears only when it means something (`hue="ok"|"bad"|…`, a status chip,
+       the primary action, the data itself). The decorative hue rotation is gone.
+
+   Two rules borrowed from glass design that are easy to get wrong:
+   - DON'T put glass on glass. Anything nested *inside* a panel is a flat
+     `--admin-sunken` tint, never a second glass surface.
+   - DON'T glass a control. Buttons, inputs and chips stay SOLID: they must read
+     as objects you can push, and a translucent control over data loses its edge.
+
+   Motion (see §17) only ever means "state changed" or "you are pointing at
+   this". The ambient gradient does NOT move — it sits behind tables and numbers,
+   and a drifting background under data is exactly what §5.7 forbids. */
 
 .admin-surface {
-  /* Status colors come from the shared tokens, theme-aware: --green2 is legible
-     on a light plane and --green1 on a dark one (the SimpleDashboard pattern).
-     Each pill's background derives from its own text color via currentColor. */
-  --admin-ok: var(--green2);
-  --admin-warn: var(--fg-orange);
-  --admin-bad: var(--red0);
-  --admin-hue: var(--fg-blue);
+  /* Status maps onto the two hues rather than adding a third: healthy IS the
+     console's own colour, and warn/bad share the alert hue, separated by how
+     much of it is used (an ink chip versus a solid fill) rather than by colour.
+     State that leans on one hue plus intensity plus a word is also the version
+     that survives colour-blindness. */
+  --admin-ok: var(--tone-accent);
+  --admin-warn: var(--tone-alert);
+  --admin-bad: var(--tone-alert);
+
+  /* Repointing the site's interactive hue at the accent collapses about twenty
+     separate `var(--fg-blue)` rules below — every focus ring, link, input edge,
+     inline button, the loading ring — onto the palette without touching a single
+     one of them. It is redefined for this subtree only, so the rest of the site
+     keeps its blue. */
+  --fg-blue: var(--tone-accent);
+
+  /* The primary action, as a gradient WITHIN one hue: the accent to a lighter
+     version of itself. It used to run blue → mint, which spent the second hue
+     on a button. */
+  --admin-action: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--tone-accent) 86%, var(--white0)),
+    var(--tone-accent)
+  );
+
+  /* The accent a panel carries. Defaults to the console's own colour, so every
+     pane is in the scheme and a state tone is the thing that stands out. */
+  --admin-accent: var(--tone-accent);
+
+  /* ── The material ────────────────────────────────────────────────────────
+     Alpha, not opacity: a translucent *color* composites against the ambient
+     gradient behind it, which is the entire effect. 82% is the most transparent
+     a panel can be while body text still holds AA over the brightest pool of
+     the light-theme mesh (§18 has the measurement note). */
+  /* `--admin-land` is the LEVEL the glass sits at. In the light theme the page is
+     already near-white, so the surface itself is the land. In the dark theme it
+     is lifted toward white (see below): a pane that is merely *lighter than
+     black* still reads as a hole in the page rather than as a pane resting on
+     it, and that is the difference between "dark dashboard" and "dark glass". */
+  --admin-land: var(--bg-1);
+  /* How much of the land survives in the glass. Lower = more of the room shows
+     through, which is the whole point; the floor is set by contrast, and in the
+     light theme that floor is generous (white glass over a pastel room keeps
+     ~15:1 for the body text even at 60%), so the aesthetic can win. The dark
+     theme runs a little higher because there the room is DARKER than the land,
+     and letting too much through costs the pane its separation. */
+  --admin-glass-a: 74%;
+  --admin-glass-raised-a: 86%;
+  --admin-glass: color-mix(in srgb, var(--admin-land) var(--admin-glass-a), transparent);
+  --admin-glass-raised: color-mix(in srgb, var(--admin-land) var(--admin-glass-raised-a), transparent);
+  /* How much of an accent goes into an ambient pool. A radial pool is at full
+     strength only at its own origin, and these origins sit just off-screen in
+     the corners — so the alpha here is a ceiling the visible area never reaches,
+     and the number wants to be higher than it looks. 34% over white gives a
+     pastel wash; a little more over `--grey5` gives a deep, saturated glow. One
+     token, so the whole room's intensity is a single number. */
+  --admin-ambient-a: 34%;
+  --admin-ambient-a2: 24%;
+  /* Anything nested inside a panel — never a second glass surface. */
+  --admin-sunken: color-mix(in srgb, var(--text-color) 6%, transparent);
+  --admin-sunken-strong: color-mix(in srgb, var(--text-color) 11%, transparent);
+  /* Row tints. Neutral on purpose: a zebra stripe is structure, not meaning. */
+  --admin-tint: color-mix(in srgb, var(--text-color) 4%, transparent);
+  --admin-tint-strong: color-mix(in srgb, var(--text-color) 7.5%, transparent);
+  /* The selected tab. This one IS a signal — "you are here" — so it keeps the
+     brand hue, as an opaque tint rather than the saturated plane it used to be. */
+  --admin-selected: color-mix(in srgb, var(--fg-blue) 16%, var(--bg-1));
+  /* A control's hover, opaque so a button never goes see-through on hover. */
+  --admin-btn-hover: color-mix(in srgb, var(--bg-1) 90%, var(--text-color));
+  /* The pointer spotlight's light. Neutral-ish: this is a highlight, not a hue
+     doing work, so it must not be mistaken for one of the signal colors. */
+  --admin-light: color-mix(in srgb, var(--fg-blue) 14%, transparent);
+
+  /* The gradient hairline. Light is assumed to come from the top-left, so the
+     edge is bright there and falls away opposite — this is what stops a 1px
+     border from reading as a drawn rectangle. */
+  --admin-edge-hi: color-mix(in srgb, var(--white0) 70%, transparent);
+  --admin-edge-lo: color-mix(in srgb, var(--text-color) 18%, transparent);
+  /* The specular top edge. Glass-UI research is unusually unanimous about this
+     one: a single inset highlight along the top is what makes a surface read as
+     glass rather than as tinted film. */
+  --admin-spec: color-mix(in srgb, var(--white0) 62%, transparent);
+  /* A panel head is a tone change, not a line and not a second hue. */
+  --admin-sheen: color-mix(in srgb, var(--text-color) 6.5%, transparent);
+  --admin-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 10px 26px -10px rgba(0, 0, 0, 0.26);
+  /* The bar's shadow once content is scrolling underneath it. The bar is already
+     opaque glass so its fill has nothing left to give, which leaves LIGHT as the
+     honest signal — the pane simply lifts off the page. Toggled by `.is-stuck`
+     (AdminLayout), so this costs one class and no scroll listener. */
+  --admin-shadow-bar: 0 2px 4px rgba(0, 0, 0, 0.06), 0 14px 34px -14px rgba(0, 0, 0, 0.34);
+
+  /* The whole recipe in one place, so the bar, the panels and the KPI tiles
+     cannot drift apart into three slightly different glasses. Three layers,
+     bottom-first: the gradient hairline painted into the (transparent) border
+     box, the glass fill clipped to the padding box, and the grain over both. */
+  --admin-glass-panel:
+    var(--admin-noise) center / 180px 180px repeat padding-box,
+    linear-gradient(var(--admin-glass), var(--admin-glass)) padding-box,
+    linear-gradient(150deg, var(--admin-edge-hi), var(--admin-edge-lo) 70%, var(--admin-edge-hi)) border-box;
+  /* The same recipe with the element's OWN accent laid over the glass. This is
+     what gives a panel a temperature.
+
+     It is an extra background LAYER rather than a hue mixed into the fill, and
+     that distinction is the whole point: with `--admin-accent: transparent` the
+     layer renders fully transparent, so a neutral element is byte-identical to
+     the panel above. Mixing a hue into the fill instead would quietly change
+     the opacity of every neutral panel too, because `color-mix` with
+     `transparent` scales alpha.
+
+     Because custom properties substitute at the point of USE, `var(--admin-accent)`
+     here resolves against whichever element consumes the token — so one shared
+     definition paints a different colour on every panel. */
+  --admin-glass-panel-washed:
+    var(--admin-noise) center / 180px 180px repeat padding-box,
+    linear-gradient(color-mix(in srgb, var(--admin-accent) var(--admin-wash), transparent), color-mix(in srgb, var(--admin-accent) var(--admin-wash), transparent)) padding-box,
+    linear-gradient(var(--admin-glass), var(--admin-glass)) padding-box,
+    linear-gradient(150deg, var(--admin-edge-hi), var(--admin-edge-lo) 70%, var(--admin-edge-hi)) border-box;
+  /* How much of the accent goes into that wash. Kept low on purpose: this is
+     meant to be felt as a temperature, not read as a colour — but not so low
+     that two neighbours stop being tellable apart. In the light theme money's
+     green and traffic's mint are both pale, so this is tuned to the point where
+     the hue still registers. */
+  --admin-wash: 10%;
+  /* How much of a hue a proportion bar carries. Deliberately stronger than the
+     wash: a bar is data, and data is meant to be read. */
+  --admin-share-dose: 20%;
+
+  /* ── The palette ─────────────────────────────────────────────────────────
+
+     Grey, white and black carry every surface, every word and every rule. Two
+     hues do everything else, and nothing here is a third:
+
+       accent (cyan)   the console's own colour — interaction, data, healthy
+       alert  (amber)  anything that wants a human
+
+     Both are pinned to ONE lightness and one chroma, so they are the same colour
+     at two angles rather than two colours that happen to share a page. That pin
+     is what makes them read as a scheme — and it also means they land on text at
+     the same contrast, so neither is the cheap one.
+
+     One hue, one job, and deliberately no hue per data family. Traffic,
+     sign-ups and revenue are told apart by their panel's title and by the shape
+     of their bars; spending a hue on each is exactly how a console ends up a
+     different colour every 200px. What replaces those hues is INTENSITY — the
+     funnel is one hue in three weights, which is a truer chart anyway, because
+     the length was already the encoding and colour was only repeating it. */
+  --tone-l: 0.58;
+  --tone-l-soft: 0.72;
+  --tone-l-deep: 0.45;
+  --tone-c: 0.125;
+  --tone-accent: var(--fg-mint);
+  --tone-accent: oklch(from var(--fg-mint) var(--tone-l) var(--tone-c) h);
+  --tone-accent-soft: oklch(from var(--fg-mint) var(--tone-l-soft) var(--tone-c) h);
+  --tone-accent-deep: oklch(from var(--fg-mint) var(--tone-l-deep) var(--tone-c) h);
+  --tone-alert: var(--fg-orange);
+  --tone-alert: oklch(from var(--fg-orange) var(--tone-l) var(--tone-c) h);
+  /* The bar sits a step more opaque: it carries live numbers over whatever is
+     scrolling underneath it, so it can afford less of the room. */
+  --admin-glass-bar:
+    var(--admin-noise) center / 180px 180px repeat padding-box,
+    linear-gradient(var(--admin-glass-raised), var(--admin-glass-raised)) padding-box,
+    linear-gradient(150deg, var(--admin-edge-hi), var(--admin-edge-lo) 70%, var(--admin-edge-hi)) border-box;
+
+  /* Concentric radii: an inner block's radius is its parent's minus the gap, so
+     the curves stay parallel (Apple calls this concentricity). */
+  --admin-radius: 20px;
+  --admin-radius-inner: 14px;
+
+  /* A whisper of grain, baked into the SVG at 6%: fractalNoise, desaturated,
+     tiled. It kills the banding an 8-bit gradient shows across a wide panel and
+     gives the surface a physical grain instead of a flat wash. */
+  --admin-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
 
   display: flex;
   justify-content: center;
   min-height: 100vh;
   padding: calc(var(--nav-size) * 1.15) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
-  background: var(--bg-page);
   color: var(--text-color);
+  background-color: var(--bg-page);
+  /* The room is the ACCENT and nothing else: a neutral base with two pools of
+     the console's own hue, one high and one low, which is enough for depth.
+
+     Colour that is not data, not state and not interactive has no business here
+     — and the alert hue especially must never be wallpaper, or it stops being
+     able to mean "look at me". Nor does a panel's own wash show up as a second
+     light source: the room belongs to the page, not to the panes. */
+  background-image:
+    radial-gradient(58% 46% at 4% -6%, color-mix(in srgb, var(--tone-accent) var(--admin-ambient-a), transparent), transparent 68%),
+    radial-gradient(62% 52% at 96% 106%, color-mix(in srgb, var(--tone-accent) var(--admin-ambient-a2), transparent), transparent 72%);
+  background-attachment: fixed;
 }
-.dark-theme .admin-surface { --admin-ok: var(--green1); }
+.dark-theme .admin-surface {
+  /* Lift the land off the near-black page, so a panel reads as a raised pane.
+     93/7 is deliberately modest — enough to separate, not so much that the
+     console stops being dark. */
+  --admin-land: color-mix(in srgb, var(--bg-1) 93%, var(--white0));
+  --admin-glass-a: 82%;
+  --admin-glass-raised-a: 90%;
+  --admin-ambient-a: 42%;
+  --admin-ambient-a2: 30%;
+  --admin-wash: 13%;
+  --admin-share-dose: 30%;
+  /* Same recipe, lifted: on a dark pane the hues need more light behind them to
+     read as the same two colours rather than as two dark smudges. */
+  --tone-l: 0.76;
+  --tone-l-soft: 0.88;
+  --tone-l-deep: 0.62;
+  --tone-c: 0.13;
+  /* In the dark theme the EDGE carries more of the load than the fill does: when
+     a land is this dark the specular highlight and a brighter hairline are what
+     make the pane's boundary legible, more than the tone of the glass. */
+  --admin-spec: color-mix(in srgb, var(--white0) 13%, transparent);
+  --admin-sheen: color-mix(in srgb, var(--white0) 6%, transparent);
+  --admin-edge-hi: color-mix(in srgb, var(--white0) 22%, transparent);
+  --admin-edge-lo: color-mix(in srgb, var(--white0) 4%, transparent);
+  --admin-sunken: color-mix(in srgb, var(--white0) 6%, transparent);
+  --admin-sunken-strong: color-mix(in srgb, var(--white0) 10%, transparent);
+  --admin-tint: color-mix(in srgb, var(--white0) 4%, transparent);
+  --admin-tint-strong: color-mix(in srgb, var(--white0) 7%, transparent);
+  --admin-selected: color-mix(in srgb, var(--fg-blue) 30%, var(--bg-1));
+  --admin-btn-hover: color-mix(in srgb, var(--bg-1) 88%, var(--white0));
+  --admin-light: color-mix(in srgb, var(--white0) 11%, transparent);
+  --admin-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 30px -12px rgba(0, 0, 0, 0.6);
+  --admin-shadow-bar: 0 2px 4px rgba(0, 0, 0, 0.35), 0 16px 38px -14px rgba(0, 0, 0, 0.7);
+}
 
 /* The one container the surface owns, so no view has to know how wide the
    console is allowed to be. Wider than a marketing page: this is dense data. */
 .admin-shell {
+  position: relative;              /* containing block for the stuck sentinel */
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -40,26 +276,72 @@
   min-width: 0;
 }
 
-/* ── 1. Sticky head — the toolbar that replaces the hero ─────────────────── */
+/* A 1px marker at the exact document position where the sticky bar's own top
+   reaches `top:` — i.e. where it becomes stuck. An IntersectionObserver watches
+   it (`AdminLayout`), so the bar's scrolled state is answered by the browser's
+   own scroll knowledge: no scroll listener, and nothing to keep in step with
+   the header's height. The negative offset is the bar's `top` value, in reverse.
+   Absolute and 1px, so it never takes part in the layout. */
+.admin-head-sentinel {
+  position: absolute;
+  top: calc(-1 * (var(--nav-size) + 8px));
+  left: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+/* ── 1. Sticky head — the floating glass bar (the navigation layer) ──────── */
 
 /* One sticky element holds BOTH the bar and the tab row. Stacking two sticky
-   rows means computing the first one's height; one block needs no math. */
+   rows means computing the first one's height; one block needs no math.
+
+   It is the page's only glass surface at full strength, because a toolbar is
+   the navigation layer and that is where glass genuinely helps: it stays
+   legible over whatever scrolls beneath it while still letting the room show
+   through. The 8px top offset leaves the ambient gradient visible in the gap,
+   so the bar reads as a pane resting on the page rather than as a strip. */
 .admin-head {
   position: sticky;
-  top: var(--nav-size);
+  top: calc(var(--nav-size) + 8px);
   z-index: 5;                      /* below the site header's 10, above panels */
   display: flex;
   flex-direction: column;
   gap: calc(var(--nav-size) * 0.1);
-  padding-bottom: calc(var(--nav-size) * 0.14);
-  background: var(--bg-page);      /* opaque — NO backdrop-filter (§8) */
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.26) calc(var(--nav-size) * 0.16);
+  border: 1px solid transparent;
+  border-radius: var(--admin-radius);
+  background: var(--admin-glass-bar);
+  /* OPAQUE BASE — and this is not a detail. Translucency is a PANEL property; it
+     is not a STICKY property. A panel sits in flow over a still gradient, so
+     what shows through it is soft light. The bar has content scrolling *under*
+     it, and 10% of scrolling body text is not soft light — it is a smudge you
+     can read, which is exactly what a scrolled screenshot showed ("from the
+     visitor log and the user records" ghosting behind the tab row).
+     Declared after the shorthand, which would otherwise reset it. Real frosted
+     glass solves this with a blur; `backdrop-filter` would re-blur on every
+     scroll frame and §8 bans it. The glass *finish* — specular edge, gradient
+     hairline, grain, floating shadow — is all still here. */
+  background-color: var(--bg-page);
+  box-shadow: inset 0 1px 0 var(--admin-spec), var(--admin-shadow);
+  transition: box-shadow 0.25s ease;
 }
-/* The one piece of brand on the page: an accent rule under the head. */
+/* Content is now scrolling underneath. Light, not tone: see `--admin-shadow-bar`. */
+.admin-head.is-stuck {
+  box-shadow: inset 0 1px 0 var(--admin-spec), var(--admin-shadow-bar);
+}
+/* The one piece of brand on the page: an accent rule inside the bar's lower
+   edge, inset by the bar's own radius so the curve stays clean. */
 .admin-head::after {
   content: '';
   position: absolute;
-  left: 0; right: 0; bottom: -1px; height: 2px;
-  background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint) 42%, transparent 78%);
+  left: calc(var(--admin-radius) * 0.7);
+  right: calc(var(--admin-radius) * 0.7);
+  bottom: 2px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--tone-accent), transparent 78%);
+  background-repeat: no-repeat;
   pointer-events: none;
 }
 
@@ -85,7 +367,11 @@
   align-items: center;
   gap: calc(var(--nav-size) * 0.12);
   font-size: var(--font-size-small);
-  color: var(--text-color-accent);
+  /* NOT `--text-color-accent`. That token is measured against the plain page
+     background; on the glass bar in the dark theme it lands at 4.03:1 over the
+     ambient teal pool, under AA. `--plane-muted` is the token that exists for a
+     tinted surface, and it measures 7.2:1 here (the same trap as §13.13). */
+  color: var(--plane-muted);
   white-space: nowrap;
 }
 .admin-bar-status__dot {
@@ -108,8 +394,11 @@
 .admin-chip {
   font-size: var(--font-size-xs);
   line-height: 1.7;
-  color: var(--plane-muted);      /* a chip is a small plane — see index.css */
-  background: color-mix(in srgb, var(--fg-blue) var(--plane-raise), var(--bg-1));
+  color: var(--plane-muted);
+  /* A readout chip is a label, not a control, so it can be a recessed tint
+     rather than a solid pill — that is what keeps the bar from looking like a
+     row of buttons. */
+  background: var(--admin-sunken);
   border-radius: 999px;
   padding: 0 9px;
   white-space: nowrap;
@@ -150,20 +439,26 @@
   font-size: var(--font-size-small);
   line-height: 1.5;
   font-weight: var(--font-weight-medium);
-  color: var(--text-color-accent);
+  /* `--plane-muted`, not `--text-color-accent` — these labels sit on the glass
+     bar. See the note on `.admin-bar-status`. */
+  color: var(--plane-muted);
   text-decoration: none;
   white-space: nowrap;
   transition: background 0.15s ease, color 0.15s ease;
 }
 .admin-tab:hover {
-  background: color-mix(in srgb, var(--fg-blue) var(--plane-raise), transparent);
+  background: var(--admin-sunken);
   color: var(--text-color);
 }
 .admin-tab__icon { font-size: var(--font-size-xs); }
-/* The active tab is a small solid plane in the brand hue. */
+/* The active tab IS a signal — "you are here" — so it keeps the brand hue, as
+   an OPAQUE tint with a soft shadow. Opaque because a translucent control has
+   no edge (see the material note at the top); a tint rather than the old
+   saturated plane because the bar already carries the brand rule below it and
+   two loud blues in 60px is one too many. */
 .admin-tab.is-active {
-  background: color-mix(in srgb, var(--fg-blue) var(--plane-fallback), var(--bg-1));
-  background: oklch(from var(--fg-blue) var(--plane-l) c h);
+  background: var(--admin-selected);
+  box-shadow: var(--shadow-sm);
   color: var(--text-color);
   font-weight: var(--font-weight-semibold);
 }
@@ -173,8 +468,8 @@
 .admin-main {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--nav-size) * 0.28);
-  padding-top: calc(var(--nav-size) * 0.3);
+  gap: calc(var(--nav-size) * 0.34);
+  padding-top: calc(var(--nav-size) * 0.34);
   min-width: 0;
 }
 
@@ -184,48 +479,83 @@
 .admin-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
-  gap: calc(var(--nav-size) * 0.28);
+  gap: calc(var(--nav-size) * 0.34);
   align-items: start;
   min-width: 0;
 }
 .admin-grid--two { grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); }
 
-/* Panels are planes of color, not cards: no border, no outline, no shadow.
-   The plane is the hue at `--plane-l` with its own chroma — see index.css. */
+/* Panels are GLASS, and NEUTRAL by default: `--admin-accent` is `transparent`
+   unless something semantic pins it. Deleting the old `nth-child(3n)` hue
+   rotation is the single change that turns color back into information — a
+   panel that is blue because it is third in the DOM was saying nothing. */
 .admin-panel {
-  --admin-hue: var(--fg-blue);
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: color-mix(in srgb, var(--admin-hue) var(--plane-fallback), var(--bg-1));
-  background: oklch(from var(--admin-hue) var(--plane-l) c h);
-  border-radius: var(--border-radius-lg);
+  border: 1px solid transparent;
+  border-radius: var(--admin-radius);
+  background: var(--admin-glass-panel-washed);
+  box-shadow: inset 0 1px 0 var(--admin-spec), var(--admin-shadow);
   overflow: hidden;
 }
-/* Neighboring panels differ in tone — that difference is the grouping. */
-.admin-main > .admin-panel:nth-child(3n + 2) { --admin-hue: var(--fg-mint); }
-.admin-main > .admin-panel:nth-child(3n + 3) { --admin-hue: var(--fg-pink); }
-.admin-grid > .admin-panel:nth-child(3n + 2) { --admin-hue: var(--fg-mint); }
-.admin-grid > .admin-panel:nth-child(3n + 3) { --admin-hue: var(--fg-pink); }
+/* A pinned hue shows as an ACCENT RULE along the top, never as a fill. With no
+   hue pinned the gradient is fully transparent and nothing renders — which is
+   why this needs no "is there a hue?" branch anywhere. */
+/* A pinned state shows as an ACCENT RULE along the top. Every panel already
+   wears the accent as a wash and a head glow, so the rule is what says "this one
+   is more than decoration" — a block with something to report. */
+.admin-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--admin-accent), transparent 70%);
+  pointer-events: none;
+  display: none;
+}
+.admin-panel.admin-tone--ok::before,
+.admin-panel.admin-tone--warn::before,
+.admin-panel.admin-tone--bad::before { display: block; }
+/* ── The tone vocabulary ──────────────────────────────────────────────────
 
-.admin-panel--blue { --admin-hue: var(--fg-blue); }
-.admin-panel--mint { --admin-hue: var(--fg-mint); }
-.admin-panel--pink { --admin-hue: var(--fg-pink); }
-.admin-panel--orange { --admin-hue: var(--fg-orange); }
-.admin-panel--ok { --admin-hue: var(--green2); }
-.admin-panel--bad { --admin-hue: var(--red0); }
-.dark-theme .admin-panel--ok { --admin-hue: var(--green1); }
+   One definition of "what colour is this thing", consumed by both `.admin-panel`
+   and `.kpi-card` (and anything else that paints an accent).
 
-/* The head is the same hue one step further: a real band across the top of the
-   plane, not a translucent film over it. */
+   The three SUBJECT tones are the key: a subject is the same colour everywhere
+   it appears, so a KPI tile's tone matches the panel that expands on it and the
+   eye can go from the summary strip to the detail without reading a word. The
+   rest are state, not subject — reach for them when the colour IS the message.
+   See "The palette" above: there are only two.
+
+   The NEUTRAL default is declared exactly once, on `.admin-surface`, and reaches
+   every panel and tile by inheritance. Do not redeclare `--admin-accent` on a
+   toneable element: these classes are plain single-class selectors, so a default
+   further down the file wins on source order and the tone silently disappears. */
+.admin-tone--accent { --admin-accent: var(--tone-accent); }
+.admin-tone--ok { --admin-accent: var(--tone-accent); }
+.admin-tone--warn { --admin-accent: var(--tone-alert); }
+.admin-tone--bad { --admin-accent: var(--tone-alert); }
+
+/* The head is a tone change — a sheen falling from the top of the glass — plus,
+   when a tone IS set, a glow spilling in from the left so the panel's family is
+   legible at a glance. With a neutral panel the first layer is transparent and
+   only the sheen remains.
+
+   Keep this glow softer than it looks like it should be: it lands on top of the
+   wash and the panel's own accent rule, and the three together are what make a
+   panel read as tinted. Pushed to 22% the pink head read as a solid pink bar
+   rather than as light falling on glass. */
 .admin-panel-head {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.22);
   padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.28);
-  background: color-mix(in srgb, var(--admin-hue) calc(var(--plane-fallback) + 16%), var(--bg-1));
-  background: oklch(from var(--admin-hue) var(--plane-l-strong) c h);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--admin-accent) 15%, transparent), transparent 62%),
+    linear-gradient(180deg, var(--admin-sheen), transparent);
 }
 .admin-panel-heading { min-width: 0; flex: 1 1 auto; }
 /* The panel's own title is the only heading the view needs. */
@@ -280,7 +610,7 @@
   color: var(--text-color);
 }
 
-.admin-surface .admin-table thead { background: color-mix(in srgb, var(--admin-hue, var(--fg-blue)) var(--plane-raise), transparent); }
+.admin-surface .admin-table thead { background: var(--admin-sunken); }
 .admin-surface .admin-table th {
   position: relative;
   text-align: left;
@@ -297,15 +627,17 @@
   line-height: var(--line-height-base);
   vertical-align: top;
   color: var(--text-color);
+  /* Figures that change between renders should not make the column breathe. */
+  font-variant-numeric: tabular-nums;
 }
 .admin-surface .admin-table tbody tr:nth-child(odd) {
-  background: color-mix(in srgb, var(--admin-hue, var(--fg-blue)) var(--plane-row), transparent);
+  background-color: var(--admin-tint);
 }
 .admin-surface .admin-table tbody tr:hover {
-  background: color-mix(in srgb, var(--admin-hue, var(--fg-blue)) var(--plane-raise), transparent);
+  background-color: var(--admin-tint-strong);
 }
 .admin-surface .admin-table tr:focus-within {
-  background: color-mix(in srgb, var(--admin-hue, var(--fg-blue)) var(--plane-raise), transparent);
+  background-color: var(--admin-tint-strong);
 }
 .admin-surface .admin-table-no-data {
   padding: calc(var(--nav-size) * 0.4);
@@ -333,13 +665,14 @@
   padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.12);
   color: var(--text-color);
   line-height: var(--line-height-base);
+  font-variant-numeric: tabular-nums;
 }
 .mini-table tbody tr:nth-child(odd) {
-  background: color-mix(in srgb, var(--admin-hue, var(--fg-blue)) var(--plane-row), transparent);
+  background-color: var(--admin-tint);
 }
 .mini-table-total td {
   font-weight: var(--font-weight-bold);
-  background: color-mix(in srgb, var(--admin-hue, var(--fg-blue)) var(--plane-raise), transparent);
+  background-color: var(--admin-sunken-strong);
 }
 .plan-name { text-transform: capitalize; }
 .mono { font-family: 'CutiveMono-Regular', ui-monospace, monospace; font-size: 0.94em; }
@@ -379,6 +712,10 @@
   flex: 1 1 220px;
   min-width: 140px;
 }
+/* The placeholder keeps `--text-color-accent`: unlike the tabs and the status
+   line above, it sits inside an opaque `--bg-1` field, not directly on glass, so
+   it measures 5.5:1. A placeholder is also MEANT to read dimmer than a value,
+   and `--plane-muted` would blur that distinction. */
 .admin-surface .admin-search::placeholder { color: var(--text-color-accent); }
 .admin-surface .type-select { flex: 0 1 auto; cursor: pointer; }
 .admin-surface .admin-search:focus,
@@ -437,7 +774,7 @@
 .pagination button:hover:not(:disabled),
 .admin-modal-actions button:hover:not(:disabled),
 .admin-modal-close:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--admin-hue, var(--fg-blue)) var(--plane-raise), var(--bg-1));
+  background: var(--admin-btn-hover);
   transform: translateY(-1px);
 }
 .btn-sm:disabled,
@@ -457,11 +794,11 @@
 .btn-refresh,
 .admin-btn--primary {
   color: var(--text-color-inv);
-  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  background: var(--admin-action);
 }
 .btn-refresh:hover:not(:disabled),
 .admin-btn--primary:hover:not(:disabled) {
-  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  background: var(--admin-action);
   box-shadow: var(--shadow-md);
 }
 /* Quiet actions (retry, reset, close, destructive) carry their own color — as
@@ -470,7 +807,7 @@
 .btn-retry { --badge-tone: var(--admin-bad); }
 .btn-reset { --badge-tone: var(--admin-bad); }
 .btn-close-report { --badge-tone: var(--admin-ok); }
-.btn-agent-fix { --badge-tone: var(--fg-pink); }
+.btn-agent-fix { --badge-tone: var(--tone-accent); }
 .btn-retry,
 .btn-reset,
 .btn-close-report,
@@ -491,7 +828,7 @@
   color: color-mix(in srgb, var(--fg-blue) var(--plane-ink-fallback), var(--text-color));
   color: oklch(from var(--fg-blue) var(--plane-ink-l) c h);
 }
-.btn-inline:hover:not(:disabled) { background: color-mix(in srgb, var(--fg-blue) var(--plane-raise), transparent); transform: none; }
+.btn-inline:hover:not(:disabled) { background: var(--admin-sunken-strong); transform: none; }
 
 .pagination {
   display: flex;
@@ -540,22 +877,27 @@
 }
 .status-badge.status-open { --badge-tone: var(--admin-warn); }
 .status-badge.status-closed { --badge-tone: var(--admin-ok); }
-.rating-badge { --badge-tone: var(--fg-orange); }
-.category-badge { --badge-tone: var(--fg-blue); }
+/* Ratings and reviews are `people`, so they wear the people tone; a category is
+   just a label about the thing itself, so it wears `volume`. Neither borrows
+   orange any more — that was the collision that made the palette read as noise. */
+.rating-badge { --badge-tone: var(--tone-accent); }
+/* A category is a plain label, so it stays plain: an identical accent chip next
+   to the rating chip in the same row would say nothing twice. */
+.category-badge { color: var(--plane-muted); }
 .rating-badge, .category-badge, .status-badge { text-transform: capitalize; }
 
-.type-badge.type-user { --badge-tone: var(--fg-blue); }
-.type-badge.type-visitor { --badge-tone: var(--admin-ok); }
+.type-badge.type-user { --badge-tone: var(--tone-accent); }
+.type-badge.type-visitor { --badge-tone: var(--tone-accent); }
 .type-badge.type-bug { --badge-tone: var(--admin-bad); }
-.type-badge.type-review { --badge-tone: var(--fg-orange); }
+.type-badge.type-review { --badge-tone: var(--tone-accent); }
 /* "other" has no hue to speak of — it is plain muted text on the same chip. */
 .type-badge.type-other { color: var(--plane-muted); }
 
 .plan-badge { text-transform: capitalize; }
 .plan-badge.plan-free { color: var(--plane-muted); }
-.plan-badge.plan-pro { --badge-tone: var(--fg-blue); }
-.plan-badge.plan-simple { --badge-tone: var(--fg-pink); }
-.plan-badge.plan-special { --badge-tone: var(--fg-orange); }
+.plan-badge.plan-pro { --badge-tone: var(--tone-accent); }
+.plan-badge.plan-simple { --badge-tone: var(--tone-accent); }
+.plan-badge.plan-special { --badge-tone: var(--admin-warn); }
 .plan-badge--clickable { cursor: pointer; user-select: none; transition: filter 0.15s ease; }
 .plan-badge--clickable:hover { filter: brightness(1.08); }
 .plan-badge--clickable:focus-visible { outline: var(--focus-outline, 2px solid var(--fg-blue)); outline-offset: 2px; }
@@ -571,21 +913,102 @@
   gap: calc(var(--nav-size) * 0.22);
   min-width: 0;
 }
+/* A KPI tile is a small pane of the same glass, wearing a tone from the same
+   vocabulary as the panels — see `KpiTile.jsx`. The strip is meant to be read as
+   an INDEX of the page beneath it: go to the pink tile, find the pink panel.
+
+   NOTE: no `--admin-accent` default here. It lives once, on `.admin-surface`, and
+   is inherited. Declaring it again on this element would be a same-specificity
+   conflict with `.admin-tone--*` and — this file being long — the later one
+   silently won: every tile rendered transparent while its panel was correct,
+   which is a bug that looks like "the tones just don't work on tiles". */
 .kpi-card {
-  --admin-hue: var(--fg-blue);
+  position: relative;
+  /* The tile measures ITSELF, so a tile that happens to be wide can lay out
+     differently from one that is not — see the container query below. */
+  container-type: inline-size;
+  min-width: 0;
+  padding: calc(var(--nav-size) * 0.26) calc(var(--nav-size) * 0.3);
+  border: 1px solid transparent;
+  border-radius: var(--admin-radius-inner);
+  background: var(--admin-glass-panel-washed);
+  box-shadow: inset 0 1px 0 var(--admin-spec), var(--admin-shadow);
+  overflow: hidden;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+/* The tile's layout lives in a CHILD, not on the tile: a container query can only
+   style descendants of the container, so the box that changes layout has to sit
+   inside the box being measured. */
+.kpi-inner {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  padding: calc(var(--nav-size) * 0.24) calc(var(--nav-size) * 0.28);
-  border-radius: var(--border-radius-lg);
-  background: color-mix(in srgb, var(--admin-hue) var(--plane-fallback), var(--bg-1));
-  background: oklch(from var(--admin-hue) var(--plane-l) c h);
-  transition: background 0.15s ease;
 }
-.kpi-card:nth-child(3n + 2) { --admin-hue: var(--fg-mint); }
-.kpi-card:nth-child(3n + 3) { --admin-hue: var(--fg-pink); }
-.kpi-card:hover { background: color-mix(in srgb, var(--admin-hue) var(--plane-raise), transparent); }
+/* The tile's value gets no colour of its own. The strip used to colour revenue
+   green, which read as a state next to a palette that no longer has a green. */
+/* The accent rule on a TILE appears only for a state, and the value stays
+   `--text-color`: six readouts should look like one instrument, and the strip
+   has no bottom line to single out once the palette is down to two hues. */
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--admin-accent), transparent 88%);
+  pointer-events: none;
+  display: none;
+}
+.kpi-card.admin-tone--ok::before,
+.kpi-card.admin-tone--warn::before,
+.kpi-card.admin-tone--bad::before { display: block; }
+/* The spotlight: LIGHT that follows the pointer, not a hue doing work. Driven
+   entirely from `--mx`/`--my`, which `trackPointer` (KpiTile.jsx, where it
+   belongs — the spotlight is the tile's own business) writes straight onto the
+   element, so moving the mouse across a view never re-renders it. Gated on a
+   real hovering pointer so a touch drag cannot leave a highlight stranded. */
+.kpi-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    200px circle at var(--mx, 50%) var(--my, 0%),
+    var(--admin-light),
+    transparent 72%
+  );
+  transition: opacity 0.3s ease;
+}
+.kpi-card:hover { transform: translateY(-2px); box-shadow: inset 0 1px 0 var(--admin-spec), 0 2px 5px rgba(0, 0, 0, 0.07), 0 18px 40px -16px rgba(0, 0, 0, 0.32); }
+@media (hover: hover) and (pointer: fine) {
+  .kpi-card:hover::after { opacity: 1; }
+}
+/* A tile that happens to be WIDE — two metrics on a desktop, where `1fr` hands
+   each one half the page — should not be a sparse column with the number
+   stranded at the left margin. Past 300px it becomes an instrument row: label
+   and sub stacked on the left, the figure large and right-aligned against it.
+   The six-tile dashboard (`~180px` each) never reaches the breakpoint, so it
+   keeps the compact column layout without anything having to count columns. */
+@container (min-width: 300px) {
+  .kpi-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'label value'
+      'sub   value';
+    align-items: center;
+    column-gap: calc(var(--nav-size) * 0.3);
+  }
+  .kpi-label { grid-area: label; }
+  .kpi-sub { grid-area: sub; }
+  .kpi-value {
+    grid-area: value;
+    font-size: calc(var(--font-size-heading) * 1.3);
+    text-align: right;
+  }
+}
+
 .kpi-label {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -596,17 +1019,18 @@
      expected has to wrap rather than get clipped by the card edge. */
   overflow-wrap: anywhere;
 }
+/* The number is the point of the tile, so it is the one thing here that gets
+   size and weight. `tabular-nums` stops a row of six figures from shifting
+   sideways as the values change. */
 .kpi-value {
   font-size: var(--font-size-heading);
   font-weight: var(--font-weight-bold);
   line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
   color: var(--text-color);
 }
 .kpi-sub { font-size: var(--font-size-xs); color: var(--plane-muted); }
-/* Revenue is the number that matters, so it announces itself in tone. */
-.kpi-card.kpi-revenue { --admin-hue: var(--green2); }
-.dark-theme .kpi-card.kpi-revenue { --admin-hue: var(--green1); }
-.kpi-card.kpi-revenue .kpi-value { color: var(--admin-ok); }
 
 /* ── 8. Sales funnel ─────────────────────────────────────────────────────── */
 
@@ -646,32 +1070,23 @@
 .funnel-track {
   height: calc(var(--nav-size) * 0.42);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--admin-hue) var(--plane-row), transparent);
+  background: var(--admin-sunken);
   overflow: hidden;
   min-width: 0;
 }
-/* The bars are the one place in the console that should shout: the hue at the
-   strong lightness, so the three steps read as three weights of color. */
+/* The bars are the one place in the console that should shout, and they shout in
+   ONE hue at three weights: light for the wide top of the funnel, deep for the
+   narrow end. More visitors than sign-ups is already carried by the lengths, so
+   a second and third hue were only ever decorating the same fact. */
 .funnel-bar {
   height: 100%;
   min-width: 3px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--fg-blue) calc(var(--plane-fallback) + 22%), var(--bg-1));
-  background: oklch(from var(--fg-blue) var(--plane-l-strong) c h);
+  background: var(--tone-accent-soft);
   transition: width 0.6s ease;
 }
-.funnel-bar-mid {
-  background: color-mix(in srgb, var(--fg-pink) calc(var(--plane-fallback) + 22%), var(--bg-1));
-  background: oklch(from var(--fg-pink) var(--plane-l-strong) c h);
-}
-.funnel-bar-end {
-  background: color-mix(in srgb, var(--green2) calc(var(--plane-fallback) + 22%), var(--bg-1));
-  background: oklch(from var(--green2) var(--plane-l-strong) c h);
-}
-.dark-theme .funnel-bar-end {
-  background: color-mix(in srgb, var(--green1) calc(var(--plane-fallback) + 22%), var(--bg-1));
-  background: oklch(from var(--green1) var(--plane-l-strong) c h);
-}
+.funnel-bar-mid { background: var(--tone-accent); }
+.funnel-bar-end { background: var(--tone-accent-deep); }
 
 .funnel-count {
   font-size: var(--font-size-small);
@@ -701,9 +1116,11 @@
   color: var(--text-color);
   border-radius: var(--border-radius-sm);
 }
-/* Alternating tints, not a hairline under every row. */
-.stat-row:nth-child(odd) { background: color-mix(in srgb, var(--admin-hue) var(--plane-row), transparent); }
-.stat-row strong { font-weight: var(--font-weight-semibold); white-space: nowrap; }
+/* Alternating tints, not a hairline under every row. `background-color`, never
+   the `background` shorthand — the shorthand would reset `background-image` and
+   silently erase the proportion bar on every odd row. */
+.stat-row:nth-child(odd) { background-color: var(--admin-tint); }
+.stat-row strong { font-weight: var(--font-weight-semibold); white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* The label half has to be allowed to shrink. A long path (or a referer, or a
    country name) otherwise pushed the count — which is `nowrap` — past the
    panel's edge, where `overflow: hidden` clipped it out of sight: on a 320px
@@ -711,8 +1128,33 @@
 .stat-row > span { min-width: 0; overflow-wrap: anywhere; }
 .stat-row.muted { color: var(--plane-muted); }
 .stat-row--clickable { cursor: pointer; }
-.stat-row--clickable:hover { background: color-mix(in srgb, var(--fg-blue) var(--plane-raise), transparent); }
-.stat-row--active { background: color-mix(in srgb, var(--fg-blue) calc(var(--plane-raise) + 14%), transparent); }
+.stat-row--clickable:hover { background-color: var(--admin-tint-strong); }
+.stat-row--active { background-color: var(--admin-selected); }
+
+/* ── Proportion bars ──────────────────────────────────────────────────────
+
+   A ranked list of counts reads as a CHART the moment each row carries its own
+   share of the whole, and it costs nothing structural: the bar is painted into
+   the row's `background-image` with `background-size` as its width, so it sits
+   behind the text with no pseudo-element, no z-index and no extra markup beyond
+   one custom property.
+
+     <div className="stat-row admin-share" style={{ '--share': '62%' }}>
+
+   The hue comes from `--row-tone`, falling back to the panel's own accent, so a
+   panel's bars match its accent rule and the subject key stays in one place.
+   `background-color` (the zebra) and `background-image` (this) are independent
+   layers, which is why every row tint above had to drop the `background`
+   shorthand — it would have reset this image on every odd row. */
+.admin-share {
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--row-tone, var(--admin-accent)) var(--admin-share-dose), transparent),
+    color-mix(in srgb, var(--row-tone, var(--admin-accent)) var(--admin-share-dose), transparent)
+  );
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: var(--share, 0%) 100%;
+}
 
 .recent-signups-list {
   display: flex;
@@ -727,7 +1169,7 @@
   padding: calc(var(--nav-size) * 0.09) calc(var(--nav-size) * 0.12);
   font-size: var(--font-size-small);
 }
-.signup-row:nth-child(odd) { background: color-mix(in srgb, var(--admin-hue) var(--plane-row), transparent); }
+.signup-row:nth-child(odd) { background-color: var(--admin-tint); }
 .signup-name {
   flex: 1 1 auto;
   min-width: 0;
@@ -759,12 +1201,14 @@
   font-weight: var(--font-weight-semibold);
 }
 .purchase-gate-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+/* An "off" switch is neutral, not red. Red was a third hue spent on a state that
+   greyscale already reads: the knob is visibly to the left. "On" is the accent. */
 .purchase-gate-slider {
   position: relative;
   width: 46px;
   height: 24px;
   border-radius: 999px;
-  background: var(--red0);
+  background: var(--admin-sunken-strong);
   transition: background 0.2s ease;
   flex-shrink: 0;
 }
@@ -800,18 +1244,17 @@
 
 /* ── 11. Home title rule editor ──────────────────────────────────────────── */
 
-/* A block nested *inside* a panel is a stronger wash of the same hue rather than
-   another solid plane: it reads as part of the panel's family (one block of
-   colour) while still being a distinct tone — solid planes inside a solid plane
-   just look like a stack of cards (§5). */
+/* A block nested INSIDE a plane is an inset tint, never a second glass surface —
+   glass on glass is the one thing glass design is unanimous about avoiding, and
+   it also costs a stacking context for nothing (§5). */
 .ht-default {
-  --admin-hue: var(--fg-blue);
   display: flex;
   flex-direction: column;
   gap: calc(var(--nav-size) * 0.12);
   padding: calc(var(--nav-size) * 0.24) calc(var(--nav-size) * 0.28);
-  border-radius: var(--border-radius-lg);
-  background: color-mix(in srgb, var(--admin-hue) var(--plane-raise), transparent);
+  /* Concentric with the panel that holds it: 20px panel − 6px of inset. */
+  border-radius: var(--admin-radius-inner);
+  background: var(--admin-sunken);
 }
 .ht-default__input { width: 100%; }
 .ht-default__hint { margin: 0; }
@@ -825,18 +1268,15 @@
   min-width: 0;
 }
 .ht-rule-card {
-  --admin-hue: var(--fg-blue);
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border-radius: var(--border-radius-lg);
+  border-radius: var(--admin-radius-inner);
   overflow: hidden;
-  background: color-mix(in srgb, var(--admin-hue) var(--plane-raise), transparent);
+  background: var(--admin-sunken);
   transition: background 0.15s ease;
 }
-.ht-rule-grid > .ht-rule-card:nth-child(3n + 2) { --admin-hue: var(--fg-mint); }
-.ht-rule-grid > .ht-rule-card:nth-child(3n + 3) { --admin-hue: var(--fg-pink); }
-.ht-rule-card:hover { background: color-mix(in srgb, var(--admin-hue) calc(var(--plane-raise) + 12%), transparent); }
+.ht-rule-card:hover { background: var(--admin-sunken-strong); }
 /* A disabled rule is muted, never outlined. */
 .ht-rule-card--disabled { opacity: 0.62; }
 
@@ -845,7 +1285,7 @@
   align-items: center;
   gap: calc(var(--nav-size) * 0.16);
   padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.24);
-  background: color-mix(in srgb, var(--admin-hue) calc(var(--plane-raise) + 14%), transparent);
+  background: var(--admin-sunken-strong);
 }
 .ht-rule-card__index {
   flex: 1 1 auto;
@@ -908,7 +1348,7 @@
   width: 30px;
   height: 16px;
   border-radius: 999px;
-  background-color: var(--red0);
+  background-color: var(--admin-sunken-strong);
   background-image: radial-gradient(circle closest-side, var(--white0) 76%, transparent 78%);
   background-repeat: no-repeat;
   background-size: 12px 12px;
@@ -934,15 +1374,11 @@
 .test-stripe-state,
 .funnel-timeline,
 .captured-emails {
-  --admin-hue: var(--fg-blue);
   padding: calc(var(--nav-size) * 0.24) calc(var(--nav-size) * 0.28);
-  border-radius: var(--border-radius-lg);
-  background: color-mix(in srgb, var(--admin-hue) var(--plane-raise), transparent);
+  border-radius: var(--admin-radius-inner);
+  background: var(--admin-sunken);
   min-width: 0;
 }
-.test-stripe-state { --admin-hue: var(--fg-mint); }
-.funnel-timeline { --admin-hue: var(--fg-orange); }
-.captured-emails { --admin-hue: var(--fg-pink); }
 .test-creds-box h4,
 .test-stripe-state h4,
 .funnel-timeline h4,
@@ -968,7 +1404,7 @@
   font-size: var(--font-size-small);
   padding: 0 6px;
   border-radius: var(--border-radius-sm);
-  background: color-mix(in srgb, var(--fg-blue) var(--plane-raise), transparent);
+  background: var(--admin-sunken-strong);
   color: var(--text-color);
   overflow-wrap: anywhere;
 }
@@ -984,8 +1420,8 @@
   color: var(--text-color);
   transition: background 0.15s ease;
 }
-.timeline-step:nth-child(odd) { background: color-mix(in srgb, var(--admin-hue) var(--plane-row), transparent); }
-.timeline-step:hover { background: color-mix(in srgb, var(--admin-hue) var(--plane-raise), transparent); }
+.timeline-step:nth-child(odd) { background-color: var(--admin-tint); }
+.timeline-step:hover { background-color: var(--admin-tint-strong); }
 .timeline-dot {
   width: 8px;
   height: 8px;
@@ -1002,7 +1438,9 @@
 .email-card {
   padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.24);
   border-radius: var(--border-radius);
-  background: color-mix(in srgb, var(--fg-pink) var(--plane-raise), transparent);
+  /* One step stronger than the `.captured-emails` block it sits in — an inset
+     within an inset, so the two never read as siblings. */
+  background: var(--admin-sunken-strong);
 }
 .email-card + .email-card { margin-top: calc(var(--nav-size) * 0.14); }
 .email-card-header {
@@ -1029,7 +1467,7 @@
   overflow-y: auto;
   padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.22);
   border-radius: var(--border-radius);
-  background: color-mix(in srgb, var(--fg-blue) var(--plane-raise), transparent);
+  background: var(--admin-sunken);
   font-family: 'CutiveMono-Regular', ui-monospace, monospace;
   font-size: var(--font-size-xs);
   line-height: 1.7;
@@ -1073,10 +1511,10 @@
 .visitor-map-leaflet {
   width: 100%;
   height: clamp(320px, 52vh, 620px);
-  border-radius: var(--border-radius-lg);
+  border-radius: var(--admin-radius-inner);
   overflow: hidden;
   z-index: 1;
-  background: color-mix(in srgb, var(--fg-blue) var(--plane-raise), transparent);
+  background: var(--admin-sunken);
 }
 
 /* ── 15. Modals (things that genuinely float keep their elevation) ───────── */
@@ -1097,7 +1535,9 @@
   max-width: 560px;
   max-height: 88vh;
   overflow-y: auto;
-  border-radius: var(--border-radius-lg);
+  border-radius: var(--admin-radius);
+  /* A modal genuinely floats, so it stays OPAQUE and keeps its elevation — the
+     one place on the page where a shadow is doing structural work. */
   background: var(--bg-1);
   box-shadow: var(--shadow-xl);
 }
@@ -1107,7 +1547,7 @@
   justify-content: space-between;
   gap: calc(var(--nav-size) * 0.2);
   padding: calc(var(--nav-size) * 0.24) calc(var(--nav-size) * 0.3);
-  background: color-mix(in srgb, var(--fg-blue) var(--plane-raise), transparent);
+  background: var(--admin-sunken);
 }
 .admin-modal-header h3 { margin: 0; font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); }
 .admin-modal-close {
@@ -1116,7 +1556,7 @@
   background: transparent;
   color: var(--plane-muted);
 }
-.admin-modal-close:hover:not(:disabled) { background: color-mix(in srgb, var(--red0) 16%, transparent); color: var(--admin-bad); }
+.admin-modal-close:hover:not(:disabled) { background: color-mix(in srgb, var(--admin-bad) 16%, transparent); color: var(--admin-bad); }
 .admin-modal-content {
   display: flex;
   flex-direction: column;
@@ -1133,8 +1573,8 @@
   gap: calc(var(--nav-size) * 0.14);
   padding: 0 calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.3);
 }
-.admin-modal-confirm { color: var(--text-color-inv); background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint)); }
-.admin-modal-confirm:hover:not(:disabled) { background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint)); box-shadow: var(--shadow-md); }
+.admin-modal-confirm { color: var(--text-color-inv); background: var(--admin-action); }
+.admin-modal-confirm:hover:not(:disabled) { background: var(--admin-action); box-shadow: var(--shadow-md); }
 .admin-modal-cancel { color: var(--text-color); background: color-mix(in srgb, var(--text-color) 10%, var(--bg-1)); }
 
 /* ── 16. States ──────────────────────────────────────────────────────────── */
@@ -1148,23 +1588,36 @@
   flex-wrap: wrap;
   gap: calc(var(--nav-size) * 0.18);
   padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.32);
-  border-radius: var(--border-radius);
+  border-radius: var(--admin-radius-inner);
   font-size: var(--font-size-small);
   text-align: center;
-  background: color-mix(in srgb, var(--fg-blue) var(--plane-raise), var(--bg-1));
+  background: var(--admin-sunken);
 }
-.admin-loading { color: var(--fg-blue); }
-/* Errors are color planes too — a stronger wash, not an outline. */
+/* A ring, not a three-dot bounce: it still reads as "working" at 14px, and it
+   costs one element — `border-top-color` is the only moving part. */
+.admin-loading { color: var(--plane-muted); }
+.admin-loading::before {
+  content: '';
+  flex: 0 0 auto;
+  width: calc(var(--nav-size) * 0.3);
+  height: calc(var(--nav-size) * 0.3);
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--fg-blue) 26%, transparent);
+  border-top-color: var(--fg-blue);
+  animation: adminSpin 0.7s linear infinite;
+}
+/* Errors are a stronger wash in their own hue, not an outline. */
 .admin-error {
   color: var(--admin-bad);
   background: color-mix(in srgb, var(--admin-bad) 20%, var(--bg-1));
   justify-content: space-between;
 }
-/* An empty state is text on the plane it belongs to — not a grey slab. */
+/* An empty state is a quiet inset on the pane it belongs to. It used to be bare
+   italic text, which reads as "content failed to render" rather than as "there
+   is nothing here yet". */
 .admin-no-data {
   color: var(--plane-muted);
-  font-style: italic;
-  background: transparent;
+  background: var(--admin-sunken);
 }
 .admin-help-text {
   margin: 0;
@@ -1173,6 +1626,43 @@
   color: var(--plane-muted);
 }
 .admin-error .admin-help-text { color: inherit; }
+
+/* ── 16b. Skeletons ───────────────────────────────────────────────────────
+
+   A service page's first paint is the moment it is most likely to look broken:
+   the toolbar already names the view, the panels have not arrived, and a bare
+   "Loading…" line makes a slow fetch look like a dead page. These placeholders
+   are shaped like the content they stand in for, so nothing jumps when the data
+   lands — the standard answer, and it costs one element per block.
+
+   The shimmer is a `::after` translating across a flat `--admin-sunken` block
+   rather than an animated gradient, so no gradient is repainted per frame. */
+.admin-skeleton {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: var(--border-radius-sm);
+  background: var(--admin-sunken);
+}
+.admin-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--text-color) 9%, transparent),
+    transparent
+  );
+  animation: adminShimmer 1.5s ease-in-out infinite;
+}
+.admin-skeleton--kpi-label { height: 9px; width: 58%; }
+.admin-skeleton--kpi-value { height: 24px; width: 42%; margin-top: 5px; }
+.admin-skeleton--kpi-sub { height: 9px; width: 70%; margin-top: 5px; }
+.admin-skeleton--panel-title { height: 12px; width: 34%; }
+.admin-skeleton--row { height: 11px; width: 100%; }
+.admin-skeleton--row-short { height: 11px; width: 62%; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    17. Motion
@@ -1189,7 +1679,13 @@
        of brand, and a ruled line that breathes reads as alive, not as a band)
      · the live-status dot pulsing
      · the funnel bars growing to their width instead of snapping
+     · the KPI spotlight following the pointer (§7) — light that answers the
+       cursor, which is interaction feedback rather than ambience
      · hover/state transitions everywhere a control already had one
+
+   What is deliberately NOT here: any movement in the ambient gradient. It sits
+   directly behind tables and figures, and a drifting background under data is
+   the one thing §5.7 rules out. The room is lit; it does not move.
 
    Everything here is disabled under `prefers-reduced-motion` (bottom of file). */
 
@@ -1205,6 +1701,12 @@
 @keyframes adminPulse {
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.45; }
+}
+@keyframes adminSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes adminShimmer {
+  to { transform: translateX(100%); }
 }
 
 /* One rise per top-level block, staggered by ~40ms — enough to read as a page
@@ -1241,48 +1743,48 @@
 .timeline-step,
 .admin-table tbody tr { transition: background 0.15s ease; }
 
-/* The KPI readout gets a hue rule along its top edge, so a row of six cards
-   reads as a dashboard rather than as six grey boxes. */
-.kpi-card {
-  position: relative;
-  overflow: hidden;
-}
-.kpi-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--admin-hue), transparent 88%);
-  opacity: 0.85;
-}
-.kpi-value { letter-spacing: -0.01em; }
-
 /* A hair of lift on the small, self-contained controls. Never on a full panel:
-   moving a whole block of data under the cursor is unpleasant. */
+   moving a whole block of data under the cursor is unpleasant.
+
+   (The KPI tile's accent rule, spotlight and hover all live with the tile in §7,
+   so its state is declared in exactly one place rather than split across two
+   sections that could drift.) */
 .admin-tab { transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease; }
 .admin-tab:hover { transform: translateY(-1px); }
-.kpi-card { transition: background 0.15s ease, transform 0.15s ease; }
-.kpi-card:hover { transform: translateY(-1px); }
 
 /* ── 18. Responsive ──────────────────────────────────────────────────────── */
 
-/* Below ~900px the tab row stops wrapping and scrolls: the sticky head must
-   stay a predictable height, and a 3-row tab block would eat the viewport. */
+/* Below ~900px the sticky head has to stay a predictable height, so both of its
+   scrolling rows stop wrapping: the tab row, and the live readout. A wrapped
+   3-row tab block — or a readout that spills onto a second line — eats the
+   viewport on every single scroll.
+
+   The readout gets `flex: 1 1 0` rather than `width: 100%`. A full-width readout
+   pushes the view's one action onto a row of its own, which is 23px of a strip
+   that is sticky on every view, permanently. And the BASIS is the load-bearing
+   part: with `flex-basis: auto` the wrap decision is taken from the chips' full
+   intrinsic width, so the action wraps to the next line however much room is
+   actually left over. Basis 0 lets the readout shrink into the remainder. */
 @media (max-width: 900px) {
-  .admin-tabs {
+  .admin-tabs,
+  .admin-bar-readout {
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
     padding-bottom: 2px;
   }
-  .admin-tabs::-webkit-scrollbar { display: none; }
+  .admin-tabs::-webkit-scrollbar,
+  .admin-bar-readout::-webkit-scrollbar { display: none; }
+  .admin-bar-readout { flex: 1 1 0; width: auto; min-width: 0; }
 }
 
 @media (max-width: 768px) {
-  /* The bar becomes two deliberate rows: name + status, then the actions. */
+  /* The bar wraps into rows on its own: name + status, then the readout with the
+     action at the end of it. The action used to claim a whole row of its own
+     (`width: 100%`), which cost 23px in a strip that is sticky on every view. */
   .admin-bar { gap: calc(var(--nav-size) * 0.12); }
-  .admin-bar-actions { margin-left: 0; width: 100%; }
+  .admin-bar-actions { margin-left: auto; width: auto; }
   .admin-panel-head { align-items: flex-start; }
   .admin-panel-tools { margin-left: 0; width: 100%; }
   .admin-surface .admin-search { flex: 1 1 100%; }
@@ -1300,24 +1802,13 @@
    economy in the head, plus the two wide tables, which cannot be tables. */
 
 @media (max-width: 640px) {
-  /* The head: tighter rhythm, chips on one scrolling row instead of two or
-     three wrapped ones, and the view-site link back inline rather than owning a
-     row of its own. */
+  /* The head: a tighter vertical rhythm. The chips and the tab row already
+     scroll as single rows from the 900px block above. */
   .admin-head {
     gap: calc(var(--nav-size) * 0.06);
-    padding-bottom: calc(var(--nav-size) * 0.1);
+    padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.12);
   }
   .admin-bar { gap: calc(var(--nav-size) * 0.06) calc(var(--nav-size) * 0.18); }
-  .admin-bar-readout {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    width: 100%;
-    padding-bottom: 2px;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-  .admin-bar-readout::-webkit-scrollbar { display: none; }
-  .admin-bar-actions { margin-left: auto; width: auto; }
   .admin-bar-actions .admin-btn { padding: 0 calc(var(--nav-size) * 0.22); }
   .admin-bar-status { font-size: var(--font-size-xs); }
 
@@ -1361,7 +1852,7 @@
      carry the tint instead of the odd ones. */
   .admin-surface .admin-table--stacked tbody tr:nth-child(odd) { background: transparent; }
   .admin-surface .admin-table--stacked tbody tr:nth-child(even) {
-    background: color-mix(in srgb, var(--admin-hue, var(--fg-blue)) var(--plane-row), transparent);
+    background-color: var(--admin-tint);
   }
   .admin-surface .admin-table--stacked td {
     display: grid;
@@ -1433,6 +1924,13 @@
 /* Below 420px even that is one card per row, so give it the tighter floor. */
 @media (max-width: 420px) {
   .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(min(110px, 100%), 1fr)); }
+  /* The head is the only thing that costs space on EVERY scroll, so the last of
+     it is spent here: a tighter frame, and the status line allowed to truncate
+     rather than push everything below it down a row. */
+  .admin-head {
+    gap: calc(var(--nav-size) * 0.05);
+    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.1);
+  }
   /* "Signed in as" is three words of ceremony above the fold on every view. */
   .admin-bar-status__who { display: none; }
   .admin-bar-title { font-size: calc(var(--font-size-heading) * 0.82); }
@@ -1452,8 +1950,18 @@
   .admin-main > *:not(.admin-modal-overlay) { animation: none; }
   .admin-head::after { animation: none; }
   .admin-bar-status__dot { animation: none; }
+  /* The pointer spotlight is the one piece of motion here that is not a state
+     change — it is ambience that happens to answer the cursor — so it is the one
+     piece that switches off outright rather than merely losing its transition. */
+  .kpi-card::after { display: none; }
+  /* A shimmer is motion with no information in it, and a spinner is the one
+     place a rotation is pure decoration. Both stop; the state is still stated
+     by the label and the ring. */
+  .admin-skeleton::after { animation: none; }
+  .admin-loading::before { animation: none; }
   .funnel-bar { transition: none; }
   .admin-tab,
+  .admin-head,
   .admin-chip,
   .admin-panel,
   .kpi-card,
@@ -1496,19 +2004,38 @@
 }
 
 /* `more`, not `high` — `high` is not a valid value and silently never applied
-   (§13.12). Harden the planes and the focus ring. */
+   (§13.12). Rather than listing selectors, this overrides the MATERIAL TOKENS:
+   glass gives way to solid surfaces, the grain and the ambient room switch off,
+   and the row tints and the hairline edge strengthen. Every rule that already
+   consumes a token inherits the change for free, which is the whole reason the
+   material lives in tokens. */
 @media (prefers-contrast: more) {
-  .admin-panel,
-  .kpi-card,
-  .ht-rule-card,
-  .test-creds-box,
-  .test-stripe-state,
-  .funnel-timeline,
-  .captured-emails { background: var(--bg-1); }
-  .admin-panel-head,
-  .ht-rule-card__head { background: color-mix(in srgb, var(--admin-hue) 22%, transparent); }
-  .admin-surface .admin-table tbody tr:nth-child(odd),
-  .stat-row:nth-child(odd),
-  .signup-row:nth-child(odd) { background: color-mix(in srgb, var(--admin-hue) 14%, transparent); }
-  .admin-surface { --focus-outline: 3px solid var(--fg-blue); }
+  .admin-surface {
+    --focus-outline: 3px solid var(--fg-blue);
+    /* Reset the LAND rather than the glass: every pane derives from it, so one
+       value turns the whole material opaque. */
+    --admin-land: var(--bg-1);
+    --admin-sunken: color-mix(in srgb, var(--text-color) 12%, transparent);
+    --admin-sunken-strong: color-mix(in srgb, var(--text-color) 18%, transparent);
+    --admin-tint: color-mix(in srgb, var(--text-color) 9%, transparent);
+    --admin-tint-strong: color-mix(in srgb, var(--text-color) 15%, transparent);
+    --admin-edge-hi: var(--text-color);
+    --admin-edge-lo: var(--text-color);
+    --admin-noise: none;
+    --admin-shadow: none;
+    background-image: none;
+  }
+}
+
+/* Safari honours this; the other engines simply ignore the block. Same trade as
+   `prefers-contrast: more` for a different reason — a busy surface behind text
+   is harder to read for some people whatever its contrast ratio, and that is a
+   preference we can actually respect here because the glass is pure decoration:
+   nothing about how the console WORKS depends on it. */
+@media (prefers-reduced-transparency: reduce) {
+  .admin-surface {
+    --admin-land: var(--bg-1);
+    --admin-noise: none;
+    background-image: none;
+  }
 }

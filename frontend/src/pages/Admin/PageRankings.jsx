@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import dataService from "../../features/data/dataService.js";
 import AdminPanel from "../../components/Admin/AdminPanel.jsx";
+import KpiTile from "../../components/Admin/KpiTile.jsx";
 import { useAdminReadout } from "./adminBarContext";
-import { fmt } from "./adminShared";
+import { fmt, sharePct } from "./adminShared";
 import { toast } from "react-toastify";
 
 // Lookback windows for the ranking report.
@@ -112,16 +113,8 @@ function PageRankings() {
 
         {!loading && !error && rankings && (
           <div className="kpi-grid">
-            <div className="kpi-card">
-              <span className="kpi-label">Total Page Views</span>
-              <span className="kpi-value">{fmt(rankings.totalViews)}</span>
-              <span className="kpi-sub">last {rankings.days} days</span>
-            </div>
-            <div className="kpi-card">
-              <span className="kpi-label">Pages With Visits</span>
-              <span className="kpi-value">{fmt(pages.length)}</span>
-              <span className="kpi-sub">distinct paths</span>
-            </div>
+            <KpiTile label="Total Page Views" value={fmt(rankings.totalViews)} sub={`last ${rankings.days} days`} />
+            <KpiTile label="Pages With Visits" value={fmt(pages.length)} sub="distinct paths" />
           </div>
         )}
       </AdminPanel>

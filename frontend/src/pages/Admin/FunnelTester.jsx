@@ -156,7 +156,7 @@ function FunnelTester() {
     <>
       {/* ─── The one control you act on: the instant kill switch ─── */}
       <AdminPanel
-        hue={!purchaseGate ? "blue" : purchaseGate.purchasesEnabled ? "ok" : "bad"}
+        tone={!purchaseGate ? "accent" : purchaseGate.purchasesEnabled ? "ok" : "bad"}
         title="Purchase gate"
         hint="Instantly pause new and upgraded Pro subscriptions and hide upgrade buttons site-wide. Existing subscribers and anyone switching down to Free are never affected."
         tools={

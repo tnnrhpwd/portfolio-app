@@ -4,13 +4,15 @@
 
    The header used to be a whisper: 10px uppercase accent text sitting on the
    page background. Too quiet to find — a folded group that is hard to *see* is a
-   group nobody opens. It is now a full-width surface (a plane of color, no
-   border, §5) carrying the label at reading size, with the caret on the far
-   right where a disclosure caret belongs and the tone deepening on hover.
+   group nobody opens. It is now a full-width surface carrying the label at
+   reading size, with the caret on the far right where a disclosure caret belongs
+   and the tone deepening on hover.
 
-   It stays deliberately flatter than the panels below it — one tint for the
-   group instead of each panel's own hue — so the header reads as the *group*
-   rather than as another block in the grid. */
+   It stays deliberately quieter than the panels below it — a single neutral
+   raised tint rather than each panel's own accent — so the header reads as the
+   *group* rather than as another block in the grid. It is SOLID, because it is a
+   control: a disclosure toggle that you could see the page through would lose
+   the edge that makes it look pressable (Admin.css, material notes). */
 
 .collapsible-section {
   display: flex;
@@ -31,11 +33,11 @@
   min-height: 0;                    /* undo the global button min-height:44px */
   padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.28);
   border: 0;
-  border-radius: var(--border-radius);
-  /* A saturated plane like the panels (index.css), one step stronger so the
-     group header outranks the blocks it groups. */
-  background: color-mix(in srgb, var(--fg-blue) calc(var(--plane-fallback) + 10%), var(--bg-1));
-  background: oklch(from var(--fg-blue) var(--plane-l-strong) c h);
+  border-radius: var(--admin-radius-inner, 14px);
+  /* Solid, a shade off the glass it sits on — a control, not a surface. Quiet on
+     purpose: it is a group label, and a loud bar above quiet panels is the thing
+     that made the old build read as a spreadsheet with a highlighter. */
+  background: color-mix(in srgb, var(--bg-1) 93%, var(--text-color));
   color: var(--text-color);
   font-family: inherit;
   font-size: var(--font-size-small);
