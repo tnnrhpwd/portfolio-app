@@ -50,7 +50,7 @@ function Users() {
 
   const ts = formatTimestamp;
 
-  // Live state belongs in the sticky toolbar, not in a subtitle (§5.7).
+  // Live state belongs in the head, not in a subtitle (§5.7).
   useAdminReadout(
     usersPagination.total > 0
       ? [

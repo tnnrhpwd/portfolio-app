@@ -59,8 +59,9 @@ function Dashboard() {
     Number(d?.storage?.estimatedMonthlyDynamoCost) || 0
   );
 
-  // The headline numbers live in the sticky toolbar, so they survive a scroll
-  // through the long secondary panels below (§5.7).
+  // The headline numbers are published into the head. The head is not sticky, so
+  // this is the page's summary rather than something that follows you down the
+  // long secondary panels below (§5.7).
   useAdminReadout(
     d
       ? [

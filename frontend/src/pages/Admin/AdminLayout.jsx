@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -26,12 +26,14 @@ import "./Admin.css";
  *   enforces the same split server-side.
  *
  * **This is a service page, not a landing page** — FRONTEND_UI_STANDARD.md §5.7.
- * Service pages are workspaces, not stories: one flat surface (no bands, no
- * animated gradient behind the data, no floating circles, no scroll reveals), a
- * sticky head carrying the room's name + live state + actions, then a dense panel
- * grid for the work itself. The tab row is the view switcher, and each view
- * publishes its own live readout into the bar (`useAdminReadout`), so the
- * numbers stay on screen while the admin scrolls.
+ * Service pages are workspaces, not stories: one surface (no bands, no scroll
+ * reveals), a head carrying the room's name + live state + actions, then a dense
+ * panel grid for the work itself. The tab row is the view switcher, and each view
+ * publishes its own live readout into the bar (`useAdminReadout`).
+ *
+ * The head is NOT sticky any more, so that readout scrolls away with it instead
+ * of staying on screen. That is a deliberate trade, and it is recorded on
+ * `.admin-head` in Admin.css.
  */
 const NAV_ITEMS = [
   { to: "/admin", label: "Dashboard", short: "Dashboard", icon: "📊", end: true },
@@ -129,23 +131,6 @@ function AdminLayout() {
   // function and re-subscribe on every render.
   const adminBarValue = useMemo(() => setReadout, []);
 
-  // ═══════════════ "Content is scrolling under the bar" ═══════════════
-  // A 1px sentinel sits at the document position where the bar's top reaches its
-  // own `top:` value, so the observer's answer IS the sticky state — the browser's
-  // scroll knowledge does the work and no scroll listener is added. It only ever
-  // moves the bar's shadow (see `--admin-shadow-bar`), so a missing
-  // IntersectionObserver just leaves the bar un-lifted rather than broken.
-  const sentinelRef = useRef(null);
-  const [stuck, setStuck] = useState(false);
-
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") return undefined;
-    const io = new IntersectionObserver(([entry]) => setStuck(!entry.isIntersecting));
-    io.observe(el);
-    return () => io.disconnect();
-  }, [authorized]);
-
   if (!authorized) return null;
 
   const nickname = user?.nickname || user?.email || "admin";
@@ -162,11 +147,9 @@ function AdminLayout() {
 
       <div className="admin-surface">
         <div className="admin-shell">
-          {/* Watched by the observer above; invisible and out of flow. */}
-          <span ref={sentinelRef} className="admin-head-sentinel" aria-hidden="true" />
-          {/* Sticky head: name + live state + actions, then the view switcher.
-              One sticky block, so it never has to measure the other. */}
-          <div className={`admin-head${stuck ? " is-stuck" : ""}`}>
+          {/* Head: name + live state + actions, then the view switcher — one block,
+              in flow rather than pinned. See the note on `.admin-head` in Admin.css. */}
+          <div className="admin-head">
             <header className="admin-bar">
               <h1 className="admin-bar-title">{view.label}</h1>
               <span className="admin-bar-status">
