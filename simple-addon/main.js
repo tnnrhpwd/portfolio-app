@@ -5,7 +5,7 @@
  * No main window — tray-only app with status menu.
  */
 
-const { app, BrowserWindow, Notification, shell, dialog, ipcMain, globalShortcut } = require('electron');
+const { app, BrowserWindow, Notification, shell, dialog, ipcMain, globalShortcut, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -13,6 +13,7 @@ const { TrayManager } = require('./tray');
 const { PythonManager } = require('./python-manager');
 const { ActionBridge } = require('./server/action-bridge');
 const { UpdateManager } = require('./auto-updater');
+const SimpleAppearance = require('./renderer/appearance/appearance');
 const log = require('electron-log');
 
 // ─── Logging ────────────────────────────────────────────────────────────────────
@@ -202,6 +203,66 @@ async function changeResourcesFolder() {
 
 // ─── Workspace Profiles (save/restore window layouts) ──────────────────────
 
+// ─── Appearance (colour scheme + mode) ──────────────────────────────────────────
+
+// The addon's windows paint from `data-scheme` / `data-mode` on `<html>`, and both
+// come from settings.json's `webapp` block — the SAME block the website's chat panel
+// reads and writes its settings through, so the two surfaces have one value to agree
+// on rather than two. (`frontend/src/utils/schemeSync.js` pushes the site's pick here
+// when it changes; the dashboard's Settings tab writes it directly.)
+//
+// Read here, in the main process, rather than in each renderer, because it is what
+// lets a window paint correctly on its FIRST frame: the values ride on the window's
+// URL and are applied by a script in `<head>`, before anything is drawn. Fetching
+// them from the local server instead would flash the wrong mode on every open.
+//
+// A plain file read on purpose — appearance keys are not secrets, so this bypasses
+// the server's encrypt/decrypt path rather than duplicating it.
+const APPEARANCE_LIGHT_BG = '#f4f5f7';
+const APPEARANCE_DARK_BG = '#0d1117';
+
+/**
+ * The appearance in force, for a window that is about to open.
+ *
+ * `mode` is the UNRESOLVED choice ('system' | 'light' | 'dark'): the renderer owns
+ * resolving 'system' so it can follow the OS if it flips while the window is open,
+ * and it gets the same answer this process sees (`nativeTheme` is what Chromium's
+ * `prefers-color-scheme` reports). `dark` is the resolved answer, needed here only
+ * for the window's own background colour.
+ */
+function getAppearance() {
+  let webapp = {};
+  try {
+    const p = path.join(getResourcesPath(), 'settings.json');
+    const data = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf-8')) : {};
+    if (data && typeof data.webapp === 'object' && data.webapp) webapp = data.webapp;
+  } catch (err) {
+    console.error('[Main] Error reading appearance:', err.message);
+  }
+  const resolved = SimpleAppearance.resolveAppearance(SimpleAppearance.fromStored(webapp), {
+    prefersDark: nativeTheme.shouldUseDarkColors,
+  });
+  return { scheme: resolved.scheme, mode: resolved.choice, custom: resolved.custom, dark: resolved.mode === 'dark' };
+}
+
+/** The appearance as URL query params, merged over any window-specific ones. */
+function appearanceParams(extra = {}) {
+  const a = getAppearance();
+  const params = { scheme: a.scheme, mode: a.mode };
+  // Only a custom scheme carries a pair; sending one alongside a named scheme would
+  // be dead weight the renderer has to defend against.
+  if (a.scheme === SimpleAppearance.CUSTOM_SCHEME && a.custom) {
+    params.accent = a.custom.accent;
+    params.primary = a.custom.primary;
+  }
+  return { ...params, ...extra };
+}
+
+/** The colour a window paints before its first frame, so the flash is the right one. */
+function appearanceWindowBackground() {
+  return getAppearance().dark ? APPEARANCE_DARK_BG : APPEARANCE_LIGHT_BG;
+}
+
 // ─── Dashboard (unified lightweight addon UI — Phase 6) ─────────────────────
 
 /**
@@ -226,7 +287,7 @@ function openDashboard(initialTab) {
   }
   dashboardWindow = new BrowserWindow({
     width: 1020, height: 760, title: 'Simple Dashboard',
-    backgroundColor: '#0d1117',
+    backgroundColor: appearanceWindowBackground(),
     webPreferences: {
       contextIsolation: true, nodeIntegration: false,
       preload: path.join(__dirname, 'renderer', 'dashboard-preload.js'),
@@ -234,7 +295,7 @@ function openDashboard(initialTab) {
   });
   dashboardWindow.setMenuBarVisibility(false);
   const port = trayManager?.serverPort || 3001;
-  const params = new URLSearchParams({ port: String(port) });
+  const params = new URLSearchParams(appearanceParams({ port: String(port) }));
   if (initialTab) params.set('tab', initialTab);
   const url = `file://${path.join(__dirname, 'renderer', 'dashboard.html').replace(/\\/g, '/')}?${params.toString()}`;
   dashboardWindow.loadURL(url);
@@ -823,7 +884,7 @@ function openCalibrationWindow() {
     fullscreen: true,
     frame: false,
     alwaysOnTop: true,
-    backgroundColor: '#0a0a0f',
+    backgroundColor: appearanceWindowBackground(),
     icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'renderer', 'calibration-preload.js'),
@@ -832,7 +893,9 @@ function openCalibrationWindow() {
     },
   });
 
-  calibrationWindow.loadFile(path.join(__dirname, 'renderer', 'calibration.html'));
+  calibrationWindow.loadFile(path.join(__dirname, 'renderer', 'calibration.html'), {
+    query: appearanceParams(),
+  });
 
   calibrationWindow.on('closed', () => {
     calibrationWindow = null;
@@ -936,7 +999,9 @@ function openEyeOverlayWindow() {
   // Don't activate the window or its WebContents.
   try { eyeOverlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true }); } catch {}
 
-  eyeOverlayWindow.loadFile(path.join(__dirname, 'renderer', 'eye-overlay.html'));
+  eyeOverlayWindow.loadFile(path.join(__dirname, 'renderer', 'eye-overlay.html'), {
+    query: appearanceParams(),
+  });
   eyeOverlayWindow.once('ready-to-show', () => {
     eyeOverlayWindow.showInactive();
     // Re-assert after show (some Windows builds reset ignoreMouseEvents).

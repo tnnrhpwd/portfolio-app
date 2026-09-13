@@ -3,98 +3,197 @@
 <head>
 <meta charset="UTF-8">
 <title>Simple Dashboard</title>
+<!-- Appearance FIRST: `bootstrap()` writes data-scheme / data-mode on <html> from the
+     values main.js put on this window's URL, so the very first frame is already the
+     right colours. The shared stylesheet owns the palette; the <style> block below
+     owns this window's layout and only ever REFERENCES it. -->
+<link rel="stylesheet" href="appearance/appearance.css">
+<script src="appearance/appearance.js"></script>
+<script>window.SimpleAppearance.bootstrap();</script>
 <style>
-  :root {
-    color-scheme: dark;
-    --bg: #0d1117;
-    --panel: #161b22;
-    --border: #30363d;
-    --text: #e6edf3;
-    --muted: #8b949e;
-    --accent: #58a6ff;
-    --green: #3fb950;
-    --yellow: #d29922;
-    --red: #f85149;
-  }
+  /* The palette — surfaces, text, the status inks and the scheme's two hues — lives
+     in `appearance/appearance.css`, which derives scheme × mode into tokens (see the
+     note at the top of that file). Nothing in here may hardcode a colour. */
   * { box-sizing: border-box; }
   body {
     margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background: var(--bg); color: var(--text); line-height: 1.45;
     display: flex; flex-direction: column; height: 100vh; overflow: hidden;
   }
-  h1 { margin: 0 0 4px; font-size: 20px; }
-  .subtitle { color: var(--muted); margin-bottom: 0; font-size: 12px; }
+  h1 { margin: 0; font-size: 18px; }
 
-  /* ── Top bar + nav dropdown ── */
+  /* ── The room ──────────────────────────────────────────────────────────
+     The ambient ground the panes rest on: the scheme's two hues as a full-bleed ramp
+     plus one looser halo layer at its own speed (two layers at two speeds is what reads
+     as depth; one layer is just wallpaper). Ported from the site's `.service-room` so the
+     addon and the website are the same product — including the reason neither uses
+     `filter: blur()`: a radial gradient falling to transparent IS a blur.
+
+     It paints `--bg` itself, so the room IS this window's background and the panes can be
+     the neutral page colour at 84% without the two collapsing into each other. */
+  #room { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+  #room::before,
+  #room::after { content: ''; position: absolute; }
+  #room::before {
+    inset: 0;
+    background-color: var(--bg);
+    background-image: linear-gradient(-45deg,
+      color-mix(in srgb, var(--scheme-accent-bg) var(--room-mix), var(--bg)),
+      color-mix(in srgb, var(--scheme-primary-bg) var(--room-mix), var(--bg)),
+      color-mix(in srgb, var(--scheme-accent-bg) var(--room-mix), var(--bg)),
+      color-mix(in srgb, var(--scheme-primary-bg) var(--room-mix), var(--bg)));
+    /* Three times the window in each direction: `background-position` needs room to walk
+       or the sweep does nothing at all. */
+    background-size: 300% 300%;
+    background-repeat: no-repeat;
+    animation: roomSweep 26s ease-in-out infinite;
+  }
+  #room::after {
+    inset: -12%;
+    will-change: transform;
+    background-image:
+      radial-gradient(34vw 30vh at 22% 68%, color-mix(in srgb, var(--scheme-accent) var(--room-halo), transparent), transparent 70%),
+      radial-gradient(30vw 26vh at 78% 18%, color-mix(in srgb, var(--scheme-primary) var(--room-halo), transparent), transparent 72%);
+    animation: roomFloat 30s ease-in-out infinite;
+  }
+  @keyframes roomSweep { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+  @keyframes roomFloat {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(1.8%, -2%, 0) scale(1.05); }
+  }
+
+  /* ── The head: one floating pane, and deliberately NOT sticky ──────────
+     Sticky would claim ~150px of every screen permanently and force an opaque base for
+     text scrolling under it; with nothing scrolling beneath, the head can be ordinary
+     glass and the workspace keeps its height. */
   #topbar {
-    flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--border);
-    position: relative; z-index: 10;
+    position: relative; z-index: 10; flex-shrink: 0;
+    margin: 12px 14px 0; padding: 12px 16px 0;
+    background: var(--glass); border-radius: var(--glass-radius);
+    box-shadow: var(--glass-shadow);
+    display: flex; flex-direction: column; gap: 10px;
   }
-  #topbar .topbar-left { display: flex; align-items: center; gap: 10px; }
-  #topbar .topbar-title { font-weight: 600; font-size: 14px; }
+  .dash-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .dash-title { font-weight: 700; letter-spacing: -0.01em; }
+  .dash-state { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .dash-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted-dim); flex-shrink: 0; }
+  .dash-dot.is-ok { background: var(--green); }
+  .dash-dot.is-warn { background: var(--yellow); }
+  .dash-dot.is-err { background: var(--red); }
+
+  /* A readout row that SCROLLS rather than wraps: at 320px six chips would otherwise
+     become three rows of head, permanently. */
+  .dash-readout {
+    list-style: none; display: flex; align-items: center; gap: 8px; margin: 0; padding: 0;
+    flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; min-width: 0;
+  }
+  .dash-readout::-webkit-scrollbar { display: none; }
+  .dash-readout li {
+    flex-shrink: 0; font-size: 11px; color: var(--muted); white-space: nowrap;
+    background: var(--glass-sunken); border-radius: 999px; padding: 3px 10px;
+  }
+  .dash-readout li strong { color: var(--text); font-weight: 600; margin-left: 4px; }
+  .dash-readout:empty { display: none; }
+
+  .dash-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
   #nav-toggle {
-    background: none; border: 1px solid var(--border); border-radius: 6px;
-    color: var(--text); font-size: 16px; padding: 4px 10px; cursor: pointer; line-height: 1;
+    background: var(--control); border: 1px solid var(--glass-edge); border-radius: 8px;
+    color: var(--text); font-size: 15px; padding: 5px 10px; cursor: pointer; line-height: 1;
   }
-  #nav-toggle:hover { background: #21262d; }
+  #nav-toggle:hover { background: var(--control-hover); }
+  /* The one action in the head, so it wears the scheme's ramp (solid, never glass). */
+  .btn-webapp {
+    background: var(--accent-fill); color: var(--on-accent); border: none; border-radius: 8px;
+    padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  /* Brightness rather than a second hand-picked hover colour: the fill is a ramp built
+     from the scheme's two hues, so there is no fixed hex to step it to. */
+  .btn-webapp:hover { filter: brightness(1.12); }
   #nav-dropdown {
-    position: absolute; top: 100%; left: 16px; margin-top: 6px; min-width: 220px;
-    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,.4); padding: 6px; display: none; flex-direction: column;
+    position: absolute; top: 100%; right: 14px; margin-top: 6px; min-width: 220px;
+    background: var(--glass); border-radius: 12px;
+    box-shadow: var(--glass-shadow); padding: 6px; display: none; flex-direction: column;
+    z-index: 20;
   }
   #nav-dropdown.open { display: flex; }
   #nav-dropdown a, #nav-dropdown button {
     display: block; width: 100%; text-align: left; background: none; border: none;
-    color: var(--text); padding: 8px 10px; font-size: 13px; cursor: pointer; border-radius: 6px;
+    color: var(--text); padding: 8px 10px; font-size: 13px; cursor: pointer; border-radius: 8px;
     text-decoration: none;
   }
-  #nav-dropdown a:hover, #nav-dropdown button:hover { background: #1c2128; }
-  #nav-dropdown .nav-sep { border-top: 1px solid var(--border); margin: 6px 2px; }
+  #nav-dropdown a:hover, #nav-dropdown button:hover { background: var(--glass-hover); }
+  #nav-dropdown .nav-sep { border-top: 1px solid var(--glass-edge); margin: 6px 2px; }
   #nav-dropdown .nav-webapp { color: var(--accent); font-weight: 600; }
-  .btn-webapp {
-    background: var(--accent); color: #04101f; border: none; border-radius: 6px;
-    padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
-  }
-  .btn-webapp:hover { background: #79b8ff; }
 
-  /* ── Sidebar / tabs ── */
-  #main-row { flex: 1; display: flex; overflow: hidden; }
+  /* ── The view tabs: one scrolling row of pills inside the head ───────── */
   #sidebar {
-    width: 200px; flex-shrink: 0; background: var(--panel);
-    border-right: 1px solid var(--border); padding: 16px 0; overflow-y: auto;
+    display: flex; gap: 6px; padding-bottom: 10px;
+    overflow-x: auto; scrollbar-width: none;
   }
-  #sidebar .brand { padding: 0 16px 16px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+  #sidebar::-webkit-scrollbar { display: none; }
   .tab-btn {
-    display: block; width: 100%; text-align: left; background: none; border: none;
-    color: var(--text); padding: 10px 16px; font-size: 13px; cursor: pointer;
-    border-left: 3px solid transparent;
+    flex-shrink: 0; display: inline-flex; align-items: center; background: transparent;
+    border: none; border-radius: 999px; color: var(--muted);
+    padding: 6px 12px; font-size: 13px; cursor: pointer; white-space: nowrap;
+    transition: background .15s ease, color .15s ease;
   }
-  .tab-btn:hover { background: #1c2128; }
-  .tab-btn.active { background: #1c2128; border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .tab-btn:hover { background: var(--glass-hover); color: var(--text); }
+  .tab-btn.active {
+    /* The one place the chosen scheme shows up in the chrome, so a scheme change is
+       visible on a surface that is otherwise neutral. A tint of the scheme's own hue
+       rather than a grey.
+       The LABEL uses the ink pair, not `--accent`: it sits on a wash of its own hue,
+       which is the one case where the page-measured accent is not the right colour
+       (see `--accent-in-text` in appearance.css) — measured 7.0:1 at its worst. */
+    background: color-mix(in srgb, var(--scheme-hue-accent) 16%, transparent);
+    color: var(--accent-in-text); font-weight: 600;
+  }
   .tab-btn .badge {
     display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 10px;
-    font-size: 10px; background: var(--border); color: var(--muted);
+    font-size: 10px; background: var(--glass-sunken); color: var(--muted);
   }
-  .tab-btn .badge.on { background: var(--green); color: #04140a; }
-  .tab-btn .badge.warn { background: var(--yellow); color: #241a00; }
-  .tab-btn .badge.err { background: var(--red); color: #2b0704; }
+  .tab-btn .badge.on { background: var(--green); color: var(--on-solid); }
+  .tab-btn .badge.warn { background: var(--yellow); color: var(--on-solid); }
+  .tab-btn .badge.err { background: var(--red); color: var(--on-solid); }
 
-  /* ── Content ── */
-  #content { flex: 1; overflow-y: auto; padding: 24px 28px; }
+  /* ── Content: a stack of glass panes ─────────────────────────────────── */
+  #content { flex: 1; overflow-y: auto; padding: 14px; position: relative; z-index: 1; }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
-  .panel {
-    background: var(--panel); border: 1px solid var(--border);
-    border-radius: 8px; padding: 16px 20px; margin-bottom: 18px;
+  /* Same-shaped panels of controls pair up instead of stacking — the dense grid §5.7
+     asks for. Only applied where the panels really are peers (the Status tab); a panel
+     holding a log or a table stays full width, because a 320px column of console output
+     is worse than a taller screen. */
+  .panel-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+    gap: 14px; align-items: start;
   }
-  .panel h2 { margin: 0 0 12px; font-size: 15px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
-  .row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #21262d; gap: 12px; }
-  .row:last-child { border-bottom: none; }
-  .row .name { font-weight: 600; font-size: 14px; }
+
+  .panel {
+    background: var(--glass); border-radius: var(--glass-radius);
+    box-shadow: var(--glass-shadow); padding: 14px 16px; margin-bottom: 14px;
+  }
+  .panel-grid > .panel { margin-bottom: 0; }
+  .panel h2 {
+    margin: 0 0 10px; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+  }
+  /* Rows are separated by a TONE, not by a grey rule: `--glass-edge` is a wash of the
+     text colour, so it works in both modes without a second token.
+     ⚠️ The row WRAPS, which is what lets a wide action group drop to its own line in a
+     narrow grid track. Without it a `.actions` box (flex-shrink: 0, by definition) hangs
+     past the pane edge — and because `#content` scrolls, that overhang is silently
+     scrollable sideways rather than reported as page overflow. */
+  .row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 0; border-bottom: 1px solid var(--glass-edge); flex-wrap: wrap;
+  }
+  .row > div:first-child { min-width: 0; flex: 1 1 auto; }
+  .row:last-child { border-bottom: none; padding-bottom: 0; }
+  .row .name { font-weight: 600; font-size: 13px; }
   .row .desc { color: var(--muted); font-size: 12px; margin-top: 2px; word-break: break-all; }
-  .actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .actions { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
 
   /* ── Collapsible panels (de-clutter: secondary sections collapsed by default) ── */
   .panel--collapsible { padding: 0; }
@@ -105,29 +204,39 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    padding: 16px 20px;
+    padding: 14px 16px;
     user-select: none;
+    border-radius: var(--glass-radius);
   }
+  .panel--collapsible > summary:hover { background: var(--glass-sheen); }
   .panel--collapsible > summary::-webkit-details-marker { display: none; }
   .panel--collapsible > summary h2 { margin: 0; }
   .panel--collapsible > summary .collapse-caret { color: var(--muted); font-size: 11px; transition: transform .15s ease; }
   .panel--collapsible[open] > summary .collapse-caret { transform: rotate(90deg); }
-  .panel--collapsible > .panel-body { padding: 0 20px 16px; }
+  .panel--collapsible > .panel-body { padding: 0 16px 14px; }
 
+  /* Controls stay SOLID on glass: they have to read as objects you can push. Their edge
+     is a wash of the scheme's accent rather than a grey, so the scheme reaches even the
+     inputs without tinting the surface behind them. */
   input[type="text"], select, textarea {
-    background: #0d1117; color: var(--text); border: 1px solid var(--border);
-    border-radius: 6px; padding: 6px 10px; font-size: 13px; font-family: inherit;
+    background: var(--sunken); color: var(--text);
+    border: 1px solid color-mix(in srgb, var(--scheme-hue-accent) 24%, transparent);
+    border-radius: 8px; padding: 6px 10px; font-size: 13px; font-family: inherit;
   }
+  input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
   button {
-    background: #21262d; color: var(--text); border: 1px solid var(--border);
-    border-radius: 6px; padding: 6px 14px; font-size: 13px; cursor: pointer;
+    background: var(--control); color: var(--text); border: 1px solid var(--glass-edge);
+    border-radius: 8px; padding: 6px 14px; font-size: 13px; cursor: pointer;
     transition: background .15s;
   }
-  button:hover { background: #30363d; }
-  button.primary { background: #238636; border-color: #238636; }
-  button.primary:hover { background: #2ea043; }
-  button.danger { background: #da3633; border-color: #da3633; }
-  button.danger:hover { background: #f85149; }
+  button:hover { background: var(--control-hover); }
+  /* Semantic fills, deliberately NOT the scheme's ramp: green means go/confirm and red
+     means stop/destructive throughout this console, and an alarm that follows the decor
+     is not an alarm. The scheme owns the chrome (head action, tabs, focus, the room). */
+  button.primary { background: var(--green-solid); border-color: var(--green-solid); color: var(--on-solid); }
+  button.primary:hover { background: var(--green-solid-hover); }
+  button.danger { background: var(--red-solid); border-color: var(--red-solid); color: var(--on-solid); }
+  button.danger:hover { background: var(--red-solid-hover); }
   button:disabled { opacity: .45; cursor: not-allowed; }
 
   .status-ok { color: var(--green); }
@@ -139,7 +248,7 @@
   .dot.active { background: var(--red); animation: pulse 1s infinite; }
   @keyframes pulse { 50% { opacity: .35; } }
   .modal-backdrop {
-    position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none;
+    position: fixed; inset: 0; background: var(--scrim); display: none;
     align-items: center; justify-content: center; z-index: 100;
   }
   .modal-backdrop.open { display: flex; }
@@ -149,7 +258,7 @@
   }
   .modal h3 { margin: 0 0 12px; font-size: 16px; }
   pre.steps {
-    background: #0d1117; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--sunken); border: 1px solid var(--border); border-radius: 6px;
     padding: 12px; font-family: "Consolas", monospace; font-size: 12px;
     max-height: 360px; overflow: auto;
   }
@@ -164,7 +273,7 @@
   .rs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
   .rs-item {
     display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px;
-    background: #0d1117; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--sunken); border: 1px solid var(--border); border-radius: 8px;
     transition: border-color .15s ease;
   }
   .rs-item.is-running { border-color: var(--accent); }
@@ -176,24 +285,27 @@
     flex-shrink: 0; font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
     padding: 2px 6px; border-radius: 4px;
   }
-  .rs-badge--cloud { background: rgba(88,166,255,.15); color: var(--accent); }
+  .rs-badge--cloud { background: var(--scheme-accent-bg); color: var(--accent-in-text); }
   .rs-badge--local { background: var(--border); color: var(--muted); }
-  .rs-badge--params { background: rgba(210,153,34,.15); color: var(--yellow); }
-  .rs-badge--ok { background: rgba(63,185,80,.15); color: var(--green); }
-  .rs-badge--fail { background: rgba(248,81,73,.15); color: var(--red); }
+  .rs-badge--params { background: var(--yellow-bg); color: var(--yellow); }
+  .rs-badge--ok { background: var(--green-bg); color: var(--green); }
+  .rs-badge--fail { background: var(--red-bg); color: var(--red); }
   .param-grid { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
   .param-field label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
   .param-field input { width: 100%; }
-  .skill-summary { margin-top: 12px; border: 1px solid var(--border); border-radius: 6px; padding: 12px; background: #0d1117; }
+  .skill-summary { margin-top: 12px; border: 1px solid var(--border); border-radius: 6px; padding: 12px; background: var(--sunken); }
   .skill-summary h4 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
   .skill-summary ul { margin: 0 0 8px; padding-left: 18px; }
   .skill-summary li { font-size: 13px; margin: 2px 0; }
   .cap-badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 1px 7px; border-radius: 4px; margin-right: 4px; }
-  .cap-badge.safe-read { background: rgba(63,185,80,.15); color: var(--green); }
-  .cap-badge.sandboxed-write { background: rgba(88,166,255,.15); color: var(--accent); }
-  .cap-badge.shell { background: rgba(210,153,34,.15); color: var(--yellow); }
-  .cap-badge.destructive { background: rgba(248,81,73,.15); color: var(--red); }
-  .cap-badge.system { background: rgba(163,113,247,.18); color: #bc8cff; }
+  .cap-badge.safe-read { background: var(--green-bg); color: var(--green); }
+  .cap-badge.sandboxed-write { background: var(--scheme-accent-bg); color: var(--accent-in-text); }
+  .cap-badge.shell { background: var(--yellow-bg); color: var(--yellow); }
+  .cap-badge.destructive { background: var(--red-bg); color: var(--red); }
+  /* `system` is the "not one of the above" capability, so it wears the scheme's SECOND
+     hue — the only place the partner colour appears outside a gradient, and what keeps
+     this badge from colliding with the four semantic classes beside it. */
+  .cap-badge.system { background: var(--scheme-primary-bg); color: var(--accent-2-in-text); }
   .cap-badge.unknown { background: var(--border); color: var(--muted); }
   .cap-warn { color: var(--yellow); font-size: 12px; margin-top: 4px; }
   .cap-err { color: var(--red); font-size: 12px; margin-top: 4px; }
@@ -209,14 +321,18 @@
 
   /* ── NL macro compiler + recorder hero panels ── */
   .rs-hero {
-    background: linear-gradient(160deg, rgba(124,58,237,.10), rgba(37,99,235,.07));
-    border: 1px solid rgba(124,58,237,.35);
+    /* The "this panel does AI" wash, built from the scheme's two hues so it moves with
+       the picker instead of being the one violet thing on a cyan page. */
+    background: linear-gradient(160deg,
+      color-mix(in srgb, var(--scheme-hue-primary) 12%, transparent),
+      color-mix(in srgb, var(--scheme-hue-accent) 8%, transparent));
+    border: 1px solid color-mix(in srgb, var(--scheme-hue-primary) 35%, transparent);
   }
   .rs-hero-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .rs-hero-header h2 { margin: 0; }
   .rs-ai-badge {
     font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
-    background: linear-gradient(135deg, #7c3aed, #2563eb); color: #fff; border-radius: 4px; padding: 2px 6px;
+    background: var(--accent-fill); color: var(--on-accent); border-radius: 4px; padding: 2px 6px;
   }
   .rs-hint { margin: 0 0 10px; font-size: 12px; color: var(--muted); line-height: 1.5; }
   .rs-nl-textarea {
@@ -226,7 +342,7 @@
   .rs-nl-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .rs-nl-row input[type="text"] { flex: 1 1 220px; min-width: 180px; }
   .rs-nl-result {
-    margin-top: 12px; background: #0d1117; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+    margin-top: 12px; background: var(--sunken); border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
   }
   .rs-nl-result-header {
     display: flex; align-items: center; justify-content: space-between; padding: 8px 12px;
@@ -247,46 +363,46 @@
   .rs-run {
     margin-bottom: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; line-height: 1.5;
   }
-  .rs-run.running { background: rgba(88,166,255,.10); border: 1px solid rgba(88,166,255,.4); }
-  .rs-run.done { background: rgba(63,185,80,.10); border: 1px solid rgba(63,185,80,.4); }
-  .rs-run.failed { background: rgba(248,81,73,.10); border: 1px solid rgba(248,81,73,.4); }
+  .rs-run.running { background: color-mix(in srgb, var(--accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); }
+  .rs-run.done { background: color-mix(in srgb, var(--green) 10%, transparent); border: 1px solid color-mix(in srgb, var(--green) 40%, transparent); }
+  .rs-run.failed { background: color-mix(in srgb, var(--red) 10%, transparent); border: 1px solid color-mix(in srgb, var(--red) 40%, transparent); }
   .rs-run-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .rs-run-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
   .rs-run-spinner {
     display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%;
-    border: 2px solid rgba(88,166,255,.4); border-top-color: var(--accent);
+    border: 2px solid color-mix(in srgb, var(--accent) 40%, transparent); border-top-color: var(--accent);
     animation: rs-run-spin .7s linear infinite; vertical-align: -1px;
   }
   @keyframes rs-run-spin { to { transform: rotate(360deg); } }
   .rs-run-debug-toggle {
     padding: 2px 8px; font-size: 11px; border-radius: 4px; border: 1px solid var(--border);
-    background: var(--bg, #0d1117); color: var(--text); cursor: pointer;
+    background: var(--sunken); color: var(--text); cursor: pointer;
   }
   .rs-run-dismiss { opacity: .6; font-size: 12px; cursor: pointer; }
   .rs-run-progress { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
   .rs-run-progress-track {
-    flex: 1; height: 5px; border-radius: 3px; background: #0d1117; border: 1px solid var(--border); overflow: hidden;
+    flex: 1; height: 5px; border-radius: 3px; background: var(--sunken); border: 1px solid var(--border); overflow: hidden;
   }
   .rs-run-progress-fill { height: 100%; background: var(--accent); transition: width .25s ease; }
   .rs-run.failed .rs-run-progress-fill { background: var(--red); }
   .rs-run-progress-label { font-size: 11px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .rs-run-debug {
-    margin: 10px 0 0; padding: 10px 12px; border-radius: 6px; border: 1px solid rgba(248,81,73,.4);
-    background: #0d1117; font-size: 11px; line-height: 1.45; overflow: auto; max-height: 240px;
+    margin: 10px 0 0; padding: 10px 12px; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--red) 40%, transparent);
+    background: var(--sunken); font-size: 11px; line-height: 1.45; overflow: auto; max-height: 240px;
   }
   .rs-console {
-    margin-top: 8px; max-height: 220px; overflow-y: auto; background: #0d1117; border: 1px solid var(--border);
+    margin-top: 8px; max-height: 220px; overflow-y: auto; background: var(--sunken); border: 1px solid var(--border);
     border-radius: 6px; padding: 8px 10px; font-family: "Consolas", monospace; font-size: 11.5px; line-height: 1.7;
   }
-  .rs-console-line { display: flex; align-items: baseline; gap: 8px; color: #c9d1d9; white-space: nowrap; overflow: hidden; }
-  .rs-console-time { color: #6e7681; flex-shrink: 0; }
+  .rs-console-line { display: flex; align-items: baseline; gap: 8px; color: var(--text); white-space: nowrap; overflow: hidden; }
+  .rs-console-time { color: var(--muted-dim); flex-shrink: 0; }
   .rs-console-glyph { flex-shrink: 0; width: 12px; text-align: center; }
   .rs-console-line--running .rs-console-glyph { color: var(--accent); animation: pulse 1s ease-in-out infinite; }
   .rs-console-line--ok .rs-console-glyph { color: var(--green); }
   .rs-console-line--error .rs-console-glyph, .rs-console-line--error .rs-console-error { color: var(--red); }
-  .rs-console-tool { flex-shrink: 0; color: #e6edf3; font-weight: 600; }
-  .rs-console-args { color: #8b949e; overflow: hidden; text-overflow: ellipsis; }
-  .rs-console-duration { flex-shrink: 0; margin-left: auto; color: #6e7681; }
+  .rs-console-tool { flex-shrink: 0; color: var(--text); font-weight: 600; }
+  .rs-console-args { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+  .rs-console-duration { flex-shrink: 0; margin-left: auto; color: var(--muted-dim); }
   .rs-console-error { overflow: hidden; text-overflow: ellipsis; }
 
   /* ── Permissions tab ── */
@@ -294,21 +410,21 @@
     display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 12px;
     text-transform: uppercase; font-weight: 600;
   }
-  .perm-badge.allow { background: rgba(63,185,80,.15); color: var(--green); }
-  .perm-badge.ask   { background: rgba(210,153,34,.15); color: var(--yellow); }
-  .perm-badge.deny  { background: rgba(248,81,73,.15); color: var(--red); }
-  .perm-badge.dry-run { background: rgba(88,166,255,.15); color: var(--accent); }
+  .perm-badge.allow { background: var(--green-bg); color: var(--green); }
+  .perm-badge.ask   { background: var(--yellow-bg); color: var(--yellow); }
+  .perm-badge.deny  { background: var(--red-bg); color: var(--red); }
+  .perm-badge.dry-run { background: var(--scheme-accent-bg); color: var(--accent-in-text); }
   .kill-banner {
-    background: rgba(248,81,73,.1); border: 1px solid var(--red);
+    background: var(--red-bg); border: 1px solid var(--red);
     color: var(--red); padding: 10px 14px; border-radius: 6px; margin-bottom: 16px;
     display: none; font-weight: 600;
   }
   .approval-card {
-    background: rgba(210,153,34,.07); border: 1px solid var(--yellow);
+    background: color-mix(in srgb, var(--yellow) 8%, transparent); border: 1px solid var(--yellow);
     border-radius: 6px; padding: 12px 16px; margin-bottom: 12px;
   }
   .approval-card pre {
-    background: #0d1117; border: 1px solid var(--border); padding: 8px;
+    background: var(--sunken); border: 1px solid var(--border); padding: 8px;
     border-radius: 4px; overflow: auto; font-size: 11px; margin: 8px 0;
   }
   .approval-card .actions { display: flex; gap: 8px; }
@@ -318,33 +434,76 @@
   /* ── In-app toast + confirm (replaces native alert()/confirm() popups) ── */
   #app-toast {
     position: fixed; bottom: 20px; right: 20px; max-width: 440px;
-    background: #161b22; border: 1px solid var(--border); color: #e6edf3;
+    background: var(--panel); border: 1px solid var(--border); color: var(--text);
     padding: 12px 16px; border-radius: 8px; font-size: 13px; z-index: 9999;
-    box-shadow: 0 8px 24px rgba(0,0,0,.45); opacity: 0; transform: translateY(8px);
+    box-shadow: var(--shadow-lift); opacity: 0; transform: translateY(8px);
     transition: opacity .2s ease, transform .2s ease; pointer-events: none; white-space: pre-wrap;
   }
   #app-toast.show { opacity: 1; transform: translateY(0); }
   #app-confirm-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 10000;
+    position: fixed; inset: 0; background: var(--scrim); z-index: 10000;
     display: flex; align-items: center; justify-content: center;
   }
   #app-confirm-box {
-    background: #161b22; border: 1px solid var(--border); color: #e6edf3;
+    background: var(--panel); border: 1px solid var(--border); color: var(--text);
     padding: 18px 20px; border-radius: 10px; max-width: 460px; width: 90%;
-    box-shadow: 0 12px 40px rgba(0,0,0,.5);
+    box-shadow: var(--shadow-lift);
   }
   #app-confirm-box .msg { margin: 0 0 16px; font-size: 14px; white-space: pre-wrap; }
   #app-confirm-box .btns { display: flex; justify-content: flex-end; gap: 10px; }
+
+  /* ── Accessibility resets ────────────────────────────────────────────────
+   * Motion on a service surface means "state changed", so an OS request to reduce it
+   * must stop the room's drift and the status pulses — and the TRANSITIONS too, which is
+   * the half that is usually forgotten. `prefers-contrast: more` is the correct keyword
+   * (`high` is not a valid value and never matches — see the site's index.css). */
+  @media (prefers-reduced-motion: reduce) {
+    #room::before, #room::after,
+    .dot.active, .rs-rec-dot, .rs-run-spinner, .rs-console-line--running .rs-console-glyph {
+      animation: none;
+    }
+    * { transition: none; }
+  }
+  @media (prefers-contrast: more) {
+    :root { --glass-edge: color-mix(in srgb, var(--text) 34%, transparent); }
+    .tab-btn.active { background: var(--glass-hover); }
+  }
 </style>
 </head>
 <body>
 
-<div id="topbar">
-  <div class="topbar-left">
-    <button id="nav-toggle" title="Navigate">☰</button>
-    <span class="topbar-title">Simple Dashboard</span>
+<!-- The room: the scheme's two hues, held well back. Decorative, so aria-hidden. -->
+<div id="room" aria-hidden="true"></div>
+
+<!-- One floating glass head: the surface's name, its live state, the one action, and the
+     view tabs. Not sticky on purpose — see the note in the <style> block. -->
+<header id="topbar">
+  <div class="dash-head">
+    <h1 class="dash-title">Simple</h1>
+    <span class="dash-state">
+      <span class="dash-dot" id="dash-state-dot"></span>
+      <span id="dash-state-text">Checking…</span>
+    </span>
+    <ul class="dash-readout" id="dash-readout"></ul>
+    <div class="dash-actions">
+      <button id="nav-toggle" title="All views" aria-label="All views">☰</button>
+      <button id="topbar-webapp" class="btn-webapp">Open Web App ↗</button>
+    </div>
   </div>
-  <button id="topbar-webapp" class="btn-webapp">Open Web App ↗</button>
+  <nav id="sidebar" aria-label="Dashboard views">
+    <button class="tab-btn active" data-tab="status">Status</button>
+    <button class="tab-btn" data-tab="agent">Agent <span class="badge" id="tab-badge-agent"></span></button>
+    <button class="tab-btn" data-tab="voice">Voice</button>
+    <button class="tab-btn" data-tab="perception">Perception</button>
+    <button class="tab-btn" data-tab="recorder">Recorder &amp; Skills</button>
+    <button class="tab-btn" data-tab="marketplace">Marketplace</button>
+    <button class="tab-btn" data-tab="workspace">Workspace Profiles</button>
+    <button class="tab-btn" data-tab="triggers">Triggers</button>
+    <button class="tab-btn" data-tab="permissions">Permissions</button>
+    <button class="tab-btn" data-tab="eyetracking">Eye Tracking</button>
+    <button class="tab-btn" data-tab="updates">Updates <span class="badge" id="tab-badge-updates"></span></button>
+    <button class="tab-btn" data-tab="settings">Settings</button>
+  </nav>
   <div id="nav-dropdown">
     <button data-tab="status">Status</button>
     <button data-tab="agent">Agent</button>
@@ -361,32 +520,13 @@
     <button data-tab="marketplace">Marketplace</button>
     <button id="nav-webapp" class="nav-webapp">Open Web App ↗</button>
   </div>
-</div>
-
-<div id="main-row">
-<div id="sidebar">
-  <div class="brand">
-    <h1>Simple</h1>
-    <p class="subtitle">Local addon dashboard</p>
-  </div>
-  <button class="tab-btn active" data-tab="status">Status</button>
-  <button class="tab-btn" data-tab="agent">Agent <span class="badge" id="tab-badge-agent"></span></button>
-  <button class="tab-btn" data-tab="voice">Voice</button>
-  <button class="tab-btn" data-tab="perception">Perception</button>
-  <button class="tab-btn" data-tab="recorder">Recorder &amp; Skills</button>
-  <button class="tab-btn" data-tab="marketplace">Marketplace</button>
-  <button class="tab-btn" data-tab="workspace">Workspace Profiles</button>
-  <button class="tab-btn" data-tab="triggers">Triggers</button>
-  <button class="tab-btn" data-tab="permissions">Permissions</button>
-  <button class="tab-btn" data-tab="eyetracking">Eye Tracking</button>
-  <button class="tab-btn" data-tab="updates">Updates <span class="badge" id="tab-badge-updates"></span></button>
-  <button class="tab-btn" data-tab="settings">Settings</button>
-</div>
+</header>
 
 <div id="content">
 
   <!-- ── Status tab ── -->
   <section class="tab-panel active" id="panel-status">
+    <div class="panel-grid">
     <div class="panel">
       <h2>Server</h2>
       <div class="row">
@@ -447,6 +587,7 @@
           </label>
         </div>
       </div>
+    </div>
     </div>
   </section>
 
@@ -1182,7 +1323,7 @@
     </div>
   </section>
   <section class="tab-panel" id="panel-updates">
-    <div id="update-stale-warning" class="kill-banner" style="display:none; color: var(--yellow); border-color: var(--yellow); background: rgba(210,153,34,.1);">
+    <div id="update-stale-warning" class="kill-banner" style="display:none; color: var(--yellow); border-color: var(--yellow); background: var(--yellow-bg);">
       A release with this same version number was published after this build — "up to date" may not be accurate.
       Try "Check for Updates" again in a bit, or reinstall directly from the
       <a href="#" id="update-stale-releases-link" style="color: var(--yellow); text-decoration: underline;">GitHub Releases page</a>.
@@ -1226,6 +1367,41 @@
   </section>
 
   <section class="tab-panel" id="panel-settings">
+    <div class="panel">
+      <h2>Appearance</h2>
+      <div class="desc" style="color:var(--muted); font-size:12px; margin-bottom:8px">
+        The addon uses the same colour schemes as the web app. Picking one here also sets it on the site, and the site's picker sets it here — one value, both surfaces.
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Colour scheme</div>
+          <div class="desc">Which two hues the app is built from. The page behind this panel is the preview.</div>
+        </div>
+        <select id="appearance-scheme" aria-label="Colour scheme"></select>
+      </div>
+      <div class="row">
+        <div>
+          <div class="name">Mode</div>
+          <div class="desc">Light or dark surfaces, or follow Windows.</div>
+        </div>
+        <select id="appearance-mode" aria-label="Mode">
+          <option value="system">System (follow Windows)</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </div>
+      <div class="row" id="appearance-custom-row" style="display:none">
+        <div>
+          <div class="name">Custom colours</div>
+          <div class="desc">Primary is the dominant hue — links, focus, the active tab. Secondary is the one it pairs with.</div>
+        </div>
+        <div class="flex">
+          <input type="color" class="appearance-swatch" id="appearance-custom-primary" aria-label="Custom primary colour">
+          <input type="color" class="appearance-swatch" id="appearance-custom-secondary" aria-label="Custom secondary colour">
+        </div>
+      </div>
+    </div>
+
     <div class="panel">
       <h2>Windows Notifications</h2>
       <div class="desc" style="color:var(--muted); font-size:12px; margin-bottom:8px">
@@ -1276,7 +1452,6 @@
     </div>
   </section>
 
-</div>
 </div>
 
 <div id="skill-modal" class="modal-backdrop" aria-hidden="true">
@@ -1419,6 +1594,9 @@ function activateTab(tabId) {
     marketplaceLoaded = true;
     refreshMarketplace('');
   }
+  // Re-read the appearance when Settings is opened: the site may have pushed a
+  // different scheme while this window sat in the background.
+  if (tabId === 'settings') loadAppearance();
 }
 
 for (const btn of document.querySelectorAll('.tab-btn')) {
@@ -1532,6 +1710,20 @@ async function refreshStatus() {
   try {
     const s = await window.simpleDashboard.getStatus();
 
+    // The head is the surface's headline, so it follows the same fact the Server panel
+    // does — including when the server is down, which is the case worth seeing from any
+    // view rather than only from Status.
+    setHeadState(
+      s.serverRunning ? 'Addon online' : 'Server stopped',
+      s.serverRunning ? 'ok' : 'err',
+    );
+    publishReadout([
+      { label: 'Port', value: s.port || '—' },
+      { label: 'Version', value: s.version || '—' },
+      { label: 'Python', value: s.pythonReady ? 'ready' : (s.pythonStatus || 'unknown') },
+      { label: 'Resources', value: s.resourcesPath ? s.resourcesPath.split(/[\\/]/).filter(Boolean).pop() : '—' },
+    ]);
+
     const serverName = document.getElementById('status-server-name');
     const serverDesc = document.getElementById('status-server-desc');
     if (s.serverRunning) {
@@ -1552,7 +1744,7 @@ async function refreshStatus() {
     if (s.pythonError) {
       pyDesc.textContent = s.pythonError;
       pyDesc.style.display = '';
-      pyDesc.style.color = '#f07178';
+      pyDesc.style.color = 'var(--red)';
     } else {
       pyDesc.style.display = 'none';
     }
@@ -1561,6 +1753,8 @@ async function refreshStatus() {
     document.getElementById('status-version').textContent = s.version || '—';
     document.getElementById('status-start-at-login').checked = !!s.startAtLogin;
   } catch (e) {
+    setHeadState('Addon unreachable', 'err');
+    publishReadout([]);
     console.error('Status check failed:', e);
   }
 }
@@ -4082,12 +4276,34 @@ window.simpleDashboard.onFixationData((data) => {
   el.style.display = '';
 });
 // ── Gaze heatmap (density of where the user has looked this session) ──
+//
+// ⚠️ A canvas cannot read a CSS custom property, and `--accent` is an `oklch()` value,
+// so a heatmap cell needs its hue CONVERTED to an sRGB triple before it can carry an
+// alpha. Painting one pixel and reading it back is the only way to do that from CSS
+// values; it is done per draw (the canvas is already redrawn on a 2s timer) rather than
+// cached, so a scheme change repaints on the next frame with no observer to wire up.
+function resolveCanvasRgb(token) {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+  if (!value) return null;
+  const ctx = resolveCanvasRgb._probe || (resolveCanvasRgb._probe = document.createElement('canvas').getContext('2d'));
+  ctx.fillStyle = '#000';     // sentinel: if `value` is unparseable the probe stays black
+  ctx.fillStyle = value;      // ignored (and the probe left black) if the browser can't parse it
+  ctx.fillRect(0, 0, 1, 1);
+  const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+  return { r, g, b };
+}
+
 async function refreshEyeHeatmap() {
   const canvas = document.getElementById('eye-heatmap');
   const caption = document.getElementById('eye-heatmap-caption');
   if (!canvas || !caption) return;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#0a0a0f';
+  // Solid fills accept any CSS colour verbatim; only the alpha compositing below needs
+  // the triple. The last-resort literal is for a canvas that somehow runs before the
+  // stylesheet loaded — a CSS variable cannot fall back for something that cannot read
+  // one in the first place.
+  const styles = getComputedStyle(document.documentElement);
+  ctx.fillStyle = styles.getPropertyValue('--sunken').trim() || '#1b1f24';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   try {
     const hm = await window.simpleDashboard.getGazeHeatmap();
@@ -4097,12 +4313,17 @@ async function refreshEyeHeatmap() {
     }
     const cw = canvas.width / hm.cols;
     const ch = canvas.height / hm.rows;
+    const accent = resolveCanvasRgb('--accent');
+    if (!accent) {
+      caption.textContent = 'Heatmap unavailable.';
+      return;
+    }
     for (let r = 0; r < hm.rows; r++) {
       for (let c = 0; c < hm.cols; c++) {
         const v = hm.cells[r * hm.cols + c] || 0;
         if (v <= 0) continue;
         const a = Math.min(1, 0.15 + 0.85 * (v / (hm.max || 1)));
-        ctx.fillStyle = `rgba(88,166,255,${a.toFixed(3)})`;
+        ctx.fillStyle = `rgba(${accent.r},${accent.g},${accent.b},${a.toFixed(3)})`;
         ctx.fillRect(c * cw, r * ch, cw, ch);
       }
     }
@@ -4261,6 +4482,150 @@ document.getElementById('update-stale-releases-link').addEventListener('click', 
   e.preventDefault();
   window.simpleDashboard.openExternal('https://github.com/tnnrhpwd/portfolio-app/releases');
 });
+
+// ── The head's live readout ──
+//
+// The head carries this surface's live state, so the numbers someone opens this window
+// to see are visible from EVERY view instead of only on the Status tab. Bounded to one
+// scrolling row of chips: a head that grows tall is the one thing that costs every
+// screen a scroll, which is exactly what the service-page rules exist to prevent.
+function setHeadState(text, tone = '') {
+  const label = document.getElementById('dash-state-text');
+  const dot = document.getElementById('dash-state-dot');
+  if (label) label.textContent = text;
+  if (dot) dot.className = 'dash-dot' + (tone ? ` is-${tone}` : '');
+}
+
+function publishReadout(chips) {
+  const list = document.getElementById('dash-readout');
+  if (!list) return;
+  // Built with text nodes, never innerHTML: one of these values is a filesystem path.
+  list.textContent = '';
+  for (const chip of (chips || []).filter(Boolean)) {
+    const li = document.createElement('li');
+    li.appendChild(document.createTextNode(chip.label));
+    const strong = document.createElement('strong');
+    strong.textContent = String(chip.value);
+    li.appendChild(strong);
+    list.appendChild(li);
+  }
+}
+
+// ── Settings tab — Appearance (colour scheme + mode) ──
+//
+// The scheme lives in settings.json's `webapp` block — the same block the website
+// reads and writes its own settings through — so both surfaces have ONE value to
+// agree on. This window already painted from the values main.js put on its URL (the
+// bootstrap in <head>); what follows is what keeps the PICKER in step, re-applies when
+// the OS flips while the window is open, and writes a change back.
+const appearanceApi = window.SimpleAppearance;
+
+/** The appearance in force, in the resolver's shape (`appearance.js` converts to and
+ *  from the stored keys — see `fromStored` / `toStored`). */
+let appearanceState = { scheme: appearanceApi.DEFAULT_SCHEME, mode: appearanceApi.DEFAULT_MODE };
+
+function paintAppearance() {
+  appearanceApi.applyToElement(document.documentElement, appearanceState);
+
+  const schemeSelect = document.getElementById('appearance-scheme');
+  const modeSelect = document.getElementById('appearance-mode');
+  if (!schemeSelect || !modeSelect) return;
+  schemeSelect.value = appearanceState.scheme;
+  modeSelect.value = appearanceState.mode;
+  const isCustom = appearanceState.scheme === appearanceApi.CUSTOM_SCHEME;
+  document.getElementById('appearance-custom-row').style.display = isCustom ? '' : 'none';
+
+  // The pickers say Primary/Secondary (the same words the site's picker uses); the
+  // stored pair is `accent`/`primary` — the CSS token names. That mapping is made in
+  // `appearance.js` and nowhere else, so do not re-spell it here.
+  const pair = appearanceApi.normalizeCustom(appearanceState.custom);
+  document.getElementById('appearance-custom-primary').value = pair.accent;
+  document.getElementById('appearance-custom-secondary').value = pair.primary;
+}
+
+async function loadAppearance() {
+  try {
+    const settings = await api('/api/settings');
+    const stored = appearanceApi.fromStored(settings);
+    appearanceState = { scheme: stored.scheme, mode: stored.mode, custom: stored.custom };
+    paintAppearance();
+  } catch (e) {
+    console.error('Failed to load appearance:', e);
+  }
+}
+
+/** Apply a change, then persist it. The repaint is immediate (this is a picker, not a
+ *  form) and the write is a read-modify-write of the whole `webapp` object, because
+ *  `PUT /api/settings` REPLACES that block — posting a delta would drop the chat
+ *  settings stored beside it. */
+async function saveAppearance(patch) {
+  appearanceState = { ...appearanceState, ...patch };
+  paintAppearance();
+  try {
+    const settings = await api('/api/settings');
+    const body = { ...settings, ...appearanceApi.toStored(appearanceState) };
+    await api('/api/settings', { method: 'PUT', body: JSON.stringify(body) });
+  } catch (e) {
+    notify(`Could not save appearance: ${e.message}`);
+  }
+}
+
+function wireAppearance() {
+  const schemeSelect = document.getElementById('appearance-scheme');
+  const modeSelect = document.getElementById('appearance-mode');
+  const customPrimary = document.getElementById('appearance-custom-primary');
+  const customSecondary = document.getElementById('appearance-custom-secondary');
+  if (!schemeSelect || !modeSelect || !customPrimary || !customSecondary) return;
+
+  // Built from the shared list, so the addon's picker cannot offer a scheme the
+  // stylesheet has no rule for (or miss one it does).
+  for (const scheme of appearanceApi.SCHEMES) {
+    const opt = document.createElement('option');
+    opt.value = scheme.id;
+    opt.textContent = scheme.label;
+    schemeSelect.appendChild(opt);
+  }
+  const customOpt = document.createElement('option');
+  customOpt.value = appearanceApi.CUSTOM_SCHEME;
+  customOpt.textContent = '🎨 Custom';
+  schemeSelect.appendChild(customOpt);
+
+  schemeSelect.addEventListener('change', () => {
+    const scheme = schemeSelect.value;
+    const patch = { scheme };
+    // Switching TO Custom with no pair stored yet seeds it from the scheme being
+    // replaced, so the pickers open on the colours already on screen instead of the
+    // whole app jumping to the default's hues (the site seeds it the same way).
+    if (scheme === appearanceApi.CUSTOM_SCHEME && !appearanceState.custom) {
+      patch.custom = appearanceApi.seedCustomFrom(appearanceState.scheme);
+    }
+    saveAppearance(patch);
+  });
+  modeSelect.addEventListener('change', () => saveAppearance({ mode: modeSelect.value }));
+
+  // A colour input fires `input` continuously while the OS picker is open, so the
+  // preview is live but the WRITE waits for `change` (picker closed) — otherwise a
+  // drag across the spectrum would issue a GET+PUT per frame.
+  const onInput = (key) => (e) => {
+    const pair = appearanceApi.normalizeCustom(appearanceState.custom);
+    appearanceState = { ...appearanceState, custom: { ...pair, [key]: e.target.value } };
+    paintAppearance();
+  };
+  customPrimary.addEventListener('input', onInput('accent'));
+  customSecondary.addEventListener('input', onInput('primary'));
+  const onCommit = () => saveAppearance({ custom: appearanceState.custom });
+  customPrimary.addEventListener('change', onCommit);
+  customSecondary.addEventListener('change', onCommit);
+
+  // "System" is resolved at paint time, so the mode has to be re-resolved when the OS
+  // flips — otherwise a window left open overnight stays in yesterday's mode.
+  appearanceApi.watchSystemMode(() => paintAppearance());
+  // And the site may have pushed a scheme while this window was in the background.
+  window.addEventListener('focus', () => loadAppearance());
+}
+
+wireAppearance();
+loadAppearance();
 
 // ── Settings tab (notification preferences) ──
 const NOTIF_CATEGORIES = ['system', 'updates', 'python', 'automation', 'eyeTracking', 'voice'];

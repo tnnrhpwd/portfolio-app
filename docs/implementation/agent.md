@@ -1633,4 +1633,104 @@ sticky head — the one thing that costs height on *every* scroll — went from 
 
 ---
 
+### 13.18 The addon follows the colour scheme, and is a service workspace now (2026-09-13)
+
+The website gained a site-wide colour scheme (`e594343`); the addon had none — three
+hardcoded dark palettes (`#0d1117` GitHub-dark in the dashboard, Catppuccin Mocha in the
+calibration window, a fixed cyan marker in the eye overlay). Both halves of that gap are
+closed in one pass: the addon now follows the scheme, and its dashboard is rebuilt as the
+**service workspace** the UI standard (§5.7) asks for rather than a sidebar + hero card
+layout.
+
+**The scheme, in one stored value.** `settings.json` → `webapp` gains `colorScheme`
+(`ocean` … `custom`), `colorMode` (`system` | `light` | `dark`) and `customColors`
+(`{accent, primary}` — the CSS token names, deliberately not the visitor's
+Primary/Secondary words). That is the same block the site's chat panel already reads and
+writes its own settings through, so the two surfaces have **one** value to agree on
+instead of two:
+
+- `renderer/appearance/appearance.js` — the scheme list (a **mirror** of
+  `frontend/src/utils/scheme.js`, and `appearance.test.js` asserts the two still agree on
+  ids, labels, hues *and order*, so drift fails the addon's test run), plus the resolve /
+  apply / query-string helpers. Pure and headless-requirable.
+- `renderer/appearance/appearance.css` — the derivation, ported from `index.css`:
+  two identity hues → `--scheme-*`, accents re-pinned per mode (0.52 light / 0.76 dark),
+  backdrops with pinned lightness, `neutral` chroma off in **both** mode blocks, custom
+  capped rather than replaced. The addon's own surface tokens (`--bg`, `--panel`,
+  `--text`…) now live here too, per mode.
+- `main.js` reads the appearance when it opens a window and puts it on the window's
+  **URL**, so every window paints correctly on its FIRST frame instead of flashing the
+  wrong mode while a fetch to the local server is in flight; the window's
+  `backgroundColor` follows the mode as well.
+- The dashboard's **Settings → Appearance** panel is the picker (built from the shared
+  list, so it cannot offer a scheme the stylesheet has no rule for), applied on change and
+  written back read-modify-write — `PUT /api/settings` **replaces** the whole `webapp`
+  block, so posting a delta would wipe the user's chat settings, models and agents.
+- `frontend/src/utils/schemeSync.js` is the site's half: on an explicit pick it hands the
+  scheme to the addon. Not on load — pushing from `initScheme()` would probe the addon on
+  every page view for everyone who has not installed it, and would overwrite an addon-side
+  choice. The **mode** is deliberately not pushed (the site's light/dark is how *this*
+  device is being looked at; the addon has its own "follow Windows"), and failure is
+  silent because the addon is optional. The custom pair crosses a vocabulary boundary here
+  and nowhere else: the site's `primary` (dominant) is the addon's `accent`.
+- The **eye overlay is deliberately outside the mode axis**: it floats over the *desktop*,
+  not over the addon's surfaces, so a HUD that went light with the mode would vanish
+  against a white page. It keeps a fixed dark shell and only its gaze marker follows the
+  scheme.
+
+**The dashboard is a service workspace.** Glass over a room, ported token-for-token from
+the site's `.service-room` (two layers at two speeds, `--room-mix` as a *mix* rather than
+an alpha so the neutral page never shows through as grey, and radial gradients instead of
+`filter: blur()` — a gradient falling to transparent *is* a blur). The sidebar is gone:
+the view tabs are a scrolling row of pills inside **one floating glass head** that carries
+the surface's name, its live state, a four-chip readout and the one action
+(`Open Web App ↗`, on the scheme's ramp). The head is deliberately **not sticky** (§5.7's
+console trade: sticky would claim ~150px of every screen and force an opaque base). The
+Status view's four same-shaped panels are a dense `auto-fit` grid (1 col ≤420px, 2 at
+768, 3 at 1024, 4 at 1600); data-heavy views stay single-column, because a 320px column of
+console output is worse than a taller screen. Rows are separated by a **tone**
+(`--glass-edge`), controls stay **solid** (never glass), `button.primary`/`.danger` keep
+their semantic green/red — an alarm that follows the decor is not an alarm — and the
+scheme owns the chrome: head action, tabs, focus, input edges, the room. Added
+`prefers-reduced-motion` (room + pulses + transitions) and `prefers-contrast: more` blocks;
+the gaze heatmap canvas resolves `--accent` to sRGB through a 1×1 probe at draw time,
+because a canvas cannot read a custom property and `oklch()` cannot go into `rgba()`.
+
+**Measured, not eyeballed** — 12 schemes × 2 modes × 12 text pairs, compositing the alpha
+stack before computing each ratio:
+
+- ✅ **0 failures (worst 4.6:1)** after three real fixes. (1) An ink printed on a wash of
+  *its own hue* loses ~1.5 stops — the accent chips measured 2.8–3.7:1 — so the accent
+  badges/tab label now use the site's `--plane-ink-*` recipe (`--accent-in-text`). (2) The
+  status chip washes dropped 15% → 10% (green was 4.15:1). (3) The light-mode
+  green/yellow/red inks darkened (4.43 / 4.28 / 4.54 → 5.82 / 5.85 / 4.65). Body text
+  15.2:1, muted-on-sunken 5.23:1.
+- ✅ **No page-level overflow and no silent `#content` scroll** at 320/360/420/640/768/
+  1024/1280/1600 in both modes; head 163px at ≤420 (three rows: title+state, chips, tabs)
+  and 91px from 768 up.
+- 🐛 **A wide button group overhung a narrow grid track** (`.actions` is `flex-shrink: 0`
+  by definition) and `#content` *scrolled* it sideways rather than reporting overflow —
+  the same "clips rather than complains" family as §13.13. Fixed with `flex-wrap: wrap` on
+  `.row`, verified by comparing every descendant's right edge against its pane.
+- 🐛 **Choosing Custom jumped the whole app to the default's hues.** Seeding must come from
+  the scheme being *replaced* (the site seeds it the same way), so `seedCustomFrom` exists
+  and is unit-tested; without it, picking Custom on Sakura flashed cyan.
+- ⚠️ **`settings.json` is a trap for external tooling.** Round-tripping it through
+  PowerShell (`ConvertFrom-Json | ConvertTo-Json | Set-Content -Encoding UTF8`) writes a
+  **BOM**; the addon server's `JSON.parse` then throws, falls back to `{}`, and the next
+  write it makes (`persistAuthToken`, which writes only `{cloudAuth}`) **wipes every other
+  key**. That happened here and cost a restore from a byte-exact backup. Use `node -e` +
+  `JSON.stringify` (no BOM), and back up first.
+- ⚠️ **Not opened as a real Electron app in this pass.** The dashboard was driven in
+  Chromium with the preload bridge stubbed (`window.simpleDashboard`), which exercises the
+  shell, the head, the tabs, the grid, all 12 views and the picker's write path (verified
+  against the running addon server on `127.0.0.1:3001` — the appearance really persisted to
+  `settings.json`, and the read-modify-write left `theme`/`agents`/`deviceId` intact). The
+  Electron-specific pieces — window `backgroundColor`, the overlay's transparency, calibrat-
+  ion's fullscreen geometry — are unverified by eye. Screenshots were also unavailable at
+  the end (the shared browser surface collapsed to 6px wide, §13.17's hazard), so the final
+  checks are geometric plus computed styles. Worth one real run of the addon.
+
+---
+
 **Companion doc:** [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md) — threat model, trust boundaries, and the permissions matrix.

@@ -14,6 +14,7 @@ import {
   getCustomColors,
   setCustomColors,
 } from '../../utils/scheme.js';
+import { syncSchemeToAddon } from '../../utils/schemeSync.js';
 import { isTokenValid } from '../../utils/tokenUtils.js';
 import { toast } from 'react-toastify';
 import {
@@ -225,10 +226,16 @@ function Profile() {
   };
 
   const handleSchemeChange = (event) => {
-    setColorScheme(setScheme(event.target.value));
+    const next = setScheme(event.target.value);
+    setColorScheme(next);
     // Re-read, because arriving at Custom for the first time is exactly when the
     // pickers are handed a new pair to show.
-    setCustomColorsState(getCustomColors());
+    const custom = getCustomColors();
+    setCustomColorsState(custom);
+    // Hand the choice to the desktop addon, which is a different origin and so cannot
+    // read this one's localStorage. Fire-and-forget: it is optional and usually absent,
+    // and a picker must never wait on a local process (`utils/schemeSync.js`).
+    syncSchemeToAddon({ scheme: next, custom });
   };
 
   const handleCustomColor = (role, value) => {
@@ -236,6 +243,9 @@ function Profile() {
       ? setCustomColors(value, customColors.secondary)
       : setCustomColors(customColors.primary, value);
     setCustomColorsState(next);
+    // The site's pair is `{ primary, secondary }`; `schemeSync` translates it into the
+    // addon's token names. Only meaningful while Custom is the scheme in force.
+    syncSchemeToAddon({ scheme: CUSTOM_SCHEME, custom: next });
   };
 
   const currentPlan = userSubscription?.subscriptionPlan || 'Free';

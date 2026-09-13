@@ -4,13 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Simple — Eye Tracking Calibration</title>
+  <!-- Appearance first: `bootstrap()` writes data-scheme / data-mode on <html> from the
+       values main.js put on this window's URL, so the first frame is already right. -->
+  <link rel="stylesheet" href="appearance/appearance.css">
+  <script src="appearance/appearance.js"></script>
+  <script>window.SimpleAppearance.bootstrap();</script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       width: 100vw; height: 100vh;
       overflow: hidden;
-      background: #0a0a0f;
-      color: #cdd6f4;
+      background: var(--bg-deep);
+      color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       user-select: none;
     }
@@ -23,58 +28,60 @@
       z-index: 100;
     }
     .panel { text-align: center; max-width: 640px; padding: 40px; }
-    .panel h1 { font-size: 28px; color: #89b4fa; margin-bottom: 20px; }
-    .panel p  { font-size: 15px; line-height: 1.6; color: #a6adc8; margin-bottom: 14px; }
+    .panel h1 { font-size: 28px; color: var(--accent); margin-bottom: 20px; }
+    .panel p  { font-size: 15px; line-height: 1.6; color: var(--muted); margin-bottom: 14px; }
 
+    /* The one action on this screen, so it wears the scheme's ramp. White ink because the
+       ramp is pinned deep enough to take it for every hue (see appearance.css). */
     .btn {
       display: inline-block; padding: 12px 32px;
-      background: #89b4fa; color: #1e1e2e; border: none; border-radius: 8px;
+      background: var(--accent-fill); color: var(--on-accent); border: none; border-radius: 8px;
       font-size: 16px; font-weight: 600; cursor: pointer; margin: 8px 6px 0;
     }
-    .btn:hover { background: #74c7ec; }
+    .btn:hover { filter: brightness(1.12); }
     .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn.secondary { background: #45475a; color: #cdd6f4; }
-    .btn.secondary:hover { background: #585b70; }
+    .btn.secondary { background: var(--control); color: var(--text); }
+    .btn.secondary:hover { background: var(--control-hover); filter: none; }
 
     /* Setup selectors */
     .setup-row {
       display: flex; align-items: center; justify-content: center;
       gap: 12px; margin-bottom: 14px;
     }
-    .setup-row label { font-size: 14px; color: #a6adc8; min-width: 80px; text-align: right; }
+    .setup-row label { font-size: 14px; color: var(--muted); min-width: 80px; text-align: right; }
     .setup-row select {
-      padding: 8px 14px; background: #1e1e2e; color: #cdd6f4;
-      border: 1px solid #45475a; border-radius: 6px; font-size: 14px;
+      padding: 8px 14px; background: var(--sunken); color: var(--text);
+      border: 1px solid var(--control); border-radius: 6px; font-size: 14px;
       min-width: 260px; cursor: pointer; outline: none;
     }
-    .setup-row select:focus { border-color: #89b4fa; }
+    .setup-row select:focus { border-color: var(--accent); }
 
     /* Tips */
     .tips {
-      background: #1e1e2e; border: 1px solid #313244; border-radius: 8px;
+      background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
       padding: 16px 20px; margin: 16px 0; text-align: left;
-      font-size: 13px; color: #a6adc8; line-height: 1.7;
+      font-size: 13px; color: var(--muted); line-height: 1.7;
     }
-    .tips strong { color: #89b4fa; }
+    .tips strong { color: var(--accent); }
     .tips ul { padding-left: 18px; margin: 6px 0 0; }
 
     .quickstart {
-      background: #11111b;
-      border: 1px solid #313244;
+      background: var(--sunken);
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 12px 14px;
       margin: 10px 0 14px;
       text-align: left;
       font-size: 13px;
       line-height: 1.6;
-      color: #bac2de;
+      color: var(--muted);
     }
-    .quickstart .title { color: #89b4fa; font-weight: 700; margin-bottom: 4px; }
+    .quickstart .title { color: var(--accent); font-weight: 700; margin-bottom: 4px; }
     .cmd-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
     .cmd-pill {
-      border: 1px solid #45475a;
-      background: #1e1e2e;
-      color: #cdd6f4;
+      border: 1px solid var(--control);
+      background: var(--panel);
+      color: var(--text);
       border-radius: 999px;
       padding: 4px 10px;
       font-size: 12px;
@@ -82,9 +89,9 @@
     .history-note {
       margin-top: 10px;
       font-size: 12px;
-      color: #a6adc8;
-      background: #11111b;
-      border: 1px solid #313244;
+      color: var(--muted);
+      background: var(--sunken);
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 10px 12px;
       text-align: left;
@@ -92,54 +99,54 @@
     .camera-note {
       margin: 10px 0 0;
       font-size: 12px;
-      color: #f9e2af;
-      background: rgba(249, 226, 175, 0.08);
-      border: 1px solid rgba(249, 226, 175, 0.25);
+      color: var(--yellow);
+      background: var(--yellow-bg);
+      border: 1px solid color-mix(in srgb, var(--yellow) 25%, transparent);
       border-radius: 8px;
       padding: 10px 12px;
       text-align: left;
       line-height: 1.5;
     }
     .camera-note.ir-on {
-      color: #a6e3a1;
-      background: rgba(166, 227, 161, 0.10);
-      border-color: rgba(166, 227, 161, 0.35);
+      color: var(--green);
+      background: var(--green-bg);
+      border-color: color-mix(in srgb, var(--green) 35%, transparent);
       font-weight: 600;
     }
     .camera-note.ir-available {
-      color: #f9e2af;
-      background: rgba(249, 226, 175, 0.10);
-      border-color: rgba(249, 226, 175, 0.35);
+      color: var(--yellow);
+      background: var(--yellow-bg);
+      border-color: color-mix(in srgb, var(--yellow) 35%, transparent);
     }
 
     /* Escape hint */
     .escape-hint {
       position: fixed; bottom: 12px; right: 16px;
-      font-size: 12px; color: #585b70; z-index: 300;
+      font-size: 12px; color: var(--muted-dim); z-index: 300;
     }
 
     /* ── Calibration dot ─── */
     .cal-dot {
       position: fixed; width: 28px; height: 28px; border-radius: 50%;
-      background: #89b4fa; transform: translate(-50%, -50%);
+      background: var(--accent); transform: translate(-50%, -50%);
       z-index: 150; pointer-events: none;
       transition: left 0.3s ease, top 0.3s ease, opacity 0.3s ease;
     }
     .cal-dot::after {
       content: ''; position: absolute; top: 50%; left: 50%;
-      width: 6px; height: 6px; border-radius: 50%; background: #1e1e2e;
+      width: 6px; height: 6px; border-radius: 50%; background: var(--bg-deep);
       transform: translate(-50%, -50%);
     }
     .cal-dot.collecting {
       animation: pulse 0.6s ease-in-out infinite alternate;
     }
     .cal-dot.done-flash {
-      background: #a6e3a1;
+      background: var(--green);
       transition: background 0.2s;
     }
     @keyframes pulse {
-      from { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 0 0 rgba(137,180,250,0.4); }
-      to   { transform: translate(-50%, -50%) scale(1.3); box-shadow: 0 0 20px 10px rgba(137,180,250,0.1); }
+      from { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent); }
+      to   { transform: translate(-50%, -50%) scale(1.3); box-shadow: 0 0 20px 10px color-mix(in srgb, var(--accent) 10%, transparent); }
     }
 
     #calibration-preview-bg {
@@ -148,7 +155,7 @@
       object-position: center center;
       opacity: 0.35; filter: saturate(0.9) contrast(1.05);
       pointer-events: none;
-      background: #05070c;
+      background: var(--bg-deep);
       transform: scaleX(-1); /* mirror for natural feel */
     }
 
@@ -157,45 +164,45 @@
       position: fixed; top: 28px; left: 50%; transform: translateX(-50%);
       font-size: 15px; z-index: 200; text-align: center;
       padding: 6px 20px; border-radius: 8px;
-      background: rgba(30,30,46,0.85); border: 1px solid #313244;
+      background: color-mix(in srgb, var(--panel) 85%, transparent); border: 1px solid var(--border);
     }
-    #cal-status .msg { color: #a6adc8; }
-    #cal-status .msg.warn { color: #f9e2af; }
-    #cal-status .msg.ok   { color: #a6e3a1; }
+    #cal-status .msg { color: var(--muted); }
+    #cal-status .msg.warn { color: var(--yellow); }
+    #cal-status .msg.ok   { color: var(--green); }
 
     /* ── Progress bar ─── */
     #progress-wrap {
       position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
       text-align: center; z-index: 200;
     }
-    #progress-wrap .label { font-size: 14px; color: #a6adc8; margin-bottom: 8px; }
-    .bar-container { width: 240px; height: 4px; background: #313244; border-radius: 2px; overflow: hidden; }
-    .bar-fill { height: 100%; background: #89b4fa; border-radius: 2px; transition: width 0.3s ease; }
+    #progress-wrap .label { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+    .bar-container { width: 240px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .bar-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s ease; }
 
     #quality-wrap {
       position: fixed; top: 76px; left: 50%; transform: translateX(-50%);
       width: 300px; z-index: 200;
-      background: rgba(30,30,46,0.85); border: 1px solid #313244;
+      background: color-mix(in srgb, var(--panel) 85%, transparent); border: 1px solid var(--border);
       border-radius: 8px; padding: 8px 10px;
     }
     #quality-wrap .q-row {
       display: flex; align-items: center; justify-content: space-between;
-      font-size: 12px; color: #a6adc8; margin-bottom: 4px;
+      font-size: 12px; color: var(--muted); margin-bottom: 4px;
     }
     #quality-wrap .q-pill {
       font-size: 11px; padding: 2px 8px; border-radius: 999px;
-      border: 1px solid #45475a; color: #cdd6f4;
+      border: 1px solid var(--control); color: var(--text);
     }
-    #quality-wrap .q-pill.good { border-color: #a6e3a1; color: #a6e3a1; }
-    #quality-wrap .q-pill.ok { border-color: #f9e2af; color: #f9e2af; }
-    #quality-wrap .q-pill.bad { border-color: #f38ba8; color: #f38ba8; }
-    #quality-wrap .qbar { width: 100%; height: 6px; background: #313244; border-radius: 3px; overflow: hidden; }
-    #quality-wrap .qbar > div { height: 100%; background: #89b4fa; width: 0%; transition: width 0.2s ease; }
+    #quality-wrap .q-pill.good { border-color: var(--green); color: var(--green); }
+    #quality-wrap .q-pill.ok { border-color: var(--yellow); color: var(--yellow); }
+    #quality-wrap .q-pill.bad { border-color: var(--red); color: var(--red); }
+    #quality-wrap .qbar { width: 100%; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    #quality-wrap .qbar > div { height: 100%; background: var(--accent); width: 0%; transition: width 0.2s ease; }
 
     /* ── Gaze cursor ─── */
     #gaze-cursor {
       position: fixed; width: 28px; height: 28px; border-radius: 50%;
-      background: rgba(243,139,168,0.55); border: 2px solid #f38ba8;
+      background: color-mix(in srgb, var(--red) 55%, transparent); border: 2px solid var(--red);
       transform: translate(-50%, -50%); pointer-events: none;
       z-index: 160; transition: left 0.06s linear, top 0.06s linear;
     }
@@ -203,13 +210,13 @@
     /* ── Validation target ─── */
     .val-dot {
       position: fixed; width: 22px; height: 22px; border-radius: 50%;
-      border: 3px solid #585b70; background: transparent;
+      border: 3px solid var(--border-strong); background: transparent;
       transform: translate(-50%, -50%); pointer-events: none; z-index: 140;
       transition: border-color 0.3s, background 0.3s;
     }
-    .val-dot.active  { border-color: #89b4fa; background: rgba(137,180,250,0.15); }
-    .val-dot.locked  { border-color: #a6e3a1; background: rgba(166,227,161,0.2); }
-    .val-dot.failed  { border-color: #f38ba8; background: rgba(243,139,168,0.15); }
+    .val-dot.active  { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); }
+    .val-dot.locked  { border-color: var(--green); background: var(--green-bg); }
+    .val-dot.failed  { border-color: var(--red); background: var(--red-bg); }
     .val-dot .check {
       position: absolute; inset: -2px; display: flex;
       align-items: center; justify-content: center;
@@ -219,18 +226,18 @@
     /* Accuracy display */
     .accuracy-hud {
       position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-      text-align: center; z-index: 200; font-size: 14px; color: #a6adc8;
+      text-align: center; z-index: 200; font-size: 14px; color: var(--muted);
     }
     .accuracy-hud .big { font-size: 32px; font-weight: 700; margin: 2px 0; }
-    .accuracy-hud .big.good { color: #a6e3a1; }
-    .accuracy-hud .big.ok   { color: #f9e2af; }
-    .accuracy-hud .big.bad  { color: #f38ba8; }
+    .accuracy-hud .big.good { color: var(--green); }
+    .accuracy-hud .big.ok   { color: var(--yellow); }
+    .accuracy-hud .big.bad  { color: var(--red); }
 
     /* ── Camera preview ─── */
     #camera-preview-wrap {
       position: relative; margin: 16px auto; width: 260px; height: 195px;
-      border-radius: 10px; overflow: hidden; border: 2px solid #313244;
-      background: #11111b;
+      border-radius: 10px; overflow: hidden; border: 2px solid var(--border);
+      background: var(--sunken);
     }
     #camera-preview-wrap img {
       width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);
@@ -238,26 +245,26 @@
     #camera-preview-status {
       position: absolute; bottom: 0; left: 0; right: 0;
       padding: 4px 10px; font-size: 12px; text-align: center;
-      background: rgba(17,17,27,0.85);
+      background: color-mix(in srgb, var(--sunken) 85%, transparent);
     }
-    #camera-preview-status.detecting { color: #f9e2af; }
-    #camera-preview-status.detected  { color: #a6e3a1; }
-    #camera-preview-status.error     { color: #f38ba8; }
+    #camera-preview-status.detecting { color: var(--yellow); }
+    #camera-preview-status.detected  { color: var(--green); }
+    #camera-preview-status.error     { color: var(--red); }
     .face-indicator {
       position: absolute; top: 8px; right: 8px; width: 12px; height: 12px;
-      border-radius: 50%; background: #585b70;
+      border-radius: 50%; background: var(--border-strong);
     }
-    .face-indicator.active { background: #a6e3a1; animation: face-pulse 1s ease-in-out infinite alternate; }
+    .face-indicator.active { background: var(--green); animation: face-pulse 1s ease-in-out infinite alternate; }
     @keyframes face-pulse {
-      from { box-shadow: 0 0 0 0 rgba(166,227,161,0.4); }
-      to   { box-shadow: 0 0 8px 4px rgba(166,227,161,0.1); }
+      from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 40%, transparent); }
+      to   { box-shadow: 0 0 8px 4px color-mix(in srgb, var(--green) 10%, transparent); }
     }
 
     /* ── Blink indicator ─── */
     #blink-indicator {
       position: fixed; top: 20px; right: 20px; z-index: 200;
       padding: 4px 12px; border-radius: 6px; font-size: 12px;
-      background: rgba(243,139,168,0.15); color: #f38ba8; border: 1px solid #f38ba8;
+      background: var(--red-bg); color: var(--red); border: 1px solid var(--red);
       opacity: 0; transition: opacity 0.15s;
     }
     #blink-indicator.visible { opacity: 1; }
@@ -308,9 +315,9 @@
         <li>Sit ~50&ndash;70 cm from the screen</li>
         <li>Face should be well-lit from the front (avoid backlight)</li>
         <li>If you wear <strong>glasses</strong>, keep them on; recalibrate if you remove them</li>
-        <li><strong style="color:#a6e3a1">Vary your head pose slightly</strong> while looking at each dot &mdash; small left/right turns and up/down nods (~5&deg; either way). This teaches the system to compensate when your head moves later, dramatically improving accuracy outside the calibration pose.</li>
+        <li><strong style="color:var(--green)">Vary your head pose slightly</strong> while looking at each dot &mdash; small left/right turns and up/down nods (~5&deg; either way). This teaches the system to compensate when your head moves later, dramatically improving accuracy outside the calibration pose.</li>
         <li>Stare at the exact <strong>center</strong> of each dot</li>
-        <li>The dot will turn <strong style="color:#a6e3a1">green</strong> when it captures a stable reading</li>
+        <li>The dot will turn <strong style="color:var(--green)">green</strong> when it captures a stable reading</li>
       </ul>
     </div>
 
@@ -334,8 +341,8 @@
     </div>
 
     <details id="advanced-wrap" style="margin: 10px auto 4px; max-width: 560px; text-align: left;">
-      <summary style="cursor: pointer; color: #89b4fa; font-size: 13px; padding: 4px 8px;">Advanced camera options</summary>
-      <div style="padding: 10px 12px; background: #11111b; border: 1px solid #313244; border-radius: 8px; margin-top: 6px;">
+      <summary style="cursor: pointer; color: var(--accent); font-size: 13px; padding: 4px 8px;">Advanced camera options</summary>
+      <div style="padding: 10px 12px; background: var(--sunken); border: 1px solid var(--border); border-radius: 8px; margin-top: 6px;">
         <div class="setup-row">
           <label for="cameraProfileSelect">Camera profile:</label>
           <select id="cameraProfileSelect">
@@ -344,7 +351,7 @@
             <option value="hires">Hi-res / 4K webcam</option>
           </select>
         </div>
-        <div style="font-size: 11px; color: #a6adc8; margin: -4px 0 0 8px; line-height: 1.5;">
+        <div style="font-size: 11px; color: var(--muted); margin: -4px 0 0 8px; line-height: 1.5;">
           <strong>Auto</strong>: 640&times;480 processing, driver-default capture. Works for most webcams.<br>
           <strong>IR</strong>: Applies CLAHE contrast boost, relaxed detection thresholds, 1080p capture with sub-pixel iris refinement. Use for Windows Hello / UVC IR cameras.<br>
           <strong>Hi-res / 4K</strong>: Captures at 4K, processes at 1280&times;720 with sub-pixel iris refinement for maximum precision.
@@ -1492,8 +1499,8 @@ function startValidation() {
     accScore.className = 'big bad';
     accDetail.textContent = `⚠ Accuracy outside the reliable range — recalibrating is recommended. ${accDetail.textContent}`;
     recalBtn.textContent = 'Recalibrate (recommended)';
-    recalBtn.style.borderColor = '#f38ba8';
-    recalBtn.style.color = '#f38ba8';
+    recalBtn.style.borderColor = 'var(--red)';
+    recalBtn.style.color = 'var(--red)';
   }
 
   // Show all the validation positions as faint reference dots (visual only).
