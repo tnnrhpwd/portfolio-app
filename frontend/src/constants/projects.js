@@ -18,7 +18,7 @@ import artHype from '../assets/art/project-hype.jpg';
 import artNet from '../assets/art/project-net.jpg';
 import artAnnuities from '../assets/art/project-annuities.jpg';
 import artHalfway from '../assets/art/project-halfway.jpg';
-import artIQ from '../assets/art/project-iqtest.jpg';
+import artQuizzes from '../assets/art/project-quizzes.png';
 import artPassGen from '../assets/art/project-passgen.jpg';
 import artSleepAssist from '../assets/art/project-sleepassist.jpg';
 import artSit from '../assets/art/project-sit.jpg';
@@ -79,11 +79,11 @@ export const PROJECTS = [
     description: "Split any stretch of time exactly in two — find the midpoint between two times (even across midnight) with sunrise and sunset quick-fills.",
   },
   {
-    name: "IQ Test",
-    path: "/iq",
-    art: artIQ,
-    category: "Games",
-    description: "Take a free adaptive IQ test with multiple difficulty tiers and instant results.",
+    name: "Quizzes",
+    path: "/quizzes",
+    art: artQuizzes,
+    category: "Tools",
+    description: "The adaptive IQ test, personality and relationship quizzes, and couples exercises — each with instant results and a full breakdown.",
   },
   {
     name: "PassGen",

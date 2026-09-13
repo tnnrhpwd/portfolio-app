@@ -1,5 +1,41 @@
 /* IQ Test page — styled to match the site's dark gradient theme (see Annuities.css / Wordle.css) */
 
+/* ── Re-point the raw brand hues at the colour scheme ─────────────────────
+ *
+ * This page was painted with the four fixed brand hues, so it ignored the
+ * visitor's colour scheme. This block collapses them onto the scheme's TWO
+ * roles — the same move Home/Profile/Admin make, and one that needs no change
+ * to any rule below it.
+ *
+ * Pairing is by role, not by position: `--fg-blue` is the action/link hue here
+ * (option borders, progress fill, passage rule, focus rings), so it takes the
+ * ACCENT. `--fg-mint` and `--fg-pink` only ever appear opposite it in a ramp
+ * (the primary button, the title underline, the score number, the category
+ * bars), so they take the PRIMARY. `--fg-orange` rides with the accent.
+ *
+ * ⚠️ The full-bleed page background takes `--scheme-backdrop-*`, not the
+ * `-bg` tints: the backdrop tokens pin their lightness per mode, which is what
+ * keeps muted text legible over the page in dark mode. The fallback matters
+ * because the scheme is applied by an effect in `Header`, so it does not exist
+ * on the first paint.
+ *
+ * ⚠️ The category badges are excluded from this on purpose — see the legend
+ * block further down. */
+.iq-test {
+  --iq-backdrop-a: var(--scheme-backdrop-a, var(--scheme-accent-bg));
+  --iq-backdrop-b: var(--scheme-backdrop-b, var(--scheme-primary-bg));
+
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
+  --fg-orange: var(--scheme-accent);
+  --fg-pink: var(--scheme-primary);
+
+  --bg-orange: var(--iq-backdrop-a);
+  --bg-blue: var(--iq-backdrop-a);
+  --bg-mint: var(--iq-backdrop-b);
+  --bg-pink: var(--iq-backdrop-b);
+}
+
 .iq-test {
   color: var(--text-color);
   min-height: 100vh;
@@ -120,7 +156,15 @@
   cursor: pointer;
   transition: all 0.2s ease;
 }
-.iq-test-mode-btn:hover { background: #ffffff1a; }
+/* ⚠️ The hover rules below restate `color` for the same reason as the quiz
+   pages': the global `button:hover:not(:disabled)` flips text to
+   `--text-color-inv`, and these hover to a translucent LIGHT fill, not to the
+   site gradient — which would leave white text on a near-white card.
+   The `:not(:disabled)` is ALSO load-bearing and was missing: without it these
+   rules sit at (0,1,1) against the global rule's (0,2,1), so the global one won
+   outright and hovering one of these controls repainted it with the site
+   gradient instead of the subtle fill written here. */
+.iq-test-mode-btn:hover:not(:disabled) { background: #ffffff1a; color: var(--text-color); }
 .iq-test-mode-btn.selected {
   border-color: var(--fg-blue);
   background: linear-gradient(45deg, #ffffff1f, #ffffff0d);
@@ -151,7 +195,7 @@
   color: var(--text-color);
   border: 2px solid var(--border-nav);
 }
-.iq-test-btn.secondary:hover { background: #ffffff1a; }
+.iq-test-btn.secondary:hover:not(:disabled) { background: #ffffff1a; color: var(--text-color); }
 .iq-test-btn-row { display: flex; gap: calc(var(--nav-size) * 0.2); justify-content: center; flex-wrap: wrap; margin-top: calc(var(--nav-size) * 0.3); }
 
 .iq-test-disclaimer {
@@ -161,6 +205,15 @@
   max-width: 640px;
   margin: calc(var(--nav-size) * 0.3) auto 0;
   line-height: 1.6;
+}
+
+/* This page is listed on the /quizzes hub, so it carries the same way back as
+   the quizzes that live there. */
+.iq-test-back-link {
+  display: inline-block;
+  margin-top: calc(var(--nav-size) * 0.35);
+  font-size: calc(var(--nav-size) * 0.24);
+  color: var(--text-color-accent);
 }
 
 /* Quiz screen */
@@ -187,14 +240,42 @@
   border-radius: 20px;
   color: var(--text-color-inv);
 }
-.iq-test-cat-english { background: var(--fg-orange); }
-.iq-test-cat-reading { background: var(--fg-blue); }
-.iq-test-cat-science { background: var(--fg-mint); }
-.iq-test-cat-logic { background: var(--fg-pink); }
-.iq-test-cat-math { background: rgb(150, 100, 255); }
-.iq-test-cat-spatial { background: rgb(0, 180, 120); }
-.iq-test-cat-critical { background: rgb(255, 180, 0); }
-.iq-test-cat-pattern { background: rgb(230, 70, 70); }
+/* ── The category badges are a LEGEND, not page chrome ────────────────────
+ *
+ * Eight categories, eight hues, and the hue is the quickest read on which
+ * category a question belongs to — so they deliberately keep the brand palette
+ * instead of following the scheme, which offers two roles where this needs
+ * eight colours that stay distinct from each other. They read their own
+ * tokens, which the alias block at the top of this file does not touch;
+ * without that, english/reading would collapse onto one colour and
+ * science/logic onto another.
+ *
+ * The values are the brand palette's own, so this changes nothing visually —
+ * it just stops the alias from swallowing them. The two that differ between
+ * themes are re-pointed for dark mode below. */
+.iq-test {
+  --iq-legend-english: rgb(255, 115, 46);
+  --iq-legend-reading: #0066cc;
+  --iq-legend-science: rgb(0, 193, 193);
+  --iq-legend-logic: rgb(255, 55, 155);
+  --iq-legend-math: rgb(150, 100, 255);
+  --iq-legend-spatial: rgb(0, 180, 120);
+  --iq-legend-critical: rgb(255, 180, 0);
+  --iq-legend-pattern: rgb(230, 70, 70);
+}
+.dark-theme .iq-test {
+  --iq-legend-reading: #4da6ff;
+  --iq-legend-science: rgb(0, 255, 255);
+}
+
+.iq-test-cat-english { background: var(--iq-legend-english); }
+.iq-test-cat-reading { background: var(--iq-legend-reading); }
+.iq-test-cat-science { background: var(--iq-legend-science); }
+.iq-test-cat-logic { background: var(--iq-legend-logic); }
+.iq-test-cat-math { background: var(--iq-legend-math); }
+.iq-test-cat-spatial { background: var(--iq-legend-spatial); }
+.iq-test-cat-critical { background: var(--iq-legend-critical); }
+.iq-test-cat-pattern { background: var(--iq-legend-pattern); }
 
 .iq-test-passage {
   background: #00000033;
@@ -229,7 +310,7 @@
   cursor: pointer;
   transition: all 0.2s;
 }
-.iq-test-option:hover { background: #ffffff1f; border-color: var(--fg-blue); }
+.iq-test-option:hover:not(:disabled) { background: #ffffff1f; border-color: var(--fg-blue); color: var(--text-color); }
 .iq-test-option.selected { border-color: var(--fg-blue); background: #4da6ff26; }
 .iq-test-letter {
   flex-shrink: 0;

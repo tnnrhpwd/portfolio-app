@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
 import Header from '../../../components/Header/Header';
@@ -364,6 +365,8 @@ function IQTest() {
               validated psychometric instrument and should not be used for diagnosis,
               employment, educational placement, or any official purpose.
             </p>
+
+            <Link className="iq-test-back-link" to="/quizzes">← All quizzes</Link>
           </section>
         )}
 

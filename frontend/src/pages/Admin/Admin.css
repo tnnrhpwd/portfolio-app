@@ -84,20 +84,32 @@
      gradient behind it, which is the entire effect. 82% is the most transparent
      a panel can be while body text still holds AA over the brightest pool of
      the light-theme mesh (§18 has the measurement note). */
-  /* `--admin-land` is the LEVEL the glass sits at. In the light theme the page is
-     already near-white, so the surface itself is the land. In the dark theme it
-     is lifted toward white (see below): a pane that is merely *lighter than
-     black* still reads as a hole in the page rather than as a pane resting on
-     it, and that is the difference between "dark dashboard" and "dark glass". */
-  --admin-land: var(--bg-1);
-  /* How much of the land survives in the glass. Lower = more of the room shows
-     through, which is the whole point; the floor is set by contrast, and in the
-     light theme that floor is generous (white glass over a pastel room keeps
-     ~15:1 for the body text even at 60%), so the aesthetic can win. The dark
-     theme runs a little higher because there the room is DARKER than the land,
-     and letting too much through costs the pane its separation. */
-  --admin-glass-a: 80%;
-  --admin-glass-raised-a: 90%;
+  /* `--admin-land` is the LEVEL the glass sits at, and it is the PAGE colour —
+     the same thing `/profile` paints its cards with (`--bg-page` at 84%).
+
+     ⚠️ This used to be `var(--bg-1)`, with the comment "the page is already
+     near-white, so the surface itself is the land". But `--bg-1` is NOT the page.
+     It is `--input-bg-accessible` — deliberately WHITER than the page (`#ffffff`
+     at 95% against `#F4F7FD`) so a form field stands off whatever it sits on.
+     Building the glass out of it made every panel and every row of every table
+     lighter than every card on `/profile`, and that is the whole of the note "on
+     /profile the tables and components are darker than on /admin": not a
+     `/profile` that is too dark, but an INPUT token doing a SURFACE's job.
+     Controls keep `--bg-1` — a field or a button genuinely wants the accessible
+     input background. Only the land moves.
+
+     In the dark theme it is lifted toward white (see below): a pane that is
+     merely *lighter than black* still reads as a hole in the page rather than as
+     a pane resting on it, and that is the difference between "dark dashboard"
+     and "dark glass". */
+  --admin-land: var(--bg-page);
+  /* `/profile`'s surface is `--bg-page` at 84% — see the note on `--admin-land`
+     above, which is now where that number comes from. ONE value for every raised
+     thing on the console, so a panel, a tile and the bar cannot drift into three
+     slightly different glasses. The old 80/90 pair is gone; `--admin-glass-raised`
+     survives as a NAME (the bar uses it) and is no longer a different material. */
+  --admin-glass-a: 84%;
+  --admin-glass-raised-a: 84%;
   --admin-glass: color-mix(in srgb, var(--admin-land) var(--admin-glass-a), transparent);
   --admin-glass-raised: color-mix(in srgb, var(--admin-land) var(--admin-glass-raised-a), transparent);
   /* There is no ambient DOSE any more. The room draws its two hues straight from
@@ -106,14 +118,22 @@
      which is precisely what a tint is.
 
      `--admin-room-mix` is the knob that works. It mixes the hue toward the page
-     colour, so the room keeps being a colour and simply loses saturation. Full
-     strength was too loud for a page that is mostly numbers — the note was "too
-     colorful", not "not colourful enough" — so this sits deliberately short of
-     `/profile`, which is a marketing backdrop with far less to read on top of it.
+     colour, so the room keeps being a colour and simply loses saturation.
+
+     ⚠️ This was pulled down to 68% when the note was "too colorful"; it is back
+     up near `/profile` now that the note is "make the components more like
+     /profile". The two notes disagree because THIS is the token that decides how
+     much colour the components carry: the panes are ~80% glass over the room, so a
+     paler room reads through them as plain white. The room is not decoration — it
+     is what the glass is tinted BY.
+
+     Still short of `/profile`'s 100%: that backdrop is a marketing surface with
+     almost nothing to read on it, and this page is mostly numbers. 90 keeps the
+     room unmistakably the scheme while leaving the panes legible.
 
      The ALERT hue is still absent, deliberately: a colour used as wallpaper
      cannot mean "look at me". */
-  --admin-room-mix: 68%;
+  --admin-room-mix: 90%;
   /* The halo layer, one step looser than the room and moving at its own rate, so
      the two read as depth rather than as one flat wash. Barely there now: the room
      already supplies the colour, and a second saturated layer on top of a first is
@@ -151,16 +171,17 @@
   --admin-spec: color-mix(in srgb, var(--white0) 62%, transparent);
   /* A panel head is a tone change, not a line and not a second hue. */
   --admin-sheen: color-mix(in srgb, var(--text-color) 6.5%, transparent);
-  --admin-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 10px 26px -10px rgba(0, 0, 0, 0.26);
+  --admin-shadow: var(--shadow-md);
 
   /* The whole recipe in one place, so the bar, the panels and the KPI tiles
      cannot drift apart into three slightly different glasses. Three layers,
      bottom-first: the gradient hairline painted into the (transparent) border
      box, the glass fill clipped to the padding box, and the grain over both. */
-  --admin-glass-panel:
-    var(--admin-noise) center / 180px 180px repeat padding-box,
-    linear-gradient(var(--admin-glass), var(--admin-glass)) padding-box,
-    linear-gradient(150deg, var(--admin-edge-hi), var(--admin-edge-lo) 70%, var(--admin-edge-hi)) border-box;
+  /* `/profile`'s surface, verbatim: one translucent page-colour fill and nothing
+     else. The grain and the gradient edge-tint went with the wash — there is no
+     gradient left for the grain to dither, and `/profile`'s own note is "soft,
+     translucent, no hard borders". */
+  --admin-glass-panel: linear-gradient(var(--admin-glass), var(--admin-glass));
   /* The same recipe with the element's OWN accent laid over the glass. This is
      what gives a panel a temperature.
 
@@ -180,17 +201,15 @@
      `--admin-accent: transparent` both stops are transparent and the whole layer
      disappears, which is what keeps a toneless element byte-identical to the one
      above it. */
-  --admin-glass-panel-washed:
-    var(--admin-noise) center / 180px 180px repeat padding-box,
-    linear-gradient(160deg, color-mix(in srgb, var(--admin-accent) var(--admin-wash), transparent), transparent 82%) padding-box,
-    linear-gradient(var(--admin-glass), var(--admin-glass)) padding-box,
-    linear-gradient(150deg, var(--admin-edge-hi), var(--admin-edge-lo) 70%, var(--admin-edge-hi)) border-box;
+  --admin-glass-panel-washed: var(--admin-glass-panel);
   /* How much of the accent goes into that wash, at its STRONGEST corner. This is
      the top of a ramp, not a flat tint: the wash falls away diagonally, so the
-     number here is a ceiling and the panel's far corner is plain glass. Kept
-     modest on purpose — this is a temperature, not a colour — but it is the main
-     reason a wall of panels now reads as a scheme rather than as grey. */
-  --admin-wash: 15%;
+     number here is a ceiling and the panel's far corner is plain glass.
+
+     Raised alongside the room, and the two do different jobs: the ROOM decides the
+     colour BEHIND a pane, the WASH decides the colour IN it. Between them a wall
+     of panels reads as a scheme rather than as grey — which was the whole note. */
+  --admin-wash: 22%;
   /* How much of a hue a proportion bar carries. Stronger than the wash, because
      a bar is data and data is meant to be read. */
   --admin-share-dose: 26%;
@@ -266,15 +285,14 @@
      under it — nothing does — but because it is the console's FRAME rather than one
      of its panes, and a frame should not dissolve into the room the way a panel
      deliberately does. */
-  --admin-glass-bar:
-    var(--admin-noise) center / 180px 180px repeat padding-box,
-    linear-gradient(var(--admin-glass-raised), var(--admin-glass-raised)) padding-box,
-    linear-gradient(150deg, var(--admin-edge-hi), var(--admin-edge-lo) 70%, var(--admin-edge-hi)) border-box;
+  --admin-glass-bar: linear-gradient(var(--admin-glass-raised), var(--admin-glass-raised));
 
   /* Concentric radii: an inner block's radius is its parent's minus the gap, so
      the curves stay parallel (Apple calls this concentricity). */
-  --admin-radius: 20px;
-  --admin-radius-inner: 14px;
+  /* `/profile`'s radii and shadow, so a panel and a card have the same corner and
+     the same lift. */
+  --admin-radius: var(--border-radius-2xl);
+  --admin-radius-inner: var(--border-radius);
 
   /* A whisper of grain, baked into the SVG at 6%: fractalNoise, desaturated,
      tiled. It kills the banding an 8-bit gradient shows across a wide panel and
@@ -391,16 +409,24 @@
   animation: adminHaloFloat 30s ease-in-out infinite;
 }
 .dark-theme .admin-surface {
-  /* Lift the land off the near-black page, so a panel reads as a raised pane.
-     93/7 is deliberately modest — enough to separate, not so much that the
-     console stops being dark. */
-  --admin-land: color-mix(in srgb, var(--bg-1) 93%, var(--white0));
-  --admin-glass-a: 88%;
-  --admin-glass-raised-a: 92%;
-  --admin-room-mix: 62%;
+  /* Lift the land off the page, so a panel reads as a raised pane. 93/7 is
+     deliberately modest — enough to separate, not so much that the console stops
+     being dark.
+
+     The BASE is the page colour, not `--bg-1` (see the note on `--admin-land`
+     above). In this theme `--bg-1` is the dark input background, `#2d2d2e`, which
+     is around four times the page's lightness (`--grey5`, `#151516`) — so a pane
+     built from it glowed instead of resting. */
+  --admin-land: color-mix(in srgb, var(--bg-page) 93%, var(--white0));
+  --admin-glass-a: 84%;
+  --admin-glass-raised-a: 84%;
+  /* Both follow the light theme up, for the same reason: the components are read
+     THROUGH the glass, so the room's saturation and the panel wash are what make
+     them look like the scheme rather than like white boxes. */
+  --admin-room-mix: 86%;
   --admin-halo-a: 12%;
   --admin-halo-b: 12%;
-  --admin-wash: 18%;
+  --admin-wash: 26%;
   --admin-share-dose: 38%;
   /* Same recipe, lifted: on a dark pane the hues need more light behind them to
      read as the same two colours rather than as two dark smudges. */
@@ -429,7 +455,7 @@
   --admin-selected-hi: color-mix(in srgb, var(--scheme-primary) 30%, var(--bg-1));
   --admin-btn-hover: color-mix(in srgb, var(--bg-1) 88%, var(--white0));
   --admin-light: color-mix(in srgb, var(--white0) 11%, transparent);
-  --admin-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 30px -12px rgba(0, 0, 0, 0.6);
+  --admin-shadow: var(--shadow-md);
 }
 
 /* The one container the surface owns, so no view has to know how wide the
@@ -474,7 +500,9 @@
   background:
     linear-gradient(90deg, color-mix(in srgb, var(--tone-accent) 11%, transparent), transparent 56%, color-mix(in srgb, var(--tone-highlight) 11%, transparent)) padding-box,
     var(--admin-glass-bar);
-  box-shadow: inset 0 1px 0 var(--admin-spec), var(--admin-shadow);
+  /* No specular inset: it is the one thing that made the bar read as a pane of
+     glass rather than as a surface, and `/profile` has no equivalent. */
+  box-shadow: var(--admin-shadow);
 }
 /* The one piece of brand on the page: an accent rule inside the bar's lower
    edge, inset by the bar's own radius so the curve stays clean. */
@@ -696,10 +724,13 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border: 1px solid transparent;
+  /* `/profile`'s card surface, not a material of the console's own: one
+     translucent page-colour fill, no border, one shared shadow. See the note on
+     `--admin-glass-panel` above for what was removed and why. */
+  border: none;
   border-radius: var(--admin-radius);
-  background: var(--admin-glass-panel-washed);
-  box-shadow: inset 0 1px 0 var(--admin-spec), var(--admin-shadow);
+  background: var(--admin-glass-panel);
+  box-shadow: var(--admin-shadow);
   overflow: hidden;
 }
 /* A pinned hue shows as an ACCENT RULE along the top, never as a fill. With no
@@ -754,24 +785,25 @@
 .admin-tone--warn { --admin-accent: var(--tone-alert); }
 .admin-tone--bad { --admin-accent: var(--tone-alert); }
 
-/* The head is a tone change — a sheen falling from the top of the glass — plus,
-   when a tone IS set, a glow spilling in from the left so the panel's family is
-   legible at a glance. With a neutral panel the first layer is transparent and
-   only the sheen remains.
+/* The head is a FLAT neutral band, the same tone change a table's `thead` uses —
+   so a panel head and a table head read as the same object, which is the point.
 
-   Keep this glow softer than it looks like it should be: it lands on top of the
-   wash and the panel's own accent rule, and the three together are what make a
-   panel read as tinted. Pushed to 22% the pink head read as a solid pink bar
-   rather than as light falling on glass. */
+   It carried two gradients until it was flattened: a 19% accent wash falling away
+   to the right, and a vertical sheen. The accent one is what made a title bar look
+   like the header of a gradient table.
+
+   A tone is still legible without them: every panel wears the accent rule in
+   `::before`, and a real tone lifts that rule to full strength. */
 .admin-panel-head {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.22);
   padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.28);
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--admin-accent) 19%, transparent), transparent 66%),
-    linear-gradient(180deg, var(--admin-sheen), transparent);
+  /* TRANSPARENT — a `/profile` card header is a row of type inside the card's own
+     padding, with no band behind it. The band was the last thing making a panel's
+     top read as a table header rather than as a title. */
+  background: transparent;
 }
 .admin-panel-heading { min-width: 0; flex: 1 1 auto; }
 /* The panel's own title is the only heading the view needs. */
@@ -826,7 +858,13 @@
   color: var(--text-color);
 }
 
-.admin-surface .admin-table thead { background: var(--admin-sunken); }
+/* `/profile` has no banded header: a card's title sits on the card, and rows are
+   separated by a hairline. The head is transparent and states itself with the same
+   rule the body uses. */
+.admin-surface .admin-table thead {
+  background: transparent;
+  border-bottom: 1px solid var(--border-nav);
+}
 .admin-surface .admin-table th {
   position: relative;
   text-align: left;
@@ -846,14 +884,18 @@
   /* Figures that change between renders should not make the column breathe. */
   font-variant-numeric: tabular-nums;
 }
-.admin-surface .admin-table tbody tr:nth-child(odd) {
-  background-color: var(--admin-tint);
+/* ⚠️ Was alternating tints, under the note "rows are separated by alternating
+   tints, never a hairline under each row". It is now the opposite, because the
+   zebra was the loudest remaining difference between a console table and a
+   `/profile` list: hairlines, no tint, and `/profile`'s brand-tinted hover. A rule
+   on every row also beats a stripe on the 7- and 8-column tables the console has. */
+.admin-surface .admin-table tbody tr {
+  border-bottom: 1px solid var(--border-nav);
 }
-.admin-surface .admin-table tbody tr:hover {
-  background-color: var(--admin-tint-strong);
-}
+.admin-surface .admin-table tbody tr:last-child { border-bottom: none; }
+.admin-surface .admin-table tbody tr:hover,
 .admin-surface .admin-table tr:focus-within {
-  background-color: var(--admin-tint-strong);
+  background-color: color-mix(in srgb, var(--fg-blue) 12%, transparent);
 }
 .admin-surface .admin-table-no-data {
   padding: calc(var(--nav-size) * 0.4);
@@ -871,6 +913,7 @@
 .mini-table th {
   text-align: left;
   padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.12);
+  border-bottom: 1px solid var(--border-nav);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.08em;
@@ -883,9 +926,10 @@
   line-height: var(--line-height-base);
   font-variant-numeric: tabular-nums;
 }
-.mini-table tbody tr:nth-child(odd) {
-  background-color: var(--admin-tint);
+.mini-table tbody tr {
+  border-bottom: 1px solid var(--border-nav);
 }
+.mini-table tbody tr:last-child { border-bottom: none; }
 .mini-table-total td {
   font-weight: var(--font-weight-bold);
   background-color: var(--admin-sunken-strong);
@@ -1148,10 +1192,13 @@
   container-type: inline-size;
   min-width: 0;
   padding: calc(var(--nav-size) * 0.26) calc(var(--nav-size) * 0.3);
-  border: 1px solid transparent;
+  /* Same surface as a panel and as a `/profile` card. A tile used to wear the
+     washed recipe, which left the top row of the console as the one place still
+     carrying an accent ramp. */
+  border: none;
   border-radius: var(--admin-radius-inner);
-  background: var(--admin-glass-panel-washed);
-  box-shadow: inset 0 1px 0 var(--admin-spec), var(--admin-shadow);
+  background: var(--admin-glass-panel);
+  box-shadow: var(--admin-shadow);
   overflow: hidden;
   transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
@@ -1203,7 +1250,7 @@
   );
   transition: opacity 0.3s ease;
 }
-.kpi-card:hover { transform: translateY(-4px); box-shadow: inset 0 1px 0 var(--admin-spec), 0 2px 5px rgba(0, 0, 0, 0.07), 0 18px 40px -16px rgba(0, 0, 0, 0.32), 0 0 26px -6px color-mix(in srgb, var(--admin-accent) 55%, transparent); }
+.kpi-card:hover { transform: translateY(-4px); box-shadow: 0 2px 5px rgba(0, 0, 0, 0.07), 0 18px 40px -16px rgba(0, 0, 0, 0.32), 0 0 26px -6px color-mix(in srgb, var(--admin-accent) 55%, transparent); }
 @media (hover: hover) and (pointer: fine) {
   .kpi-card:hover::after { opacity: 1; }
 }
@@ -1342,7 +1389,8 @@
 /* Alternating tints, not a hairline under every row. `background-color`, never
    the `background` shorthand — the shorthand would reset `background-image` and
    silently erase the proportion bar on every odd row. */
-.stat-row:nth-child(odd) { background-color: var(--admin-tint); }
+.stat-row { border-bottom: 1px solid var(--border-nav); }
+.stat-row:last-child { border-bottom: none; }
 .stat-row strong { font-weight: var(--font-weight-semibold); white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* The label half has to be allowed to shrink. A long path (or a referer, or a
    country name) otherwise pushed the count — which is `nowrap` — past the
@@ -1351,7 +1399,7 @@
 .stat-row > span { min-width: 0; overflow-wrap: anywhere; }
 .stat-row.muted { color: var(--plane-muted); }
 .stat-row--clickable { cursor: pointer; }
-.stat-row--clickable:hover { background-color: var(--admin-tint-strong); }
+.stat-row--clickable:hover { background-color: color-mix(in srgb, var(--fg-blue) 12%, transparent); }
 .stat-row--active { background-color: var(--admin-selected); }
 
 /* ── Proportion bars ──────────────────────────────────────────────────────
@@ -1396,7 +1444,8 @@
   padding: calc(var(--nav-size) * 0.09) calc(var(--nav-size) * 0.12);
   font-size: var(--font-size-small);
 }
-.signup-row:nth-child(odd) { background-color: var(--admin-tint); }
+.signup-row { border-bottom: 1px solid var(--border-nav); }
+.signup-row:last-child { border-bottom: none; }
 .signup-name {
   flex: 1 1 auto;
   min-width: 0;
@@ -1647,8 +1696,9 @@
   color: var(--text-color);
   transition: background 0.15s ease;
 }
-.timeline-step:nth-child(odd) { background-color: var(--admin-tint); }
-.timeline-step:hover { background-color: var(--admin-tint-strong); }
+.timeline-step { border-bottom: 1px solid var(--border-nav); }
+.timeline-step:last-child { border-bottom: none; }
+.timeline-step:hover { background-color: color-mix(in srgb, var(--fg-blue) 12%, transparent); }
 .timeline-dot {
   width: 8px;
   height: 8px;
@@ -2138,12 +2188,10 @@
     padding: calc(var(--nav-size) * 0.1) 0;
     border-radius: var(--border-radius);
   }
-  /* Zebra stripes on a block this tall read as a divider, so the *even* rows
-     carry the tint instead of the odd ones. */
-  .admin-surface .admin-table--stacked tbody tr:nth-child(odd) { background: transparent; }
-  .admin-surface .admin-table--stacked tbody tr:nth-child(even) {
-    background-color: var(--admin-tint);
-  }
+  /* No zebra in either parity: the row hairline carries the separation here too,
+     and on a block this tall a tint reads as a divider rather than as a stripe. */
+  .admin-surface .admin-table--stacked tbody tr:nth-child(odd),
+  .admin-surface .admin-table--stacked tbody tr:nth-child(even) { background: transparent; }
   .admin-surface .admin-table--stacked td {
     display: grid;
     grid-template-columns: 9ch minmax(0, 1fr);

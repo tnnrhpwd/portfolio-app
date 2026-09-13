@@ -349,14 +349,6 @@ function Home() {
                         <p className={`home-subtitle ${animationPhase >= 1 ? 'is-visible' : ''}`}>
                             Let's build a brighter tomorrow!
                         </p>
-                        <div className={`home-actions ${animationPhase >= 1 ? 'is-visible' : ''}`}>
-                            {/* Product first: "what I can do for you" used to send the
-                                visitor to /pricing before they had seen anything work.
-                                /simple explains the whole loop and stays readable
-                                signed-out, so it is the honest first step. */}
-                            <Link className="home-btn" to="/simple">See it work <span aria-hidden="true">→</span></Link>
-                            <Link className="home-btn home-btn-text" to="/projects">Browse my work <span aria-hidden="true">→</span></Link>
-                        </div>
                     </div>
                 </section>
 

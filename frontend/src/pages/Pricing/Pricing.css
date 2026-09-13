@@ -322,13 +322,13 @@
   color: var(--text-color-inv);
   background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
 }
-.pricing-plan-cta.primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.pricing-plan-cta.primary:hover:not(:disabled) { color: var(--text-color-inv); transform: translateY(-2px); box-shadow: var(--shadow-md); }
 .pricing-plan-cta.secondary {
   border: 1px solid var(--border-nav);
   color: var(--text-color);
   background: transparent;
 }
-.pricing-plan-cta.secondary:hover:not(:disabled) { background: var(--bg-accent); }
+.pricing-plan-cta.secondary:hover:not(:disabled) { color: var(--text-color); background: var(--bg-accent); }
 .pricing-plan-cta:disabled { opacity: 0.55; cursor: not-allowed; }
 
 /* Loading state */
@@ -650,10 +650,14 @@
   text-decoration: none;
   transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
+/* ⚠️ Each of these must NAME its `color`. The global `a:hover` tint is (0,1,1)
+   and outranks a plain class at (0,1,0); the plan CTA is a <Link> and the other
+   two render as anchors on the hero. Unnamed, the label turns the scheme's
+   PRIMARY — an end of the gradient underneath it — and vanishes on hover. */
 .pricing-btn--inv { background: var(--white0); color: var(--grey5); }
-.pricing-btn--inv:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.pricing-btn--inv:hover:not(:disabled) { color: var(--grey5); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 .pricing-btn--ghost { background: transparent; color: var(--white0); border-color: var(--white0); }
-.pricing-btn--ghost:hover:not(:disabled) { background: var(--white1-transp); box-shadow: none; }
+.pricing-btn--ghost:hover:not(:disabled) { color: var(--white0); background: var(--white1-transp); box-shadow: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .pricing-hero,

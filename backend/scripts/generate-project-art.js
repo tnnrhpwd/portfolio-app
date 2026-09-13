@@ -79,6 +79,11 @@ const PROJECT_ART = [
     prompt:
       'A vibrant 3D render of two glossy smooth matte-black dumbbells and a matching kettlebell arranged as a clean still life on a reflective surface, completely plain unmarked weights with no lettering or logos, a soft glowing cyan heartbeat line and a curving progress chart floating behind them, over a blurred pastel background of mint, cyan, hot pink and orange bokeh lights, shallow depth of field, premium product photography, no text, no writing, no numbers, no markings',
   },
+  {
+    slug: 'quizzes',
+    prompt:
+      'A vibrant 3D render of a glossy translucent clipboard with rounded abstract multiple-choice bubbles, three of them glowing in mint, pink and blue, a stylized lightbulb and a small floating question-mark shape hovering above it, over a soft blurred background of pastel pink, mint, orange and blue bokeh lights, shallow depth of field, premium render, no text, no writing, no numbers',
+  },
 ];
 
 async function generateOne(entry) {

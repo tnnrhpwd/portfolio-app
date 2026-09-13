@@ -32,6 +32,16 @@ const Game2048 = lazy(() => import('./pages/Projects/Game2048/Game2048'));
 const Halfway = lazy(() => import('./pages/Projects/Halfway/Halfway'));
 const Hype = lazy(() => import('./pages/Hype/Hype'));
 const IQTest = lazy(() => import('./pages/Projects/IQTest/IQTest'));
+const Quizzes = lazy(() => import('./pages/Projects/Quizzes/Quizzes'));
+const QuizMBTI = lazy(() => import('./pages/Projects/Quizzes/pages/MBTI'));
+const QuizBigFive = lazy(() => import('./pages/Projects/Quizzes/pages/BigFive'));
+const QuizEnneagram = lazy(() => import('./pages/Projects/Quizzes/pages/Enneagram'));
+const QuizAutism = lazy(() => import('./pages/Projects/Quizzes/pages/AutismScreening'));
+const QuizAdhd = lazy(() => import('./pages/Projects/Quizzes/pages/AdhdScreening'));
+const QuizAttachment = lazy(() => import('./pages/Projects/Quizzes/pages/AttachmentStyle'));
+const QuizLoveLanguages = lazy(() => import('./pages/Projects/Quizzes/pages/LoveLanguages'));
+const QuizValuesAlignment = lazy(() => import('./pages/Projects/Quizzes/pages/ValuesAlignment'));
+const QuizThirtySix = lazy(() => import('./pages/Projects/Quizzes/pages/ThirtySixQuestions'));
 const MicTest = lazy(() => import('./pages/MicTest/MicTest'));
 const Muse = lazy(() => import('./pages/Muse/Muse'));
 const Music = lazy(() => import('./pages/Music/Music'));
@@ -139,6 +149,16 @@ function App() {
               <Route path="/halfway" element={<Halfway/>} />
               <Route path='/hype' element={<Hype />} />
               <Route path="/iq" element={<IQTest/>} />
+              <Route path="/quizzes" element={<Quizzes />} />
+              <Route path="/mbti" element={<QuizMBTI />} />
+              <Route path="/big-five" element={<QuizBigFive />} />
+              <Route path="/enneagram" element={<QuizEnneagram />} />
+              <Route path="/autism-screening" element={<QuizAutism />} />
+              <Route path="/adhd-screening" element={<QuizAdhd />} />
+              <Route path="/attachment-style" element={<QuizAttachment />} />
+              <Route path="/love-languages" element={<QuizLoveLanguages />} />
+              <Route path="/values-alignment" element={<QuizValuesAlignment />} />
+              <Route path="/36-questions" element={<QuizThirtySix />} />
               <Route path='/login' element={<Login />} />
               <Route path='/muse' element={<Muse />} />
               <Route path='/music' element={<Music />} />

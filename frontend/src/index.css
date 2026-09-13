@@ -380,12 +380,12 @@ body.dark-theme[data-scheme='neutral'] {
         still recognisably theirs.
 
    2. The hexes below are only a SEED, for the first paint before the inline pair
-      exists (and for a `custom` id with no pair stored). The seed is Aurora's, so
-      a visitor who lands on the custom scheme with nothing chosen sees the site's
-      own colours rather than a colourless page. */
+      exists (and for a `custom` id with no pair stored). They are the DEFAULT
+      scheme's, so a visitor who lands on the custom scheme with nothing chosen
+      sees the site's own colours rather than a colourless page. */
 body[data-scheme='custom'] {
-  --scheme-hue-accent: #00c1c1;
-  --scheme-hue-primary: #ff379b;
+  --scheme-hue-accent: #06b6d4;
+  --scheme-hue-primary: #3b82f6;
   --scheme-accent: var(--scheme-hue-accent);
   --scheme-primary: var(--scheme-hue-primary);
   --scheme-accent: oklch(from var(--scheme-hue-accent) var(--scheme-l) min(c, var(--scheme-c)) h);

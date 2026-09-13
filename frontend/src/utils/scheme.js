@@ -23,15 +23,16 @@
  *  `primary` is the emphasis hue (the one action per view, the headline figure).
  *  Roles, not positions. The ten named themes are the SimpleAddon's, copied from
  *  `SimpleTheme.css` so `/net` and `/profile` offer the same choices under the
- *  same names; `aurora` is the site's own default and leads the list. */
+ *  same names. `ocean` leads the list because it is the DEFAULT — the first thing
+ *  the picker offers is the one a new visitor is already looking at. */
 export const SCHEMES = [
+  { id: 'ocean', label: '🌊 Ocean', accent: '#06b6d4', primary: '#3b82f6' },
   { id: 'aurora', label: 'Aurora', accent: '#00c1c1', primary: '#ff379b' },
   { id: 'crimson', label: '❤️ Crimson', accent: '#dc2626', primary: '#f472b6' },
   { id: 'emerald', label: '💎 Emerald', accent: '#10b981', primary: '#06b6d4' },
   { id: 'sakura', label: '🌸 Sakura', accent: '#ec4899', primary: '#a78bfa' },
   { id: 'midnight', label: '🌃 Midnight Blue', accent: '#3b82f6', primary: '#8b5cf6' },
   { id: 'sunset', label: '🌅 Sunset', accent: '#f97316', primary: '#ec4899' },
-  { id: 'ocean', label: '🌊 Ocean', accent: '#06b6d4', primary: '#3b82f6' },
   { id: 'cyberpunk', label: '🔮 Cyberpunk', accent: '#f0e030', primary: '#e040fb' },
   { id: 'monokai', label: '🖥️ Monokai', accent: '#a6e22e', primary: '#66d9ef' },
   { id: 'usa', label: '🇺🇸 USA', accent: '#b22234', primary: '#3c3b6e' },
@@ -42,9 +43,11 @@ export const SCHEMES = [
   { id: 'neutral', label: '⚫ Neutral', accent: '#808080', primary: '#808080' },
 ];
 
-/** The site's own colours. Anything unrecognised (or nothing at all) falls back
- *  here, so a stale value in storage can never leave the site colourless. */
-export const DEFAULT_SCHEME = 'aurora';
+/** What a NEW visitor gets, and the fallback for anything unrecognised in
+ *  storage — so a stale value can never leave the site colourless.
+ *  ⚠️ Keep this in step with the two things outside JS that assume the default:
+ *  the `SCHEMES` order above, and the custom scheme's seed in `index.css`. */
+export const DEFAULT_SCHEME = 'ocean';
 
 /** The one scheme a visitor BUILDS. It is not in `SCHEMES` because it has no
  *  fixed hues to list — its two arrive at runtime — but it is a scheme in every

@@ -302,7 +302,11 @@
   border-radius: 999px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.projects-meta-link:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+/* ⚠️ `color` must be NAMED here. The global `a:hover { color: var(--fg-mint) }` is
+   (0,1,1) and outranks a plain class at (0,1,0) — this is an <a> — so unnamed the
+   label turns the scheme's PRIMARY, an end of the gradient beneath it, and the
+   text disappears on hover instead of dimming. */
+.projects-meta-link:hover { color: var(--text-color-inv); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 
 /* The page's closing CTA is the shared `SimpleCtaBand` component (Chat /
    Control / Goals + the addon download + the price note), styled in

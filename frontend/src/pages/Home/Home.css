@@ -243,7 +243,13 @@
   gap: calc(var(--nav-size) * 0.12);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.home-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+/* ⚠️ `color` must be NAMED on hover. The global `a:hover { color: var(--fg-mint) }`
+   is (0,1,1) and outranks a plain class at (0,1,0) — and these buttons are <a>
+   elements. Left unnamed, the label turns the scheme's PRIMARY, which is one end
+   of the gradient already underneath it, so the text does not dim on hover: it
+   disappears. `.home-btn-text` sits on a transparent fill, so it keeps the
+   reading ink instead. */
+.home-btn:hover { color: var(--text-color-inv); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 .home-btn-text {
   background: transparent;
   color: var(--text-color);
@@ -252,7 +258,7 @@
   font-size: var(--font-size-base);
   padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.2);
 }
-.home-btn-text:hover { transform: none; box-shadow: none; }
+.home-btn-text:hover { color: var(--text-color); transform: none; box-shadow: none; }
 .home-btn-text span { transition: transform 0.2s ease; }
 .home-btn-text:hover span { transform: translateX(4px); }
 

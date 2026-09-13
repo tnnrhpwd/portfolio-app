@@ -123,7 +123,11 @@
   gap: calc(var(--nav-size) * 0.12);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.simple-cta-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+/* ⚠️ `color` must be NAMED on hover. The global `a:hover { color: var(--fg-mint) }`
+   is (0,1,1) and outranks a plain class at (0,1,0) — and both buttons here are
+   anchors. Unnamed, the label turns the scheme's PRIMARY, which is one end of the
+   band's own gradient, so the text does not dim on hover: it disappears. */
+.simple-cta-btn:hover { color: var(--text-color-inv); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 .simple-cta-btn:focus-visible {
   outline: 3px solid var(--text-color-inv);
   outline-offset: 3px;
@@ -132,6 +136,9 @@
   background: var(--text-color-inv);
   color: var(--text-color);
 }
+/* The inverse fill is a light slab, so the label keeps the READING ink on hover —
+   not `--text-color-inv`, which is what the band uses. */
+.simple-cta-btn--inv:hover { color: var(--text-color); }
 .simple-cta-btn--ghost {
   background: transparent;
   color: var(--text-color-inv);
@@ -140,6 +147,7 @@
 .simple-cta-btn--ghost:hover {
   background: color-mix(in srgb, var(--text-color-inv) 16%, transparent);
   border-color: var(--text-color-inv);
+  color: var(--text-color-inv);
   box-shadow: none;
 }
 
