@@ -1731,6 +1731,19 @@ stack before computing each ratio:
   the end (the shared browser surface collapsed to 6px wide, §13.17's hazard), so the final
   checks are geometric plus computed styles. Worth one real run of the addon.
 
+- ⬜ **The addon release was NOT cut, so installed copies still run the previous build.**
+  `simple-addon/release.js` refuses to run unless `git status --porcelain` is empty, and at
+  the time this landed the shared working tree held **25 uncommitted files from other
+  in-flight sessions** (`pages/Simple/**` — Market, Net, Plans, DreamBoard, GoalDetail,
+  SimplePage — `components/SimpleAddon/*.css`, `frontend/src/index.css`,
+  `Projects/Halfway/Halfway.js`, `FRONTEND_UI_STANDARD.md`, `netlify.toml`) and nothing
+  under `simple-addon/`. Committing or stashing another session's work to get a build out
+  is not this pass's call, so the code is on `origin/master` (`42c6345`) and the release is
+  a one-liner away: once that work is committed or stashed, run `node release.js` from
+  `simple-addon/` — it bumps the build number, commits, tags `addon-vX.Y.Z` and pushes;
+  `.github/workflows/build-addon.yml` then publishes the (draft) release and running apps
+  pick it up on their next update check or via **Check for Updates** in the dashboard.
+
 ---
 
 **Companion doc:** [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md) — threat model, trust boundaries, and the permissions matrix.
