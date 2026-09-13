@@ -17,10 +17,6 @@ export class SettingsScene extends BaseScene {
     this.render();
   }
 
-  protected onResize(): void {
-    this.render();
-  }
-
   private render(): void {
     this.clearScreen();
     this.applyBackground();
@@ -29,31 +25,37 @@ export class SettingsScene extends BaseScene {
     this.backButton('Main');
 
     const settings = getSettings();
-    const gap = this.compact ? 96 : 80;
+    const portrait = this.portrait;
+    // Each row is a label with its control beneath it in the tall box, and a
+    // label with the control beside it in the wide one. The tall box has room
+    // for generous spacing, which also gives every tap target extra clearance.
+    const gap = portrait ? 152 : 80;
+    const top = portrait ? 240 : 180;
 
-    addText(this, this.cx, 115, 'These preferences apply instantly and are saved.', {
+    addText(this, this.cx, portrait ? 160 : 115, 'These preferences apply instantly and are saved.', {
       fontSize: '16px',
       color: '#b8aa94',
+      wordWrap: { width: this.w - 60 },
+      align: 'center',
     });
 
-    this.row(180, 'Text size', TEXT_LABELS[settings.textScale] ?? 'Normal', () => this.cycleTextSize());
-    this.row(180 + gap, 'High contrast', settings.highContrast ? 'ON' : 'OFF', () => this.toggle('highContrast'));
-    this.row(180 + gap * 2, 'Reduced motion', settings.reducedMotion ? 'ON' : 'OFF', () => this.toggle('reducedMotion'));
-    this.row(180 + gap * 3, 'Sound', settings.muted ? 'OFF' : 'ON', () => this.toggleSound());
-    this.row(180 + gap * 4, 'Theme', THEME_LABELS[settings.theme], () => this.cycleTheme());
+    this.row(top, 'Text size', TEXT_LABELS[settings.textScale] ?? 'Normal', () => this.cycleTextSize());
+    this.row(top + gap, 'High contrast', settings.highContrast ? 'ON' : 'OFF', () => this.toggle('highContrast'));
+    this.row(top + gap * 2, 'Reduced motion', settings.reducedMotion ? 'ON' : 'OFF', () => this.toggle('reducedMotion'));
+    this.row(top + gap * 3, 'Sound', settings.muted ? 'OFF' : 'ON', () => this.toggleSound());
+    this.row(top + gap * 4, 'Theme', THEME_LABELS[settings.theme], () => this.cycleTheme());
     // ── TEMPORARY DEBUG (remove later) ──
-    this.row(180 + gap * 5, 'Debug gold', '+1000 GOLD', () => this.addDebugGold());
+    this.row(top + gap * 5, 'Debug gold', '+1000 GOLD', () => this.addDebugGold());
   }
 
   private row(y: number, label: string, value: string, onToggle: () => void): void {
-    const compact = this.compact;
-    addText(this, compact ? this.cx : this.cx - 220, compact ? y - 24 : y, label, { fontSize: '20px' }).setOrigin(
-      compact ? 0.5 : 0,
-      0.5,
-    );
-    this.button(compact ? this.cx : this.cx + 200, compact ? y + 24 : y, value, onToggle, {
-      width: 180,
-      height: 48,
+    const portrait = this.portrait;
+    addText(this, portrait ? this.cx : this.cx - 220, portrait ? y - 26 : y, label, {
+      fontSize: portrait ? '22px' : '20px',
+    }).setOrigin(portrait ? 0.5 : 0, 0.5);
+    this.button(portrait ? this.cx : this.cx + 200, portrait ? y + 28 : y, value, onToggle, {
+      width: portrait ? 240 : 180,
+      height: portrait ? 56 : 48,
       fontSize: 18,
     });
   }

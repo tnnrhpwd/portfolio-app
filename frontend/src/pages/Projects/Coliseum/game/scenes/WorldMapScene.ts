@@ -11,10 +11,6 @@ export class WorldMapScene extends BaseScene {
     this.render();
   }
 
-  protected onResize(): void {
-    this.render();
-  }
-
   private render(): void {
     this.clearScreen();
     this.applyBackground();
@@ -26,22 +22,26 @@ export class WorldMapScene extends BaseScene {
       fontSize: '18px',
       color: '#f2d98c',
       wordWrap: { width: this.w - 60 },
+      align: 'center',
     });
 
-    const compact = this.compact;
-    const cols = compact ? 1 : 2;
-    const gapX = compact ? 0 : 300;
-    const rowH = compact ? 74 : 98;
+    // Two columns need 820px, so the wide box gets a 2-column grid and the tall
+    // box gets a single column of taller rows (10 cities fit in 1280).
+    const portrait = this.portrait;
+    const cols = portrait ? 1 : 2;
+    const gapX = portrait ? 0 : 300;
+    const rowH = portrait ? 86 : 98;
+    const top = portrait ? 190 : 170;
     CITIES.forEach((city, i) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
       const x = this.cx - ((cols - 1) * gapX) / 2 + col * gapX;
-      const y = 170 + row * rowH;
+      const y = top + row * rowH;
       const unlocked = isCityUnlocked(this.gameState, city.id);
       const label = unlocked ? city.name : `${city.name}  (rank ${city.rank})`;
       const btn = this.button(x, y, label, () => this.scene.start('City', { cityId: city.id }), {
-        width: 260,
-        height: 54,
+        width: portrait ? 320 : 260,
+        height: portrait ? 58 : 54,
         fontSize: 20,
       });
       if (!unlocked) btn.setEnabled(false);

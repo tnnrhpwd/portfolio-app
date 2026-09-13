@@ -18,10 +18,6 @@ export class TrainScene extends BaseScene {
     this.render();
   }
 
-  protected onResize(): void {
-    this.render();
-  }
-
   private render(): void {
     this.clearScreen();
     this.applyBackground();
@@ -31,28 +27,28 @@ export class TrainScene extends BaseScene {
 
     const fighter = this.gameState.roster[0];
     const tip = createTooltip(this);
-    const compact = this.compact;
+    // A label with its `+` beside it fits both boxes, so only the row pitch and
+    // the tap-target size change in the tall box.
+    const portrait = this.portrait;
 
-    addText(this, this.cx, 110, `Unspent attribute points: ${fighter.attributePoints}`, {
+    addText(this, this.cx, portrait ? 150 : 110, `Unspent attribute points: ${fighter.attributePoints}`, {
       fontSize: '22px',
       color: '#f2d98c',
     });
 
-    const startY = 170;
+    const startY = portrait ? 240 : 170;
     ATTRIBUTE_KEYS.forEach((key: AttributeKey, i: number) => {
-      const y = startY + i * (compact ? 84 : 68);
-      const labelX = compact ? this.cx : this.cx - 220;
-      const btnX = compact ? this.cx : this.cx + 200;
-      const labelY = compact ? y - 22 : y;
-      const btnY = compact ? y + 22 : y;
-      addText(this, labelX, labelY, `${ATTRIBUTE_DEFS[key].label}: ${fighter.attributes[key]}`, {
+      const y = startY + i * (portrait ? 108 : 68);
+      const labelX = this.cx - (portrait ? 250 : 220);
+      const btnX = this.cx + (portrait ? 230 : 200);
+      addText(this, labelX, y, `${ATTRIBUTE_DEFS[key].label}: ${fighter.attributes[key]}`, {
         fontSize: '22px',
-      }).setOrigin(compact ? 0.5 : 0, 0.5);
-      const btn = this.button(btnX, btnY, '+', () => this.spend(key), {
-        width: 64,
-        height: 48,
+      }).setOrigin(0, 0.5);
+      const btn = this.button(btnX, y, '+', () => this.spend(key), {
+        width: portrait ? 88 : 64,
+        height: portrait ? 64 : 48,
         fontSize: 22,
-        hover: () => tip.show(this.cx, y - 42, ATTRIBUTE_DEFS[key].blurb),
+        hover: () => tip.show(this.cx, y - 46, ATTRIBUTE_DEFS[key].blurb),
         blur: () => tip.hide(),
       });
       if (fighter.attributePoints <= 0 || fighter.attributes[key] >= STAT_CAPS[key]) {
@@ -64,9 +60,9 @@ export class TrainScene extends BaseScene {
       (acc, key) => acc + (fighter.attributes[key] - fighter.baseAttributes[key]),
       0,
     );
-    const resetBtn = this.button(this.cx, this.h - 56, `RESET (${spent} spent)`, () => this.reset(), {
-      width: 240,
-      height: 48,
+    const resetBtn = this.button(this.cx, this.h - (portrait ? 110 : 56), `RESET (${spent} spent)`, () => this.reset(), {
+      width: portrait ? 300 : 240,
+      height: portrait ? 58 : 48,
       fontSize: 18,
     });
     if (spent <= 0) resetBtn.setEnabled(false);

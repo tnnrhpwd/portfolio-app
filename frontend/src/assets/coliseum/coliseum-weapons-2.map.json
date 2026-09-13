@@ -1,0 +1,20 @@
+{
+  "source": "coliseum-weapons-2.png",
+  "width": 1344,
+  "height": 768,
+  "$comment": "Hand-placed regions. Auto-detection merged six of these items into one 507px leaf (x637..1143) because they touch, so these boxes were measured with scripts/coliseum/region-blocks.js instead: column gutters across the sheet, then vertical splits where two items share a column.",
+  "regions": [
+    { "name": "spear-barbed", "x": 34, "y": 44, "w": 106, "h": 675, "nx": 0.0253, "ny": 0.0573, "nw": 0.0789, "nh": 0.8789 },
+    { "name": "pike-gem", "x": 185, "y": 45, "w": 96, "h": 675, "nx": 0.1376, "ny": 0.0586, "nw": 0.0714, "nh": 0.8789 },
+    { "name": "spear-wide-gem", "x": 330, "y": 45, "w": 120, "h": 674, "nx": 0.2455, "ny": 0.0586, "nw": 0.0893, "nh": 0.8776 },
+    { "name": "short-spear", "x": 500, "y": 45, "w": 81, "h": 363, "nx": 0.372, "ny": 0.0586, "nw": 0.0603, "nh": 0.4727 },
+    { "name": "crystal-shard", "x": 497, "y": 578, "w": 79, "h": 139, "nx": 0.3698, "ny": 0.7526, "nw": 0.0588, "nh": 0.181 },
+    { "name": "spear-winged", "x": 637, "y": 46, "w": 123, "h": 674, "nx": 0.474, "ny": 0.0599, "nw": 0.0915, "nh": 0.8776 },
+    { "name": "spearhead-float", "x": 823, "y": 46, "w": 66, "h": 141, "nx": 0.6124, "ny": 0.0599, "nw": 0.0491, "nh": 0.1836 },
+    { "name": "axe-crescent", "x": 764, "y": 242, "w": 185, "h": 477, "nx": 0.5685, "ny": 0.3151, "nw": 0.1376, "nh": 0.6211 },
+    { "name": "mace-gem", "x": 962, "y": 50, "w": 81, "h": 374, "nx": 0.7158, "ny": 0.0651, "nw": 0.0603, "nh": 0.487 },
+    { "name": "dagger-gold", "x": 1086, "y": 180, "w": 61, "h": 227, "nx": 0.808, "ny": 0.2344, "nw": 0.0454, "nh": 0.2956 },
+    { "name": "scythe-blade", "x": 1012, "y": 527, "w": 121, "h": 193, "nx": 0.753, "ny": 0.6862, "nw": 0.09, "nh": 0.2513 },
+    { "name": "trident", "x": 1176, "y": 44, "w": 149, "h": 675, "nx": 0.875, "ny": 0.0573, "nw": 0.1109, "nh": 0.8789 }
+  ]
+}

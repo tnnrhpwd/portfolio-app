@@ -14,6 +14,9 @@ let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let muted = false;
 
+/** Output level for everything the game plays — music rides this same bus. */
+const MASTER_GAIN = 0.32;
+
 type Ctor = typeof AudioContext;
 
 function audioContextCtor(): Ctor | null {
@@ -28,14 +31,15 @@ function audioContextCtor(): Ctor | null {
  */
 export function initAudio(): void {
   muted = loadSettings().muted;
-  if (muted) return;
   const Ctor = audioContextCtor();
   if (!Ctor) return;
   try {
     if (!ctx) {
       ctx = new Ctor();
       master = ctx.createGain();
-      master.gain.value = 0.32;
+      // Muting is a master-gain zero, not a teardown: the context still exists so
+      // the music can decode and play silently, and unmuting is instant.
+      master.gain.value = muted ? 0 : MASTER_GAIN;
       master.connect(ctx.destination);
     }
     if (ctx.state === 'suspended') void ctx.resume();
@@ -45,9 +49,19 @@ export function initAudio(): void {
   }
 }
 
+/** The shared output bus. Music connects here so one switch silences everything. */
+export function masterBus(): GainNode | null {
+  return master;
+}
+
+/** The shared context, or null when WebAudio is unavailable / never unlocked. */
+export function audioContext(): AudioContext | null {
+  return ctx;
+}
+
 export function setMuted(value: boolean): void {
   muted = value;
-  if (master && ctx) master.gain.value = value ? 0 : 0.32;
+  if (master && ctx) master.gain.value = value ? 0 : MASTER_GAIN;
   if (!value) initAudio();
 }
 

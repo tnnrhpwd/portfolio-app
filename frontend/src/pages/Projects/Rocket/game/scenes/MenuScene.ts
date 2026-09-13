@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { announce } from '../accessibility';
 import { PLACEHOLDER_KEY } from '../assets';
+import { playMusic, setMusicEnabled } from '../audio/music';
 import { sfx, setMuted } from '../audio/sfx';
 import { SHIPS, SHIP_ORDER } from '../core/ships';
 import { deriveStats } from '../core/upgrades';
@@ -65,6 +66,10 @@ export class MenuScene extends Phaser.Scene {
     this.shipIndex = Math.max(0, SHIP_ORDER.indexOf(saved));
 
     addSpaceBackdrop(this, 20260912);
+
+    // The menu theme. Silent (and harmless) when no audio was rendered — see
+    // `audio/music.ts` for why the assets are optional.
+    playMusic('menu-drift');
 
     // Footer scrim. The backdrop is bright in patches, so the control row gets a
     // band of its own rather than dim text fighting a nebula. Created before the
@@ -149,12 +154,23 @@ export class MenuScene extends Phaser.Scene {
       const next = updateSettings({ muted: !loadSettings().muted });
       setMuted(next.muted);
       mute.setLabel(next.muted ? '🔇' : '🔊');
+      announce(next.muted ? 'Sound off' : 'Sound on');
     });
     mute.container.setDepth(5);
 
+    // Music has its own switch: a lot of players want the effects without a
+    // soundtrack, and the whole set is silent until they ask for it.
+    const music = createIconButton(this, 96, controlY, settings.music ? '🎵' : '🚫', () => {
+      const next = updateSettings({ music: !loadSettings().music });
+      setMusicEnabled(next.music);
+      music.setLabel(next.music ? '🎵' : '🚫');
+      announce(next.music ? 'Music on' : 'Music off');
+    });
+    music.container.setDepth(5);
+
     createButton(
       this,
-      126,
+      178,
       controlY,
       'RESET',
       () => this.showResetConfirm(),

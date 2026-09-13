@@ -1,0 +1,338 @@
+[
+  {
+    "id": "armor-greaves",
+    "w": 1344,
+    "h": 768,
+    "count": 41,
+    "detected": [
+      {
+        "i": 1,
+        "name": "armor-greaves-unnamed-01",
+        "x": 3,
+        "y": 16,
+        "w": 123,
+        "h": 119
+      },
+      {
+        "i": 2,
+        "name": "armor-greaves-unnamed-02",
+        "x": 2,
+        "y": 151,
+        "w": 116,
+        "h": 121
+      },
+      {
+        "i": 3,
+        "name": "armor-greaves-unnamed-03",
+        "x": 161,
+        "y": 17,
+        "w": 104,
+        "h": 128
+      },
+      {
+        "i": 4,
+        "name": "armor-greaves-unnamed-04",
+        "x": 137,
+        "y": 159,
+        "w": 120,
+        "h": 115
+      },
+      {
+        "i": 5,
+        "name": "armor-greaves-unnamed-05",
+        "x": 298,
+        "y": 17,
+        "w": 114,
+        "h": 114
+      },
+      {
+        "i": 6,
+        "name": "armor-greaves-unnamed-06",
+        "x": 283,
+        "y": 162,
+        "w": 116,
+        "h": 109
+      },
+      {
+        "i": 7,
+        "name": "armor-greaves-unnamed-07",
+        "x": 439,
+        "y": 16,
+        "w": 96,
+        "h": 117
+      },
+      {
+        "i": 8,
+        "name": "armor-greaves-unnamed-08",
+        "x": 563,
+        "y": 17,
+        "w": 103,
+        "h": 115
+      },
+      {
+        "i": 9,
+        "name": "armor-greaves-unnamed-09",
+        "x": 689,
+        "y": 16,
+        "w": 113,
+        "h": 119
+      },
+      {
+        "i": 10,
+        "name": "armor-greaves-unnamed-10",
+        "x": 695,
+        "y": 146,
+        "w": 102,
+        "h": 116
+      },
+      {
+        "i": 11,
+        "name": "armor-greaves-unnamed-11",
+        "x": 833,
+        "y": 16,
+        "w": 102,
+        "h": 113
+      },
+      {
+        "i": 12,
+        "name": "armor-greaves-unnamed-12",
+        "x": 827,
+        "y": 142,
+        "w": 88,
+        "h": 122
+      },
+      {
+        "i": 13,
+        "name": "armor-greaves-unnamed-13",
+        "x": 959,
+        "y": 14,
+        "w": 102,
+        "h": 112
+      },
+      {
+        "i": 14,
+        "name": "armor-greaves-unnamed-14",
+        "x": 946,
+        "y": 141,
+        "w": 111,
+        "h": 125
+      },
+      {
+        "i": 15,
+        "name": "armor-greaves-unnamed-15",
+        "x": 1087,
+        "y": 16,
+        "w": 114,
+        "h": 109
+      },
+      {
+        "i": 16,
+        "name": "armor-greaves-unnamed-16",
+        "x": 1061,
+        "y": 146,
+        "w": 137,
+        "h": 107
+      },
+      {
+        "i": 17,
+        "name": "armor-greaves-unnamed-17",
+        "x": 1224,
+        "y": 15,
+        "w": 120,
+        "h": 118
+      },
+      {
+        "i": 18,
+        "name": "armor-greaves-unnamed-18",
+        "x": 1231,
+        "y": 146,
+        "w": 113,
+        "h": 117
+      },
+      {
+        "i": 19,
+        "name": "armor-greaves-unnamed-19",
+        "x": 0,
+        "y": 286,
+        "w": 130,
+        "h": 122
+      },
+      {
+        "i": 20,
+        "name": "armor-greaves-unnamed-20",
+        "x": 138,
+        "y": 287,
+        "w": 122,
+        "h": 120
+      },
+      {
+        "i": 21,
+        "name": "armor-greaves-unnamed-21",
+        "x": 280,
+        "y": 287,
+        "w": 123,
+        "h": 118
+      },
+      {
+        "i": 22,
+        "name": "armor-greaves-unnamed-22",
+        "x": 1229,
+        "y": 285,
+        "w": 113,
+        "h": 115
+      },
+      {
+        "i": 23,
+        "name": "armor-greaves-unnamed-23",
+        "x": 0,
+        "y": 415,
+        "w": 126,
+        "h": 126
+      },
+      {
+        "i": 24,
+        "name": "armor-greaves-unnamed-24",
+        "x": 128,
+        "y": 415,
+        "w": 130,
+        "h": 125
+      },
+      {
+        "i": 25,
+        "name": "armor-greaves-unnamed-25",
+        "x": 272,
+        "y": 415,
+        "w": 123,
+        "h": 124
+      },
+      {
+        "i": 26,
+        "name": "armor-greaves-unnamed-26",
+        "x": 425,
+        "y": 428,
+        "w": 102,
+        "h": 105
+      },
+      {
+        "i": 27,
+        "name": "armor-greaves-unnamed-27",
+        "x": 561,
+        "y": 428,
+        "w": 99,
+        "h": 107
+      },
+      {
+        "i": 28,
+        "name": "armor-greaves-unnamed-28",
+        "x": 692,
+        "y": 428,
+        "w": 101,
+        "h": 107
+      },
+      {
+        "i": 29,
+        "name": "armor-greaves-unnamed-29",
+        "x": 829,
+        "y": 414,
+        "w": 87,
+        "h": 119
+      },
+      {
+        "i": 30,
+        "name": "armor-greaves-unnamed-30",
+        "x": 943,
+        "y": 411,
+        "w": 106,
+        "h": 124
+      },
+      {
+        "i": 31,
+        "name": "armor-greaves-unnamed-31",
+        "x": 1232,
+        "y": 419,
+        "w": 112,
+        "h": 117
+      },
+      {
+        "i": 32,
+        "name": "armor-greaves-unnamed-32",
+        "x": 0,
+        "y": 549,
+        "w": 114,
+        "h": 193
+      },
+      {
+        "i": 33,
+        "name": "armor-greaves-unnamed-33",
+        "x": 136,
+        "y": 549,
+        "w": 115,
+        "h": 193
+      },
+      {
+        "i": 34,
+        "name": "armor-greaves-unnamed-34",
+        "x": 282,
+        "y": 549,
+        "w": 116,
+        "h": 193
+      },
+      {
+        "i": 35,
+        "name": "armor-greaves-unnamed-35",
+        "x": 424,
+        "y": 549,
+        "w": 111,
+        "h": 193
+      },
+      {
+        "i": 36,
+        "name": "armor-greaves-unnamed-36",
+        "x": 562,
+        "y": 548,
+        "w": 108,
+        "h": 195
+      },
+      {
+        "i": 37,
+        "name": "armor-greaves-unnamed-37",
+        "x": 693,
+        "y": 547,
+        "w": 109,
+        "h": 196
+      },
+      {
+        "i": 38,
+        "name": "armor-greaves-unnamed-38",
+        "x": 826,
+        "y": 546,
+        "w": 105,
+        "h": 197
+      },
+      {
+        "i": 39,
+        "name": "armor-greaves-unnamed-39",
+        "x": 952,
+        "y": 547,
+        "w": 112,
+        "h": 195
+      },
+      {
+        "i": 40,
+        "name": "armor-greaves-unnamed-40",
+        "x": 1089,
+        "y": 550,
+        "w": 116,
+        "h": 192
+      },
+      {
+        "i": 41,
+        "name": "armor-greaves-unnamed-41",
+        "x": 1234,
+        "y": 550,
+        "w": 110,
+        "h": 192
+      }
+    ]
+  }
+]

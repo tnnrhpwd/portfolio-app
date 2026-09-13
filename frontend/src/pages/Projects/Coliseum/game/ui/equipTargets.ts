@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { Equipment, EquipmentSlot, Loadout } from '../core';
 import { isTwoHandedWeapon } from '../core';
-import { addEquipmentIcon } from '../assets/textures';
+import { addEquipmentIcon, hasRasterWeaponIcon } from '../assets/textures';
 
 /**
  * The eight drop locations on the human sprite: head, chest, two arms, two
@@ -121,7 +121,8 @@ export class EquipTargets {
   }
 
   private addEquippedIcon(x: number, y: number, w: number, h: number, slot: EquipmentSlot, item: Equipment): void {
-    const size = Math.min(w, h) * 0.78;
+    // No name label in these boxes, so a tall weapon sprite can use almost the whole tile.
+    const size = Math.min(w, h) * (hasRasterWeaponIcon(item) ? 0.95 : 0.78);
     const icon = addEquipmentIcon(this.scene, 0, 0, item, size);
     const container = this.scene.add.container(x, y, icon ? [icon] : []);
     container.setSize(w, h);

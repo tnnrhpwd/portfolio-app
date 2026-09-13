@@ -1,5 +1,6 @@
 import type { Fighter, GameState } from '../core';
 import { createCampaignStart, DEFAULT_TEAM_NAME } from '../core';
+import { createDemoCampaign } from '../core/demoSave';
 import { cloudLoad, cloudSave, isLoggedIn } from './cloudSync';
 
 const SAVE_KEY = 'coliseum.save.v1';
@@ -91,6 +92,20 @@ export function setState(next: GameState): void {
 
 export function resetState(): void {
   setState(createCampaignStart());
+}
+
+/**
+ * Replaces the save with the fully-stocked demo campaign (`core/demoSave.ts`).
+ *
+ * Goes through the normal `setState` path on purpose, so the seed persists to
+ * localStorage and syncs to the signed-in account exactly like earned progress — the
+ * point is to fill the guest account with gear to debug against, not to invent a
+ * second save mechanism that could disagree with the real one.
+ */
+export function applyDemoCampaign(): GameState {
+  const demo = createDemoCampaign();
+  setState(demo);
+  return demo;
 }
 
 /** Replaces the active fighter (roster[0]) — used to persist battle wounds. */

@@ -252,6 +252,124 @@ export function addMapBackgroundRaster(scene: Phaser.Scene): Phaser.GameObjects.
   return img;
 }
 
+/**
+ * Raster UI chrome — the ornate red/gold plates.
+ *
+ * These come from the AI "poster" pipeline (see
+ * `docs/guides/STATIC_ASSETS_AND_IMAGE_GENERATION.md`): a generated sheet of many
+ * plaques, sliced into named PNGs in `frontend/public/coliseum/` by
+ * `scripts/rocket/extract-sprites.js`. They are fetched by URL, so they stay out
+ * of the JS bundle.
+ *
+ * The insets below are MEASURED, never guessed — `node
+ * scripts/coliseum/nineslice-insets.js <file.png>` reports the cap width and the
+ * border thickness. Guessing smears the gold trim the moment a plate is
+ * stretched.
+ */
+export const CHROME_BUTTON_KEY = 'coliseum-chrome-button';
+export const CHROME_PANEL_KEY = 'coliseum-chrome-panel';
+
+const CHROME_URLS: Record<string, string> = {
+  // chrome-bar-7 (167x67) — the most symmetric of the eight bars.
+  //
+  // A purpose-built "flat plate, no ornament" brief was generated to fix the smear
+  // below, but the model answered with a POSTER of ~24 plaques (it will not draw
+  // just one), so `ui-button-plate.png` was taken from it and tried here. It DID
+  // stretch cleanly, but that plaque has a horizontal seam at its mid-height, and
+  // on a 48px button the seam runs straight through the label ("★ Londinium").
+  // Unreadable text is worse than a cosmetic smear, so bar-7 stays until a plate
+  // exists with a flat interior AND no internal seams.
+  [CHROME_BUTTON_KEY]: '/coliseum/chrome-bar-7.png',
+  // chrome-panel-2 (209x163) — a clean rectangular plate for menus and stat blocks.
+  [CHROME_PANEL_KEY]: '/coliseum/chrome-panel-2.png',
+};
+
+/**
+ * Measured cap / border thickness, in the source PNG's own pixels.
+ *
+ * These are HAND-SET, not taken from `nineslice-insets.js`, and that is the point:
+ * that tool measures the sprite's SILHOUETTE (where it reaches full height), which
+ * is the right answer for a plate with angled ends and the wrong one for a
+ * rectangle — rivets and emblems sit inside a full-height silhouette and never
+ * register. For ui-button-plate the rivets are ~45px in from each end, so the caps
+ * are set to contain them; the tool would have said 5/3/2/0 and smeared them
+ * across every button.
+ */
+const CHROME_INSETS: Record<string, { left: number; right: number; top: number; bottom: number }> = {
+  [CHROME_BUTTON_KEY]: { left: 23, right: 23, top: 16, bottom: 22 },
+  [CHROME_PANEL_KEY]: { left: 16, right: 14, top: 16, bottom: 11 },
+};
+
+/** Loads the chrome plates once; resolves when ready (or after a timeout). */
+export function loadChromeTextures(scene: Phaser.Scene, timeoutMs = 5000): Promise<void> {
+  const pending = Object.entries(CHROME_URLS).filter(([key]) => !scene.textures.exists(key));
+  if (pending.length === 0) return Promise.resolve();
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (): void => {
+      if (done) return;
+      done = true;
+      resolve();
+    };
+    pending.forEach(([key, url]) => scene.load.image(key, url));
+    scene.load.once(Phaser.Loader.Events.COMPLETE, finish);
+    scene.time.delayedCall(timeoutMs, finish); // fail soft: chrome is decorative
+    scene.load.start();
+  });
+}
+
+/**
+ * Insets that leave at least `MIN_MIDDLE` px of stretchable middle.
+ *
+ * These plates carry a thick ornate border — chrome-bar-7 is 67px tall with a 38px
+ * border — so at a small button size the caps alone can exceed the target and the
+ * middle has nothing left to stretch, which renders as a squashed mess. Scaling
+ * the border down keeps the plate usable at every size the UI uses.
+ */
+export function chromeInsets(
+  key: string,
+  width: number,
+  height: number,
+): { left: number; right: number; top: number; bottom: number } {
+  const natural = CHROME_INSETS[key];
+  if (!natural) return { left: 8, right: 8, top: 8, bottom: 8 };
+  const MIN_MIDDLE = 8;
+  const scale = Math.min(
+    1,
+    width / (natural.left + natural.right + MIN_MIDDLE),
+    height / (natural.top + natural.bottom + MIN_MIDDLE),
+  );
+  return {
+    left: Math.max(1, Math.round(natural.left * scale)),
+    right: Math.max(1, Math.round(natural.right * scale)),
+    top: Math.max(1, Math.round(natural.top * scale)),
+    bottom: Math.max(1, Math.round(natural.bottom * scale)),
+  };
+}
+
+/**
+ * A nine-slice chrome plate at (x, y), or `null` when the raster is not loaded.
+ *
+ * Callers fall back to the old drawn rectangle, so a missing or slow PNG degrades
+ * to the previous look rather than to Phaser's green `__MISSING` placeholder.
+ *
+ * NOTE: `NineSlice` implements Alpha but NOT Tint, so a plate cannot be
+ * recoloured — callers that need hover/disabled states layer a translucent
+ * rectangle over it instead of calling `setFillStyle`.
+ */
+export function addChromePlate(
+  scene: Phaser.Scene,
+  key: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): Phaser.GameObjects.NineSlice | null {
+  if (!scene.textures.exists(key)) return null;
+  const i = chromeInsets(key, width, height);
+  return scene.add.nineslice(x, y, key, undefined, width, height, i.left, i.right, i.top, i.bottom);
+}
+
 /** URL of the raster arena backdrop (served from public/coliseum/). */
 export const ARENA_RASTER_URL = '/coliseum/arena-background.jpg';
 
@@ -331,10 +449,228 @@ function equipmentOverlayKey(item: Equipment): string | null {
   return ARMOR_OVERLAY_KEY + `${item.slot}-${armorGroup(item.tier)}`;
 }
 
+/**
+ * Raster weapon icons — the AI-generated sprites in `frontend/public/coliseum/`,
+ * sliced from the weapon sheets by `scripts/rocket/extract-sprites.js` and named
+ * by hand in the UIMapper.
+ *
+ * Every weapon kind the game has is covered. The sword sprites are the exception to
+ * the "poster" sheets: briefs that said "gladiator weapons" came back as hammers and
+ * maces every time, and naming the object concretely — "Roman gladius short swords"
+ * — is what finally produced swords.
+ *
+ * A kind missing from this map falls through to the original vector icon, so only add
+ * an entry when a sprite genuinely matches the kind.
+ */
+const WEAPON_RASTER_KEY = 'coliseum-weapon-raster-';
+
+export const WEAPON_RASTER_ICONS: Record<string, string> = {
+  gladius: 'sword-gladius',
+  greatsword: 'sword-greatsword',
+  axe: 'axe-bearded',
+  mace: 'mace-flanged',
+  spear: 'spear-barbed',
+  dagger: 'dagger-gold',
+  trident: 'trident',
+  maul: 'maul-1',
+  halberd: 'axe-crescent',
+};
+
+/** Loads the raster weapon icons once; resolves when ready (or after a timeout). */
+export function loadWeaponRasterIcons(scene: Phaser.Scene, timeoutMs = 5000): Promise<void> {
+  const pending = Object.entries(WEAPON_RASTER_ICONS).filter(
+    ([kind]) => !scene.textures.exists(WEAPON_RASTER_KEY + kind),
+  );
+  if (pending.length === 0) return Promise.resolve();
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (): void => {
+      if (done) return;
+      done = true;
+      resolve();
+    };
+    pending.forEach(([kind, stem]) =>
+      scene.load.image(WEAPON_RASTER_KEY + kind, `/coliseum/${stem}.png`),
+    );
+    scene.load.once(Phaser.Loader.Events.COMPLETE, finish);
+    scene.time.delayedCall(timeoutMs, finish); // fail soft: icons fall back to vectors
+    scene.load.start();
+  });
+}
+
+/**
+ * Aspect-preserving icon placement.
+ *
+ * The weapon sprites are tall (a pike is 24x160), so the square
+ * `setDisplaySize(size, size)` used for the vector icons would squash them flat.
+ */
+function fitIcon(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  key: string,
+  size: number,
+): Phaser.GameObjects.Image {
+  const src = scene.textures.get(key).getSourceImage() as { width?: number; height?: number } | null;
+  const w = src?.width ?? size;
+  const h = src?.height ?? size;
+  const scale = Math.min(size / w, size / h);
+  return scene.add.image(x, y, key).setDisplaySize(w * scale, h * scale);
+}
+
+/**
+ * True when the item is a weapon that has an AI sprite.
+ *
+ * Callers use this to give the icon a taller box. The sprites are tall and thin (a
+ * pike is 24x160), and `fitIcon` preserves aspect, so the icon's HEIGHT equals the box
+ * size and the cell's width goes unused — more height is the only way to make one
+ * bigger in a square cell.
+ */
+export function hasRasterWeaponIcon(item: Equipment): boolean {
+  return item.minDamage !== undefined && Boolean(WEAPON_RASTER_ICONS[item.kind ?? '']);
+}
+
+/**
+ * Raster armour sprites — AI helmets / cuirasses / greaves from the poster sheets in
+ * `frontend/public/coliseum/`, one variant per armour slot per metal group
+ * (0 bronze, 1 iron, 2 gold).
+ *
+ * The model returned almost entirely STEEL art, so the metal is applied at runtime with
+ * `setTint` — a multiply, which recolours the bright steel while leaving crests and plumes
+ * alone. Without it every "Golden Helmet" would render silver.
+ *
+ * `leftArm`/`rightArm` are deliberately absent: three separate briefs for arm guards came back
+ * as torso plates, dark pods and helmets, so arms keep the vector icon.
+ */
+const ARMOR_RASTER_KEY = 'coliseum-armor-raster-';
+
+const ARMOR_RASTER_IDS = [
+  'head-0',
+  'head-1',
+  'head-2',
+  'torso-0',
+  'torso-1',
+  'torso-2',
+  'legs-0',
+  'legs-1',
+  'legs-2',
+];
+
+/** Metal tints, multiplied over the steel art. Iron is left untouched (white = identity). */
+const ARMOR_GROUP_TINT = [0xcf8b45, 0xffffff, 0xffd76a];
+
+/**
+ * Where a raster armour piece sits on the fighter, as a fraction of the sprite box, plus how
+ * tall it is drawn. The anchors are converted from the vector overlays' `ARMOR_POS` transforms
+ * (head 80,30 / torso 80,94 / arms 50|110,96 / legs 80,174 on a 160x240 canvas shown at 120x180)
+ * so a raster piece lands exactly where the vector one did; the heights come from the matching
+ * body rects in `buildAppearanceSprite`.
+ */
+const RASTER_ARMOR_FIT: Record<string, { x: number; y: number; height: number }> = {
+  head: { x: 0, y: -0.375, height: 0.18 },
+  torso: { x: 0, y: -0.108, height: 0.38 },
+  leftArm: { x: -0.1875, y: -0.1, height: 0.2 },
+  rightArm: { x: 0.1875, y: -0.1, height: 0.2 },
+  legs: { x: 0, y: 0.225, height: 0.22 },
+};
+
+/** Loads the raster armour sprites once; resolves when ready (or after a timeout). */
+export function loadArmorRasterTextures(scene: Phaser.Scene, timeoutMs = 5000): Promise<void> {
+  const pending = ARMOR_RASTER_IDS.filter((id) => !scene.textures.exists(ARMOR_RASTER_KEY + id));
+  if (pending.length === 0) return Promise.resolve();
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (): void => {
+      if (done) return;
+      done = true;
+      resolve();
+    };
+    pending.forEach((id) => scene.load.image(ARMOR_RASTER_KEY + id, `/coliseum/${id}.png`));
+    scene.load.once(Phaser.Loader.Events.COMPLETE, finish);
+    scene.time.delayedCall(timeoutMs, finish); // fail soft: icons fall back to vectors
+    scene.load.start();
+  });
+}
+
+/** The raster texture key for an armour item, or '' when it has none (e.g. arms). */
+function armorRasterKey(item: Equipment): string {
+  if (item.minDamage !== undefined || item.blockChance !== undefined) return '';
+  const id = `${item.slot}-${armorGroup(item.tier)}`;
+  return ARMOR_RASTER_IDS.includes(id) ? ARMOR_RASTER_KEY + id : '';
+}
+
+/** True when this armour slot/metal has a raster sprite. */
+export function hasRasterArmorIcon(item: Equipment): boolean {
+  return armorRasterKey(item) !== '';
+}
+
+/** A raster armour piece on the fighter, or null to use the vector overlay. */
+function rasterArmorOverlay(
+  scene: Phaser.Scene,
+  slot: EquipmentSlot,
+  item: Equipment,
+  w: number,
+  h: number,
+): Phaser.GameObjects.Image | null {
+  const key = armorRasterKey(item);
+  const fit = RASTER_ARMOR_FIT[slot];
+  if (!key || !fit || !scene.textures.exists(key)) return null;
+  const src = scene.textures.get(key).getSourceImage() as { width?: number; height?: number } | null;
+  const srcW = src?.width ?? 1;
+  const srcH = src?.height ?? 1;
+  const targetH = h * fit.height;
+  const targetW = srcW * (targetH / srcH);
+  return scene.add
+    .image(fit.x * w, fit.y * h, key)
+    .setDisplaySize(targetW, targetH)
+    .setTint(ARMOR_GROUP_TINT[armorGroup(item.tier)]);
+}
+
 function equipmentIconKey(item: Equipment): string | null {
   if (item.minDamage !== undefined) return WEAPON_ICON_KEY + (item.kind ?? 'gladius');
   if (item.blockChance !== undefined) return SHIELD_ICON_KEY + (item.kind ?? 'round');
   return ARMOR_ICON_KEY + `${item.slot}-${armorGroup(item.tier)}`;
+}
+
+/**
+ * Where a raster weapon hangs on the fighter, as a fraction of the sprite box, and how
+ * tall it is drawn (also a fraction of that box).
+ *
+ * The anchors are converted from the vector overlays' own transforms — main hand
+ * `translate(116,92)` and off hand `translate(44,100)` on a 160x240 canvas displayed at
+ * 120x180 — so a raster weapon lands in the same hand the vector one did.
+ *
+ * Every weapon sprite is drawn grip-down, so the sprite is BOTTOM-anchored at the hand:
+ * the blade rises out of it.
+ */
+const RASTER_WEAPON_ANCHOR: Record<string, { x: number; y: number }> = {
+  mainHand: { x: 0.225, y: -0.117 },
+  offHand: { x: -0.225, y: -0.083 },
+};
+const RASTER_WEAPON_HEIGHT = 0.5;
+
+/** A raster weapon sprite in the fighter's hand, or null to use the vector overlay. */
+function rasterWeaponOverlay(
+  scene: Phaser.Scene,
+  slot: EquipmentSlot,
+  item: Equipment,
+  w: number,
+  h: number,
+): Phaser.GameObjects.Image | null {
+  if (!hasRasterWeaponIcon(item)) return null;
+  const anchor = RASTER_WEAPON_ANCHOR[slot];
+  if (!anchor) return null;
+  const key = WEAPON_RASTER_KEY + (item.kind ?? '');
+  if (!scene.textures.exists(key)) return null;
+  const src = scene.textures.get(key).getSourceImage() as { width?: number; height?: number } | null;
+  const srcW = src?.width ?? 1;
+  const srcH = src?.height ?? 1;
+  const targetH = h * RASTER_WEAPON_HEIGHT;
+  const targetW = srcW * (targetH / srcH);
+  return scene.add
+    .image(anchor.x * w, anchor.y * h, key)
+    .setOrigin(0.5, 1)
+    .setDisplaySize(targetW, targetH);
 }
 
 const LAYER_ORDER: EquipmentSlot[] = ['legs', 'torso', 'leftArm', 'rightArm', 'head', 'offHand', 'mainHand'];
@@ -377,6 +713,12 @@ export function addLayeredFighter(
     for (const slot of LAYER_ORDER) {
       const item = fighter.loadout?.[slot];
       if (!item) continue;
+      const raster =
+        rasterWeaponOverlay(scene, slot, item, w, h) ?? rasterArmorOverlay(scene, slot, item, w, h);
+      if (raster) {
+        parts.push(raster);
+        continue;
+      }
       const key = equipmentOverlayKey(item);
       if (key && scene.textures.exists(key)) {
         parts.push(scene.add.image(0, 0, key).setDisplaySize(w, h));
@@ -419,6 +761,15 @@ export function addEquipmentIcon(
   size: number,
 ): Phaser.GameObjects.Image | null {
   ensureTextures(scene);
+  // Prefer the AI raster sprite where one exists for this weapon kind. The vector
+  // icon stays the fallback, so a slow or failed PNG degrades to the old look
+  // instead of Phaser's `__MISSING` placeholder.
+  const raster = item.minDamage !== undefined ? WEAPON_RASTER_KEY + (item.kind ?? '') : '';
+  if (raster && scene.textures.exists(raster)) return fitIcon(scene, x, y, raster, size);
+  const armorKey = armorRasterKey(item);
+  if (armorKey && scene.textures.exists(armorKey)) {
+    return fitIcon(scene, x, y, armorKey, size).setTint(ARMOR_GROUP_TINT[armorGroup(item.tier)]);
+  }
   const key = equipmentIconKey(item);
   if (key && scene.textures.exists(key)) {
     return scene.add.image(x, y, key).setDisplaySize(size, size);

@@ -46,10 +46,6 @@ export class RewardScene extends BaseScene {
     this.render();
   }
 
-  protected onResize(): void {
-    this.render();
-  }
-
   private render(): void {
     if (this.phase === 'verdict') this.renderVerdict();
     else this.renderLoot();
@@ -59,10 +55,10 @@ export class RewardScene extends BaseScene {
     this.clearScreen();
     this.applyBackground();
     const base = victoryRewards(this.enemyLevel);
-    const compact = this.compact;
+    const portrait = this.portrait;
 
     addText(this, this.cx, 96, this.wish === 'execute' ? 'THE CROWD ASKS FOR BLOOD' : 'THE CROWD ASKS FOR MERCY', {
-      fontSize: compact ? '26px' : '34px',
+      fontSize: portrait ? '30px' : '34px',
       color: '#e8b84b',
       fontStyle: 'bold',
       wordWrap: { width: this.w - 40 },
@@ -85,23 +81,23 @@ export class RewardScene extends BaseScene {
       color: '#b8aa94',
     });
 
-    const bx1 = compact ? this.cx : this.cx - 170;
-    const bx2 = compact ? this.cx : this.cx + 170;
-    const y1 = 300;
-    const y2 = compact ? 408 : 300;
+    const bx1 = portrait ? this.cx : this.cx - 170;
+    const bx2 = portrait ? this.cx : this.cx + 170;
+    const y1 = portrait ? 430 : 300;
+    const y2 = portrait ? 620 : 300;
 
     this.button(bx1, y1, 'MERCY', () => this.applyVerdict('mercy'), {
-      width: compact ? 320 : 300,
+      width: portrait ? 420 : 300,
       height: 62,
       fontSize: 24,
     });
-    addText(this, bx1, y1 + 42, 'XP BONUS + MP LEVEL BOOST', { fontSize: '13px', color: '#f2d98c' });
+    addText(this, bx1, y1 + 46, 'XP BONUS + MP LEVEL BOOST', { fontSize: '13px', color: '#f2d98c' });
     this.button(bx2, y2, 'BLOOD', () => this.applyVerdict('execute'), {
-      width: compact ? 320 : 300,
+      width: portrait ? 420 : 300,
       height: 62,
       fontSize: 24,
     });
-    addText(this, bx2, y2 + 42, 'EXTRA LOOT', { fontSize: '13px', color: '#f2d98c' });
+    addText(this, bx2, y2 + 46, 'EXTRA LOOT', { fontSize: '13px', color: '#f2d98c' });
   }
 
   private applyVerdict(verdict: Verdict): void {
@@ -160,18 +156,20 @@ export class RewardScene extends BaseScene {
       });
     }
 
-    const compact = this.compact;
-    const slot = compact ? 48 : 64;
+    // The tall box can afford larger cells and a 4-wide grid, so loot and
+    // inventory are easier to read and to drag between.
+    const portrait = this.portrait;
+    const slot = portrait ? 64 : 64;
     const gap = 8;
 
     // ── Loot ──
-    const lootLabelY = compact ? 130 : 142;
+    const lootLabelY = portrait ? 200 : 142;
     addText(this, this.cx, lootLabelY, `LOOT (${this.loot.length})`, {
       fontSize: '18px',
       color: '#f2d98c',
     });
-    const lootTop = lootLabelY + (compact ? 34 : 46);
-    const lootSlots = compact ? 3 : 6;
+    const lootTop = lootLabelY + (portrait ? 54 : 46);
+    const lootSlots = portrait ? 4 : 6;
     this.loot.forEach((item, i) => {
       const col = i % lootSlots;
       const row = Math.floor(i / lootSlots);
@@ -181,21 +179,21 @@ export class RewardScene extends BaseScene {
     });
 
     // ── Inventory ──
-    const invLabelY = lootTop + (Math.ceil(this.loot.length / lootSlots) || 1) * (slot + gap) + (compact ? 8 : 18);
+    const invLabelY = lootTop + (Math.ceil(this.loot.length / lootSlots) || 1) * (slot + gap) + (portrait ? 34 : 18);
     addText(this, this.cx, invLabelY, `INVENTORY (${this.gameState.inventory.length})`, {
       fontSize: '18px',
       color: '#f2d98c',
     });
 
-    const cols = compact ? 4 : 6;
-    const capacity = compact ? 8 : 12;
+    const cols = portrait ? 4 : 6;
+    const capacity = portrait ? 12 : 12;
     const cells: Array<Equipment | null> = [...this.gameState.inventory];
     while (cells.length < capacity) cells.push(null);
     const rows = Math.ceil(cells.length / cols);
     const gridW = cols * slot + (cols - 1) * gap;
     const gridH = rows * slot + (rows - 1) * gap;
     const x0 = this.cx - gridW / 2;
-    const y0 = invLabelY + (compact ? 26 : 36);
+    const y0 = invLabelY + (portrait ? 40 : 36);
     this.invBounds = { x0, y0, x1: x0 + gridW, y1: y0 + gridH };
     cells.forEach((item, i) => {
       const col = i % cols;

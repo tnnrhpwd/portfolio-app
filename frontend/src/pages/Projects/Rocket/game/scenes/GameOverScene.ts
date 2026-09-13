@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { announce } from '../accessibility';
+import { playMusic } from '../audio/music';
 import { sfx } from '../audio/sfx';
 import { startRun, getSave, type RunSummary } from '../session';
 import { addPanel, addSpaceBackdrop } from '../ui/backdrop';
@@ -46,6 +47,9 @@ export class GameOverScene extends Phaser.Scene {
     const rowGap = portrait ? 44 : 34;
 
     addSpaceBackdrop(this, 9090, { alpha: 0.35 });
+    // A one-shot sting (the manifest marks it `loop: false`), so it plays once
+    // and stops instead of droning under the stats.
+    playMusic('run-over');
 
     addText(this, cx, titleY, 'RUN OVER', {
       size: 54,

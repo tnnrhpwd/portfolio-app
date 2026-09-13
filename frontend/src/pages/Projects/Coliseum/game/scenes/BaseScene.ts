@@ -4,7 +4,7 @@ import { achievementById, evaluateAchievements } from '../core';
 import { getState, setState } from '../state/store';
 import { addText, createButton, type ButtonOpts, type GameButton } from '../ui/button';
 import { getSettings } from '../settings';
-import { getThemeColors, type ThemeColors } from '../theme';
+import { getThemeColors, isPortrait, VIEW_HEIGHT, VIEW_WIDTH, type ThemeColors } from '../theme';
 import { announce } from '../accessibility';
 import { addMapBackground, addMenuBackground } from '../assets/textures';
 
@@ -37,8 +37,6 @@ export abstract class BaseScene extends Phaser.Scene {
 
   /** Paints the scene background with the theme color (or a custom one). */
   protected applyBackground(color?: string): void {
-    // Guard against a resize/render racing a scene teardown, where the main
-    // camera can already be destroyed.
     if (!this.cameras?.main) return;
     this.cameras.main.setBackgroundColor(color ?? this.theme.bg);
   }
@@ -53,35 +51,31 @@ export abstract class BaseScene extends Phaser.Scene {
     addMapBackground(this);
   }
 
-  // ── Responsive layout (the canvas resizes to the device via Scale.RESIZE) ──
+  // ── Layout (two FIXED design boxes chosen once at boot) ──────────────────
+  //
+  // The box never changes while this game instance is alive, so these are plain
+  // reads of the active box. A scene computes its layout once in `create()` and
+  // never again — there is no resize path anywhere in the game.
   protected get w(): number {
-    return this.scale.width;
+    return VIEW_WIDTH;
   }
 
   protected get h(): number {
-    return this.scale.height;
+    return VIEW_HEIGHT;
   }
 
   protected get cx(): number {
-    return this.w / 2;
+    return VIEW_WIDTH / 2;
   }
 
   protected get cy(): number {
-    return this.h / 2;
+    return VIEW_HEIGHT / 2;
   }
 
-  /** True on narrow (portrait) screens, where rows should stack vertically. */
-  protected get compact(): boolean {
-    return this.w < 720;
+  /** True in the tall (720×1280) box, where rows must stack instead of sit side by side. */
+  protected get portrait(): boolean {
+    return isPortrait();
   }
-
-  private handleResize = (): void => {
-    // Only re-render while the scene is actually running.
-    if (this.scene.isActive()) this.onResize();
-  };
-
-  /** Override to re-render when the device is resized or rotated. */
-  protected onResize(): void {}
 
   init(): void {
     this.focusables = [];
@@ -90,8 +84,8 @@ export abstract class BaseScene extends Phaser.Scene {
     this.focusRing = null;
 
     this.keyHandler = (event: KeyboardEvent) => {
-      // Ignore keys delivered while this scene is being torn down (a resize
-      // or scene transition can race the listener's removal).
+      // Ignore keys delivered while this scene is being torn down (the shell
+      // destroys the whole game on rotation, which races this listener).
       if (!this.scene.isActive()) return;
       if (this.textPromptActive) {
         this.handleTextPromptKey(event);
@@ -122,7 +116,6 @@ export abstract class BaseScene extends Phaser.Scene {
       }
     };
     window.addEventListener('keydown', this.keyHandler);
-    this.scale.on(Phaser.Scale.Events.RESIZE, this.handleResize);
     this.input?.on('pointerdown', () => this.clearFocus());
   }
 
@@ -131,7 +124,6 @@ export abstract class BaseScene extends Phaser.Scene {
       window.removeEventListener('keydown', this.keyHandler);
       this.keyHandler = null;
     }
-    this.scale.off(Phaser.Scale.Events.RESIZE, this.handleResize);
   }
 
   protected header(text: string): void {
@@ -143,8 +135,7 @@ export abstract class BaseScene extends Phaser.Scene {
   }
 
   protected goldText(): void {
-    const { width } = this.scale;
-    addText(this, width - 24, 40, `Gold: ${this.gameState.gold}`, {
+    addText(this, VIEW_WIDTH - 24, 40, `Gold: ${this.gameState.gold}`, {
       fontSize: '22px',
       color: '#f2d98c',
     }).setOrigin(1, 0.5);
@@ -199,8 +190,7 @@ export abstract class BaseScene extends Phaser.Scene {
 
   /** Shows a temporary toast banner near the top of the screen. */
   protected toast(message: string): void {
-    const { width } = this.scale;
-    const text = addText(this, width / 2, 84, message, {
+    const text = addText(this, VIEW_WIDTH / 2, 84, message, {
       fontSize: '20px',
       color: '#f2d98c',
       backgroundColor: '#000000cc',
@@ -235,7 +225,8 @@ export abstract class BaseScene extends Phaser.Scene {
 
   /** A modal YES/NO confirmation over the current screen. */
   protected confirm(title: string, body: string, onYes: () => void, onNo?: () => void): void {
-    const { width, height } = this.scale;
+    const width = VIEW_WIDTH;
+    const height = VIEW_HEIGHT;
     const depth = 900;
     const overlay = this.add
       .rectangle(width / 2, height / 2, width, height, 0x000000, 0.6)
@@ -284,8 +275,8 @@ export abstract class BaseScene extends Phaser.Scene {
   }
 
   private renderTextPrompt(): void {
-    this.destroyTextPrompt();
-    const { width, height } = this.scale;
+    const width = VIEW_WIDTH;
+    const height = VIEW_HEIGHT;
     const depth = 1000;
     const overlay = this.add
       .rectangle(width / 2, height / 2, width, height, 0x000000, 0.7)

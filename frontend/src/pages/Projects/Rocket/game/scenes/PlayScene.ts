@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { announce } from '../accessibility';
 import { GLOW_KEY, PLACEHOLDER_KEY, pickBackground } from '../assets';
+import { playCue, playMusic } from '../audio/music';
 import { sfx, setMuted } from '../audio/sfx';
 import { TUNING } from '../core/constants';
 import { currentBoss, stepWorld } from '../core/engine';
@@ -71,6 +72,9 @@ export class PlayScene extends Phaser.Scene {
   private shieldIcons: Phaser.GameObjects.Image[] = [];
   private hullSlot = { x: 26, y: 0 };
   private shieldSlot = { x: 26, y: 0 };
+
+  /** Which battle theme is playing, so the boss swap happens once, not per frame. */
+  private musicWants: 'arena-pulse' | 'boss-alarm' = 'arena-pulse';
   private waveBar!: Phaser.GameObjects.Rectangle;
   private bossBarBg: Phaser.GameObjects.Rectangle | null = null;
   private bossBarFill: Phaser.GameObjects.Rectangle | null = null;
@@ -94,6 +98,9 @@ export class PlayScene extends Phaser.Scene {
     this.buildPlayer();
     this.buildHud();
     this.buildInput();
+
+    this.musicWants = 'arena-pulse';
+    playMusic('arena-pulse');
 
     this.announceWave();
     announce(
@@ -375,7 +382,8 @@ export class PlayScene extends Phaser.Scene {
           }
           break;
         case 'wave-clear':
-          sfx.waveClear();
+          // The generated fanfare when it exists, the synthesized blip otherwise.
+          playCue('wave-clear', () => sfx.waveClear());
           // The bonus is part of the run's earnings, so it is banked like any
           // other coin — otherwise a careful wave quietly pays nothing.
           bankCoins(event.coins);
@@ -597,6 +605,13 @@ export class PlayScene extends Phaser.Scene {
     this.bossLabel?.setVisible(showBoss);
     if (boss && this.bossBarFill) {
       this.bossBarFill.width = 560 * Phaser.Math.Clamp(boss.hull / boss.maxHull, 0, 1);
+    }
+
+    // The boss gets its own theme for as long as it is alive.
+    const wants = boss ? 'boss-alarm' : 'arena-pulse';
+    if (wants !== this.musicWants) {
+      this.musicWants = wants;
+      playMusic(wants);
     }
 
     // Banner fade

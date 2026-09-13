@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { disposeMusic } from './audio/music';
 import { disposeAudio, initAudio } from './audio/sfx';
 import { createGameConfig } from './config';
 import { detectLayoutMode, setLayoutMode } from './ui/theme';
@@ -36,6 +37,7 @@ export function createGame(parent: HTMLElement): GameHandle {
         window.removeEventListener('pointerdown', unlock);
         window.removeEventListener('keydown', unlock);
       }
+      disposeMusic();
       disposeAudio();
       game.destroy(true);
     },

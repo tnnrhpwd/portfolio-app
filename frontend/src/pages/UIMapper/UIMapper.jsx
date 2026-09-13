@@ -8,6 +8,7 @@ import SEO from '../../components/SEO/SEO';
 import useScrollReveal from '../../hooks/useScrollReveal';
 import { autoMapImage } from '../../services/uiMapperApi';
 import { HANDLES, applyResize } from './geometry';
+import { aspectWarning, parseMapSpec, toRegions } from './mapSpec';
 import './UIMapper.css';
 
 // Rotating palette so each new box gets a distinct color.
@@ -49,6 +50,7 @@ export default function UIMapper() {
   const scrollRef = useRef(null);
   const imgRef = useRef(null);
   const fileRef = useRef(null);
+  const mapFileRef = useRef(null);
   const drawingRef = useRef(null);
   const [drag, setDrag] = useState(null); // { kind, id, handle?, startX, startY, orig, moved, ... }
   const dragRef = useRef(null);
@@ -421,6 +423,64 @@ export default function UIMapper() {
     }
   };
 
+  // ── Import ──
+  // The tool could always export a spec; this is the reverse, so a map made
+  // elsewhere (an agent, an earlier session, or the sprite extractor's
+  // `sheets.json`) can be loaded and then renamed by hand instead of re-drawn.
+  const commitMap = useCallback(
+    (spec, label) => {
+      const dims = { w: image.naturalWidth, h: image.naturalHeight };
+      const loaded = toRegions(spec, dims, () => nextId()).map((r, i) => ({
+        ...r,
+        color: PALETTE[i % PALETTE.length],
+      }));
+      if (!loaded.length) {
+        setError('No usable boxes found in that map.');
+        return;
+      }
+      setRegions(loaded);
+      setSelectedId(null);
+      toast.success(
+        `Loaded ${loaded.length} box${loaded.length === 1 ? '' : 'es'} from ${label}. Rename them below.`,
+        { autoClose: 4000 },
+      );
+      // Proportional boxes still land in the wrong places on a differently-SHAPED
+      // image, and that is otherwise silent — so it is surfaced, not absorbed.
+      setError(aspectWarning(spec, dims));
+    },
+    [image],
+  );
+
+  const loadMapFile = useCallback(
+    (file) => {
+      if (!file || !image) return;
+      if (!/\.json$/i.test(file.name) && file.type !== 'application/json') {
+        setError('Please choose a .json map file.');
+        return;
+      }
+      setError('');
+      const reader = new FileReader();
+      reader.onerror = () => setError('Could not read that file.');
+      reader.onload = () => {
+        try {
+          const spec = parseMapSpec(JSON.parse(String(reader.result || '')), {
+            w: image.naturalWidth,
+            h: image.naturalHeight,
+          });
+          if (!spec.boxes.length) {
+            setError('No usable boxes found in that map.');
+            return;
+          }
+          commitMap(spec, file.name);
+        } catch (err) {
+          setError(err instanceof SyntaxError ? 'That file is not valid JSON.' : err.message);
+        }
+      };
+      reader.readAsText(file);
+    },
+    [image, commitMap],
+  );
+
   const previewStyle = drawing
     ? (() => {
         const x = Math.min(drawing.x0, drawing.x1) * zoom;
@@ -463,7 +523,8 @@ export default function UIMapper() {
           <h1 className="uim-title">UI Mapper</h1>
           <p className="uim-subtitle">
             Upload a reference screenshot, drag to draw boxes around components, name them in the
-            table, then export or copy the JSON spec (pixel + normalized coordinates).
+            table, then export or copy the JSON spec (pixel + normalized coordinates). Already have
+            a map? Load it and rename its boxes instead of redrawing them.
           </p>
         </div>
       </section>
@@ -560,6 +621,14 @@ export default function UIMapper() {
                   disabled={regions.length === 0}
                 >
                   Download JSON
+                </button>
+                <button
+                  type="button"
+                  className="uim-btn uim-btn-outline"
+                  onClick={() => mapFileRef.current?.click()}
+                  title="Load a saved map (this tool's export, or a sprite-extractor regions array) and rename its boxes"
+                >
+                  Load map
                 </button>
               </div>
 
@@ -679,6 +748,16 @@ export default function UIMapper() {
             hidden
             onChange={(e) => {
               loadFile(e.target.files?.[0]);
+              e.target.value = '';
+            }}
+          />
+          <input
+            ref={mapFileRef}
+            type="file"
+            accept=".json,application/json"
+            hidden
+            onChange={(e) => {
+              loadMapFile(e.target.files?.[0]);
               e.target.value = '';
             }}
           />

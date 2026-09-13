@@ -186,7 +186,12 @@ export function randomTwoHandedWeapon(rand: Rng = Math.random): WeaponKind {
   return pick(TWO_HAND_WEAPONS, rand);
 }
 
+/** True when a weapon archetype is two-handed, from its kind alone. */
+export function isTwoHandedKind(kind: string): boolean {
+  return WEAPON_KINDS[kind]?.twoHanded ?? false;
+}
+
 /** True when the item is a two-handed weapon (occupies both hands). */
 export function isTwoHandedWeapon(item: Equipment): boolean {
-  return item.minDamage !== undefined && (WEAPON_KINDS[item.kind ?? '']?.twoHanded ?? false);
+  return item.minDamage !== undefined && isTwoHandedKind(item.kind ?? '');
 }

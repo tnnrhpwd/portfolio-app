@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { announce } from '../accessibility';
 import { PLACEHOLDER_KEY } from '../assets';
+import { playMusic } from '../audio/music';
 import { sfx } from '../audio/sfx';
 import { UPGRADES, UPGRADE_ORDER } from '../core/upgrades';
 import type { UpgradeKey } from '../core/types';
@@ -52,6 +53,7 @@ export class ShopScene extends Phaser.Scene {
       : { cols: 4, w: 284, h: 158, gapX: 18, gapY: 18, startY: 196 };
 
     addSpaceBackdrop(this, 5150);
+    playMusic('shop-spend');
 
     addText(this, this.cx, portrait ? 78 : 52, 'WAVE CLEAR', {
       size: 40,

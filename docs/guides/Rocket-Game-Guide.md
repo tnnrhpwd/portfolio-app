@@ -483,6 +483,13 @@ Ordered by how much time they cost.
 - Mute lives on the menu and in the arena HUD; `reducedMotion` is seeded once from
   `prefers-reduced-motion` and then player-owned, and it suppresses screen shake and
   banner fades.
+- **Audio is two layers**: synthesized WebAudio effects (`game/audio/sfx.ts`, no
+  assets) and rendered music/cues (`game/audio/music.ts`, assets produced by
+  `scripts/rocket/generate-audio.js`). Phaser's sound manager is disabled
+  (`audio: { noAudio: true }`), so both ride one shared `AudioContext` and one master
+  gain — which is what makes a single mute instant and lets the music loop
+  sample-exactly. Music also has its own switch (`settings.music`). See
+  `docs/guides/Rocket-Audio-Pipeline.md`.
 
 ---
 
@@ -524,5 +531,7 @@ reflow logic is exactly the surface this pattern removes.
 ## Related docs
 
 - `docs/guides/Rocket-Asset-Pipeline.md` — the sprite sheets → 282 PNGs extractor.
+- `docs/guides/Rocket-Audio-Pipeline.md` — the music/SFX renderer, the manifest
+  contract, and why AI audio providers were ruled out.
 - `docs/guides/STATIC_ASSETS_AND_IMAGE_GENERATION.md` — Part 2 (Bedrock image
   generation) and Part 3 (the agent-facing recipe for slicing a new sheet).
