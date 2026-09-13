@@ -152,7 +152,8 @@ function AdminLayout() {
               <h1 className="admin-bar-title">{view.label}</h1>
               <span className="admin-bar-status">
                 <span className="admin-bar-status__dot" aria-hidden="true" />
-                Signed in as {nickname}
+                <span className="admin-bar-status__who">Signed in as&nbsp;</span>
+                {nickname}
                 {special && <> &middot; Special access</>}
               </span>
               {readout && readout.length > 0 && (
@@ -168,7 +169,11 @@ function AdminLayout() {
                 </ul>
               )}
               <div className="admin-bar-actions">
-                <Link className="admin-btn" to="/">↗ View site</Link>
+                {/* The label is hidden on the narrowest screens (Admin.css §18),
+                    so the name has to come from here. */}
+                <Link className="admin-btn" to="/" aria-label="View site">
+                  ↗ <span className="admin-btn__label">View site</span>
+                </Link>
               </div>
             </header>
 

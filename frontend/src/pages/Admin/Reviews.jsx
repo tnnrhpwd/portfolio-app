@@ -71,7 +71,10 @@ function Reviews() {
       {allDataLoading && <div className="admin-loading">Loading...</div>}
       {!allDataLoading && ratingsAndReviews.length > 0 ? (
         <div className="table-scroll-container">
-        <table className="admin-table compact-table">
+        {/* `admin-table--reviews` drives the stacked phone layout, whose field
+            labels live in the matching `nth-child` rules in Admin.css §18 —
+            keep the two column lists in step. */}
+        <table className="admin-table compact-table admin-table--stacked admin-table--reviews">
           <thead><tr>
             <th>Title</th><th>Rating</th><th>Category</th><th>User</th><th>Content</th><th>Date</th>
           </tr></thead>

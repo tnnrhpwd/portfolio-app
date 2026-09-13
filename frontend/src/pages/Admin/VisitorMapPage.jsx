@@ -234,7 +234,10 @@ function VisitorMapPage() {
       {!allDataLoading && filteredVisitorLocations.length > 0 && (
         <AdminPanel title={refererFilter ? "Visitor details (filtered)" : "Visitor details"}>
           <div className="table-scroll-container">
-          <table className="admin-table compact-table">
+          {/* `admin-table--visits` drives the stacked phone layout, whose field
+              labels live in the matching `nth-child` rules in Admin.css §18 —
+              keep the two column lists in step. */}
+          <table className="admin-table compact-table admin-table--stacked admin-table--visits">
             <thead><tr>
               <th>When</th><th>User</th><th>IP</th><th>Location</th><th>Browser / OS</th><th>Referer</th><th>Category</th>
             </tr></thead>

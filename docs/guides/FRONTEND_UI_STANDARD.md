@@ -491,6 +491,35 @@ Rules that fall out of it:
 - **A browser without relative color syntax gets the `color-mix` line**, which is pastel — that is the
   intended degradation, and it is why both lines are always written out.
 
+### A workspace on a phone (service pages, ≤ 640px)
+
+A service page is a tool, so on a phone the question is not "what can we drop" but "what costs
+height on every scroll". The reference is `pages/Admin/Admin.css` §18.
+
+- **Budget the sticky head first.** It is the only thing that takes space from every screen a user
+  scrolls through. At 320px the admin head was 192px of a 720px viewport — a quarter of the glass,
+  permanently. Keep it to two or three rows: title + state, one row of readout, the view switcher.
+- **A row of chips scrolls, it doesn't wrap.** `flex-wrap: nowrap; overflow-x: auto` with the
+  scrollbar hidden keeps a readout at one predictable row instead of three.
+- **A full-width action is a whole row.** The ≤768px "stack the actions under the title" rule is
+  right for a tablet and wrong for a phone; below 420px let the link take its natural width and drop
+  its label, with `aria-label` carrying the name.
+- **Wide tables stop being tables.** Past ~5 columns a table either scrolls sideways or squeezes a
+  column until 120 characters become a 20-line block — measured: one reviews row was taller than a
+  phone screen. Below 640px hide the `thead`, make each `td` a `9ch | 1fr` grid, and put the field
+  name in `::before`. That means the labels are CSS, so the markup and the label list must point at
+  each other in comments. Zebra-stripe the *even* rows once blocks are this tall — an odd-row tint
+  reads as a divider rather than a stripe.
+- **`overflow: hidden` clips, it doesn't complain.** Panels hide their overflow to keep the plane
+  edges clean, so any child that refuses to shrink is silently cut off instead of pushing the page
+  wide: a `input[type=date]` was untappable, and a `nowrap` count was pushed out of its row. Give the
+  flexible half `min-width: 0` (and `overflow-wrap: anywhere`) and stack the control pair on a phone.
+- **Watch the order of overlapping media queries.** A `@media (orientation: portrait)` block later in
+  the file silently outranks a `max-width: 640px` block above it; scope it with `min-width` instead of
+  relying on source order.
+- **Format the number before it lands in a card.** A raw float (`11.390175819396973 MB`) overflows a
+  120px card and reads as a bug at every width.
+
 ### Opening a band: eyebrow → heading → lead
 
 Every band opens the same way, so the eye learns the rhythm and can skim the page:

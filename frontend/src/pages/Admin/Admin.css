@@ -592,6 +592,9 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--plane-muted);
+  /* A card can be 120px wide on a phone, so a value that is longer than
+     expected has to wrap rather than get clipped by the card edge. */
+  overflow-wrap: anywhere;
 }
 .kpi-value {
   font-size: var(--font-size-heading);
@@ -701,6 +704,11 @@
 /* Alternating tints, not a hairline under every row. */
 .stat-row:nth-child(odd) { background: color-mix(in srgb, var(--admin-hue) var(--plane-row), transparent); }
 .stat-row strong { font-weight: var(--font-weight-semibold); white-space: nowrap; }
+/* The label half has to be allowed to shrink. A long path (or a referer, or a
+   country name) otherwise pushed the count — which is `nowrap` — past the
+   panel's edge, where `overflow: hidden` clipped it out of sight: on a 320px
+   screen `/admin/rankings` lost the visit count entirely. */
+.stat-row > span { min-width: 0; overflow-wrap: anywhere; }
 .stat-row.muted { color: var(--plane-muted); }
 .stat-row--clickable { cursor: pointer; }
 .stat-row--clickable:hover { background: color-mix(in srgb, var(--fg-blue) var(--plane-raise), transparent); }
@@ -1284,8 +1292,158 @@
   .admin-panel-body { padding: calc(var(--nav-size) * 0.22); }
 }
 
-@media (orientation: portrait) {
+/* ── Phones (≤ 640px) ────────────────────────────────────────────────────────
+
+   Every `/admin` view is a stack of panels, so the only thing that costs height
+   on *every* scroll is the sticky head — 190px of a 720px phone screen at 320px
+   wide, a quarter of the viewport, permanently. The work here is vertical
+   economy in the head, plus the two wide tables, which cannot be tables. */
+
+@media (max-width: 640px) {
+  /* The head: tighter rhythm, chips on one scrolling row instead of two or
+     three wrapped ones, and the view-site link back inline rather than owning a
+     row of its own. */
+  .admin-head {
+    gap: calc(var(--nav-size) * 0.06);
+    padding-bottom: calc(var(--nav-size) * 0.1);
+  }
+  .admin-bar { gap: calc(var(--nav-size) * 0.06) calc(var(--nav-size) * 0.18); }
+  .admin-bar-readout {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    width: 100%;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .admin-bar-readout::-webkit-scrollbar { display: none; }
+  .admin-bar-actions { margin-left: auto; width: auto; }
+  .admin-bar-actions .admin-btn { padding: 0 calc(var(--nav-size) * 0.22); }
+  .admin-bar-status { font-size: var(--font-size-xs); }
+
+  /* Two KPI cards per row. One per row turned a six-card readout into six
+     full-width blocks — 700px of scroll for six numbers. */
+  .kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(120px, 100%), 1fr));
+    gap: calc(var(--nav-size) * 0.16);
+  }
+  .kpi-card { padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.2); }
+  .kpi-value { font-size: calc(var(--font-size-heading) * 0.72); }
+
+  /* A phone-sized bar: one row per label, a full-width track and the count
+     pinned right. The desktop grid's fixed `11ch`/`9ch` columns left the track
+     about 80px wide, which reads as a dot rather than a proportion. */
+  .funnel-stage { grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; }
+  .funnel-label { grid-column: 1; grid-row: 1; }
+  .funnel-count { grid-column: 2; grid-row: 1; }
+  .funnel-track { grid-column: 1 / -1; grid-row: 2; }
+  .funnel-arrow { grid-column: 1 / -1; grid-row: 3; }
+
+  /* ---- The two wide tables stop being tables -------------------------------
+     Six and seven columns do not fit, and the failure was ugly rather than
+     merely cramped: the reviews Content column is 74px wide, so 120 characters
+     wrapped into a ~20-line block and one row was taller than the viewport.
+     Each row becomes a labelled block instead. The field names live in the
+     `::before` rules below, in column order — **keep them in step with the
+     markup** in `Reviews.jsx` and `VisitorMapPage.jsx`. */
+
+  .admin-surface .admin-table--stacked { display: block; }
+  .admin-surface .admin-table--stacked thead { display: none; }
+  .admin-surface .admin-table--stacked tbody,
+  .admin-surface .admin-table--stacked tr,
+  .admin-surface .admin-table--stacked td { display: block; }
+
+  .admin-surface .admin-table--stacked tr {
+    padding: calc(var(--nav-size) * 0.1) 0;
+    border-radius: var(--border-radius);
+  }
+  /* Zebra stripes on a block this tall read as a divider, so the *even* rows
+     carry the tint instead of the odd ones. */
+  .admin-surface .admin-table--stacked tbody tr:nth-child(odd) { background: transparent; }
+  .admin-surface .admin-table--stacked tbody tr:nth-child(even) {
+    background: color-mix(in srgb, var(--admin-hue, var(--fg-blue)) var(--plane-row), transparent);
+  }
+  .admin-surface .admin-table--stacked td {
+    display: grid;
+    grid-template-columns: 9ch minmax(0, 1fr);
+    gap: calc(var(--nav-size) * 0.14);
+    padding: calc(var(--nav-size) * 0.05) calc(var(--nav-size) * 0.18);
+  }
+  /* Always present, even when a column has no label: it holds the label column
+     open so the values stay aligned down the block. */
+  .admin-surface .admin-table--stacked td::before {
+    content: '';
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--plane-muted);
+  }
+
+  /* Field names — reviews: Title, Rating, Category, User, Content, Date */
+  .admin-surface .admin-table--reviews td:nth-child(1)::before { content: 'Title'; }
+  .admin-surface .admin-table--reviews td:nth-child(2)::before { content: 'Rating'; }
+  .admin-surface .admin-table--reviews td:nth-child(3)::before { content: 'Category'; }
+  .admin-surface .admin-table--reviews td:nth-child(4)::before { content: 'User'; }
+  .admin-surface .admin-table--reviews td:nth-child(5)::before { content: 'Content'; }
+  .admin-surface .admin-table--reviews td:nth-child(6)::before { content: 'Date'; }
+
+  /* Field names — visits: When, User, IP, Location, Browser, Referer, Category */
+  .admin-surface .admin-table--visits td:nth-child(1)::before { content: 'When'; }
+  .admin-surface .admin-table--visits td:nth-child(2)::before { content: 'User'; }
+  .admin-surface .admin-table--visits td:nth-child(3)::before { content: 'IP'; }
+  .admin-surface .admin-table--visits td:nth-child(4)::before { content: 'Location'; }
+  .admin-surface .admin-table--visits td:nth-child(5)::before { content: 'Browser'; }
+  .admin-surface .admin-table--visits td:nth-child(6)::before { content: 'Referer'; }
+  .admin-surface .admin-table--visits td:nth-child(7)::before { content: 'Category'; }
+
+  /* The stacked value column has room now, so the review body can be read
+     rather than teased. */
+  .admin-surface .admin-table--stacked td { overflow-wrap: anywhere; }
+
+  /* The date filter is a `label | control` grid. As a wrapping flex row the
+     second date input was wider than the panel and got *clipped* by the
+     panel's own `overflow: hidden` — the field was unreachable, not just
+     untidy. */
+  .date-filter {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.16);
+    width: 100%;
+  }
+  .date-filter > label:not(.hide-own-visits) { grid-column: 1; }
+  .date-filter input:not([type='checkbox']),
+  .date-filter select {
+    grid-column: 2;
+    width: 100%;
+    min-width: 0;
+  }
+  .date-filter .hide-own-visits { grid-column: 1 / -1; white-space: normal; }
+}
+
+/* A portrait *tablet* deserves a tighter KPI floor than a landscape one.
+   The `min-width` is load-bearing: without it this rule outranks the phone
+   block above (it is later in the file) and puts a phone back to one card per
+   row. */
+@media (orientation: portrait) and (min-width: 641px) {
   .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr)); }
+}
+
+/* Below 420px even that is one card per row, so give it the tighter floor. */
+@media (max-width: 420px) {
+  .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(min(110px, 100%), 1fr)); }
+  /* "Signed in as" is three words of ceremony above the fold on every view. */
+  .admin-bar-status__who { display: none; }
+  .admin-bar-title { font-size: calc(var(--font-size-heading) * 0.82); }
+  /* The site link is one arrow: the logo in the header above it already goes
+     home, and the row it frees is worth more than the two words. `aria-label`
+     carries the name, since `display: none` takes the text out of the
+     accessible tree. */
+  .admin-btn__label { display: none; }
+  .admin-panel-head { padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.2); }
+  .admin-panel-body { padding: calc(var(--nav-size) * 0.18); }
+  .admin-surface .admin-table--stacked td { grid-template-columns: 8ch minmax(0, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {

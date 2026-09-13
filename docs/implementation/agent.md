@@ -1579,6 +1579,58 @@ reason it looked broken in the browser.
   the browser as 4 tabs — and the only `/admin/*` link rendered *inside* a view is the
   Dashboard's referrer rows pointing at `/admin/map`, which a Special account may open.
 
+### 13.17 The four Special views on every screen size (2026-09-12)
+
+`/admin`, `/admin/map`, `/admin/reviews` and `/admin/rankings` are the views a helper
+actually opens, on whatever they have to hand. Measured at 320/360/390/414/480/640/768/
+1024/1440/1920/2560 in both themes: no page-level horizontal overflow anywhere, and the
+sticky head — the one thing that costs height on *every* scroll — went from **192px to
+115px** at 320px wide.
+
+- ✅ **The head was a quarter of a phone screen.** At 320px it was 192px of a 720px
+  viewport, permanently, because: the readout chips wrapped onto 2–3 rows, the
+  "↗ View site" button took a full row of its own (the ≤768px rule makes
+  `.admin-bar-actions` 100% wide), and "Signed in as …" ran the full width. Now the chips
+  are a single horizontally-scrolling row, the link returns to its natural width and drops
+  the label below 420px (the logo above it already goes home, and `aria-label` carries the
+  name once `display: none` takes the text out of the accessible tree), and
+  "Signed in as" is the first thing to go on the narrowest screens. Chips also moved from
+  `--text-color-accent` to `--plane-muted` (§13.16's contrast work).
+- ✅ **The KPI readout was one card per row on a phone.** `minmax(min(170px, 100%), 1fr)`
+  against ~255px of content width gives one column, so six numbers cost ~700px of scroll.
+  A phone floor of 120px gives two, and the portrait-kpi rule had to be scoped to
+  `(min-width: 641px)` — it sits *later* in the file, so unscoped it silently outranked the
+  phone block and put the single column back.
+- ✅ **The two wide tables stop being tables below 640px.** Six and seven columns don't fit,
+  and the failure was worse than cramped: the reviews Content column was 74px, so 120
+  characters wrapped into a ~20-line block and **one row was taller than the screen**.
+  Each row is now a labelled block — `thead` hidden, `td` a `9ch | 1fr` grid, the field name
+  from `::before`. The labels live in `Admin.css` in column order and must be kept in step
+  with `Reviews.jsx` / `VisitorMapPage.jsx`, which is why both carry a pointer comment.
+  Zebra stripes moved to the *even* rows: on a block this tall, an odd-row tint reads as a
+  divider between reviews. `admin-table--stacked` is opt-in so the admin-only tables
+  (`/admin/users`, `/admin/bugs`, `/admin/data`) keep scrolling sideways until someone
+  gives them the same treatment.
+- ✅ **The map's date inputs were unreachable at 320px.** `.date-filter` was a wrapping flex
+  row; the second `input[type=date]` is wider than the panel, and `.admin-panel`'s own
+  `overflow: hidden` *clipped* it — the field could not be tapped. It is a
+  `label | control` grid below 640px now, with `min-width: 0` on the controls.
+- ✅ **`/admin/rankings` lost its visit counts at 320px.** `.stat-row` is
+  `space-between` with a `nowrap` count; a long path pushed the count past the panel edge
+  and the panel clipped it. `.stat-row > span { min-width: 0; overflow-wrap: anywhere }`.
+  Same class of bug as the date input: anything that can't shrink will be clipped rather
+  than reported when its container hides overflow.
+- ✅ **`11.390175819396973 MB stored`.** `formatBytes` divided straight through in both
+  copies (`backend/constants/pricing.js`, `frontend/src/constants/pricing.js`). Now one
+  decimal and no trailing `.0` — `11.4 MB`. It was noise in a KPI card at any width and
+  overflowed a phone's card outright. ⚠️ The dashboard's figure comes from the **server**, so
+  this needs a backend restart to appear. `frontend-test-suite` 1341 ✅, backend 664 ✅.
+- ⚠️ **Not verified visually at the end of this pass.** The shared browser surface collapsed
+  to 1×19px mid-session, so the final checks are geometric (panel-relative overflow scans,
+  `::before` label order, cell widths, row heights, head heights, column counts) plus the
+  contrast measurements from §13.16 — not eyeballed screenshots. Worth a look on a real
+  phone.
+
 ---
 
 **Companion doc:** [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md) — threat model, trust boundaries, and the permissions matrix.
