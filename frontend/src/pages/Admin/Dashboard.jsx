@@ -3,9 +3,20 @@ import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import dataService from "../../features/data/dataService.js";
 import CollapsibleSection from "../../components/Admin/CollapsibleSection.jsx";
+import AdminPanel from "../../components/Admin/AdminPanel.jsx";
+import { useAdminReadout } from "./adminBarContext";
+import countryName from "../../utils/countryName.js";
 import { fmt, pct, formatTimestamp } from "./adminShared";
-import { toast } from "react-toastify";
 
+/**
+ * Dashboard — what you look at, in the order you look at it.
+ *
+ * The purchase gate (the one control that used to sit at the top of this view)
+ * now lives on /admin/funnel-tester: this view is the one a **Special** account
+ * can open, and the gate is an admin-only write surface. Keeping a control here
+ * that a Special account can't use meant either a 403 panel or a permission
+ * check inside the layout — moving it is the honest fix.
+ */
 function Dashboard() {
   const { user } = useSelector((state) => state.data);
   const navigate = useNavigate();
@@ -14,13 +25,6 @@ function Dashboard() {
   const [dashboard, setDashboard] = useState(null);
   const [dashLoading, setDashLoading] = useState(true);
   const [dashError, setDashError] = useState(null);
-
-  // ── Purchase Gate state ──
-  const [purchaseGate, setPurchaseGate] = useState(null);
-  const [purchaseGateLoading, setPurchaseGateLoading] = useState(true);
-  const [purchaseGateSaving, setPurchaseGateSaving] = useState(false);
-  const [purchaseGateError, setPurchaseGateError] = useState(null);
-  const [purchaseGateUpdatedAt, setPurchaseGateUpdatedAt] = useState(null);
 
   // ═══════════════ Fetch aggregated dashboard ═══════════════
   const fetchDashboard = useCallback(async (refresh = false) => {
@@ -39,116 +43,63 @@ function Dashboard() {
 
   useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
 
-  // ═══════════════ Fetch + save Purchase Gate settings ═══════════════
-  const fetchPurchaseGate = useCallback(async () => {
-    if (!user?.token) return;
-    setPurchaseGateLoading(true);
-    setPurchaseGateError(null);
-    try {
-      const res = await dataService.getAdminPurchaseGateSettings(user.token);
-      setPurchaseGate(res.settings || { purchasesEnabled: true, message: "" });
-      setPurchaseGateUpdatedAt(res.updatedAt || null);
-    } catch (err) {
-      setPurchaseGateError(err.message || "Failed to load purchase gate settings");
-    } finally {
-      setPurchaseGateLoading(false);
-    }
-  }, [user]);
-
-  useEffect(() => { fetchPurchaseGate(); }, [fetchPurchaseGate]);
-
-  const savePurchaseGate = useCallback(async (nextSettings) => {
-    if (!user?.token) return;
-    setPurchaseGateSaving(true);
-    setPurchaseGateError(null);
-    try {
-      const res = await dataService.updateAdminPurchaseGateSettings(user.token, nextSettings);
-      setPurchaseGate(res.settings || nextSettings);
-      setPurchaseGateUpdatedAt(res.updatedAt || null);
-      toast.success(nextSettings.purchasesEnabled
-        ? "Purchasing re-enabled."
-        : "Purchasing paused — upgrade buttons are now hidden/disabled site-wide.");
-    } catch (err) {
-      const msg = err?.response?.data?.dataMessage || err.message || "Failed to save purchase gate settings";
-      setPurchaseGateError(msg);
-      toast.error(msg);
-    } finally {
-      setPurchaseGateSaving(false);
-    }
-  }, [user]);
-
-  // Toggling applies instantly — this is meant to be a one-click "pause now" switch
-  const handleTogglePurchases = useCallback((checked) => {
-    const next = { ...(purchaseGate || {}), purchasesEnabled: checked };
-    setPurchaseGate(next);
-    savePurchaseGate(next);
-  }, [purchaseGate, savePurchaseGate]);
-
-  const handleSavePurchaseGateMessage = useCallback(() => {
-    if (!purchaseGate) return;
-    savePurchaseGate(purchaseGate);
-  }, [purchaseGate, savePurchaseGate]);
-
   const ts = formatTimestamp;
   const d = dashboard; // shorthand
 
+  // The headline numbers live in the sticky toolbar, so they survive a scroll
+  // through the long secondary panels below (§5.7).
+  useAdminReadout(
+    d
+      ? [
+          { label: 'Users', value: fmt(d.overview.totalUsers) },
+          { label: 'MRR', value: `$${d.overview.estimatedMRR}` },
+          { label: 'Visitors 7d', value: fmt(d.visitors.uniqueWeek) },
+          {
+            label: 'Open bugs',
+            value: d.bugs.open,
+            tone: d.bugs.open > 0 ? 'warn' : 'ok',
+          },
+        ]
+      : null
+  );
+
   return (
-    <section className="admin-section-tile">
-      <h2>Dashboard</h2>
-
-      {/* ─── Purchase Gate: instant kill switch for new/upgraded subscriptions ─── */}
-      <div className={`purchase-gate-card ${purchaseGate && !purchaseGate.purchasesEnabled ? "purchase-gate-card--paused" : ""}`}>
-        <div className="purchase-gate-header">
-          <div>
-            <h3>Purchase Gate</h3>
-            <p className="admin-help-text">
-              Instantly pause new/upgraded Pro subscriptions and hide upgrade buttons across the site.
-              Existing subscribers and switching down to Free are never affected.
-            </p>
+    <>
+      {/* ─── What you come here for: the numbers, above the fold ─── */}
+      {d && (
+        <div className="kpi-grid">
+          <div className="kpi-card">
+            <span className="kpi-label">Total Users</span>
+            <span className="kpi-value">{fmt(d.overview.totalUsers)}</span>
+            <span className="kpi-sub">+{d.users.newThisMonth} this month</span>
           </div>
-          <label className="purchase-gate-switch" title={purchaseGate?.purchasesEnabled ? "Purchasing is on — click to pause" : "Purchasing is paused — click to re-enable"}>
-            <input
-              type="checkbox"
-              checked={!!purchaseGate?.purchasesEnabled}
-              disabled={purchaseGateLoading || purchaseGateSaving || !purchaseGate}
-              onChange={(e) => handleTogglePurchases(e.target.checked)}
-            />
-            <span className="purchase-gate-slider" />
-            <span className="purchase-gate-switch-label">
-              {purchaseGateSaving ? "Saving…" : purchaseGate?.purchasesEnabled ? "Purchasing ON" : "Purchasing PAUSED"}
-            </span>
-          </label>
+          <div className="kpi-card kpi-revenue">
+            <span className="kpi-label">Est. MRR</span>
+            <span className="kpi-value">${d.overview.estimatedMRR}</span>
+            <span className="kpi-sub">{d.overview.paidUsers} paid users</span>
+          </div>
+          <div className="kpi-card">
+            <span className="kpi-label">Visitors (7d)</span>
+            <span className="kpi-value">{fmt(d.visitors.uniqueWeek)}</span>
+            <span className="kpi-sub">{fmt(d.visitors.thisWeek)} hits</span>
+          </div>
+          <div className="kpi-card">
+            <span className="kpi-label">Open Bugs</span>
+            <span className="kpi-value">{d.bugs.open}</span>
+            <span className="kpi-sub">{d.bugs.total} total</span>
+          </div>
+          <div className="kpi-card">
+            <span className="kpi-label">Avg Rating</span>
+            <span className="kpi-value">{d.reviews.avgRating} ★</span>
+            <span className="kpi-sub">{d.reviews.total} reviews</span>
+          </div>
+          <div className="kpi-card">
+            <span className="kpi-label">Est. Storage Cost</span>
+            <span className="kpi-value">${d.storage?.estimatedMonthlyCost ?? '0.00'}</span>
+            <span className="kpi-sub">{d.storage?.meteredFormatted ?? '—'} stored</span>
+          </div>
         </div>
-
-        {purchaseGateLoading && <div className="admin-loading">Loading purchase gate settings...</div>}
-        {purchaseGateError && (
-          <div className="admin-error">
-            <span>{purchaseGateError}</span>
-            <button className="btn-sm btn-retry" onClick={fetchPurchaseGate}>↻ Retry</button>
-          </div>
-        )}
-
-        {!purchaseGateLoading && purchaseGate && (
-          <div className="purchase-gate-message-row">
-            <label htmlFor="purchase-gate-message">Caveat message shown to visitors while paused:</label>
-            <textarea
-              id="purchase-gate-message"
-              rows={2}
-              value={purchaseGate.message || ""}
-              onChange={(e) => setPurchaseGate((prev) => ({ ...prev, message: e.target.value }))}
-              placeholder="Upgrading is temporarily paused while we finish getting the core product ready."
-            />
-            <div className="section-toolbar">
-              <button className="btn-sm btn-retry" onClick={handleSavePurchaseGateMessage} disabled={purchaseGateSaving}>
-                {purchaseGateSaving ? "Saving…" : "Save message"}
-              </button>
-              {purchaseGateUpdatedAt && (
-                <span className="admin-no-data">Last saved: {ts(purchaseGateUpdatedAt)}</span>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+      )}
 
       {dashLoading && <div className="admin-loading">Loading dashboard...</div>}
       {dashError && (
@@ -160,115 +111,91 @@ function Dashboard() {
 
       {d && (
         <>
-          {/* ─── KPI Cards ─── */}
-          <div className="kpi-grid">
-            <div className="kpi-card">
-              <span className="kpi-label">Total Users</span>
-              <span className="kpi-value">{fmt(d.overview.totalUsers)}</span>
-              <span className="kpi-sub">+{d.users.newThisMonth} this month</span>
-            </div>
-            <div className="kpi-card kpi-revenue">
-              <span className="kpi-label">Est. MRR</span>
-              <span className="kpi-value">${d.overview.estimatedMRR}</span>
-              <span className="kpi-sub">{d.overview.paidUsers} paid users</span>
-            </div>
-            <div className="kpi-card">
-              <span className="kpi-label">Visitors (7d)</span>
-              <span className="kpi-value">{fmt(d.visitors.uniqueWeek)}</span>
-              <span className="kpi-sub">{fmt(d.visitors.thisWeek)} hits</span>
-            </div>
-            <div className="kpi-card">
-              <span className="kpi-label">Open Bugs</span>
-              <span className="kpi-value">{d.bugs.open}</span>
-              <span className="kpi-sub">{d.bugs.total} total</span>
-            </div>
-            <div className="kpi-card">
-              <span className="kpi-label">Avg Rating</span>
-              <span className="kpi-value">{d.reviews.avgRating} ★</span>
-              <span className="kpi-sub">{d.reviews.total} reviews</span>
-            </div>
-            <div className="kpi-card">
-              <span className="kpi-label">Est. Storage Cost</span>
-              <span className="kpi-value">${d.storage?.estimatedMonthlyCost ?? '0.00'}</span>
-              <span className="kpi-sub">{d.storage?.meteredFormatted ?? '—'} stored</span>
-            </div>
-          </div>
-
-          {/* ─── Sales Funnel ─── */}
-          <CollapsibleSection title="Sales Funnel & Conversions" defaultCollapsed={false}>
+          {/* ─── Conversion story ─── */}
+          <AdminPanel
+            title="Sales funnel"
+            hint="Visitor → registered → paid, from the visitor log and the user records."
+            tools={<span className="admin-chip">Visitor → paid <strong>{pct(d.funnel.overallConversion)}</strong></span>}
+          >
             <div className="funnel-container">
               <div className="funnel-stage">
-                <div className="funnel-bar" style={{ width: '100%' }}>
-                  <span className="funnel-bar-label">Visitors</span>
+                <span className="funnel-label">Visitors</span>
+                <div className="funnel-track">
+                  <div className="funnel-bar" style={{ width: '100%' }} />
                 </div>
                 <span className="funnel-count">{fmt(d.funnel.totalVisitors)}</span>
+                <span className="funnel-arrow">↓ {pct(d.funnel.visitorToUserRate)} convert</span>
               </div>
-              <div className="funnel-arrow">↓ {pct(d.funnel.visitorToUserRate)} convert</div>
+
               <div className="funnel-stage">
-                <div className="funnel-bar funnel-bar-mid" style={{ width: `${Math.max(5, (d.funnel.registeredUsers / Math.max(d.funnel.totalVisitors, 1)) * 100)}%` }}>
-                  <span className="funnel-bar-label">Registered</span>
+                <span className="funnel-label">Registered</span>
+                <div className="funnel-track">
+                  {/* True proportions with a 1.5% floor, so a small step still
+                      shows a visible sliver instead of vanishing. */}
+                  <div
+                    className="funnel-bar funnel-bar-mid"
+                    style={{ width: `${Math.max(1.5, (d.funnel.registeredUsers / Math.max(d.funnel.totalVisitors, 1)) * 100)}%` }}
+                  />
                 </div>
                 <span className="funnel-count">{fmt(d.funnel.registeredUsers)}</span>
+                <span className="funnel-arrow">↓ {pct(d.funnel.userToPaidRate)} convert</span>
               </div>
-              <div className="funnel-arrow">↓ {pct(d.funnel.userToPaidRate)} convert</div>
+
               <div className="funnel-stage">
-                <div className="funnel-bar funnel-bar-end" style={{ width: `${Math.max(3, (d.funnel.paidUsers / Math.max(d.funnel.totalVisitors, 1)) * 100)}%` }}>
-                  <span className="funnel-bar-label">Paid</span>
+                <span className="funnel-label">Paid</span>
+                <div className="funnel-track">
+                  <div
+                    className="funnel-bar funnel-bar-end"
+                    style={{ width: `${Math.max(1.5, (d.funnel.paidUsers / Math.max(d.funnel.totalVisitors, 1)) * 100)}%` }}
+                  />
                 </div>
                 <span className="funnel-count">{fmt(d.funnel.paidUsers)}</span>
               </div>
-              <div className="funnel-summary">
-                Overall visitor → paid conversion: <strong>{pct(d.funnel.overallConversion)}</strong>
-              </div>
             </div>
-          </CollapsibleSection>
+          </AdminPanel>
 
-          {/* ─── Revenue & Memberships ─── */}
-          <CollapsibleSection title="Revenue & Memberships" defaultCollapsed={false}>
-            <div className="revenue-grid">
-              <div className="revenue-card">
-                <h4>Membership Breakdown</h4>
-                <table className="mini-table">
-                  <thead>
-                    <tr><th>Plan</th><th>Users</th><th>Revenue/mo</th></tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(d.revenue.byPlan).map(([plan, info]) => (
-                      <tr key={plan}>
-                        <td className="plan-name">{plan.charAt(0).toUpperCase() + plan.slice(1)}</td>
-                        <td>{info.count}</td>
-                        <td>${info.revenue}</td>
-                      </tr>
-                    ))}
-                    <tr className="mini-table-total">
-                      <td><strong>Total MRR</strong></td>
-                      <td><strong>{d.overview.totalUsers}</strong></td>
-                      <td><strong>${d.revenue.estimatedMRR}</strong></td>
+          {/* ─── Who pays, and who just arrived ─── */}
+          <div className="admin-grid admin-grid--two">
+            <AdminPanel title="Membership breakdown">
+              <table className="mini-table">
+                <thead>
+                  <tr><th>Plan</th><th>Users</th><th>Revenue/mo</th></tr>
+                </thead>
+                <tbody>
+                  {Object.entries(d.revenue.byPlan).map(([plan, info]) => (
+                    <tr key={plan}>
+                      <td className="plan-name">{plan.charAt(0).toUpperCase() + plan.slice(1)}</td>
+                      <td>{info.count}</td>
+                      <td>${info.revenue}</td>
                     </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div className="revenue-card">
-                <h4>Recent Signups</h4>
-                <div className="recent-signups-list">
-                  {d.users.recentSignups.slice(0, 8).map((u, i) => (
-                    <div key={i} className="signup-row">
-                      <span className="signup-name">{u.nickname || u.email}</span>
-                      <span className={`plan-badge plan-${u.rank?.toLowerCase()}`}>{u.rank}</span>
-                      <span className="signup-date">{ts(u.createdAt)}</span>
-                    </div>
                   ))}
-                </div>
-              </div>
-            </div>
-          </CollapsibleSection>
+                  <tr className="mini-table-total">
+                    <td><strong>Total MRR</strong></td>
+                    <td><strong>{d.overview.totalUsers}</strong></td>
+                    <td><strong>${d.revenue.estimatedMRR}</strong></td>
+                  </tr>
+                </tbody>
+              </table>
+            </AdminPanel>
 
-          {/* ─── Storage & Costs ─── */}
+            <AdminPanel title="Recent signups">
+              <div className="recent-signups-list">
+                {d.users.recentSignups.slice(0, 8).map((u, i) => (
+                  <div key={i} className="signup-row">
+                    <span className="signup-name">{u.nickname || u.email}</span>
+                    <span className={`plan-badge plan-${u.rank?.toLowerCase()}`}>{u.rank}</span>
+                    <span className="signup-date">{ts(u.createdAt)}</span>
+                  </div>
+                ))}
+              </div>
+            </AdminPanel>
+          </div>
+
+          {/* ─── Secondary: folded away, the way plumbing should be ─── */}
           {d.storage && (
-            <CollapsibleSection title="Storage & Costs" defaultCollapsed={true}>
-              <div className="revenue-grid">
-                <div className="revenue-card">
-                  <h4>Stored Data</h4>
+            <CollapsibleSection title="Storage & costs" defaultCollapsed={true}>
+              <div className="admin-grid admin-grid--two">
+                <AdminPanel title="Stored data">
                   <table className="mini-table">
                     <thead>
                       <tr><th>Source</th><th>Size</th><th>Est. cost/mo</th></tr>
@@ -291,58 +218,59 @@ function Dashboard() {
                       </tr>
                     </tbody>
                   </table>
-                  <p className="muted">
+                  <p className="admin-panel-hint">
                     List-price estimate (us-east-1). Excludes requests, egress and CloudFront;
                     the lifecycle rules move older S3 objects to cheaper classes, so actual S3
                     cost is usually lower.
                   </p>
-                </div>
-                <div className="revenue-card">
-                  <h4>Attachments</h4>
-                  <div className="recent-signups-list">
-                    <div className="signup-row">
-                      <span className="signup-name">Files stored</span>
-                      <span className="signup-date">{d.storage.fileCount}</span>
+                </AdminPanel>
+
+                <AdminPanel title="Attachments">
+                  <div className="stat-rows">
+                    <div className="stat-row">
+                      <span>Files stored</span>
+                      <strong>{d.storage.fileCount}</strong>
                     </div>
-                    <div className="signup-row">
-                      <span className="signup-name">Legacy inline (base64)</span>
-                      <span className="signup-date">{d.storage.inlineFormatted}</span>
+                    <div className="stat-row">
+                      <span>Legacy inline (base64)</span>
+                      <strong>{d.storage.inlineFormatted}</strong>
                     </div>
                   </div>
-                  <p className="muted">
+                  <p className="admin-panel-hint">
                     Inline attachments live in DynamoDB at ~10x S3 cost. New uploads use the
-                    presigned S3 flow.
+                    S3 upload path.
                   </p>
-                </div>
+                </AdminPanel>
               </div>
             </CollapsibleSection>
           )}
 
-          {/* ─── Traffic Analytics ─── */}
-          <CollapsibleSection title="Traffic Analytics" defaultCollapsed={true}>
-            <div className="traffic-grid">
-              <div className="traffic-card">
-                <h4>Visitor Summary</h4>
+          <CollapsibleSection title="Traffic analytics" defaultCollapsed={true}>
+            <div className="admin-grid">
+              <AdminPanel title="Visitor summary">
                 <div className="stat-rows">
                   <div className="stat-row"><span>Today</span><span><strong>{fmt(d.visitors.uniqueToday)}</strong> <small className="muted">{fmt(d.visitors.today)} hits</small></span></div>
                   <div className="stat-row"><span>This Week</span><span><strong>{fmt(d.visitors.uniqueWeek)}</strong> <small className="muted">{fmt(d.visitors.thisWeek)} hits</small></span></div>
                   <div className="stat-row"><span>This Month</span><span><strong>{fmt(d.visitors.uniqueMonth)}</strong> <small className="muted">{fmt(d.visitors.thisMonth)} hits</small></span></div>
                   <div className="stat-row"><span>All Time</span><span><strong>{fmt(d.visitors.uniqueTotal)}</strong> <small className="muted">{fmt(d.visitors.total)} hits</small></span></div>
                 </div>
-              </div>
-              <div className="traffic-card">
-                <h4>Top Countries</h4>
+              </AdminPanel>
+
+              <AdminPanel title="Top countries">
                 <div className="stat-rows">
                   {d.visitors.topCountries.map((c, i) => (
                     <div key={i} className="stat-row">
-                      <span>{c.country}</span><strong>{fmt(c.count)}</strong>
+                      {/* The API returns ipinfo's two-letter country code; a
+                          report should spell it out. */}
+                      <span>{countryName(c.country)}</span>
+                      <strong>{fmt(c.count)}</strong>
                     </div>
                   ))}
                   {d.visitors.topCountries.length === 0 && <div className="stat-row muted">No data</div>}
                 </div>
-              </div>
-              <div className="traffic-card">
-                <h4>Top Referrers</h4>
+              </AdminPanel>
+
+              <AdminPanel title="Top referrers">
                 <div className="stat-rows">
                   {d.visitors.topReferers.map((r, i) => {
                     const host = (r.source || "").replace(/^www\./, "");
@@ -354,6 +282,7 @@ function Dashboard() {
                         title={`Show visitors from ${host}`}
                         role="button"
                         tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate("/admin/map", { state: { refererFilter: host } }); }}
                       >
                         <span>{r.source}</span><strong>{fmt(r.count)}</strong>
                       </div>
@@ -361,20 +290,20 @@ function Dashboard() {
                   })}
                   {d.visitors.topReferers.length === 0 && <div className="stat-row muted">No data</div>}
                 </div>
-              </div>
+              </AdminPanel>
             </div>
           </CollapsibleSection>
 
           {/* ─── Refresh ─── */}
           <div className="admin-footer-actions">
             <button className="btn-refresh" onClick={() => fetchDashboard(true)}>
-              ↻ Refresh Dashboard
+              ↻ Refresh dashboard
             </button>
-            {d.cachedAt && <small className="muted">Last updated: {ts(d.cachedAt)}</small>}
+            {d.cachedAt && <small className="muted">Last updated {ts(d.cachedAt)}</small>}
           </div>
         </>
       )}
-    </section>
+    </>
   );
 }
 

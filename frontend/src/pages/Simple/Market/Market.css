@@ -97,11 +97,11 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: color-mix(in srgb, var(--mkt-hue) 7%, var(--bg-1));
+  background: color-mix(in srgb, var(--mkt-hue) var(--plane-fallback), var(--bg-1));
+  background: oklch(from var(--mkt-hue) var(--plane-l) c h);
   border-radius: var(--border-radius-lg);
   overflow: hidden;
 }
-.dark-theme .mkt-panel { background: color-mix(in srgb, var(--mkt-hue) 14%, var(--bg-1)); }
 
 .mkt-panel-head {
   display: flex;
@@ -109,10 +109,10 @@
   justify-content: space-between;
   gap: calc(var(--nav-size) * 0.15);
   padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.28);
-  background: color-mix(in srgb, var(--mkt-hue) 12%, transparent);
+  background: color-mix(in srgb, var(--mkt-hue) var(--plane-raise), transparent);
 }
 .mkt-panel-title { margin: 0; font-size: var(--font-size-small); font-weight: var(--font-weight-semibold); }
-.mkt-count { font-size: var(--font-size-xs); color: var(--text-color-accent); }
+.mkt-count { font-size: var(--font-size-xs); color: var(--plane-muted); }
 .mkt-panel-body { padding: calc(var(--nav-size) * 0.28); }
 
 .mkt-note {
@@ -281,23 +281,24 @@
   border: 1px solid transparent;
   border-radius: var(--border-radius-lg);
   padding: calc(var(--nav-size) * 0.32);
-  background: color-mix(in srgb, var(--fg-blue) 7%, var(--bg-1));
+  --mkt-hue: var(--fg-blue);
+  background: color-mix(in srgb, var(--mkt-hue) var(--plane-fallback), var(--bg-1));
+  background: oklch(from var(--mkt-hue) var(--plane-l) c h);
   color: var(--text-color);
   transition: background 0.18s ease;
 }
 /* The whole tone is the hue of the card's neighbours' step — no border, no
    shadow, no accent strip: hover just deepens the plane (§5). */
-.mkt-card--goal { background: color-mix(in srgb, var(--fg-mint) 7%, var(--bg-1)); }
-.dark-theme .mkt-card { background: color-mix(in srgb, var(--fg-blue) 14%, var(--bg-1)); }
-.dark-theme .mkt-card--goal { background: color-mix(in srgb, var(--fg-mint) 14%, var(--bg-1)); }
-.mkt-card:hover { background: color-mix(in srgb, var(--fg-blue) 13%, var(--bg-1)); }
-.mkt-card--goal:hover { background: color-mix(in srgb, var(--fg-mint) 13%, var(--bg-1)); }
-.mkt-card--lowtrust { background: color-mix(in srgb, var(--fg-orange) 10%, var(--bg-1)); }
-.dark-theme .mkt-card--lowtrust { background: color-mix(in srgb, var(--fg-orange) 16%, var(--bg-1)); }
+.mkt-card--goal { --mkt-hue: var(--fg-mint); }
+.mkt-card--lowtrust { --mkt-hue: var(--fg-orange); }
+.mkt-card:hover {
+  background: color-mix(in srgb, var(--mkt-hue) calc(var(--plane-fallback) + 16%), var(--bg-1));
+  background: oklch(from var(--mkt-hue) var(--plane-l-strong) c h);
+}
 /* Hover must stay in the card's own hue — a low-trust card that warmed up would
-   look like a different kind of thing on mouse-over. Doubled class so it also
-   beats `.dark-theme .mkt-card:hover`. */
-.mkt-card.mkt-card--lowtrust:hover { background: color-mix(in srgb, var(--fg-orange) 16%, var(--bg-1)); }
+   look like a different kind of thing on mouse-over. Setting `--mkt-hue` per
+   variant (above) means the base hover rule can't warm it up in the first place,
+   which is why the old doubled-class override is gone. */
 
 .mkt-card-head {
   display: flex;
@@ -316,7 +317,7 @@
 .mkt-card-slug {
   margin: 0;
   font-size: var(--font-size-xs);
-  color: var(--text-color-accent);
+  color: var(--plane-muted);
   font-family: monospace;
 }
 
@@ -324,7 +325,7 @@
   margin: 0;
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
-  color: var(--text-color-accent);
+  color: var(--plane-muted);
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -343,7 +344,7 @@
   align-items: center;
   gap: var(--spacing-xs);
   font-size: var(--font-size-small);
-  color: var(--text-color-accent);
+  color: var(--plane-muted);
 }
 
 .mkt-card-dl,
@@ -383,13 +384,13 @@
 
 .mkt-stars { display: inline-flex; align-items: center; gap: 4px; }
 
-.mkt-stars-row { color: var(--text-color-accent); letter-spacing: 1px; }
+.mkt-stars-row { color: var(--plane-muted); letter-spacing: 1px; }
 .mkt-star--on { color: var(--fg-orange); }
 
 .mkt-stars--sm { font-size: var(--font-size-small); }
 .mkt-stars--md { font-size: var(--font-size-base); }
 
-.mkt-stars-count { color: var(--text-color-accent); }
+.mkt-stars-count { color: var(--plane-muted); }
 
 /* ── Modal ───────────────────────────────────────────────────────────────── */
 
@@ -538,7 +539,7 @@
 
 .mkt-capability-list code { font-family: monospace; }
 
-.mkt-capability-count { color: var(--text-color-accent); }
+.mkt-capability-count { color: var(--plane-muted); }
 
 .mkt-capability-empty {
   font-size: var(--font-size-small);

@@ -8,6 +8,7 @@ const multer = require('multer');
 // Middleware Imports
 // ============================================================================
 const { protect } = require('../middleware/authMiddleware');
+const { requireAdmin, requireAdminOrSpecial } = require('../middleware/adminAccess');
 const { authLimiter, paymentLimiter, llmLimiter, imageGenLimiter, ocrLimiter, uploadLimiter, musicGenLimiter, musicLimiter, workspaceReadLimiter, workspaceWriteLimiter, workspaceActionLimiter, marketReadLimiter, marketPublishLimiter, marketWriteLimiter, pollsReadLimiter, pollsWriteLimiter } = require('../middleware/rateLimiter');
 const { 
   validateRegistration, 
@@ -379,15 +380,16 @@ router.post('/forgot-password-authenticated',
 // DATA OPERATIONS
 // ============================================================================
 
-// Admin Routes — require authentication AND admin role
-const requireAdmin = (req, res, next) => {
-  if (!req.user || req.user.id !== process.env.ADMIN_USER_ID) {
-    return res.status(403).json({ dataMessage: 'Forbidden: admin access required' });
-  }
-  next();
-};
-router.get('/all/admin', protect, requireAdmin, getAllData);
-router.get('/admin/dashboard', protect, requireAdmin, getAdminDashboard);
+// Admin Routes — require authentication AND admin role. The `requireAdmin`
+// / `requireAdminOrSpecial` pair lives in middleware/adminAccess.js so the
+// console's client-side gate and this one can't drift apart.
+//
+// Only the endpoints behind Dashboard, Visitor map, Reviews and Page rankings
+// take the `OrSpecial` variant: a Special account gets those four read-only
+// views and nothing else. Everything else (users list, purchase gate, data
+// explorer, funnel tester, bug tools, Deep Storage) stays admin-only.
+router.get('/all/admin', protect, requireAdminOrSpecial, getAllData);
+router.get('/admin/dashboard', protect, requireAdminOrSpecial, getAdminDashboard);
 router.get('/admin/users', protect, requireAdmin, getAdminUsers);
 router.put('/admin/users/:id/special', protect, requireAdmin, sanitizeInput, updateUserSpecial);
 router.get('/admin/data', protect, requireAdmin, getAdminPaginatedData);
@@ -712,7 +714,7 @@ router.post('/polls/:id/delete', pollsWriteLimiter, sanitizeInput, deletePoll);
 // ANALYTICS (Admin Only)
 // Page views — record beacon is public (fire-and-forget), rankings are admin-only
 router.post('/analytics/pageview', recordPageView);
-router.get('/analytics/page-rankings', protect, requireAdmin, getPageRankings);
+router.get('/analytics/page-rankings', protect, requireAdminOrSpecial, getPageRankings);
 // Public counts for a specific set of paths (e.g. the /projects catalog)
 router.get('/analytics/project-rankings', getProjectRankings);
 

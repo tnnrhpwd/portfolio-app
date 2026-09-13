@@ -26,6 +26,67 @@ export function isAdminUser(user) {
 }
 
 /**
+ * Special access — accounts an admin flagged with the "Special" tag
+ * (`PUT /admin/users/:id/special`, stored as `|Special:true` on the user record).
+ *
+ * The tag exists to grant unlimited API credits, and since 2026-09-12 it also
+ * grants **read access to four admin views**: Dashboard, Visitor map, Reviews and
+ * Page rankings. `backend/middleware/adminAccess.js` is the real boundary — this
+ * list only keeps the console from offering tabs whose endpoints would 403.
+ *
+ * Keep the two in step: adding a path here without widening its route (or the
+ * reverse) gives a user a tab that errors, or a hidden endpoint nobody can see.
+ */
+export const SPECIAL_ADMIN_PATHS = Object.freeze([
+  '/admin',
+  '/admin/map',
+  '/admin/reviews',
+  '/admin/rankings',
+]);
+
+/**
+ * Does this account carry the Special tag?
+ *
+ * Reads the flag the server attaches to every auth response (`isSpecial` on
+ * login/register). There is no client-side fallback: unlike admin-ness — which
+ * has a legacy ID check for sessions that predate the flag — Special can only be
+ * known from the server, so an account flagged *after* it signed in needs to sign
+ * in again before the console offers it anything.
+ */
+export function isSpecialUser(user) {
+  if (!user) return false;
+  return user.isSpecial === true;
+}
+
+/** May this account open the admin console at all? */
+export function canUseAdminConsole(user) {
+  return isAdminUser(user) || isSpecialUser(user);
+}
+
+/**
+ * May this account open this admin path?
+ *
+ * Exact-match against `SPECIAL_ADMIN_PATHS` for a Special account (the four
+ * views have no sub-routes); admin gets everything.
+ *
+ * Note the normalization: only a *trailing* slash is dropped, and an empty
+ * result is **not** treated as `/admin`. Doing that turned `/` into `/admin`
+ * and handed a Special account the dashboard from any root-ish path — the
+ * caller is expected to pass a real pathname, and a path that isn't in the list
+ * is refused.
+ *
+ * @param {Object} user
+ * @param {string} pathname - e.g. `/admin/map` (a trailing slash is ignored)
+ */
+export function canOpenAdminPath(user, pathname) {
+  if (isAdminUser(user)) return true;
+  if (!isSpecialUser(user)) return false;
+  const path = String(pathname || '').split('?')[0].split('#')[0];
+  const trimmed = path.length > 1 ? path.replace(/\/+$/, '') : path;
+  return SPECIAL_ADMIN_PATHS.includes(trimmed);
+}
+
+/**
  * Muse access — admin, or the owner's partner via nickname.
  */
 export function isMuseVisitor(user) {

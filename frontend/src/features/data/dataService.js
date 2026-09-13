@@ -609,6 +609,22 @@ const getUserUsage = async (token) => {
     try {
         const response = await axios.get(API_URL + 'usage', config);
         console.log('getUserUsage response:', response.data);
+
+        // Keep the stored session in step with the server. `isSpecial` normally
+        // arrives with the login response, so an account tagged by an admin
+        // *while it was signed in* only learns about it here — and without this
+        // the flag would be lost again on the next reload.
+        if (response.data?.isSpecial === true) {
+            try {
+                const stored = JSON.parse(localStorage.getItem('user') || 'null');
+                if (stored && stored.isSpecial !== true) {
+                    localStorage.setItem('user', JSON.stringify({ ...stored, isSpecial: true }));
+                }
+            } catch {
+                // A malformed session is not worth failing a usage fetch over.
+            }
+        }
+
         return response.data;
     } catch (error) {
         console.error('getUserUsage service error:', error);

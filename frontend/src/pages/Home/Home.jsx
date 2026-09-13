@@ -8,7 +8,7 @@ import { getUserUsage } from '../../features/data/dataSlice.js';
 import dataService from '../../features/data/dataService.js';
 import useScrollReveal from '../../hooks/useScrollReveal.js';
 import { PROJECTS } from '../../constants/projects';
-import { isAdminUser, isMuseVisitor as isMuseVisitorAllowed } from '../../constants/admin';
+import { canUseAdminConsole, isMuseVisitor as isMuseVisitorAllowed } from '../../constants/admin';
 import { fetchProjectRankings } from '../../services/projectRankingsApi';
 import SimpleCtaBand from '../../components/Simple/SimpleCtaBand/SimpleCtaBand.jsx';
 
@@ -203,7 +203,7 @@ function Home() {
     }, []);
 
     const isMuseVisitor = isMuseVisitorAllowed(user);
-    const isAdmin = isAdminUser(user);
+    const isAdmin = canUseAdminConsole(user);
 
     const [titleText, setTitleText] = useState(FALLBACK_TITLE);
 

@@ -3,6 +3,8 @@ import { useSelector, useDispatch } from "react-redux";
 import dataService from "../../features/data/dataService.js";
 import { closeBugReport } from "../../features/data/dataSlice";
 import { enlistAgentForBug, getGoalAgentStatus } from "../../services/goalAgentApi.js";
+import AdminPanel from "../../components/Admin/AdminPanel.jsx";
+import { useAdminReadout } from "./adminBarContext";
 import { formatTimestamp } from "./adminShared";
 import { toast } from "react-toastify";
 
@@ -179,11 +181,23 @@ function Bugs() {
 
   const ts = formatTimestamp;
 
-  return (
-    <section className="admin-section-tile">
-      <h2>Bug Reports</h2>
+  const openBugCount = bugReports.filter((r) => r.status === 'Open').length;
+  useAdminReadout(
+    bugReports.length > 0
+      ? [
+          { label: 'Open', value: openBugCount, tone: openBugCount > 0 ? 'warn' : 'ok' },
+          { label: 'Total', value: bugReports.length },
+        ]
+      : null
+  );
 
-      {allDataLoading && <div className="admin-loading">Loading...</div>}
+  return (
+    <>
+      <AdminPanel
+        title="Bug reports"
+        hint="Auto-fix enlists an agent to repair the bug and commit the change. Close records a resolution and emails the reporter."
+      >
+        {allDataLoading && <div className="admin-loading">Loading...</div>}
       {!allDataLoading && bugReports.length > 0 ? (
         <div className="table-scroll-container">
         <table className="admin-table compact-table">
@@ -240,22 +254,23 @@ function Bugs() {
       ) : (
         !allDataLoading && <p className="admin-no-data">No bug reports found</p>
       )}
+      </AdminPanel>
 
-      {/* Resolution Modal */}
+      {/* Resolution Modal — a floating surface, so it keeps its elevation (§5.7) */}
       {showResolutionModal && (
         <div className="admin-modal-overlay" onClick={() => { setShowResolutionModal(false); setResolutionText(''); setClosingBugId(null); }}>
           <div className="admin-modal" onClick={e => e.stopPropagation()}>
             <div className="admin-modal-header">
-              <h3>Close Bug Report</h3>
-              <button className="admin-modal-close" onClick={() => { setShowResolutionModal(false); setResolutionText(''); setClosingBugId(null); }}>✕</button>
+              <h3>Close bug report</h3>
+              <button className="admin-modal-close" onClick={() => { setShowResolutionModal(false); setResolutionText(''); setClosingBugId(null); }} aria-label="Close">✕</button>
             </div>
             <div className="admin-modal-content">
-              <label htmlFor="resolutionText">Resolution Description:</label>
+              <label htmlFor="resolutionText">Resolution description</label>
               <textarea
                 id="resolutionText"
                 value={resolutionText}
                 onChange={(e) => setResolutionText(e.target.value)}
-                placeholder="Describe how this bug was resolved..."
+                placeholder="Describe how this bug was resolved…"
                 rows="4"
                 maxLength="500"
               />
@@ -263,12 +278,12 @@ function Bugs() {
             </div>
             <div className="admin-modal-actions">
               <button className="admin-modal-cancel" onClick={() => { setShowResolutionModal(false); setResolutionText(''); setClosingBugId(null); }}>Cancel</button>
-              <button className="admin-modal-confirm" onClick={() => handleCloseBugReport(closingBugId)} disabled={!resolutionText.trim()}>Close Report</button>
+              <button className="admin-modal-confirm" onClick={() => handleCloseBugReport(closingBugId)} disabled={!resolutionText.trim()}>Close report</button>
             </div>
           </div>
         </div>
       )}
-    </section>
+    </>
   );
 }
 

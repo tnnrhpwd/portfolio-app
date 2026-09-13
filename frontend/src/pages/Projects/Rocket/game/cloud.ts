@@ -27,7 +27,7 @@
  * this file throws into the game.
  */
 
-import { loadSave, migrate, persistSave, type SaveData } from './save';
+import { migrate, persistSave, type SaveData } from './save';
 
 const BASE = '/api/data';
 const SAVE_MARKER = 'RocketSave';
@@ -374,27 +374,59 @@ export async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
   }
 }
 
-/** Publish a run's farthest wave. Public rows are append-only, so this is safe. */
+/**
+ * Publish a run's farthest wave.
+ *
+ * Sent to the AUTHENTICATED route (`POST /api/data`) even though the entry is
+ * public. Two reasons, both learned the hard way:
+ *
+ *   1. The backend stamps `Creator:<id>|` on authenticated writes, and
+ *      `deleteHashData` refuses rows without a creator — so an entry published
+ *      through `/api/data/public` can never be removed by anyone, including the
+ *      player who posted it, and by us while testing. A row you own is a row you
+ *      can fix.
+ *   2. It ties the wave to a real account instead of allowing anonymous writes.
+ *
+ * It stays public: the row carries `Public:true`, and the anonymous board scan is
+ * `contains(text, 'RocketLeaderboard') AND contains(text, 'Public:true')`, which
+ * matches regardless of the creator prefix.
+ */
 export async function submitScore(wave: number, score: number): Promise<boolean> {
   const user = readUser();
   if (!user) return false;
   const safeWave = Math.max(0, Math.min(Math.floor(wave) || 0, 100000));
   const safeScore = Math.max(0, Math.min(Math.floor(score) || 0, 100000000));
   if (safeWave < 1) return false;
+  // Recorded before the first await, so a screen rendered on the very next frame
+  // (the game-over screen) can tell what this run published without racing the
+  // network — locally the round trip wins the race, in production it loses, and the
+  // player should not see a different sentence depending on their latency.
+  lastSubmit = { wave: safeWave, ok: null };
   try {
-    const res = await request('/public', {
+    const res = await request('', {
       method: 'POST',
-      // The field name differs by endpoint, and getting it wrong is a 500, not a
-      // validation error: the private routes read `req.body.text`, while
-      // `postData.js` reads `req.body.data.Text` and throws on anything else.
+      // Field name differs per controller: the private routes read `req.body.text`,
+      // while `postData.js` reads `req.body.data.Text` and 500s on anything else.
       body: JSON.stringify({
-        data: formatLeaderboardText({ wave: safeWave, score: safeScore, name: displayName(), userId: user._id }),
+        text: formatLeaderboardText({ wave: safeWave, score: safeScore, name: displayName(), userId: user._id }),
       }),
     });
+    lastSubmit = { wave: safeWave, ok: res.ok };
     return res.ok;
   } catch {
+    lastSubmit = { wave: safeWave, ok: false };
     return false;
   }
+}
+
+let lastSubmit: { wave: number; ok: boolean | null } | null = null;
+
+/**
+ * What the most recent publish attempt covers, for the game-over line.
+ * `ok === null` means it is still in flight.
+ */
+export function lastSubmitWave(): { wave: number; ok: boolean | null } | null {
+  return lastSubmit;
 }
 
 /** The guest best score, for the "sign in to appear here" hint. */

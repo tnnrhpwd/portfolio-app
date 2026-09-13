@@ -10,8 +10,17 @@
     text-rendering: optimizeLegibility;
     position: relative;
     z-index: 1;
+    /* `hidden` first as the fallback for browsers without `clip` (Safari < 16),
+       then `clip` for everyone else. They clip identically, but `hidden` on one
+       axis resolves the other to `auto`, so `.App` becomes a scroll container
+       that never scrolls — and a `position: sticky` descendant offsets itself
+       against THAT box instead of the viewport, so every sticky toolbar in the
+       app silently stops sticking (the service-page toolbars in
+       FRONTEND_UI_STANDARD.md §5.7: `.sd-bar`, `.plans-bar`, `.admin-head`).
+       `clip` does not create a scroll container, so they stick as designed. */
     overflow-x: hidden;
-    
+    overflow-x: clip;
+
     /* Smooth scrolling for better UX */
     scroll-behavior: smooth;
     

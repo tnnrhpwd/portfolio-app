@@ -533,5 +533,9 @@ reflow logic is exactly the surface this pattern removes.
 - `docs/guides/Rocket-Asset-Pipeline.md` — the sprite sheets → 282 PNGs extractor.
 - `docs/guides/Rocket-Audio-Pipeline.md` — the music/SFX renderer, the manifest
   contract, and why AI audio providers were ruled out.
+- `docs/guides/Rocket-Cloud-Save.md` — profile-backed progress and the public
+  farthest-wave leaderboard on the generic `/api/data` routes, including the three
+  API traps (field names, `data`/`_id`, never `PUT`), the merge policy, and why the
+  menu must await the boot sync instead of only listening for it.
 - `docs/guides/STATIC_ASSETS_AND_IMAGE_GENERATION.md` — Part 2 (Bedrock image
   generation) and Part 3 (the agent-facing recipe for slicing a new sheet).

@@ -172,11 +172,6 @@ export function mergeSaves(local: SaveData, cloud: SaveData): SaveData {
   };
 }
 
-/** True when `a` was written after `b` (a save that was never written is oldest). */
-export function isNewerThan(a: SaveData, b: SaveData): boolean {
-  return a.updatedAt > b.updatedAt;
-}
-
 /** A ship is buyable when it is not owned and the bank covers its price. */
 export function canUnlockShip(data: SaveData, key: ShipKey): boolean {
   return !data.unlockedShips.includes(key) && data.coins >= SHIPS[key].cost;

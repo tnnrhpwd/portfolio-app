@@ -55,6 +55,7 @@ docs/
 
 ### Games (canvas / Phaser)
 - [Rocket Game Guide](./guides/Rocket-Game-Guide.md) - **Read before building or changing a canvas game.** Architecture, the two-layout portrait/landscape system, how to test a game in the browser, and the gotchas that cost real time
+- [Rocket Cloud Save + Leaderboard](./guides/Rocket-Cloud-Save.md) - Profile-backed progress (coins/upgrades follow you to another device) and a public farthest-wave board, on the generic `/api/data` routes — three API traps, the merge policy, and why board writes go through the authenticated route
 - [Rocket Asset Pipeline](./guides/Rocket-Asset-Pipeline.md) - Turning the AI-generated asset posters into 282 named transparent PNGs (`scripts/rocket/extract-sprites.js`)
 - [Rocket Audio Pipeline](./guides/Rocket-Audio-Pipeline.md) - Music + SFX rendered offline from `scripts/rocket/audio.json` by a dependency-free chiptune engine (no subscriptions; why AI audio was ruled out)
 

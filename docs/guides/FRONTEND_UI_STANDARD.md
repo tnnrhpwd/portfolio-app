@@ -402,21 +402,28 @@ things are different"; a change of tone says the same thing and looks like a des
 a spreadsheet. Squarespace's calm comes from planes of color meeting edge-to-edge, and that is the
 house style here.
 
-- **Containers get a fill, never an outline.** A panel, tile, table or readout is `--bg-1` or a wash
-  of an accent — `color-mix(in srgb, var(--fg-blue) 7%, var(--bg-1))` — not a box with a 1px edge.
+- **Containers get a fill, never an outline.** A panel, tile, table or readout is `--bg-1` or a
+  **saturated plane** of an accent — see "Planes are saturated, not pastel" below — never a box with
+  a 1px edge.
 - **Give neighbouring blocks different tones.** Two adjacent panels in the same color read as one
   panel that failed to load; step the hue so the grid reads as blocks of color. Deriving a block's
   head and footer from *its own* hue keeps the block one family:
   ```css
-  .foo-panel { --foo-hue: var(--fg-blue); background: color-mix(in srgb, var(--foo-hue) 7%, var(--bg-1)); }
+  .foo-panel {
+    --foo-hue: var(--fg-blue);
+    /* fallback first, then the real one (see "Planes are saturated, not pastel") */
+    background: color-mix(in srgb, var(--foo-hue) var(--plane-fallback), var(--bg-1));
+    background: oklch(from var(--foo-hue) var(--plane-l) c h);
+  }
   .foo-panel:nth-child(3n + 2) { --foo-hue: var(--fg-mint); }
   .foo-panel:nth-child(3n + 3) { --foo-hue: var(--fg-pink); }
-  .foo-panel-head { background: color-mix(in srgb, var(--foo-hue) 13%, transparent); }
+  .foo-panel-head { background: color-mix(in srgb, var(--foo-hue) var(--plane-raise), transparent); }
   ```
 - **Hover deepens the tone** — don't answer a hover with a ring *and* a shadow *and* a border. Pick
-  one, or use none: color and motion are already doing the work.
+  one, or use none: color and motion are already doing the work. On a plane, hover is the same hue
+  one step deeper (light) or lighter (dark): `oklch(from var(--foo-hue) var(--plane-l-strong) c h)`.
 - **Separate rows with alternating tints**, not a hairline under every row:
-  `.foo-row:nth-child(odd) { background: color-mix(in srgb, var(--foo-hue) 6%, transparent); }`
+  `.foo-row:nth-child(odd) { background: color-mix(in srgb, var(--foo-hue) var(--plane-row), transparent); }`
 - **Where a boundary is genuinely functional, make it a color too.** An input sitting on a tinted
   panel gets a solid `--bg-1` fill and at most an edge mixed from its own accent
   (`1px solid color-mix(in srgb, var(--fg-blue) 30%, transparent)`) — not `--border-nav` grey. A
@@ -429,6 +436,60 @@ house style here.
 neutral (a browser-default-looking divider, a table rule on a page of dense data) — reach for a tone
 first, and for one of the color-mix edges above second. Service pages are no exception: their panels
 are color planes too (§5.7).
+
+### Planes are saturated, not pastel
+
+`color-mix(in srgb, <hue> 7%, var(--bg-1))` is a hue *diluted into the page*, and at 7–15% what you
+get back is grey with a temperature: every surface ends up a slightly different off-white and the
+page reads as pastel by accident. **Pin lightness, keep chroma** instead — that is the most saturated
+version of the hue that still takes dark text (light) or white text (dark):
+
+```css
+.foo-panel {
+  --foo-hue: var(--fg-blue);
+  background: color-mix(in srgb, var(--foo-hue) var(--plane-fallback), var(--bg-1)); /* fallback */
+  background: oklch(from var(--foo-hue) var(--plane-l) c h);                      /* the real one */
+}
+```
+
+The tokens live in `index.css`, one set per theme, so "more color" is a token change and not a
+per-rule hunt:
+
+| token | light | dark | what it's for |
+| --- | --- | --- | --- |
+| `--plane-l` | 0.87 | 0.30 | a solid plane (a panel, a card) |
+| `--plane-l-strong` | 0.76 | 0.40 | its head, a bar, an active tab, a hover |
+| `--plane-fallback` | 32% | 48% | the dose the `color-mix` fallback line uses |
+| `--plane-row` | 12% | 18% | a translucent zebra tint **on** a plane |
+| `--plane-raise` | 24% | 32% | a translucent "raised" block **on** a plane |
+| `--plane-muted` | accent → text | accent → text | muted text that has to land on a plane |
+| `--plane-ink-l` / `--plane-ink-fallback` | 0.38 / 55% | 0.88 / 62% | a *hue used as text* on a plane |
+
+Rules that fall out of it:
+
+- **Two planes never touch as equals.** If a block sits *inside* a plane, it is a translucent wash of
+  the same hue (`--plane-raise`), not a second solid plane — solid-on-solid just looks like a stack
+  of cards.
+- **A hue used as *text* is not the same color as a hue used as *fill*.** `--fg-blue` is tuned to sit
+  on `--bg-1`; printed on a blue plane it measures ~2.9:1 (light) / ~2.0:1 (dark). Run it through the
+  ink pair first:
+  ```css
+  .foo-badge {
+    --badge-tone: var(--fg-blue);
+    background: var(--bg-1);   /* a chip, so it can't dissolve into a plane of its own hue */
+    color: color-mix(in srgb, var(--badge-tone) var(--plane-ink-fallback), var(--text-color));
+    color: oklch(from var(--badge-tone) var(--plane-ink-l) c h);
+  }
+  ```
+  The same trade applies to links, retry/reset buttons and status words that land on a plane.
+- **Muted text on a plane is `--plane-muted`**, never bare `--text-color-accent` — the accent is
+  measured against `--bg-page`, not against a saturated plane.
+- **Measure it, don't eyeball it.** Composite the alpha stack (a plane is usually translucent) before
+  computing the ratio, and remember Chrome serialises relative colors as `oklch(…)` — reading
+  `getComputedStyle().color` needs a canvas round-trip to get back to sRGB. §13.13 in
+  `docs/implementation/agent.md` is the worked example.
+- **A browser without relative color syntax gets the `color-mix` line**, which is pastel — that is the
+  intended degradation, and it is why both lines are always written out.
 
 ### Opening a band: eyebrow → heading → lead
 
@@ -765,9 +826,19 @@ to one short line plus the action that fixes them.
 - **No scroll reveals, no stagger.** Reveals delay content on a page whose whole point is
   "help me now"; Squarespace's fade-and-rise belongs to a page you're being sold on. Motion
   here is reserved for **state changing** — a status dot, a progress bar, a button that
-  becomes Stop.
+  becomes Stop. (The admin console adds one short rise as each panel appears, plus a
+  breathing brand rule and a pulsing status dot. It is the console its owner opens all day,
+  not a template for a customer-facing service page — don't copy the rise out of `Admin.css`.)
 - Everything else stands: tokens for every color, `calc(var(--nav-size) * N)` for sizing,
   visible focus rings, and a `prefers-reduced-motion` reset.
+- **A sticky toolbar needs the app root to _clip_, not _hide_.** `App.css` clamps `.App`
+  with `overflow-x: clip` (with `overflow-x: hidden` before it, as the fallback for
+  browsers without `clip`). `hidden` on one axis resolves the other to `auto`, which makes
+  `.App` a scroll container that never scrolls — and every `position: sticky` inside it then
+  offsets itself against that box instead of the viewport and silently never engages. This
+  is exactly what had happened here: the `.sd-bar` / `.plans-bar` toolbars were sticky in
+  name only until 2026-09-12. Don't reintroduce it, and never clamp a page root with
+  `overflow-x: hidden` either (see the note on `.plans-page`).
 
 ### Verifying one
 
@@ -1054,6 +1125,7 @@ header. It hides below `820px`, so anything placed there must also be reachable 
 | Control (`/simple`) | `frontend/src/pages/Simple/Simple/` | **Service page (§5.7)** — sticky toolbar + dense panel grid on one flat surface, no bands |
 | Goals (`/plans`) | `frontend/src/pages/Simple/Plans/` | **Service page (§5.7)** — same shape: live state in the toolbar, panels grouped into grid rows |
 | Dream board (`/plans` 🌟) | `frontend/src/pages/Simple/Plans/DreamBoard.jsx` | **Service page view (§5.7)** — a third tab over the *same* goals: a cover-art tile grid where each tile is a goal you can hand to the agent. Panels stay colour planes; no bands, no reveals. Covers are real artwork (`assets/art/dream-*.jpg`), never emoji tiles (§5) |
+| Admin console (`/admin`) | `frontend/src/pages/Admin/` | **Service page (§5.7)** — one sticky head (the route's view name as `<h1>` + a live readout published by the mounted view + the tab row) over a stack of dense panels. `components/Admin/AdminPanel.jsx` builds a panel; `useAdminReadout` (`Admin/adminBarContext.js`) publishes the toolbar chips; `Admin.css` owns `.admin-table` / `.admin-search` scoped to `.admin-surface` so `/deepstorage`'s `ScrollableTable.css` can't repaint them. The tab row a **Special** account sees is `SPECIAL_ADMIN_PATHS` (`constants/admin.js`) — four read-only views, mirrored by `backend/middleware/adminAccess.js` |
 
 The earlier entries predate the editorial structure; **Annuities is the markup reference for it.** When
 in doubt about how a band, a staggered reveal, a borderless readout or a themed canvas should be built,

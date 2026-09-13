@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { announce } from '../accessibility';
 import { playMusic } from '../audio/music';
 import { sfx } from '../audio/sfx';
-import { isLoggedIn } from '../cloud';
+import { isLoggedIn, lastSubmitWave } from '../cloud';
 import { startRun, getSave, type RunSummary } from '../session';
 import { addPanel, addSpaceBackdrop } from '../ui/backdrop';
 import { addText, createButton } from '../ui/button';
@@ -100,20 +100,27 @@ export class GameOverScene extends Phaser.Scene {
       { size: 17, color: TEXT.gold, origin: [0.5, 0.5] },
     );
 
-    // Leaderboard status for this run. `submittedWave` is still the PREVIOUS value
-    // here — publishing is a network round-trip that starts when the run ends — so
-    // "newer than what was already sent" is exactly "a submission is in flight".
+    // Leaderboard status for this run. Read from what the publish actually covered
+    // rather than from `save.submittedWave`: that value is written when the request
+    // *returns*, so comparing against it makes the sentence depend on the player's
+    // latency (a fresh best read "already on the leaderboard" on localhost).
+    const attempt = lastSubmitWave();
     const board: [string, string] =
       this.summary.wave < 1
         ? ['', TEXT.muted]
         : !isLoggedIn()
           ? [`Sign in to put wave ${this.summary.wave} on the leaderboard.`, TEXT.dim]
-          : this.summary.wave > save.submittedWave
-            ? [`Publishing wave ${this.summary.wave} to the leaderboard…`, TEXT.accent]
+          : attempt?.wave === this.summary.wave
+            ? attempt.ok === false
+              ? ['Could not reach the leaderboard — your run is saved on this device.', TEXT.muted]
+              : [`Publishing wave ${this.summary.wave} to the leaderboard…`, TEXT.accent]
             : [`Wave ${this.summary.wave} is already on the leaderboard.`, TEXT.dim];
 
     if (board[0]) {
-      addText(this, cx, portrait ? 768 : 470, board[0], {
+      // Sits in the gap between the two buttons and the closing note: the panel's
+      // own row block ends where PLAY AGAIN starts, so anything nearer would crowd
+      // the button's edge.
+      addText(this, cx, portrait ? 994 : 622, board[0], {
         size: 15,
         color: board[1],
         origin: [0.5, 0.5],

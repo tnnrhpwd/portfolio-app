@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import dataService from "../../features/data/dataService.js";
-import { formatTimestamp } from "./adminShared";
+import AdminPanel from "../../components/Admin/AdminPanel.jsx";
+import { useAdminReadout } from "./adminBarContext";
+import { fmt, formatTimestamp } from "./adminShared";
 import { toast } from "react-toastify";
 
 function Users() {
@@ -48,24 +50,36 @@ function Users() {
 
   const ts = formatTimestamp;
 
+  // Live state belongs in the sticky toolbar, not in a subtitle (§5.7).
+  useAdminReadout(
+    usersPagination.total > 0
+      ? [
+          { label: 'Users', value: fmt(usersPagination.total) },
+          { label: 'Page', value: `${usersPagination.page}/${usersPagination.totalPages}` },
+        ]
+      : null
+  );
+
   return (
-    <section className="admin-section-tile">
-      <h2>User Management</h2>
-
-      <div className="section-toolbar">
-        <input
-          type="text"
-          className="admin-search"
-          placeholder="Search users by email, name, or plan..."
-          value={usersSearch}
-          onChange={(e) => setUsersSearch(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && fetchUsers(1)}
-        />
-        <button className="btn-sm" onClick={() => fetchUsers(1)} disabled={usersLoading}>
-          {usersLoading ? 'Searching…' : 'Search'}
-        </button>
-      </div>
-
+    <AdminPanel
+      title="All users"
+      tools={
+        <>
+          <input
+            type="text"
+            className="admin-search"
+            placeholder="Search by email, nickname, or plan…"
+            value={usersSearch}
+            onChange={(e) => setUsersSearch(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && fetchUsers(1)}
+            aria-label="Search users"
+          />
+          <button className="btn-sm" onClick={() => fetchUsers(1)} disabled={usersLoading}>
+            {usersLoading ? 'Searching…' : 'Search'}
+          </button>
+        </>
+      }
+    >
       {usersLoading && <div className="admin-loading">Loading users...</div>}
       {!usersLoading && users.length > 0 && (
         <>
@@ -107,7 +121,7 @@ function Users() {
         </>
       )}
       {!usersLoading && users.length === 0 && <p className="admin-no-data">No users found</p>}
-    </section>
+    </AdminPanel>
   );
 }
 

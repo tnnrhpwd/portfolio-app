@@ -8,6 +8,7 @@ const asyncHandler = require('express-async-handler');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
 const { checkIP } = require('../utils/accessData.js');
+const { isSpecialUser } = require('../utils/apiUsageTracker');
 const { logger } = require('../utils/logger');
 const { GUEST_EMAIL, GUEST_PASSWORD, GUEST_NICKNAME } = require('../constants/guestAccount.js');
 const { sendEmail } = require('../services/emailService');
@@ -195,6 +196,10 @@ const registerUser = asyncHandler(async (req, res) => {
             nickname,
             email,
             isAdmin: params.Item.id === process.env.ADMIN_USER_ID,
+            // A brand-new account can never be Special; the flag is only ever
+            // granted later by an admin. Sent explicitly so the client's
+            // admin-console gate reads one shape for every login path.
+            isSpecial: false,
             createdAt: creationDate, // Include the birth date
             profilePicture: null, // New accounts start with the default checkmark avatar
             token: generateToken(String(params.Item.id)),   //uses JWT secret
@@ -375,6 +380,11 @@ const loginUser = asyncHandler(async (req, res) => {
                 email: email,
                 nickname: userNickname,
                 isAdmin: user.id === process.env.ADMIN_USER_ID,
+                // Accounts an admin flagged Special get the four read-only admin
+                // views (Dashboard, Visitor map, Reviews, Page rankings) — see
+                // middleware/adminAccess.js. Surfaced here so the console can
+                // decide what to offer without a second round-trip.
+                isSpecial: isSpecialUser(userText),
                 stripe: userStripe,
                 // Base64 data URL baked on the client; null when unset. Kept out
                 // of the pipe-delimited text blob (see profileController.js).

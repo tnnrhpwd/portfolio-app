@@ -151,6 +151,13 @@ describe('leaderboard', () => {
     expect(parseLeaderboardRow({})).toBeNull();
   });
 
+  it('reads a row the backend stamped with a creator prefix', () => {
+    // Entries are published through the authenticated route (so their author can
+    // delete them), which means the stored text begins `Creator:<id>|`.
+    const text = `Creator:user-9|${formatLeaderboardText({ wave: 6, score: 10, name: 'A', userId: 'user-9' })}`;
+    expect(parseLeaderboardRow({ data: text })).toMatchObject({ wave: 6, userId: 'user-9' });
+  });
+
   it('ranks by farthest wave, then score, and numbers the rows', () => {
     const { top, total } = rankLeaderboard([
       entry({ wave: 5, score: 100, userId: 'a' }),

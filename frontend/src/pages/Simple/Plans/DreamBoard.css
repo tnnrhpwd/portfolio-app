@@ -61,12 +61,14 @@
   flex-direction: column;
   border-radius: var(--border-radius-lg);
   overflow: hidden;
-  background: color-mix(in srgb, var(--dream-hue) 8%, var(--bg-1));
+  background: color-mix(in srgb, var(--dream-hue) var(--plane-fallback), var(--bg-1));
+  background: oklch(from var(--dream-hue) var(--plane-l) c h);
   transition: transform 0.2s ease, background 0.2s ease;
 }
 .dream-tile:hover {
   transform: translateY(-2px);
-  background: color-mix(in srgb, var(--dream-hue) 14%, var(--bg-1));
+  background: color-mix(in srgb, var(--dream-hue) calc(var(--plane-fallback) + 16%), var(--bg-1));
+  background: oklch(from var(--dream-hue) var(--plane-l-strong) c h);
 }
 
 /* The cover is one big button: clicking the picture opens the dream. */
@@ -149,7 +151,7 @@
   font-size: var(--font-size-small);
   font-style: italic;
   line-height: var(--line-height-relaxed);
-  color: var(--text-color-accent);
+  color: var(--plane-muted);
   overflow-wrap: anywhere;
 }
 
@@ -163,7 +165,7 @@
 .dream-tile-time {
   margin-left: auto;
   font-size: var(--font-size-xs);
-  color: var(--text-color-accent);
+  color: var(--plane-muted);
 }
 
 /* Footer is a deeper wash of the tile's own hue — the shared panel recipe. */
@@ -174,7 +176,7 @@
   gap: calc(var(--nav-size) * 0.15);
   margin-top: calc(var(--nav-size) * 0.2);
   padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.28);
-  background: color-mix(in srgb, var(--dream-hue) 13%, transparent);
+  background: color-mix(in srgb, var(--dream-hue) var(--plane-raise), transparent);
 }
 .dream-tile-tools { display: flex; gap: calc(var(--nav-size) * 0.06); }
 

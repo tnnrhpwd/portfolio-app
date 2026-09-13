@@ -1,64 +1,89 @@
-.visitor-map-leaflet {
-  width: 100%;
-  height: 500px;
-  position: relative;
-  z-index: 0; /* isolate Leaflet's internal stacking so panes don't overlap the admin header */
-  border: 1px solid var(--border-nav);
-  border-radius: var(--border-radius-xl, 16px);
-  margin: calc(var(--nav-size) * 0.25) 0;
-  overflow: hidden;
-  background-color: var(--bg-1);
-  box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.15));
-  color: var(--text-color-inv);
+/* ── VisitorMap — Leaflet canvas ────────────────────────────────────────────
+   Leaflet injects its own DOM, so this file only colours Leaflet's panes,
+   controls and popups. The container's own size/radius live in
+   `pages/Admin/Admin.css` (`.visitor-map-leaflet`), which owns the admin
+   console's layout — one owner per property, so the two can't disagree.
+
+   Two things this file got wrong before:
+
+   - The container rule here (500px, a border, a shadow, `--border-nav`) was a
+     second definition of a class Admin.css already styles, so the result
+     depended on stylesheet load order.
+   - The dark tile inversion ran unconditionally, so the map was navy on a light
+     page. `invert` is now scoped to the dark theme.
+   - `--bg-2` does not exist in `index.css`, so popups and tooltips were
+     rendering with *no* background — transparent text over the map.
+     (Not `--bg-1`: a popup is a floating surface, so it gets a real fill.) */
+
+.visitor-map-leaflet .leaflet-container {
+  background: color-mix(in srgb, var(--fg-blue) 8%, var(--bg-1));
+  font-family: inherit;
 }
 
-/* Standard OSM tiles are light; invert them for the dark admin theme.
-   Scoped to the tile pane so markers/popups/controls keep their colors. */
-.visitor-map-leaflet .leaflet-tile-pane {
+/* OpenStreetMap's tiles are light. Invert them for the dark theme, scoped to
+   the tile pane so markers, popups and controls keep their own colors. */
+.dark-theme .visitor-map-leaflet .leaflet-tile-pane {
   filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
 }
 
-/* Dark-theme adjustments for Leaflet's built-in controls */
+/* Zoom buttons — compact planes, no hairlines (§5). */
 .visitor-map-leaflet .leaflet-control-zoom a {
-  background-color: var(--bg-2);
-  color: var(--text-color-inv);
-  border-color: var(--border);
+  background-color: var(--bg-1);
+  color: var(--text-color);
+  border: 0;
+  font-weight: var(--font-weight-semibold);
+}
+.visitor-map-leaflet .leaflet-control-zoom a:hover {
+  background-color: color-mix(in srgb, var(--fg-blue) 16%, var(--bg-1));
 }
 
 .visitor-map-leaflet .leaflet-control-attribution {
-  background: rgba(0, 0, 0, 0.55);
-  color: #ccc;
+  background: color-mix(in srgb, var(--bg-1) 86%, transparent);
+  color: var(--text-color-accent);
   font-size: 10px;
 }
+.visitor-map-leaflet .leaflet-control-attribution a { color: var(--fg-blue); }
 
-.visitor-map-leaflet .leaflet-control-attribution a {
-  color: #9acd9a;
-}
-
+/* Popups and tooltips are things that genuinely float, so they keep a fill and
+   an elevation (the rest of the console has neither). */
 .visitor-map-leaflet .leaflet-popup-content-wrapper,
 .visitor-map-leaflet .leaflet-popup-tip {
-  background-color: var(--bg-2);
-  color: var(--text-color-inv);
-  font-size: 14px;
+  background-color: var(--bg-1);
+  color: var(--text-color);
+  box-shadow: var(--shadow-md);
 }
-
+.visitor-map-leaflet .leaflet-popup-content-wrapper {
+  border-radius: var(--border-radius);
+}
 .visitor-map-leaflet .leaflet-popup-content-wrapper .leaflet-popup-content {
-  color: var(--text-color-inv);
+  margin: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.22);
+  color: var(--text-color);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-base);
 }
+.visitor-map-leaflet .leaflet-popup-close-button { color: var(--text-color-accent); }
 
 .visitor-map-leaflet .leaflet-tooltip {
-  background-color: var(--bg-2);
-  color: var(--text-color-inv);
-  border-color: var(--border);
-  font-size: 12px;
+  background-color: var(--bg-1);
+  color: var(--text-color);
+  border: 0;
+  box-shadow: var(--shadow-sm);
+  font-size: var(--font-size-xs);
+}
+.visitor-map-leaflet .leaflet-tooltip-top::before { border-top-color: var(--bg-1); }
+.visitor-map-leaflet .leaflet-tooltip-bottom::before { border-bottom-color: var(--bg-1); }
+
+/* The visitor marker: a soft accent dot rather than a pin graphic. */
+.visitor-map-leaflet .leaflet-interactive {
+  transition: filter 0.15s ease;
+}
+.visitor-map-leaflet .leaflet-interactive:hover { filter: brightness(1.15); }
+
+@media (prefers-reduced-motion: reduce) {
+  .visitor-map-leaflet .leaflet-interactive { transition: none; }
 }
 
-.visitor-map-leaflet .leaflet-tooltip-top::before {
-  border-top-color: var(--bg-2);
-}
-
-@media (orientation: portrait) {
-  .visitor-map-leaflet {
-    height: 450px;
-  }
+@media (prefers-contrast: more) {
+  .visitor-map-leaflet .leaflet-popup-content-wrapper,
+  .visitor-map-leaflet .leaflet-tooltip { box-shadow: none; outline: 1px solid var(--text-color); }
 }

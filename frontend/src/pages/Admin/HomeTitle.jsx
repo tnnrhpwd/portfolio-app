@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import dataService from "../../features/data/dataService.js";
+import AdminPanel from "../../components/Admin/AdminPanel.jsx";
+import { useAdminReadout } from "./adminBarContext";
 import { HOME_TITLE_RULE_TYPES, homeTitleRuleTypeInfo, formatTimestamp } from "./adminShared";
 import { toast } from "react-toastify";
 
@@ -82,10 +84,37 @@ function HomeTitle() {
 
   const ts = formatTimestamp;
 
-  return (
-    <section className="admin-section-tile">
-      <h2>Home Title Rules</h2>
+  const ruleCount = homeTitleSettings?.rules?.length || 0;
+  const enabledRuleCount = (homeTitleSettings?.rules || []).filter((r) => r.enabled !== false).length;
+  useAdminReadout(
+    homeTitleSettings
+      ? [
+          { label: 'Rules', value: ruleCount },
+          { label: 'Enabled', value: enabledRuleCount, tone: ruleCount > 0 && enabledRuleCount === 0 ? 'warn' : undefined },
+        ]
+      : null
+  );
 
+  return (
+    <AdminPanel
+      title="Title rules"
+      hint="Evaluated in priority order, lowest number first; the first enabled rule that matches the visitor wins. If nothing matches, the default title is used."
+      tools={
+        <>
+          <button className="btn-sm btn-outline" onClick={addHomeTitleRule}>+ Add rule</button>
+          <button
+            className="btn-sm"
+            onClick={handleSaveHomeTitleSettings}
+            disabled={homeTitleSaving || homeTitleLoading || !homeTitleSettings}
+          >
+            {homeTitleSaving ? "Saving…" : "Save changes"}
+          </button>
+          {homeTitleUpdatedAt && (
+            <span className="admin-chip">Saved <strong>{ts(homeTitleUpdatedAt)}</strong></span>
+          )}
+        </>
+      }
+    >
       {homeTitleLoading && <div className="admin-loading">Loading home title settings...</div>}
       {homeTitleError && (
         <div className="admin-error">
@@ -95,11 +124,6 @@ function HomeTitle() {
       )}
       {!homeTitleLoading && homeTitleSettings && (
         <>
-          <p className="admin-help-text">
-            Rules are evaluated in priority order (lowest number first); the first enabled rule whose
-            condition matches the visitor wins. If nothing matches, the default title below is used.
-          </p>
-
           {/* Default title */}
           <div className="ht-default">
             <label className="ht-label" htmlFor="home-title-default">Default title</label>
@@ -111,7 +135,7 @@ function HomeTitle() {
               onChange={(e) => setHomeTitleSettings((prev) => ({ ...prev, defaultTitle: e.target.value }))}
               placeholder="It's simple."
             />
-            <p className="admin-help-text ht-default__hint">Shown to visitors when none of the rules below match.</p>
+            <p className="admin-help-text ht-default__hint">Shown when none of the rules below match.</p>
           </div>
 
           {/* Rule cards */}
@@ -202,23 +226,9 @@ function HomeTitle() {
               })}
             </div>
           )}
-
-          <div className="section-toolbar ht-actions">
-            <button className="btn-sm btn-outline" onClick={addHomeTitleRule}>+ Add Rule</button>
-            <button
-              className="btn-sm"
-              onClick={handleSaveHomeTitleSettings}
-              disabled={homeTitleSaving}
-            >
-              {homeTitleSaving ? "Saving…" : "Save Changes"}
-            </button>
-            {homeTitleUpdatedAt && (
-              <span className="admin-no-data">Last saved: {ts(homeTitleUpdatedAt)}</span>
-            )}
-          </div>
         </>
       )}
-    </section>
+    </AdminPanel>
   );
 }
 

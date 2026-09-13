@@ -1436,4 +1436,109 @@ placeholders and a goal keeps the same picture across reloads and devices.
 
 ---
 
+### 13.14 New findings (fourteenth audit pass — the admin console, 2026-09-12)
+
+Surfaced while rebuilding `/admin/*` to the service-page standard (§5.7).
+
+- ✅ **`position: sticky` never worked anywhere on the site.** Every service-page toolbar
+  (`.sd-bar`, `.plans-bar`, and the new `.admin-head`) is declared `position: sticky`, but
+  `App.css` clamped the app root with `overflow-x: hidden` — and `hidden` on one axis
+  resolves the other to `auto`, so `.App` became a **scroll container that never scrolls**
+  (it has `min-height`, so it grows with its content). A sticky descendant then offsets
+  itself against that box instead of the viewport and never engages. Measured on `/simple`
+  before the fix: `.sd-bar` moved 55px → **-392px** while the window scrolled 447px.
+  `Fit.css` and `Plans.css` had each *noticed* this (Fit's comment refuses to be sticky
+  over it; Plans' comment avoids the same clamp on `.plans-page`) — but the root cause was
+  never fixed, so `/plans`' toolbar was sticky in name only. Fixed with
+  `overflow-x: clip` (after the `hidden` fallback, which old browsers still get); `clip`
+  does not create a scroll container. Both `.sd-bar` and `.admin-head` now hold at
+  `--nav-size` exactly, and an A/B of `scrollHeight` / landmark offsets across 10 pages is
+  byte-identical, so no page layout moved.
+- ✅ **The admin console is a service page now** (`pages/Admin/`): one flat surface, a
+  sticky head carrying the route's view name + a live readout + the view tabs, then dense
+  panels as planes of color. `Admin.css` was rewritten (2919 lines → ~1000, with the dead
+  `.admin-hero`/`.admin-orb`/`.admin-page` legacy and the hand-rolled visitor-map styles
+  gone). New `components/Admin/AdminPanel.jsx` (a panel) and `Admin/adminBarContext.js`
+  (`useAdminReadout`, so a view publishes its headline numbers into the toolbar).
+  `CollapsibleSection` now renders as a bare disclosure (a label + caret, no card) rather
+  than a bordered wrapper around already-colored panels, and is a real `<button>` with
+  `aria-expanded`/`aria-controls` instead of a `role="button"` div.
+- ✅ **Two `.admin-table` definitions were racing.** `pages/Admin/Admin.css` and
+  `components/Admin/ScrollableTable.css` (used by `/deepstorage`) both styled
+  `.admin-table`, `.admin-search` and `.table-scroll-container` globally, so whichever
+  stylesheet loaded last won. The admin console's copies are now scoped to
+  `.admin-surface`, which settles it without touching Deep Storage.
+- ✅ **Six transactional emails shared one hand-copied layout.** `services/emailTemplates.js`
+  repeated a `<style>` block, header and footer per template (810 lines). It is now one
+  `renderEmail()` builder (table-based shell, inline structural styles, solid-color
+  fallbacks under every gradient, `prefers-color-scheme` class overrides, a preheader) with
+  the six templates as content — 810 → ~560 lines. Two real defects fell out of the
+  rewrite: the password-reset request details (IP, device, browser) and the bug-report
+  title/resolution were interpolated **unescaped**, so an `&` or `<` in a user-agent string
+  corrupted the HTML — everything dynamic is now escaped. The footer also links
+  `/settings#notifications` (where the preferences actually live) and `/support`.
+- ⚠️ **Not verified against a real inbox.** The templates were rendered in Chrome (light and
+  dark) and inspected, not sent through Gmail/Outlook/Apple Mail. Table layout + inline
+  styles + solid fallbacks are the mitigations, but one real send per template is still the
+  only proof.
+- ⚠️ **The admin console's data states were not eyeballed.** The only browser session
+  available is the shared guest account, which is deliberately not an admin, so every admin
+  fetch 403s. Structure, the shell, all nine routes, the 320→1366px overflow sweep, light +
+  dark and the stickiness were verified; the populated tables, charts and forms were not.
+
+### 13.15 Special accounts get four admin views (2026-09-12)
+
+The `Special` tag (`PUT /admin/users/:id/special`, stored as `|Special:true`) used to
+grant one thing: unlimited API credits. It now also grants **read-only access to four
+admin views** — Dashboard, Visitor map, Reviews and Page rankings — so a helper can
+watch the funnel without being handed the write surfaces.
+
+- **The boundary is `backend/middleware/adminAccess.js`** (`requireAdmin` vs
+  `requireAdminOrSpecial`), and only three routes take the `OrSpecial` variant:
+  `GET /all/admin` (the map + reviews payload), `GET /admin/dashboard` and
+  `GET /analytics/page-rankings`. The users list, the purchase gate, the data explorer,
+  the home-title editor, the email tests, `POST /admin/agent-fix` and Deep Storage stay
+  admin-only. The per-handler checks in `adminController.getAdminDashboard`,
+  `pageViewsController.getPageRankings` and `getHashData.getAllData` were widened to match
+  — flipping only the route middleware would have 403'd inside the controller.
+- **The client mirrors it** (`frontend/src/constants/admin.js`): `SPECIAL_ADMIN_PATHS`
+  drives the tab row, the toolbar `<h1>` and a guard that bounces a Special account off
+  any other `/admin/*` view instead of showing panels that would 403. `isSpecial` is
+  attached to the login/register responses; there is no client-side fallback, so an
+  account flagged *after* signing in must sign in again.
+- ✅ **`GET /all/admin` was shipping every user's password hash.** It returns `item.text`
+  verbatim, and a user row carries `|Password:<bcrypt hash>` inline. No client reads it;
+  it is now `redactPassword()`-ed. Non-negotiable before widening access to the endpoint to
+  anyone but the owner.
+- ⚠️ **A Special account can still see what those four views show**: visitor IPs, cities,
+  reviewer emails, signup emails and MRR. That is inherent to the views the owner asked
+  for, but it is a lot for what is nominally a credits perk — worth a second look if the
+  tag is ever granted more widely.
+- ✅ **The purchase gate moved to `/admin/funnel-tester`.** It sat at the top of the
+  Dashboard, which is exactly the view a Special account *can* open, so it either had to
+  paint a 403 or be conditionally rendered. Moving it is the honest fix: it now lives on
+  an admin-only view with the rest of the money plumbing, and the toolbar readout carries
+  `Purchasing ON/PAUSED` there instead.
+- ✅ **`Hide my visits` → `Hide admin visits` + `Hide special visits`** on `/admin/map`.
+  The old toggle compared against *whoever was signed in*; the two new ones filter the
+  `ADMIN_USER_ID` account and the set of `|Special:true` accounts, independently. The
+  nickname/Special directory is now built from the `getAllData` payload the page already
+  loads, which also fixed a silent cap: the previous lookup asked `/admin/users` for
+  `limit: 200`, so any account past the first 200 had no nickname.
+- ✅ **Top countries (and the map's Location column) spell the country out.** ipinfo
+  returns `country: "CA"`, which is fine in a dump and useless in a report —
+  `frontend/src/utils/countryName.js` maps it via `Intl.DisplayNames`, passes anything
+  that isn't a bare two-letter code through untouched, and never invents a value.
+- ✅ **The sales funnel showed three identical rectangles.** Each bar's label sat *inside*
+  it with `min-width: 108px`, so a 0.3% step was padded to the same width as the 100%
+  step. It is now a `label | track | count` grid: the widths are true proportions (1.5%
+  floor so a small step is still a visible sliver), the conversion captions sit under the
+  bar they convert from, and the overall rate moved into the panel head.
+- ✅ **Two `VisitorMap` bugs found while polishing it**: the dark tile `invert()`
+  filter ran in light mode too (navy map on a light page — now scoped to `.dark-theme`),
+  and the popups/tooltips used `--bg-2`, a token that does not exist in `index.css`, so
+  they rendered with no background at all (now `--bg-1` + a real shadow).
+
+---
+
 **Companion doc:** [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md) — threat model, trust boundaries, and the permissions matrix.

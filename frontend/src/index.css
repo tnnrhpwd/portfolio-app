@@ -168,6 +168,41 @@ code {
   --border-plan: var(--grey5-transp);
   --bg-nav-dropper: var(--grey1);
   --bg-themebutton-land: var(--bg-accent);
+
+  /* ── Service-page color planes (FRONTEND_UI_STANDARD.md §5.7) ──────────
+     A plane is the *same hue* as its accent, held at a fixed lightness with its
+     own chroma left intact:
+
+       background: color-mix(in srgb, var(--hue) var(--plane-fallback), var(--bg-1));
+       background: oklch(from var(--hue) var(--plane-l) c h);
+
+     The second line is the real one and the first is the fallback for browsers
+     without relative color syntax. Why not just a bigger `color-mix` toward
+     `--bg-1`? Because every step toward the base is a step AWAY from the color:
+     a hue mixed 8% into near-white is grey with a temperature, which is what
+     made these pages read pastel. Pinning lightness and keeping `c` gives the
+     most saturated version of the hue that is still light enough for dark text
+     (light) or dark enough for white text (dark).
+
+     One set per theme, so a plane's "more color" is a token change, not a
+     per-rule hunt. `--plane-muted` exists because a muted token tuned for the
+     *page* background does not survive landing on a saturated plane (§13.13) —
+     it is `--text-color-accent` nudged toward the body text, which darkens it
+     in the light theme and lightens it in the dark one. Measured on the light
+     mint head (oklch 0.76): 5.9:1, and on the dark mint head: 4.9:1.
+
+     `--plane-ink-*` is the same trick for a *hue* used as text instead of as a
+     fill — a badge or a status word. The raw accent (`--fg-blue`, `--fg-pink`, …)
+     is tuned to sit on `--bg-1`, so on a plane of its own hue it drops to
+     2–3:1. The ink pair produces that hue darker in light / lighter in dark. */
+  --plane-l: 0.87;          /* a solid plane (light: bright and saturated) */
+  --plane-l-strong: 0.76;   /* its head, a bar, an active tab */
+  --plane-fallback: 32%;    /* the dose the color-mix fallback line uses */
+  --plane-row: 12%;         /* translucent zebra tint over a plane */
+  --plane-raise: 24%;       /* translucent "raised" block over a plane */
+  --plane-muted: color-mix(in srgb, var(--text-color-accent) 72%, var(--text-color));
+  --plane-ink-l: 0.38;      /* a hue used as TEXT on a plane */
+  --plane-ink-fallback: 55%;
 }
 .dark-theme{
   --bg:var(--grey6);
@@ -199,6 +234,19 @@ code {
   --border-plan: var(--grey3-transp);
   --bg-nav-dropper: var(--grey4);
   --bg-themebutton-land: var(--green3);
+
+  /* Saturated planes in the dark theme stay *deep* rather than light — that is
+     what keeps white text readable and still reads as a rich color, not muddy.
+     Chroma is untouched: a dark plane is a dark version of the hue, never a
+     grey with a hint of it. See the light-theme block for the full note. */
+  --plane-l: 0.30;
+  --plane-l-strong: 0.40;
+  --plane-fallback: 48%;
+  --plane-row: 18%;
+  --plane-raise: 32%;
+  --plane-muted: color-mix(in srgb, var(--text-color-accent) 45%, var(--text-color));
+  --plane-ink-l: 0.88;
+  --plane-ink-fallback: 62%;
 }
 ul{
   list-style: none;

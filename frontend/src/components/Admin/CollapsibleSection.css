@@ -1,44 +1,86 @@
+/* ── CollapsibleSection — a folded-away group of panels ─────────────────────
+   FRONTEND_UI_STANDARD.md §5.7: "fold the rest away — power-user plumbing goes
+   in a `<details>`, so the first screen is the job and not the config."
+
+   The header used to be a whisper: 10px uppercase accent text sitting on the
+   page background. Too quiet to find — a folded group that is hard to *see* is a
+   group nobody opens. It is now a full-width surface (a plane of color, no
+   border, §5) carrying the label at reading size, with the caret on the far
+   right where a disclosure caret belongs and the tone deepening on hover.
+
+   It stays deliberately flatter than the panels below it — one tint for the
+   group instead of each panel's own hue — so the header reads as the *group*
+   rather than as another block in the grid. */
+
 .collapsible-section {
-  margin: calc(var(--nav-size) * 0.45) 0;
-  border: 1px solid var(--border-nav);
-  border-radius: var(--border-radius-xl, 16px);
-  background-color: var(--bg-1);
-  overflow: hidden;
-  box-shadow: var(--shadow-md);
-}
-
-.collapsible-header {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.24);
+  min-width: 0;
+}
+
+/* The heading element only carries the outline; the button carries the look. */
+.collapsible-heading { margin: 0; }
+
+.collapsible-toggle {
+  display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.4);
-  cursor: pointer;
-  background-color: transparent;
-  transition: background-color 0.18s ease;
-}
-
-.collapsible-header:hover {
-  background-color: var(--bg-mint);
-}
-
-.collapsible-header h3 {
-  margin: 0;
-  font-size: var(--font-size-base);
+  justify-content: space-between;
+  gap: calc(var(--nav-size) * 0.2);
+  width: 100%;
+  min-height: 0;                    /* undo the global button min-height:44px */
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.28);
+  border: 0;
+  border-radius: var(--border-radius);
+  /* A saturated plane like the panels (index.css), one step stronger so the
+     group header outranks the blocks it groups. */
+  background: color-mix(in srgb, var(--fg-blue) calc(var(--plane-fallback) + 10%), var(--bg-1));
+  background: oklch(from var(--fg-blue) var(--plane-l-strong) c h);
+  color: var(--text-color);
+  font-family: inherit;
+  font-size: var(--font-size-small);
   font-weight: var(--font-weight-semibold);
-  color: var(--text-color-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  transition: filter 0.15s ease;
 }
 
-.collapse-icon {
-  font-size: var(--font-size-xs);
-  transition: transform 0.2s ease;
+/* Match the global `button:hover:not(:disabled)` shape so the site gradient
+   doesn't repaint this control on hover (§6). */
+.collapsible-toggle:hover:not(:disabled) {
+  filter: brightness(1.06);
+  color: var(--text-color);
+  transform: none;
+}
+.collapsible-toggle:focus-visible {
+  outline: var(--focus-outline, 2px solid var(--fg-blue));
+  outline-offset: 3px;
 }
 
-.collapse-icon.collapsed {
-  transform: rotate(180deg);
+/* The label owns the available width so a long title can't squeeze the caret. */
+.collapsible-title { min-width: 0; }
+
+.collapsible-caret {
+  flex-shrink: 0;
+  font-size: var(--font-size-small);
+  line-height: 1;
+  color: var(--plane-muted);
+  transition: transform 0.25s ease;
+}
+.collapsible-caret.is-collapsed { transform: rotate(-90deg); }
+
+.collapsible-content { min-width: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .collapsible-toggle { transition: none; }
+  .collapsible-caret { transition: none; }
 }
 
-.collapsible-content {
-  padding: calc(var(--nav-size) * 0.4);
-  border-top: 1px solid var(--border-nav);
+/* High contrast drops the saturated plane for a neutral surface — the same
+   choice `.admin-panel` makes, so a folded group can't be the one saturated
+   thing left on the page. */
+@media (prefers-contrast: more) {
+  .collapsible-toggle { background: var(--bg-accent); }
 }

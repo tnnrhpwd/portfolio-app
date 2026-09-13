@@ -7,7 +7,7 @@ import React from 'react';
 import { logout } from '../../features/data/dataSlice';
 
 import './dropper.css'
-import { isAdminUser, isMuseVisitor as isMuseVisitorAllowed } from '../../constants/admin';
+import { canUseAdminConsole, isMuseVisitor as isMuseVisitorAllowed } from '../../constants/admin';
 
 
 function HeaderDropper(props) {
@@ -18,9 +18,11 @@ function HeaderDropper(props) {
   const toggleButtonRef = useRef(null);
   const insideComponentRef = useRef(null);
 
-  // Admin + muse gating is cosmetic (the backend independently enforces
-  // ADMIN_USER_ID); the check prefers the server-provided isAdmin flag.
-  const isAdmin = isAdminUser(user);
+  // Admin + muse gating is cosmetic (the backend independently enforces it via
+  // middleware/adminAccess.js); the check prefers the server-provided isAdmin
+  // flag and also lets a "Special" account in — to the four read-only views the
+  // console itself then limits it to.
+  const isAdmin = canUseAdminConsole(user);
   const isMuseVisitor = isMuseVisitorAllowed(user);
 
   // Show a subtle pulse once on homepage load.

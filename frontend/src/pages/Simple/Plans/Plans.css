@@ -22,25 +22,20 @@
      delete ×, so a miss did the wrong thing). 0.66 ≈ 32px clears the floor with
      margin and still reads as compact on a dense page. */
   --plans-ctl-size: calc(var(--nav-size) * 0.66);
-  /* Muted (secondary) text. The shared `--text-color-accent` is tuned against
-     `--bg-page` and plain `--bg-1`, where it measures 6.26:1 in dark mode. A
-     hue-washed panel lifts the plane's luminance and drops it under AA —
-     measured 3.89:1 on a 15%-mint goal card, against a 4.5 requirement for text
-     this small. Blending 30% of the primary text back into the token lifts the
-     worst case to ~5.1, and is the cheap side of the trade: the alternative is
-     flattening the panel washes, which is what makes neighbouring blocks read as
-     different blocks at all. Light mode already passes, so only dark is adjusted. */
-  --plans-muted: var(--text-color-accent);
+  /* Muted (secondary) text. This was a LOCAL token with its own measurement: the
+     shared `--text-color-accent` is tuned against `--bg-page`, and the old
+     hue-washed panels (8% light / 15% dark) lifted the plane's luminance enough
+     to drop it to 3.89:1 on a dark mint card. The planes are saturated now —
+     `--plane-l` pins lightness and keeps chroma (index.css) instead of diluting
+     the hue — so the shared `--plane-muted` supersedes that measurement in both
+     themes and this alias just keeps the local name working. */
+  --plans-muted: var(--plane-muted);
   /* NO `overflow-x: hidden` here: it makes this element a scroll container, and
      a `position: sticky` toolbar inside one offsets itself instead of sticking.
      Nothing overflows now that the decorative circles are gone. */
   padding: calc(var(--nav-size) * 1.15) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
   color: var(--text-color);
   background: var(--bg-page);
-}
-
-.dark-theme .plans-page {
-  --plans-muted: color-mix(in srgb, var(--text-color-accent) 70%, var(--text-color));
 }
 
 /* ── Shell: one grid, panels as its items ────────────────────────────────────
@@ -121,15 +116,22 @@
   white-space: nowrap;
 }
 .plans-chip strong { color: var(--text-color); font-weight: var(--font-weight-semibold); }
-.plans-chip--accent { color: var(--green2); background: color-mix(in srgb, currentColor 16%, transparent); }
-.plans-chip--danger { color: var(--red0); background: color-mix(in srgb, currentColor 16%, transparent); }
-.dark-theme .plans-chip--accent { color: var(--green1); }
+.plans-chip--accent { --badge-tone: var(--green2); }
+.plans-chip--danger { --badge-tone: var(--red0); }
+.dark-theme .plans-chip--accent { --badge-tone: var(--green1); }
+.plans-chip--accent,
+.plans-chip--danger {
+  background: var(--bg-1);
+  color: color-mix(in srgb, var(--badge-tone) var(--plane-ink-fallback), var(--text-color));
+  color: oklch(from var(--badge-tone) var(--plane-ink-l) c h);
+}
 
 /* Logged-out prompt — a plane of color, not a boxed card. */
 .plans-login {
   width: 100%;
   padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.4);
-  background: color-mix(in srgb, var(--fg-blue) 12%, var(--bg-1));
+  background: color-mix(in srgb, var(--fg-blue) var(--plane-fallback), var(--bg-1));
+  background: oklch(from var(--fg-blue) var(--plane-l) c h);
   border: 1px solid transparent;
   border-radius: var(--border-radius-lg);
   color: var(--text-color);
@@ -139,7 +141,11 @@
   cursor: pointer;
   transition: background 0.2s ease;
 }
-.plans-login:hover { background: color-mix(in srgb, var(--fg-blue) 18%, var(--bg-1)); box-shadow: none; }
+.plans-login:hover {
+  background: color-mix(in srgb, var(--fg-blue) calc(var(--plane-fallback) + 16%), var(--bg-1));
+  background: oklch(from var(--fg-blue) var(--plane-l-strong) c h);
+  box-shadow: none;
+}
 
 /* ── Live loop panel (O-O-G-P-A) ──────────────────────────────────────────── */
 
@@ -149,10 +155,10 @@
   flex-direction: column;
   gap: calc(var(--nav-size) * 0.2);
   padding: calc(var(--nav-size) * 0.28);
-  background: color-mix(in srgb, var(--plans-hue) 8%, var(--bg-1));
+  background: color-mix(in srgb, var(--plans-hue) var(--plane-fallback), var(--bg-1));
+  background: oklch(from var(--plans-hue) var(--plane-l) c h);
   border-radius: var(--border-radius-lg);
 }
-.dark-theme .plans-agent { background: color-mix(in srgb, var(--plans-hue) 15%, var(--bg-1)); }
 .plans-agent.is-offline { --plans-hue: var(--fg-orange); }
 
 .plans-agent-head {
@@ -269,8 +275,23 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
 }
-.plans-agent-chip--warn   { background: color-mix(in srgb, var(--fg-orange) 18%, transparent); color: var(--fg-orange); }
-.plans-agent-chip--accent { background: color-mix(in srgb, var(--fg-mint) 18%, transparent); color: var(--fg-mint); }
+.plans-agent-chip--warn   { --badge-tone: var(--fg-orange); }
+.plans-agent-chip--accent { --badge-tone: var(--fg-mint); }
+.plans-agent-chip--warn,
+.plans-agent-chip--accent {
+  background: var(--bg-1);
+  color: color-mix(in srgb, var(--badge-tone) var(--plane-ink-fallback), var(--text-color));
+  color: oklch(from var(--badge-tone) var(--plane-ink-l) c h);
+}
+.plans-agent-link {
+  margin-left: auto;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  /* A blue link on the mint plane measured ~2.9:1 — the hue as ink, not as fill. */
+  color: color-mix(in srgb, var(--fg-blue) var(--plane-ink-fallback), var(--text-color));
+  color: oklch(from var(--fg-blue) var(--plane-ink-l) c h);
+  text-decoration: none;
+}
 .plans-agent-chip--muted  { background: color-mix(in srgb, var(--text-color) 10%, transparent); color: var(--plans-muted); }
 .plans-agent-link {
   margin-left: auto;
@@ -285,7 +306,7 @@
   margin: 0;
   padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.3);
   border-radius: var(--border-radius);
-  background: color-mix(in srgb, var(--fg-blue) 8%, transparent);
+  background: color-mix(in srgb, var(--fg-blue) var(--plane-raise), transparent);
   font-size: var(--font-size-small);
   line-height: var(--line-height-base);
   color: var(--text-color);
@@ -299,10 +320,10 @@
   flex-direction: column;
   gap: calc(var(--nav-size) * 0.2);
   padding: calc(var(--nav-size) * 0.28);
-  background: color-mix(in srgb, var(--plans-hue) 8%, var(--bg-1));
+  background: color-mix(in srgb, var(--plans-hue) var(--plane-fallback), var(--bg-1));
+  background: oklch(from var(--plans-hue) var(--plane-l) c h);
   border-radius: var(--border-radius-lg);
 }
-.dark-theme .plans-suggestions { background: color-mix(in srgb, var(--plans-hue) 15%, var(--bg-1)); }
 
 .plans-section-title {
   margin: 0;
@@ -447,10 +468,10 @@
   flex-direction: column;
   gap: calc(var(--nav-size) * 0.2);
   padding: calc(var(--nav-size) * 0.28);
-  background: color-mix(in srgb, var(--plans-hue) 8%, var(--bg-1));
+  background: color-mix(in srgb, var(--plans-hue) var(--plane-fallback), var(--bg-1));
+  background: oklch(from var(--plans-hue) var(--plane-l) c h);
   border-radius: var(--border-radius-lg);
 }
-.dark-theme .plans-controls { background: color-mix(in srgb, var(--plans-hue) 15%, var(--bg-1)); }
 
 .plans-quickadd {
   display: flex;
@@ -889,13 +910,16 @@
   flex-direction: column;
   gap: calc(var(--nav-size) * 0.24);
   padding: calc(var(--nav-size) * 0.3);
-  background: color-mix(in srgb, var(--plans-hue) 8%, var(--bg-1));
+  background: color-mix(in srgb, var(--plans-hue) var(--plane-fallback), var(--bg-1));
+  background: oklch(from var(--plans-hue) var(--plane-l) c h);
   border-radius: var(--border-radius-lg);
   transition: background 0.2s ease;
 }
-.dark-theme .plans-goal-card { background: color-mix(in srgb, var(--plans-hue) 15%, var(--bg-1)); }
-.plans-goal-card:hover { background: color-mix(in srgb, var(--plans-hue) 13%, var(--bg-1)); }
-.dark-theme .plans-goal-card:hover { background: color-mix(in srgb, var(--plans-hue) 20%, var(--bg-1)); }
+/* Hover goes one step deeper in the same hue (`.sd-panel:hover` does the same). */
+.plans-goal-card:hover {
+  background: color-mix(in srgb, var(--plans-hue) calc(var(--plane-fallback) + 16%), var(--bg-1));
+  background: oklch(from var(--plans-hue) var(--plane-l-strong) c h);
+}
 .plans-goal-card.status-active  { --plans-hue: var(--fg-mint); }
 .plans-goal-card.status-blocked { --plans-hue: var(--fg-pink); }
 .plans-goal-card.status-paused  { --plans-hue: var(--fg-orange); }
@@ -1100,11 +1124,21 @@
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
 }
-.plans-tag--outline { background: color-mix(in srgb, var(--text-color) 11%, transparent); color: var(--text-color-accent); }
-.plans-tag--danger  { background: color-mix(in srgb, var(--fg-pink) 16%, transparent); color: var(--fg-pink); }
-.plans-tag--high    { background: color-mix(in srgb, var(--fg-pink) 16%, transparent);   color: var(--fg-pink); }
-.plans-tag--medium  { background: color-mix(in srgb, var(--fg-blue) 16%, transparent);   color: var(--fg-blue); }
-.plans-tag--low     { background: color-mix(in srgb, var(--fg-mint) 16%, transparent);   color: var(--fg-mint); }
+.plans-tag--outline { background: color-mix(in srgb, var(--text-color) var(--plane-row), transparent); color: var(--plane-muted); }
+/* Priority tags wear their hue as ink on a `--bg-1` chip: at 16% the hue was
+   neither a readable text colour nor a distinct plane on a colored card. */
+.plans-tag--danger  { --badge-tone: var(--fg-pink); }
+.plans-tag--high    { --badge-tone: var(--fg-pink); }
+.plans-tag--medium  { --badge-tone: var(--fg-blue); }
+.plans-tag--low     { --badge-tone: var(--fg-mint); }
+.plans-tag--danger,
+.plans-tag--high,
+.plans-tag--medium,
+.plans-tag--low {
+  background: var(--bg-1);
+  color: color-mix(in srgb, var(--badge-tone) var(--plane-ink-fallback), var(--text-color));
+  color: oklch(from var(--badge-tone) var(--plane-ink-l) c h);
+}
 
 /* Goal footer — separated by a stronger wash of the card's own hue, bled to the
    card edges, instead of a dashed rule. */
@@ -1115,13 +1149,14 @@
   flex-wrap: wrap;
   margin: auto calc(var(--nav-size) * -0.3) calc(var(--nav-size) * -0.3);
   padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.3);
-  background: color-mix(in srgb, var(--plans-hue) 11%, transparent);
+  background: color-mix(in srgb, var(--plans-hue) var(--plane-raise), transparent);
 }
 .plans-goal-link {
   border: none;
   background: none;
   padding: 0;
-  color: var(--fg-blue);
+  color: color-mix(in srgb, var(--fg-blue) var(--plane-ink-fallback), var(--text-color));
+  color: oklch(from var(--fg-blue) var(--plane-ink-l) c h);
   font-family: inherit;
   font-size: var(--font-size-small);
   font-weight: var(--font-weight-semibold);
@@ -1136,12 +1171,15 @@
   flex-direction: column;
   gap: calc(var(--nav-size) * 0.2);
   padding: calc(var(--nav-size) * 0.28);
-  background: color-mix(in srgb, var(--plans-hue) 8%, var(--bg-1));
+  background: color-mix(in srgb, var(--plans-hue) var(--plane-fallback), var(--bg-1));
+  background: oklch(from var(--plans-hue) var(--plane-l) c h);
   border-radius: var(--border-radius-lg);
   transition: background 0.2s ease;
 }
-.dark-theme .plans-lib-card { background: color-mix(in srgb, var(--plans-hue) 15%, var(--bg-1)); }
-.plans-lib-card:hover { background: color-mix(in srgb, var(--plans-hue) 13%, var(--bg-1)); }
+.plans-lib-card:hover {
+  background: color-mix(in srgb, var(--plans-hue) calc(var(--plane-fallback) + 16%), var(--bg-1));
+  background: oklch(from var(--plans-hue) var(--plane-l-strong) c h);
+}
 .plans-lib-card.type-plan   { --plans-hue: var(--fg-mint); }
 .plans-lib-card.type-action { --plans-hue: var(--fg-pink); }
 .plans-lib-card.type-note   { --plans-hue: var(--fg-orange); }
