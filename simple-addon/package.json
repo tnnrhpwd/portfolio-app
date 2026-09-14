@@ -8,6 +8,7 @@
   "scripts": {
     "start": "node scripts/dev-start.js",
     "dev": "node scripts/dev-start.js",
+    "preview": "node scripts/dev-preview.js",
     "prebuild": "node scripts/write-build-info.js",
     "build": "electron-builder",
     "prebuild:win": "node scripts/write-build-info.js",

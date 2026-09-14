@@ -4500,7 +4500,12 @@ async function loadAppearance() {
   try {
     const settings = await api('/api/settings');
     const stored = appearanceApi.fromStored(settings);
-    appearanceState = { scheme: stored.scheme, mode: stored.mode, custom: stored.custom };
+    // ⚠️ Run the stored value through the RESOLVER rather than assigning it raw. A fresh
+    // install has no appearance keys at all, and `select.value = undefined` leaves the
+    // control BLANK — which reads as "broken" rather than "not set yet", and would let
+    // someone change the scheme from an empty state. The resolver supplies the defaults.
+    const resolved = appearanceApi.resolveAppearance(stored);
+    appearanceState = { scheme: resolved.scheme, mode: resolved.choice, custom: resolved.custom };
     paintAppearance();
   } catch (e) {
     console.error('Failed to load appearance:', e);
@@ -4575,6 +4580,12 @@ function wireAppearance() {
   appearanceApi.watchSystemMode(() => paintAppearance());
   // And the site may have pushed a scheme while this window was in the background.
   window.addEventListener('focus', () => loadAppearance());
+
+  // Show the state in force immediately. `loadAppearance()` fills the picker from the
+  // stored value, but that is a round-trip that can fail (addon not running) or arrive
+  // after the user has already opened this tab — and an empty picker misrepresents what
+  // the app is actually painting.
+  paintAppearance();
 }
 
 wireAppearance();

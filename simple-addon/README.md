@@ -28,6 +28,30 @@ npm install
 npm run dev
 ```
 
+`npm run dev` launches the real app (kills any installed copy first, then starts Electron).
+
+### Working on the UI — `npm run addon`
+
+For renderer changes you do **not** need Electron, a build, or a release:
+
+```bash
+npm run addon            # from the repo root
+npm run preview          # or from simple-addon/
+```
+
+It serves `renderer/` over HTTP on loopback and opens a browser, injecting a shim that
+stands in for the Electron preload bridges — without it the pages would throw on their first
+`window.simpleDashboard.…` call and look broken. Edit anything under `renderer/` and the page
+reloads itself.
+
+What you see is the real markup, the real stylesheets and the real DOM logic. What you don't
+get is IPC: device lists, camera previews, gaze streams and Python status come back empty, so
+those panels show their empty state. Anything that goes over the local HTTP server instead —
+status, permissions, skills, marketplace, appearance — shows **real data** whenever the tray
+app is running, because the addon's CORS allowlist accepts any `127.0.0.1`/`localhost` origin.
+
+Options: `--port <n>`, `--page <file>`, `--addon-port <n>`, `--no-open` (`--help` for all).
+
 ## Building
 
 ```bash
