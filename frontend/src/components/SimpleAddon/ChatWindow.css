@@ -162,7 +162,7 @@
   height: 64px;
   border-radius: 16px;
   object-fit: contain;
-  box-shadow: 0 8px 32px rgba(108, 99, 255, 0.3);
+  box-shadow: 0 8px 32px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .chat-window__empty h2 {

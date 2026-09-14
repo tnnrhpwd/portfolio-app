@@ -147,14 +147,7 @@ function Net() {
   return (
     <>
       <Header center={<SimpleNav compact />} />
-      <div className="planit-nnet">
-        {/* Floating background elements */}
-        <div className="floating-shapes">
-          <div className="floating-circle floating-circle-1"></div>
-          <div className="floating-circle floating-circle-2"></div>
-          <div className="floating-circle floating-circle-3"></div>
-        </div>
-
+      <div className="planit-nnet service-room">
         <div className="net-hero-section">
           {!user ? (
             <LoginGate

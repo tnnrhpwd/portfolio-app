@@ -1,3 +1,16 @@
+/* ── Net · Chat — the page shell (FRONTEND_UI_STANDARD.md §5.7) ─────────────
+   A service page, so its ground is the shared ROOM (`.service-room`, worn by
+   this element — see Net.jsx) rather than the fixed four-colour gradient it
+   used to paint. That gradient ignored the visitor's colour scheme entirely,
+   which is why a magenta band sat above an indigo chat whenever the two
+   disagreed. The chat panels themselves are opaque and cover most of this, so
+   what the room actually does here is colour the strip behind the fixed header
+   and any letterboxing — but that strip is exactly where the clash was.
+
+   The decorative floating circles and the pulsing radial went with it: §5.7
+   reserves motion on a service page for "state changed", and a circle drifting
+   behind a full-height chat was never visible anyway. */
+
 .planit-nnet {
   display: flex;
   flex-direction: column;
@@ -9,110 +22,28 @@
      has to clear the header itself. */
   padding-top: var(--nav-size);
   box-sizing: border-box;
-  background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
-  background-size: 400% 400%;
-  animation: gradientShift 12s ease infinite;
+  /* NO background and no animation of its own: the room paints the page with
+     two `position: fixed` layers at `z-index: -1`. */
   pointer-events: all;
   position: relative;
   overflow: hidden;
   font-family: 'CutiveMono-Regular', monospace;
+
+  /* ── The colour scheme ─────────────────────────────────────────────────
+   * The same two aliases the other Simple surfaces make, so anything here that
+   * reaches for a brand hue through the SITE's tokens (the market link's hover,
+   * for one) follows the picker. The chat's own palette is a separate layer and
+   * is re-pointed where it is defined — `SimpleTheme.css`. */
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
 }
 
-/* Enhanced gradient animation with theme awareness */
-@keyframes gradientShift {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  25% {
-    background-position: 100% 50%;
-  }
-
-  50% {
-    background-position: 100% 100%;
-  }
-
-  75% {
-    background-position: 0% 100%;
-  }
-
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-/* Theme-specific animation speeds */
-.light-theme .planit-nnet {
-  animation-duration: 15s;
-}
-
-.dark-theme .planit-nnet {
-  animation-duration: 10s;
-}
-
-/* Floating background elements */
-.floating-shapes {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.floating-circle {
-  position: absolute;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--white1-transp) 0%, transparent 70%);
-  animation: float 6s ease-in-out infinite;
-}
-
-.floating-circle-1 {
-  width: 120px;
-  height: 120px;
-  top: 20%;
-  left: 10%;
-  animation-delay: 0s;
-  animation-duration: 8s;
-}
-
-.floating-circle-2 {
-  width: 80px;
-  height: 80px;
-  top: 60%;
-  right: 15%;
-  animation-delay: -2s;
-  animation-duration: 10s;
-}
-
-.floating-circle-3 {
-  width: 150px;
-  height: 150px;
-  bottom: 20%;
-  left: 60%;
-  animation-delay: -4s;
-  animation-duration: 12s;
-}
-
-@keyframes float {
-
-  0%,
-  100% {
-    transform: translateY(0px) rotate(0deg);
-    opacity: 0.3;
-  }
-
-  33% {
-    transform: translateY(-20px) rotate(120deg);
-    opacity: 0.6;
-  }
-
-  66% {
-    transform: translateY(20px) rotate(240deg);
-    opacity: 0.4;
-  }
-}
+/* Floating background elements.
+   Deleted 2026-09-13: they were the last of this page's decoration, and the
+   `.floating-*` rules that used to live here collided document-wide with
+   `/profile`'s own copy of the same class names (Vite bundles every stylesheet
+   globally, so one page's circle geometry was painting the other's). `Profile.css`
+   owns them now and is the only definition. */
 
 /* Hero section enhancements for Net page */
 .net-hero-section {
@@ -143,32 +74,9 @@
   color: var(--fg-blue);
 }
 
-.net-hero-section::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, var(--bg-page-transp) 0%, transparent 70%);
-  transform: translate(-50%, -50%);
-  z-index: -1;
-  animation: pulse 4s ease-in-out infinite;
-}
-
-@keyframes pulse {
-
-  0%,
-  100% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 0.3;
-  }
-
-  50% {
-    transform: translate(-50%, -50%) scale(1.1);
-    opacity: 0.6;
-  }
-}
+/* The pulsing radial that used to sit behind the chat (`::before` + `@keyframes
+   pulse`) is gone with the floating circles: it was decoration on a page whose
+   panel covers it, and motion here is reserved for "state changed" (§5.7). */
 
 /* ─── Mobile improvements ─────────────────────────────────────────── */
 @media (max-width: 768px) {
@@ -179,10 +87,6 @@
 
   .net-hero-section {
     height: calc(100svh - var(--nav-size));
-  }
-
-  .floating-shapes {
-    display: none;
   }
 }
 

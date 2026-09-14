@@ -304,10 +304,7 @@ function DreamTile({ item, enlisting, onOpen, onEdit, onDelete, onStatusChange, 
   const ready = isAgentReady(item);
 
   return (
-    <article
-      className={`dream-tile status-${status} ${achieved ? 'is-achieved' : ''}`}
-      style={{ '--dream-hue': preset?.hue || 'var(--fg-blue)' }}
-    >
+    <article className={`dream-tile status-${status} ${achieved ? 'is-achieved' : ''}`}>
       <button
         type="button"
         className="dream-tile-media"
@@ -649,10 +646,7 @@ function CoverPicker({
       <span className="plans-field-label">Cover</span>
 
       {/* A live preview, so every choice above lands somewhere visible. */}
-      <div
-        className="dream-cover-preview"
-        style={{ '--dream-hue': preset?.hue || 'var(--fg-blue)' }}
-      >
+      <div className="dream-cover-preview">
         {current
           ? (
             <img

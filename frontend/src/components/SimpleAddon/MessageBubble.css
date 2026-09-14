@@ -173,8 +173,10 @@
 }
 
 .message__inline-code {
-  background: rgba(108, 99, 255, 0.15);
-  color: #a78bfa;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  /* The hue as INK rather than as fill: 15% of it as a wash is fine, the same
+     15% printed as text is not (the note is from the old hardcoded #a78bfa). */
+  color: color-mix(in srgb, var(--accent) 72%, var(--text-primary));
   padding: 2px 6px;
   border-radius: 4px;
   font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
@@ -314,7 +316,7 @@
   font-weight: 400;
   opacity: 0;
   transition: opacity 0.15s;
-  color: #818cf8;
+  color: var(--accent);
   font-family: var(--font-sans, system-ui, sans-serif);
 }
 

@@ -586,7 +586,7 @@ export default function Market() {
       <>
         <SEO title="Marketplace" description="Discover and save community-built automations and goals for Simple." path="/market" />
         <Header center={<SimpleNav compact />} />
-        <div className="mkt-surface">
+        <div className="mkt-surface service-room">
           <LoginGate
             redirectTo="/market"
             eyebrow="Simple Marketplace"
@@ -604,7 +604,7 @@ export default function Market() {
       <SEO title="Marketplace" description="Discover and save community-built automations and goals for Simple." path="/market" />
       <Header center={<SimpleNav compact />} />
 
-      <div className="mkt-surface">
+      <div className="mkt-surface service-room">
         <div className="mkt">
           {/* Toolbar — the page's "hero", collapsed onto one sticky row (§5.7). */}
           <header className="mkt-bar">

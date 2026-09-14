@@ -390,11 +390,14 @@
 }
 
 .agent-live__event--tool .agent-live__event-icon {
-  color: #2563eb;
+  color: var(--accent);
 }
 
 .agent-live__event--agent .agent-live__event-icon {
-  color: #7c3aed;
+  /* The second scheme role, so the two event kinds stay tellable apart without
+     either of them being a hardcoded brand blue. Approval keeps its amber:
+     that one is a signal, not a category. */
+  color: var(--user-bubble);
 }
 
 .agent-live__event--approval .agent-live__event-icon {
@@ -537,7 +540,7 @@
 
 .agent-live--sidebar .agent-live__btn--start {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
   border-color: var(--accent);
 }
 

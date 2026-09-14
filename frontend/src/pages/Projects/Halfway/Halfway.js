@@ -282,7 +282,7 @@ function Halfway() {
     geoStatus === 'loading'
       ? 'Finding your location…'
       : geoStatus === 'denied'
-        ? 'Location access was denied, so sunrise and sunset are unavailable. You can still enter coordinates manually.'
+        ? 'Location is blocked for this site, so sunrise and sunset are unavailable. Allow location for this site in your browser’s address-bar settings, then press “Use my location” again — or enter coordinates manually.'
         : geoStatus === 'unavailable'
           ? 'Your location could not be determined.'
           : geoStatus === 'unsupported'

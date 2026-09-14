@@ -185,9 +185,11 @@ code {
 
    Deliberately named `--scheme-*` and not `--accent` / `--primary`: `--accent` is
    already taken by the addon's own theming (`components/SimpleAddon/SimpleTheme`
-   defines it per addon theme), and a bare `--primary` invites the same collision.
+   defines it per chat theme), and a bare `--primary` invites the same collision.
    A namespace is worth the extra word when the whole point is that this is the one
-   place to look.
+   place to look. (That file READS this one now: its light/dark palettes derive
+   `--accent`, `--user-bubble` and friends from `--scheme-*` and re-pin the
+   lightness per CHAT theme, since the chat's light/dark is its own setting.)
 
    Declared as ONE rule with two selectors, on the same element that carries the
    palette it points at — so there is still only one place to edit.
@@ -461,6 +463,50 @@ body[data-scheme='custom'] {
   --plane-ink-l: 0.38;
   /* a hue used as TEXT on a plane */
   --plane-ink-fallback: 55%;
+
+  /* ── Service-page glass (FRONTEND_UI_STANDARD.md §5.7) ──────────────────
+     The material every SERVICE page is built from: a translucent pane resting
+     on an ambient "room". The tokens are global for the same reason the plane
+     tokens above are — it is one material, so it gets one place to tune.
+
+       --glass-land  what a pane is MADE of. Deliberately `--bg-page` and not
+                     `--bg-1`: `--bg-1` is the accessible INPUT background
+                     (whiter than the page), so a pane built from it comes out
+                     lighter than the page it is supposed to rest on. Controls
+                     keep `--bg-1`; only the pane's land moves.
+       --glass-a     how much of that land the pane keeps. Alpha, never
+                     `opacity`: a translucent COLOR composites against the room
+                     behind it, which is the whole effect. 84% is the most
+                     transparent a pane can be while body text still clears AA
+                     over the brightest pool of the room.
+       --glass-*     the neutral tints a pane's parts are made of — its head
+                     (a sheen), a nested block (sunken), a zebra row. All mixed
+                     from the TEXT colour rather than a hue, because colour on
+                     this material is reserved for signal (§5.7).
+       --room-*      the room behind the panes: how much of the scheme's `-bg`
+                     hues survives its mix toward the page, and the halo's dose.
+
+     `/admin` (`--admin-*`) and `/profile` were built first and still carry
+     local copies authored at these same values; this is the shared one. */
+  --glass-land: var(--bg-page);
+  --glass-a: 84%;
+  --glass-sheen: color-mix(in srgb, var(--text-color) 6.5%, transparent);
+  --glass-sunken: color-mix(in srgb, var(--text-color) 6%, transparent);
+  --glass-sunken-strong: color-mix(in srgb, var(--text-color) 11%, transparent);
+  --glass-row: color-mix(in srgb, var(--text-color) 4%, transparent);
+  --glass-row-strong: color-mix(in srgb, var(--text-color) 7.5%, transparent);
+  --glass-btn-hover: color-mix(in srgb, var(--bg-1) 90%, var(--text-color));
+  --room-mix: 90%;
+  --room-halo: 10%;
+
+  /* The one action per view. Two stops INSIDE the scheme's emphasis hue rather
+     than the old blue→mint ramp, re-pinned to a lightness that clears AA for
+     the label (`--text-color-inv`: white here, near-black in dark). A scheme's
+     identity hues are chosen for contrast on a PAGE; a filled button is the
+     opposite problem, and a pale identity hue (Cyberpunk's yellow, Monokai's
+     lime) needs no hand-picked variant once lightness is pinned. */
+  --action-hi: 0.50;
+  --action-lo: 0.40;
 }
 
 .dark-theme {
@@ -506,6 +552,120 @@ body[data-scheme='custom'] {
   --plane-muted: color-mix(in srgb, var(--text-color-accent) 45%, var(--text-color));
   --plane-ink-l: 0.88;
   --plane-ink-fallback: 62%;
+
+  /* Service-page glass — see the light-theme block for the full note. Two
+     values differ here, and both are load-bearing:
+
+     · the LAND is lifted off the page. A pane that is merely "lighter than
+       black" reads as a hole in the page rather than as a pane resting on it,
+       which is the difference between "dark dashboard" and "dark glass";
+     · the TINTS invert their direction — mixed from `--white0` instead of the
+       text colour, because in this theme the text IS the light. */
+  --glass-land: color-mix(in srgb, var(--bg-page) 93%, var(--white0));
+  --glass-a: 84%;
+  --glass-sheen: color-mix(in srgb, var(--white0) 6%, transparent);
+  --glass-sunken: color-mix(in srgb, var(--white0) 6%, transparent);
+  --glass-sunken-strong: color-mix(in srgb, var(--white0) 10%, transparent);
+  --glass-row: color-mix(in srgb, var(--white0) 4%, transparent);
+  --glass-row-strong: color-mix(in srgb, var(--white0) 7.5%, transparent);
+  --glass-btn-hover: color-mix(in srgb, var(--bg-1) 88%, var(--white0));
+  --room-mix: 86%;
+  --room-halo: 12%;
+  /* Lifted, not lowered: on a dark pane the action's label is near-black. */
+  --action-hi: 0.82;
+  --action-lo: 0.72;
+}
+
+/* ── Service-page glass, part 2: what is derived, and the room itself ───────
+
+   Derived here rather than in each theme block, because these read the same
+   names in both. Declared on the SAME element as the palette they point at
+   (`.light-theme` / `.dark-theme` = `<body>`) — a custom property substitutes
+   where it is DECLARED, so `:root` would resolve `var(--glass-land)` against an
+   element that has never seen it and the whole chain would collapse to the
+   guaranteed-invalid value with no error (§2.1). */
+.light-theme,
+.dark-theme {
+  --glass: color-mix(in srgb, var(--glass-land) var(--glass-a), transparent);
+  --glass-hover: color-mix(in srgb, var(--glass-land) calc(var(--glass-a) + 6%), transparent);
+  --glass-radius: var(--border-radius-2xl);
+  --glass-radius-inner: var(--border-radius);
+  --glass-shadow: var(--shadow-md);
+  --action: linear-gradient(
+    135deg,
+    oklch(from var(--scheme-primary) var(--action-hi) c h),
+    oklch(from var(--scheme-primary) var(--action-lo) c h)
+  );
+}
+
+/* The room: the ambient ground a service page's panes rest on. ONE class, worn
+   by every service page's root — the recipe is the material, so it has exactly
+   one definition.
+
+   ⚠️ The root must NOT paint an opaque background of its own: the room IS the
+   page background (it paints `--bg-page` first, then the wash). Neither may it
+   gain `isolation` or a `z-index` — `z-index: -1` is what puts the room behind
+   the content but ABOVE the app's own background, and a stacking context on the
+   root would trap it underneath instead.
+
+   Two layers at two speeds is what reads as depth; one layer is just wallpaper.
+   Neither uses `filter: blur()`: a radial gradient falling to transparent IS a
+   blur, so a blur would buy nothing and cost a full-surface re-raster. */
+.service-room::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--bg-page);
+  /* Full opacity, drawn from the `-bg` family the theme already ships a pale
+     version of in light and a deep one in dark — then pulled back toward the
+     page by `--room-mix`. An ALPHA would be the wrong knob: below 100% what
+     shows through is the neutral page, and that is just a grey tint. Four stops
+     alternating the two hues, so the ramp crosses both twice in a pass. */
+  background-image: linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--scheme-accent-bg) var(--room-mix), var(--bg-page)),
+    color-mix(in srgb, var(--scheme-primary-bg) var(--room-mix), var(--bg-page)),
+    color-mix(in srgb, var(--scheme-accent-bg) var(--room-mix), var(--bg-page)),
+    color-mix(in srgb, var(--scheme-primary-bg) var(--room-mix), var(--bg-page))
+  );
+  /* Three times the window in each direction: `background-position` needs room
+     to walk, or the animation does nothing at all. */
+  background-size: 300% 300%;
+  background-repeat: no-repeat;
+  animation: serviceRoomSweep 26s ease-in-out infinite;
+}
+
+/* The halo: two soft pools at their OWN rate over the sweeping room. It
+   translates and scales but never rotates a full-viewport layer. */
+.service-room::after {
+  content: '';
+  position: fixed;
+  inset: -12%;
+  z-index: -1;
+  pointer-events: none;
+  will-change: transform;
+  background-image:
+    radial-gradient(34vw 30vh at 22% 68%, color-mix(in srgb, var(--scheme-accent) var(--room-halo), transparent), transparent 70%),
+    radial-gradient(30vw 26vh at 78% 18%, color-mix(in srgb, var(--scheme-primary) var(--room-halo), transparent), transparent 72%);
+  animation: serviceHaloFloat 30s ease-in-out infinite;
+}
+
+@keyframes serviceRoomSweep {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+@keyframes serviceHaloFloat {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(1.8%, -2%, 0) scale(1.05); }
+}
+
+/* A ground that moves is precisely what a motion-sensitive visitor asked us not
+   to do — and this one sits behind text they are reading. */
+@media (prefers-reduced-motion: reduce) {
+  .service-room::before,
+  .service-room::after { animation: none; }
 }
 
 ul {

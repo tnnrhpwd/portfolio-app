@@ -2,7 +2,8 @@
 
 > **Single source of truth for how every page in `frontend/src/pages` should look and behave.**
 > Read this before creating a new page or refactoring an old one so every page stays visually
-> consistent, works in both light and dark mode, and scales across all display sizes.
+> consistent, follows the visitor's **colour scheme** in both light and dark mode, and scales across
+> all display sizes.
 
 ---
 
@@ -14,9 +15,9 @@ subtle motion) layered on top of our own **vibrant gradient** palette.
 
 Every page should be **"very very very good UI"** — meaning:
 
-1. **Theme-first** — colors adapt automatically to light and dark mode with zero hardcoded colors.
+1. **Scheme-first** — colors adapt automatically to the visitor's **colour scheme** *and* to light/dark mode, with zero hardcoded colors (§2.1).
 2. **Responsive by token** — nothing is sized in raw pixels; everything scales off one unit (`--nav-size`).
-3. **Vibrant + animated** — the animated four-color gradient background is our signature; keep it.
+3. **Vibrant + animated** — the animated gradient background is our signature; keep it. It is the **scheme's** two hues now, not four fixed ones (§2.1).
 4. **Typography-led** — clear hierarchy: eyebrow label → big heading → subtitle → content.
 5. **Structured feel** — flat color-to-color band transitions, soft shadows, uppercase letter-spaced buttons, and subtle hover motion (Squarespace's feel, not its colors).
 6. **Consistent anatomy** — every page follows the same structural template (section 4).
@@ -29,11 +30,12 @@ ends up wrong. Decide first, then read §5.7 if you're building the second kind.
 
 | | **Discovery page** | **Service page** |
 | --- | --- | --- |
-| Examples | `/`, `/projects`, project pages, `/pricing` | `/simple`, `/plans`, `/net`, `/profile` |
+| Examples | `/`, `/projects`, project pages, `/pricing` | `/simple`, `/plans`, `/net`, `/profile`, `/admin` |
 | Job | Convince a stranger the product is worth trying | *Do the job* for someone who already showed up |
-| Hero | Marketing: eyebrow → big `<h1>` → subtitle → CTAs | A **sticky toolbar**: name + live state + primary action |
+| Hero | Marketing: eyebrow → big `<h1>` → subtitle → CTAs | A toolbar: name + live state + primary action |
 | Copy | Persuasive; explains the product | Labels only; a hint under a control at most |
-| Layout | Full-bleed bands, one idea each | **No bands** — one flat surface, a dense panel grid |
+| Layout | Full-bleed bands, one idea each | **No bands** — one surface, a dense panel grid |
+| Colour | Bands tinted from the scheme; a full-bleed backdrop from `--scheme-backdrop-*` | Glass panes over the scheme's **room**; a hue means something (§5.7) |
 | Ends on | A CTA band (`SimpleCtaBand`) | The last panel — no pitch, nothing to scroll past |
 | Depth | Generous — scrolling is the point | Dense — the tool is above the fold, always |
 
@@ -51,15 +53,17 @@ All colors come from CSS custom properties defined in `frontend/src/index.css`.
 - The `<body>` element carries **one** of two theme classes:
   - `.light-theme`
   - `.dark-theme`
+  - …and a `data-scheme="…"` attribute for the colour scheme (§2.1) — a **separate axis**.
 - The header theme toggle (see `components/Header/Header.jsx` and `utils/theme.js`) swaps the class
   and persists the choice to `localStorage('theme')`.
 
 ### Rules for theming
 
 - **Never** hardcode a color (`#fff`, `black`, etc.) in page CSS. Always use a token.
-- Keep the vibrant palette: `--fg-blue`, `--fg-mint`, `--fg-orange`, and `--fg-pink` are the accent
-  colors; `--bg-orange`, `--bg-pink`, `--bg-blue`, and `--bg-mint` are the four gradient corners.
-  Use them together for gradients and highlights — that's the look.
+- The brand families are `--fg-blue`, `--fg-mint`, `--fg-orange`, `--fg-pink` (accents) and
+  `--bg-orange`, `--bg-pink`, `--bg-blue`, `--bg-mint` (the four gradient corners) — but those are the
+  theme's **defaults**, not the final word. A page a visitor should be able to re-colour reads
+  `--scheme-*` instead (§2.1).
 - Use `--bg-page` for the base page background (it sits behind the animated gradient).
 - **Prefer a tone change to a border** — colors beside colors, not lines (§5). `--border-nav` is the
   fallback for a neutral edge that can't be expressed as color, never the default treatment.
@@ -67,7 +71,105 @@ All colors come from CSS custom properties defined in `frontend/src/index.css`.
   and `--text-color-inv` (text on filled/gradient buttons).
 - Buttons: the primary action uses a vibrant gradient fill; the secondary action is an outline
   (`1px solid var(--border-nav)`).
-- Test every change in both themes. You can flip themes from the header logo or the hamburger menu.
+- Test every change in **both themes *and* at least two schemes** — `Ocean` (the default), `Neutral`
+  (the one with no hue), and a Custom pick. You can flip themes from the header logo or the hamburger
+  menu; the scheme picker is on `/profile`.
+
+### 2.1 Colour schemes — which hues, on a second axis
+
+A visitor picks **two** things, and they are independent:
+
+| Axis | Question | Carried by | Picker |
+| --- | --- | --- | --- |
+| **Mode** | how light is the surface? | `.light-theme` / `.dark-theme` on `<body>` | header logo, hamburger, `/profile` |
+| **Scheme** | *which* hues sit on it? | `data-scheme="…"` on `<body>` | `/profile` (and the addon's own picker) |
+
+Every scheme therefore has **both** a light and a dark version — the scheme owns the hue *angles* only,
+and `index.css` derives everything else per mode — so there is no second palette to author. Twelve
+named presets plus a **Custom** pair the visitor builds: `frontend/src/utils/scheme.js` owns the list,
+the storage and the **one** place that writes `data-scheme`; `index.css` owns the derivation; `Header`
+calls `initScheme()` on mount, so every page gets it — not just the one with the picker on it.
+
+**Never let a brand hue come from `--fg-*` / `--bg-*` on a page that should follow the scheme.** Read
+the scheme instead:
+
+| Token | Role |
+| --- | --- |
+| `--scheme-accent` | The **dominant** hue: links, focus, interaction. (`--fg-blue`'s role.) |
+| `--scheme-primary` | The **partner/emphasis** hue: the one action, the headline figure. (`--fg-mint`'s role.) |
+| `--scheme-accent-bg`, `--scheme-primary-bg` | The two hues as a **tint** — a small field on the page |
+| `--scheme-backdrop-a`, `--scheme-backdrop-b` | The two hues as a **full-bleed field**, lightness pinned per mode |
+| `--scheme-alert`, `--scheme-alert-bg` | The alarm. **Deliberately not part of a scheme** — see below |
+
+Three rules are easy to get wrong:
+
+1. **A tint is not a backdrop.** `--scheme-*-bg` is calibrated for a *small* field: it mixes the hue
+   toward `--bg-page`, so it inherits that mode's lightness. Stretched over a full-bleed backdrop
+   **as-is**, that is fine in light mode and wrong in dark — a pale identity hue (Cyberpunk's yellow,
+   Monokai's lime) lands far lighter than the theme's own planes, and muted text on top drops from
+   ~3.8:1 to ~2.5:1. `--scheme-backdrop-a/-b` pin lightness and take only the hue, which is what makes
+   them safe for any hue. **Backdrop tokens for a field that text sits on, tint tokens for a chip** —
+   and a *room* (a field the glass sits over) mixes the tint tokens toward `--bg-page` instead, which
+   is what `/admin` and `/profile` do and why their wash is quieter than a marketing backdrop.
+2. **The alert does not follow the scheme.** `--fg-orange` / `--bg-orange` stay the theme's own orange
+   under every scheme, because an alarm that changes colour with the decor is not an alarm. When you
+   alias the brand families onto the scheme, **leave `--fg-orange` alone** — `Support.css` uses it as
+   a notice callout's border and `PurchaseGateNotice` mixes its whole warning wash from it.
+3. **Put the aliases on the page's own subtree, never globally.** The recipe the pages use is eight
+   lines at the page root (or on its bands), which re-points the *existing* `--fg-*` / `--bg-*` uses
+   onto the scheme without touching a single rule below it:
+
+```css
+/* The whole scheme pass, for a page that already paints with the brand families.
+   `--fg-mint` only ever appears OPPOSITE `--fg-blue` in a ramp, so it maps to
+   `primary` — mapping both to the accent would flatten every ramp to a flat fill. */
+.foo-band,
+.foo-hero {
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
+  /* BACKDROP tokens: these four stops are a full-bleed field. */
+  --bg-orange: var(--scheme-backdrop-a);
+  --bg-pink: var(--scheme-backdrop-b);
+  --bg-blue: var(--scheme-backdrop-a);
+  --bg-mint: var(--scheme-backdrop-b);
+}
+```
+
+   **Scope it to the page's bands, not to the shell, when the page renders a *shared* component.**
+   `SimpleCtaBand` is a *sibling* of `Home`'s sections, so an alias block on `.home` would silently
+   restyle the band on Home only and make `/home` and `/projects` drift apart. `Home.css` carries that
+   note; `SimpleCtaBand.css` styles the band from the component itself, so both pages follow the
+   picker together. The same reasoning applies to any shared band you add.
+
+**A scheme's hues are contrast-checked for a *page*, not for a filled band.** `index.css` re-pins the
+accents to a per-mode lightness — 0.52 in light is the measured point at which the worst of the
+identity hues still clears 4.5:1 as *text*; dark takes 0.76, where the accents come *up* to stay
+visible. A band whose label is `--text-color-inv` has the opposite problem, so it re-pins the two
+stops itself: `SimpleCtaBand.css` and `Admin.css`'s primary action both do, and both spell out the
+measurement. Since the rest of the service pages were migrated to the glass material (§5.7) they share
+one token for it instead of a per-file gradient — `--action` in `index.css`, which is what every
+primary button on `/simple`, `/plans` and `/market` now paints with. Chroma always rides along (`c`) so
+a scheme with no chroma stays grey.
+
+**Custom never gets a second palette.** `utils/scheme.js` writes the visitor's two hexes as *inline*
+custom properties on `<body>`, and `index.css` derives them with the same rule the presets use —
+except that the chroma is **capped** at the shared value rather than replaced. The cap does three jobs
+at once: a grey stays grey (zero is below the cap), a vivid pick is harmonised onto exactly what a
+named scheme would do with that hue, and a muted pick keeps its muting (it is a `min`, not a
+replacement). The inline pair is removed the moment a named scheme is applied, because an inline
+property beats every stylesheet rule and a stale pair would override the next pick.
+
+**One order rule in `index.css`, and it is load-bearing:** the derivation (`body[data-scheme]`) comes
+**first**, the schemes come **after** it, because a scheme may override something derived (`neutral`
+turns the chroma off). Move a scheme above the derivation and its overrides stop working, with no
+error to tell you.
+
+> ⚠️ Declare `--scheme-*` on the **same element as the palette** (`<body>`, i.e. `.light-theme` /
+> `.dark-theme`), **never on `:root`**. A custom property is substituted where it is *declared*:
+> `:root` is `<html>`, a *descendant* of the `<body>` that carries `--fg-*` — so
+> `--scheme-accent: var(--fg-mint)` declared on `:root` resolves against an element that has never seen
+> `--fg-mint`. The chain collapses to the guaranteed-invalid value and the page quietly loses its
+> accents. No error, no warning.
 
 ### Colors CSS variables can't reach
 
@@ -88,8 +190,12 @@ Three rules, each of which cost a real debugging session:
   plausible in light mode, invisible in dark.
 - **Read from `document.body`, not `<html>`.** The theme class lives on `<body>`, and those blocks are
   what redefine the palette. `<html>` returns the light-theme default even in dark mode.
-- **Rebuild on theme change.** Key the canvas on a version you bump from a `MutationObserver` on
-  `body.class`; repainting an existing chart with new dataset colors is not reliable.
+- **Rebuild on theme *or scheme* change.** Key the canvas on a version you bump from a
+  `MutationObserver` on `body`. `useChartTheme.js` filters to `['class']`, which is enough for a chart
+  that reads the theme's default hues — but the moment it reads a `--scheme-*` token it also needs
+  `attributeFilter: ['class', 'data-scheme']`, or a scheme change repaints the whole page and leaves
+  the canvas on the old colours. Repainting an existing chart with new dataset colors is not reliable;
+  **rebuild** it.
 
 Also convert alpha yourself for translucent fills — `withAlpha(color, 0.16)` in that same hook handles
 `rgb()`, `#rrggbb` and the `color(srgb r g b)` form Chrome returns for values derived from `color-mix()`.
@@ -97,8 +203,9 @@ Also convert alpha yourself for translucent fills — `withAlpha(color, 0.16)` i
 ### `--text-color-inv` is not "the text color for bands"
 
 It is *inverted* text for a **filled gradient button**, so it resolves to a dark color in dark mode.
-That is fine on a CTA band built from `--fg-blue`/`--fg-mint` (bright in both themes), but the
-`--bg-*` gradient corners are **dark in dark mode** — band copy sitting on them must use
+That is fine on a CTA band built from bright hues that have been **re-pinned so the label clears AA**
+(§2.1 — `SimpleCtaBand.css` does exactly that), but the `--bg-*` gradient corners and a scheme's
+`--scheme-backdrop-*` are **dark in dark mode** — band copy sitting on them must use
 `--text-color`, or it will be unreadable. Same rule for hairlines drawn over a gradient:
 `color-mix(in srgb, var(--text-color) 30%, transparent)`, not `--text-color-inv`.
 
@@ -113,8 +220,19 @@ That is fine on a CTA band built from `--fg-blue`/`--fg-mint` (bright in both th
 | `--bg-1` | Card/input surface |
 | `--bg-accent` | Subtle accent surfaces (tags, table headers) |
 | `--border-nav` | Neutral hairline — the **fallback**; prefer a tone change (§5) |
-| `--fg-blue`, `--fg-mint`, `--fg-orange`, `--fg-pink` | Accent colors for gradients, links, focus, highlights |
+| `--fg-blue`, `--fg-mint`, `--fg-orange`, `--fg-pink` | The theme's **default** accents — gradients, links, focus, highlights |
 | `--bg-orange`, `--bg-pink`, `--bg-blue`, `--bg-mint` | The four corners of the animated gradient |
+| `--scheme-accent`, `--scheme-primary` | The **visitor's** two hues — the dominant one and its partner (§2.1) |
+| `--scheme-accent-bg`, `--scheme-primary-bg` | Those hues as a **tint** (a small field) |
+| `--scheme-backdrop-a`, `--scheme-backdrop-b` | Those hues as a **full-bleed field** |
+| `--scheme-alert`, `--scheme-alert-bg` | The alarm — deliberately **not** part of a scheme |
+| `--glass`, `--glass-land`, `--glass-a` | The service-page **pane** (§5.7) |
+| `--glass-sheen`, `--glass-sunken`, `--glass-row` | A pane's head / a nested block / a zebra row — all from the text colour |
+| `--glass-radius`, `--glass-shadow`, `--glass-hover`, `--glass-btn-hover` | Its corner, its lift, its hover, a control's hover |
+| `--action` (`--action-hi` / `--action-lo`) | The **one** action colour: a gradient inside `--scheme-primary`, re-pinned so it clears AA for `--text-color-inv` |
+| `--room-mix`, `--room-halo` | How much of the scheme the page's **room** keeps |
+| `.service-room` | The class a service page's root wears to get the room (§5.7) |
+| `--plane-*` | The retired plane material's tokens (§5) — the *helpers* are still in use on glass (`--plane-muted`, `--plane-ink-*`) |
 | `--grey3-transp`, `--white1-transp` | Soft shadows / translucent overlays |
 | `--shadow-sm` … `--shadow-xl` | Elevation scale — prefer `--shadow-sm`/`--shadow-md` |
 
@@ -226,7 +344,10 @@ export default Foo;
   color: var(--text-color);
   min-height: 100vh;
   padding: calc(var(--nav-size) * 2) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.5);
-  background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+  /* The four stops are the SCHEME's two hues (§2.1), not the fixed --bg-* corners.
+     BACKDROP tokens, because this is a full-bleed field — the tint tokens carry the
+     page's lightness and would go wrong under a pale hue in dark mode. */
+  background: linear-gradient(-45deg, var(--scheme-backdrop-a), var(--scheme-backdrop-b), var(--scheme-backdrop-a), var(--scheme-backdrop-b));
   background-size: 400% 400%;
   animation: fooGradientShift 12s ease infinite;
   position: relative;
@@ -328,6 +449,10 @@ The header is fixed, so **the first band needs roughly `2 × --nav-size` of top 
 (Home puts it on the hero, the skeleton above on the page root). Put it on one or the other, never on
 every band — the bands would drift apart from each other.
 
+**If your page paints with the brand families rather than `--scheme-*` directly**, add the eight-line
+alias block from §2.1 to the page root or its bands, and use the backdrop tokens for any full-bleed
+field. That is the whole scheme pass — the rules below it are untouched.
+
 ---
 
 ## 5. Squarespace-inspired layout & motion
@@ -336,8 +461,9 @@ Our benchmark for "very very very good UI" is [Squarespace's website-design show
 **its structure and motion, not its monochrome palette.** The signature moves we borrow: full-bleed
 color bands that meet edge-to-edge with *no card borders*, oversized media blocks (photos or artwork,
 not emojis), uppercase letter-spaced buttons, paginated horizontal carousels, alternating media/text
-rows, and scroll-triggered reveals. Keep our own vibrant gradient palette everywhere a color decision
-is made.
+rows, and scroll-triggered reveals. Keep our own vibrant palette everywhere a color decision is made —
+and on a page the visitor should be able to re-colour, keep **their** palette, not the default one
+(§2.1).
 
 ### Full-bleed bands, not bordered cards
 
@@ -395,6 +521,29 @@ compact controls only:
 that calls `useScrollReveal` and renders `{children}` into the wrap. `RevealBand.jsx` in
 `frontend/src/pages/Projects/Annuities/` is the reference (tones: `surface | tint | wash | cta`).
 
+### The brand hue is the visitor's scheme
+
+A Discovery page is the first thing a stranger sees, so it is the page where following the picker
+matters most — and it is nearly free, because the pages already paint with the brand families. Three
+consequences:
+
+- **A full-bleed backdrop** (the `gradient-everywhere` page root, or a hero) uses
+  `--scheme-backdrop-a/-b` — **not** `--scheme-*-bg`, which is a tint and carries the page's lightness.
+  `/projects`, `/pricing` and `/support` all wire their four stops this way.
+- **A band's tint** is a `color-mix` of the scheme's hue and the page
+  (`color-mix(in srgb, var(--fg-mint) 12%, var(--bg-page))` on `Home`/`Pricing`) — the same move
+  whether the hue is the default or the visitor's, because the alias block in §2.1 has already
+  re-pointed `--fg-mint` to `--scheme-primary`.
+- **A shared band reads the scheme from its own stylesheet**, not from the page that renders it:
+  `SimpleCtaBand.css` styles the closing CTA band from the component, so `/home` and `/projects`
+  follow the picker *together* and neither can restyle the other's copy. Do the same for the next
+  shared band you extract.
+
+**The alert is the one exception.** `--fg-orange` is `Support.css`'s notice-callout border and
+`PurchaseGateNotice`'s whole warning wash. It is deliberately **not** aliased on any of the pages given
+the scheme — an alarm that changes colour with the decor is not an alarm (§2.1). If you alias four
+brand families on a new page, alias three.
+
 ### Color beside color, not borders
 
 **We don't draw lines — we put colors next to each other.** A border is one way of saying "these two
@@ -435,9 +584,17 @@ house style here.
 **Borders are the fallback, not the default.** `--border-nav` exists for the rare edge that has to be
 neutral (a browser-default-looking divider, a table rule on a page of dense data) — reach for a tone
 first, and for one of the color-mix edges above second. Service pages are no exception: their panels
-are color planes too (§5.7).
+are panes of glass, never a boxed card (§5.7).
 
 ### Planes are saturated, not pastel
+
+This is the **plane material** — the older service-page material, kept here because a saturated plane
+of one hue is still a good way to group a grid of same-shaped controls. **No page uses it today**:
+all five service pages are the glass in §5.7, which reserves colour for signal instead. A glass page
+deliberately does **not** use this recipe; its panes are neutral and the colour is in the room behind
+them. The `--plane-*` tokens below are a **different** thing from the planes themselves, and they are
+very much in use: `--plane-muted` and `--plane-ink-*` are the *muted-text* and *hue-as-text* helpers a
+tinted surface needs (glass included), and 20-odd rules across `/plans` and `/market` rely on them.
 
 `color-mix(in srgb, <hue> 7%, var(--bg-1))` is a hue *diluted into the page*, and at 7–15% what you
 get back is grey with a temperature: every surface ends up a slightly different off-white and the
@@ -496,9 +653,11 @@ Rules that fall out of it:
 A service page is a tool, so on a phone the question is not "what can we drop" but "what costs
 height on every scroll". The reference is `pages/Admin/Admin.css` §18.
 
-- **Budget the sticky head first.** It is the only thing that takes space from every screen a user
-  scrolls through. At 320px the admin head was 192px of a 720px viewport — a quarter of the glass,
-  permanently. Keep it to two or three rows: title + state, one row of readout, the view switcher.
+- **Budget the head first.** A sticky head is the only thing that takes space from *every* screen a
+  user scrolls through, so it gets measured in viewport terms: at 320px the admin head was 192px of a
+  720px viewport — a quarter of the glass, permanently. That measurement is exactly why the console
+  stopped pinning it (§5.7). Either way, keep it to two or three rows: title + state, one row of
+  readout, the view switcher.
 - **A row of chips scrolls, it doesn't wrap.** `flex-wrap: nowrap; overflow-x: auto` with the
   scrollbar hidden keeps a readout at one predictable row instead of three.
 - **A full-width action is a whole row.** The ≤768px "stack the actions under the title" rule is
@@ -754,29 +913,68 @@ setValue(Math.round(target * eased));
 
 ## 5.7 Service pages — a workspace, not a story
 
-A **service page** (`/simple`, `/plans`, `/net`, `/profile`) is a tool someone already opened
-on purpose. It shares the palette, the tokens and the typography — but **not the band
-stack**. Bands exist to sell an idea; a workspace has no idea to sell, it has tasks to
-finish. A Discovery page earns its scroll; a service page costs the user time, and every
-extra screen is a control they have to hunt for.
+A **service page** (`/simple`, `/plans`, `/net`, `/profile`, `/admin`) is a tool someone already
+opened on purpose. It shares the palette, the tokens and the typography — but **not the band stack**.
+Bands exist to sell an idea; a workspace has no idea to sell, it has tasks to finish. A Discovery page
+earns its scroll; a service page costs the user time, and every extra screen is a control they have to
+hunt for.
 
-**The goal is utility: fewer screens, fewer words, the work visible immediately — and it
-still has to look good.** Think a well-made instrument, not a poster.
+**The goal is utility: fewer screens, fewer words, the work visible immediately — and it still has to
+look good.** Think a well-made instrument, not a poster.
+
+### The material: glass over a room
+
+Every service page is built from **one** material — a translucent pane resting on an ambient
+**room** that carries the colour scheme. It is shared token-for-token (`index.css`), so a page
+cannot invent its own version of it:
+
+| | **Glass pane** |
+| --- | --- |
+| Page ground | an **ambient room**: `.service-room` on the page root draws the scheme's two `-bg` hues sweeping behind the data, plus one looser halo layer at its own speed |
+| Panels | `--glass` (`--glass-land` at 84%), `--glass-radius`, `--glass-shadow` — no border, no outline |
+| A pane's parts | `--glass-sheen` (its head), `--glass-sunken` (a nested block), `--glass-row` (a zebra row) — all mixed from the **text** colour, never a hue |
+| Colour | **reserved for signal** — a status, the one action, the data. A hue that is only decoration is the failure this material exists to prevent |
+| Controls | **solid**, never glass: `--bg-1` fill, at most an edge mixed from `--scheme-accent` |
+
+⚠️ Four rules the material depends on:
+
+- **Never glass on glass.** Anything nested *inside* a pane is a flat sunken tint
+  (`color-mix(in srgb, var(--text-color) 6%, transparent)`), never a second translucent surface.
+- **Never glass a control.** Buttons, inputs and chips stay **solid**: they must read as objects you
+  can push, and a translucent control over data loses its edge.
+- **No `backdrop-filter`** (see §8). The depth is *layering* — a translucent fill over a room that is
+  already coloured — and a blur is a per-frame repaint for an effect the gradient gives you free.
+- **The room is not a band stack and not a background for its own sake.** It is one field behind the
+  whole page, mixed toward `--bg-page` so it never competes with the data, and the glass is what keeps
+  it from reading as decoration.
+
+**The colour-plane material it replaced is in §5** ("Planes are saturated, not pastel"). It is still
+there — a saturated plane of one hue is a legitimate way to group a grid of controls — but **no page
+uses it today**: `/simple`, `/plans`, `/market`, `/profile` and `/admin` are all glass, and one page
+running a different material is exactly how two pages drift apart. If you are adding a *service* page,
+build it from the table above.
 
 ### No bands
 
-- **One flat page surface.** `--bg-page` for the whole page; the panels do the grouping.
-  A full-bleed color change would carve one workspace into "sections" that aren't there.
-- **No animated gradient background behind data** — it fights the numbers — and **no
-  floating circles** (§5's decoration belongs to a marketing hero).
+- **One surface, not a sequence of them.** There is no band stack: the ground is the ambient room
+  (glass) or — on the pages still to be migrated — `--bg-page`. A full-bleed colour *change* would carve
+  one workspace into "sections" that aren't there. A room is not a band stack: it is one field behind
+  the whole page, and the glass is what keeps it from ever competing with the data.
+- **No floating circles, no scroll reveals.** §5's decoration belongs to a marketing hero — reveals
+  delay content on a page whose whole point is "help me now". (The room and its halo are the exception:
+  they are the page's ground, not an entrance.)
 - **Keep one small piece of brand**: an accent-gradient hairline on the toolbar, or a single
   gradient-filled primary action. That is enough to place the page in the family.
+- **The colour is the scheme's.** All the service pages read `--scheme-*` (directly, or through the
+alias block on the page root) — and `/net`'s chat palette does too, so a visitor who re-colours the
+site on `/profile` (the page that carries the picker) sees every room follow, including the two hues
+the glass is tinted *by*.
 - The page root only clears the fixed header: `padding-top: calc(var(--nav-size) * 1.15)`.
 
-### The hero collapses into a toolbar
+### The hero collapses into a toolbar (or a glass head)
 
-Everything §4's hero would carry becomes one **sticky row** — the only thing that stays put
-while the user works:
+Everything §4's hero would carry becomes **one row** — the only thing that stays put while the
+user works:
 
 ```jsx
 <header className="foo-bar">
@@ -815,6 +1013,12 @@ while the user works:
   goals running, kill-switch state. That readout *is* the page's headline.
 - **The primary action lives there too**, so it is reachable from anywhere on the page:
   `+ New goal`, `▶ Start loop`, `● Record`.
+- **Sticky is a choice, not a rule.** The workspace family pins its toolbar at `top: var(--nav-size)`
+  (the CSS above). The console deliberately does **not**: `.admin-head`'s own note records the trade —
+  the head plus the 48px site nav is ~160px of viewport spoken for permanently, and a pane that has to
+  stay legible over text scrolling beneath it forces an opaque base. With nothing scrolling under it,
+  the head can be ordinary glass and the page gets its height back. Scrolling to the top to change view
+  is the price, and it was chosen deliberately.
 
 ### Layout: a dense panel grid
 
@@ -846,20 +1050,22 @@ to one short line plus the action that fixes them.
 
 ### Rules that change for service pages
 
-- **Panels are planes of color, not cards.** No border, no outline: give each panel a fill (a wash of
-  an accent over `--bg-1`) and let its head and footer be stronger washes of that same hue, so a dense
-  grid resolves into blocks of color rather than a spreadsheet. Neighbouring panels should differ in
-  tone — that *is* the grouping. §5 has the recipe.
-- **Skip the panel shadow too.** A flat plane of color on a flat page needs no elevation to read as a
-  block; keep the shadow for things that genuinely float (modals, dropdowns, toasts).
+- **A pane, never a boxed card.** A translucent page-colour fill (`--glass`), a radius and a soft
+  shadow, with a tone change (`--glass-sheen`) for the head. No border, no outline around a container,
+  and **nothing nested is a second pane** — a block inside a pane is a flat `--glass-sunken` tint.
+- **Colour means something, or it isn't there.** The panes are neutral and a hue appears only where it
+  carries a signal — state, data, the one action. A hue that is only decoration is the thing that turns
+  a page into a highlighter display, which is exactly what the old per-panel hue rotation did.
 - **No scroll reveals, no stagger.** Reveals delay content on a page whose whole point is
   "help me now"; Squarespace's fade-and-rise belongs to a page you're being sold on. Motion
   here is reserved for **state changing** — a status dot, a progress bar, a button that
   becomes Stop. (The admin console adds one short rise as each panel appears, plus a
   breathing brand rule and a pulsing status dot. It is the console its owner opens all day,
   not a template for a customer-facing service page — don't copy the rise out of `Admin.css`.)
-- Everything else stands: tokens for every color, `calc(var(--nav-size) * N)` for sizing,
-  visible focus rings, and a `prefers-reduced-motion` reset.
+- Everything else stands: tokens for every color — `--scheme-*` on a page that should follow the
+  picker (§2.1) — `calc(var(--nav-size) * N)` for sizing, visible focus rings, and a
+  `prefers-reduced-motion` reset. On a glass page that reset has to catch **every** moving piece: the
+  room's sweep, the halo, the rule sweep and the status pulse — not just the one panel rise.
 - **A sticky toolbar needs the app root to _clip_, not _hide_.** `App.css` clamps `.App`
   with `overflow-x: clip` (with `overflow-x: hidden` before it, as the fallback for
   browsers without `clip`). `hidden` on one axis resolves the other to `auto`, which makes
@@ -880,17 +1086,62 @@ notes), so lists, filters and empty states are exercised for real instead of onl
 Then ask: *is the primary tool above the fold at 1366×768, and reachable without scrolling? Is there a
 sentence on screen that could be a label? Is there a line on screen that could be a tone change?*
 
-### Reference
+### Reference — the five built pages
 
-`/simple` (`pages/Simple/Simple/`) and `/plans` (`pages/Simple/Plans/`) are the two service
-pages built to this section. Each owns its page shell; there is deliberately **no shared band
-component** for them, because there are no bands to share.
+| Page | Path | Notes |
+| --- | --- | --- |
+| Chat (`/net`) | `pages/Simple/Net/` + `components/SimpleAddon/` | the room behind a chat that brings its own palette — see below |
+| Control (`/simple`) | `pages/Simple/Simple/` | the workspace: sticky glass toolbar + dense panel grid |
+| Goals (`/plans`) | `pages/Simple/Plans/` | the same shell for three views of one store |
+| Market (`/market`) | `pages/Simple/Market/` | one toolbar + one panel holding the grid of result cards |
+| Profile (`/profile`) | `pages/Profile/` | the **account** shape — and where the scheme picker lives |
+| Admin (`/admin`) | `pages/Admin/` | the **console** shape |
 
-`/plans` holds **three views of one store** behind a tab row — the goal list, the Dream board
-(`DreamBoard.jsx`, a cover-art tile grid) and the Library. So a view inside a service page is
-still a service page: the board uses one flat surface, a dense grid of colour planes, and copy
-that is labels rather than sentences. It is also why the third tab is labelled `🌟 Board` while
-the page's `<h1>` reads "Dream board" — three one-word tabs stay the same height.
+Each owns its page shell; there is deliberately **no shared band component** for them, because there
+are no bands to share. What *is* shared is the material: `.service-room` and the `--glass-*` /
+`--action` / `--room-*` tokens all live in `index.css`, so `/admin` and `/profile` — which were built
+first and still carry local copies (`--admin-*`) at the same values — cannot be joined by a page that
+invents its own pane.
+
+**`/plans` holds three views of one store** behind a tab row — the goal list, the Dream board
+(`DreamBoard.jsx`, a cover-art tile grid) and the Library. So a view inside a service page is still a
+service page: the board uses one flat surface, a dense grid of glass tiles, and copy that is labels
+rather than sentences. It is also why the third tab is labelled `🌟 Board` while the page's `<h1>`
+reads "Dream board" — three one-word tabs stay the same height.
+
+**`/profile` is the account shape** — the post-purchase home base (§16). It is the older of the two
+glass pages and the source of the material: an animated backdrop from the scheme's `-bg` hues, three
+decorative floating circles, and **translucent page-colour panels** (`--bg-page` at 84%,
+`--border-radius-2xl`, `--shadow-md`) carrying a hero, a two-column card layout that collapses to one
+column at 860px, and a settings grid. Its role in this standard is larger than its own layout: the
+**scheme picker lives here**, so it is the page a visitor re-colours, and it has to repaint the moment
+that control changes. That is also why the picker carries no swatches — the page behind it *is* the
+preview.
+
+**`/admin` is the console shape.** Same material, harder job: it carries the numbers. Its structure is
+this section at its most literal — a floating glass head (the route's view name as `<h1>`, a live
+readout the mounted view publishes, then the view tabs) over a stack of dense panels, KPI tiles and
+tables, ordered by how often they get touched. The material rules above are all load-bearing there:
+the land is `--bg-page` (an *input* token doing a surface's job is what made Console panels lighter
+than Profile cards), nesting is a flat sunken tint, controls stay solid, and the room is pulled back
+with a percentage *mix* rather than an alpha — an alpha lets the neutral page through, and a neutral
+page showing through is just a grey tint. When the ambient version replaced the plane version, colour
+stopped carrying grouping (so a hue could mean something again) and the shadow came back (glass needs
+the lift; a plane never did).
+
+**`/net` is the exception that proves the rule.** Its chat panels are an app-like surface
+that brings its own palette (`SimpleTheme.css`, with `data-simple-theme` on `.simple-root`
+— the same ten names as the site's schemes, plus light/dark/system), so it does **not** pane
+itself in glass on this page. What it does share is the **room** (`Net.css` wears
+`.service-room`, which is why the band behind the site header is the scheme rather than the
+four-colour gradient it used to paint) and the **scheme's hue**, because the chat's brand
+roles now derive from `--scheme-*` instead of a hardcoded indigo. Same discipline as the
+rest: the HUE follows the visitor, the LIGHTNESS is re-pinned to whatever surface it lands
+on — here the chat's own theme, which is independent of the site's mode — and status
+colours (success/warning/error) do not follow it at all.
+
+⚠️ A service page has **no header hero and no closing CTA**: it is one surface, and the last panel is
+the end of the page. Everything the visitor needs is either in the head or in the grid.
 
 ---
 
@@ -1063,7 +1314,16 @@ header. It hides below `820px`, so anything placed there must also be reachable 
 - [ ] `Footer` rendered at the bottom.
 - [ ] Project pages include a "View Source Code" link to the correct GitHub path.
 - [ ] All classes prefixed with the page name.
-- [ ] Works in light **and** dark theme.
+- [ ] Works in light **and** dark theme, and under **at least two colour schemes** — `Ocean` (the
+      default), `Neutral` (the one with no hue) and a Custom pick (§2.1).
+- [ ] **Brand hues come from the scheme** — `--scheme-*` directly, or the brand families aliased onto
+      it on the page's own subtree (§2.1, §5). A raw `--fg-*` brand hue doing brand work is a page that
+      ignores the picker.
+- [ ] **A full-bleed field uses `--scheme-backdrop-a/-b`**, not the tint tokens — and a field the glass
+      sits over mixes the tint tokens toward `--bg-page` instead (§2.1).
+- [ ] **`--fg-orange` / `--bg-orange` are left alone** — the alert never follows the decor (§2.1).
+- [ ] **`--scheme-*` is declared on the element that carries the palette** (`<body>`'s theme class),
+      never on `:root` (§2.1).
 - [ ] Looks right in landscape **and** portrait, at desktop, tablet, and phone widths.
 - [ ] `prefers-reduced-motion` disables entrance/background animation.
 - [ ] Keyboard: every interactive element is focusable; focus is visible.
@@ -1082,9 +1342,14 @@ header. It hides below `820px`, so anything placed there must also be reachable 
       `prefers-reduced-motion` (§5).
 - [ ] **Carousel arrows and dots are labelled `<button>`s**, step by pixels rather than index, and zero
       the global `min-height` (§5).
-- [ ] **Service page? No bands, no gradient background behind data, no circles, no scroll reveals.**
-      One flat surface, a sticky toolbar carrying the name + live state + primary action, and a dense
-      panel grid (§5.7).
+- [ ] **Service page?** One surface — no band stack, no circles, no scroll reveals — a head carrying
+      the name + live state + primary action, and a dense panel grid (§5.7). Built from the shared
+      material: `.service-room` on the root and `--glass*` panes, with **no glass-on-glass, no glassed
+      control and no `backdrop-filter`**, and the room mixed toward `--bg-page` so it never competes
+      with the data.
+- [ ] **Service page? The page root has no opaque background of its own** — the room paints it — and
+      neither the root nor a wrapper gained `isolation` / `z-index`, which would trap the room's
+      `z-index: -1` layers under the page (§5.7).
 - [ ] **Service page? The primary tool is above the fold at 1366×768** and reachable without scrolling,
       and nothing on screen is a sentence that could be a label (§5.7).
 
@@ -1096,7 +1361,12 @@ header. It hides below `820px`, so anything placed there must also be reachable 
 
 - Use `calc(var(--nav-size) * N)` for paddings, gaps, and component sizes.
 - Use tokens for every color — `--text-color`, `--bg-1`, `--border-nav`, `--fg-blue`.
-- Use the vibrant accents (`--fg-blue`, `--fg-mint`, `--fg-orange`, `--fg-pink`) for gradients, links, and highlights.
+- **Use the visitor's scheme** on any page they should be able to re-colour: read `--scheme-accent` /
+  `--scheme-primary`, or add the eight-line alias block at the page root (§2.1). It is the cheapest
+  eleven lines of consistency on the site.
+- Verify a page under **≥2 schemes and both modes** — `Ocean`, `Neutral` and a Custom pick. `Neutral` is
+  the one that catches a chroma assumption (a grey handed chroma is not a grey).
+- Use the vibrant accents (`--fg-blue`, `--fg-mint`, `--fg-orange`, `--fg-pink`) for gradients, links, and highlights — they are the theme's **defaults**, and they are the right choice on a page that deliberately does not follow the picker.
 - Keep buttons vivid: primary gradient fill, secondary outline (`1px solid var(--border-nav)`).
 - Use `Link` (from `react-router-dom`) for **internal** navigation.
 - Use `<a target="_blank" rel="noopener noreferrer">` for **external** links.
@@ -1117,7 +1387,16 @@ header. It hides below `820px`, so anything placed there must also be reachable 
 
 - Don't use `NavBar` on new/refactored pages — it's the legacy header.
 - Don't use monochrome/grayscale fills on primary buttons or page backgrounds — keep the vibrant gradient.
-- Don't stack `backdrop-filter` glassmorphism on cards; use a hairline border + soft shadow instead.
+- Don't stack `backdrop-filter` glassmorphism on cards; depth comes from a translucent fill over a
+  coloured room plus a soft shadow (§5.7).
+- Don't glass a control or nest a pane inside a pane — a nested block is a flat sunken tint, and a
+  translucent button loses its edge (§5.7).
+- Don't alias `--fg-orange` onto the scheme — orange is the alert, and an alarm that follows the decor
+  is not an alarm (§2.1).
+- Don't use `--scheme-*-bg` (a tint) for a full-bleed backdrop, and don't declare `--scheme-*` on
+  `:root` — it must sit on the element that carries the palette (§2.1).
+- Don't put a page's scheme aliases on a selector that also wraps a **shared** component — scope them to
+  the page's own bands, or the shared band follows the picker on one page only (§2.1, §5).
 - Don't use `Times New Roman` or other hardcoded font families; inherit the app font.
 - Don't call a state setter directly in `onClick` with the raw event (e.g. `onClick={setFoo(now)}`
   calls `setFoo` during render and passes the event object — wrap it: `onClick={() => setFoo(now)}`).
@@ -1151,14 +1430,23 @@ header. It hides below `820px`, so anything placed there must also be reachable 
 | Projects hub | `frontend/src/pages/Projects/Projects/` | Card-grid variant with search + category filters (closest to the new editorial grid) |
 | Home | `frontend/src/pages/Home/Home.jsx` | Gradient hero + typewriter headline + counted stats + paginated carousel. **The source for §5's motion recipes** — typing, counting and the carousel are all documented from here |
 | Annuities | `frontend/src/pages/Projects/Annuities/` | **Built entirely to this standard** — full-bleed bands via a local `RevealBand`, borderless surfaces, staggered reveals, and a theme-aware canvas chart (`useChartTheme.js`) |
-| Control (`/simple`) | `frontend/src/pages/Simple/Simple/` | **Service page (§5.7)** — sticky toolbar + dense panel grid on one flat surface, no bands |
-| Goals (`/plans`) | `frontend/src/pages/Simple/Plans/` | **Service page (§5.7)** — same shape: live state in the toolbar, panels grouped into grid rows |
-| Dream board (`/plans` 🌟) | `frontend/src/pages/Simple/Plans/DreamBoard.jsx` | **Service page view (§5.7)** — a third tab over the *same* goals: a cover-art tile grid where each tile is a goal you can hand to the agent. Panels stay colour planes; no bands, no reveals. Covers are real artwork (`assets/art/dream-*.jpg`), never emoji tiles (§5) |
-| Admin console (`/admin`) | `frontend/src/pages/Admin/` | **Service page (§5.7)** — one sticky head (the route's view name as `<h1>` + a live readout published by the mounted view + the tab row) over a stack of dense panels. `components/Admin/AdminPanel.jsx` builds a panel; `useAdminReadout` (`Admin/adminBarContext.js`) publishes the toolbar chips; `Admin.css` owns `.admin-table` / `.admin-search` scoped to `.admin-surface` so `/deepstorage`'s `ScrollableTable.css` can't repaint them. The tab row a **Special** account sees is `SPECIAL_ADMIN_PATHS` (`constants/admin.js`) — four read-only views, mirrored by `backend/middleware/adminAccess.js` |
+| Control (`/simple`) | `frontend/src/pages/Simple/Simple/` | **Service page, glass (§5.7)** — sticky glass toolbar + dense panel grid on the shared room, no bands |
+| Goals (`/plans`) | `frontend/src/pages/Simple/Plans/` | **Service page, glass (§5.7)** — same shape: live state in the toolbar, panels grouped into grid rows |
+| Profile (`/profile`) | `frontend/src/pages/Profile/` | **Service page, glass material (§5.7)** — the account shape and the source of the material: a scheme-driven gradient backdrop, floating circles, and translucent `--bg-page`-at-84% panels (hero → two-column cards → one column at 860px, then a settings grid). **Where the colour-scheme picker lives** (`utils/scheme.js`), so it repaints the instant the scheme changes — and carries no swatches because the page behind it *is* the preview |
+| Dream board (`/plans` 🌟) | `frontend/src/pages/Simple/Plans/DreamBoard.jsx` | **Service page view (§5.7)** — a third tab over the *same* goals: a cover-art tile grid where each tile is a goal you can hand to the agent. Tiles are glass panes and the cover art is the only colour on them; no bands, no reveals. Covers are real artwork (`assets/art/dream-*.jpg`), never emoji tiles (§5) |
+| Admin console (`/admin`) | `frontend/src/pages/Admin/` | **Service page, glass material (§5.7)** — one floating glass head (deliberately **not** sticky: the route's view name as `<h1>` + a live readout published by the mounted view + the tab row) over a stack of dense panels, with colour **reserved for signal** rather than rotated per panel. `components/Admin/AdminPanel.jsx` builds a panel; `useAdminReadout` (`Admin/adminBarContext.js`) publishes the toolbar chips; `Admin.css` owns `.admin-table` / `.admin-search` scoped to `.admin-surface` so `/deepstorage`'s `ScrollableTable.css` can't repaint them. The tab row a **Special** account sees is `SPECIAL_ADMIN_PATHS` (`constants/admin.js`) — four read-only views, mirrored by `backend/middleware/adminAccess.js` |
 
 The earlier entries predate the editorial structure; **Annuities is the markup reference for it.** When
 in doubt about how a band, a staggered reveal, a borderless readout or a themed canvas should be built,
 copy from there rather than re-inventing it — the older pages will lead you back to cards.
+
+**Which pages follow the colour scheme today** (§2.1): `/home`, `/projects` and the project pages
+(`Annuities`, `Quizzes`, `IQ Test`, About/resume), `/pricing`, `/support`, and **every service page** —
+`/net` (chat palette included), `/simple`, `/plans` (and the goal detail and Dream board views),
+`/market`, `/profile` and `/admin`. The pattern in all of them is the same: alias the brand families
+onto the scheme on the page's own root — or, for `/net`, in the chat's own theme layer — and leave the
+signal hues (`--fg-orange`, `--fg-pink`, `--red0`, the chat's success/warning/error) exactly where
+they were.
 
 ---
 
@@ -1173,18 +1461,22 @@ real thing** — "Continue as Guest" on `/login`, or `guest@gmail.com` / `guest`
 actions, notes), so lists, filters, and empty states can be checked for real.
 
 - It's a **shared, public** account — delete any data you create while testing.
-- Validate **light + dark** and **phone → tablet → desktop** before calling a page done.
+- Validate **light + dark** × **at least two schemes** and **phone → tablet → desktop** before calling
+  a page done. `Neutral` is the scheme that catches a chroma assumption; `Custom` catches the inline
+  custom-property path.
 - Check the interactive states a screenshot hides: hover, focus, disabled, empty,
   loading, and any confirmation dialog.
 
 1. `npm run build` (or at least the dev server) compiles cleanly.
 2. Manually toggle light/dark and eyeball text contrast, borders, and button fills.
-3. Resize the window through phone → tablet → desktop and check nothing overflows or clips.
-4. Tab through the page and confirm focus outlines are visible on every control.
-5. **Hover every control in both themes.** Hover is where the global `button` rules bite (§6), and it
+3. **Flip the colour scheme to `Neutral` and to `Custom`, in both modes** (picker on `/profile`), and
+   confirm nothing turns pink under `Neutral` and nothing keeps the old hue.
+4. Resize the window through phone → tablet → desktop and check nothing overflows or clips.
+5. Tab through the page and confirm focus outlines are visible on every control.
+6. **Hover every control in both themes.** Hover is where the global `button` rules bite (§6), and it
    is the state a screenshot never shows.
-6. **Check anything on a gradient band in dark mode.** The `--bg-*` corners go dark, so copy that reads
-   fine in light mode can disappear there.
-7. **Canvas visuals: verify by eye.** `getImageData()` returns an all-black buffer in the agent browser
+7. **Check anything on a gradient band in dark mode.** The `--bg-*` corners and a scheme's
+   `--scheme-backdrop-*` both go dark, so copy that reads fine in light mode can disappear there.
+8. **Canvas visuals: verify by eye.** `getImageData()` returns an all-black buffer in the agent browser
    tool regardless of what was drawn, so a pixel readback will "prove" a working chart is broken — take
    a screenshot instead.

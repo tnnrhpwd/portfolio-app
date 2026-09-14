@@ -532,7 +532,7 @@ function Plans() {
       />
       <Header center={<SimpleNav compact running={Boolean(agentLive?.running)} goalName={agentLive?.currentGoal?.name || ''} />} />
 
-      <div className="plans-page">
+      <div className="plans-page service-room">
         <div className="plans-shell">
           {/* Toolbar — the page's "hero", collapsed onto one sticky row. Name,
               live state, primary action: a service page leads with the tool, not
