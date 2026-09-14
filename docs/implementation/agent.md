@@ -1731,18 +1731,22 @@ stack before computing each ratio:
   the end (the shared browser surface collapsed to 6px wide, §13.17's hazard), so the final
   checks are geometric plus computed styles. Worth one real run of the addon.
 
-- ⬜ **The addon release was NOT cut, so installed copies still run the previous build.**
-  `simple-addon/release.js` refuses to run unless `git status --porcelain` is empty, and at
-  the time this landed the shared working tree held **25 uncommitted files from other
-  in-flight sessions** (`pages/Simple/**` — Market, Net, Plans, DreamBoard, GoalDetail,
-  SimplePage — `components/SimpleAddon/*.css`, `frontend/src/index.css`,
-  `Projects/Halfway/Halfway.js`, `FRONTEND_UI_STANDARD.md`, `netlify.toml`) and nothing
-  under `simple-addon/`. Committing or stashing another session's work to get a build out
-  is not this pass's call, so the code is on `origin/master` (`42c6345`) and the release is
-  a one-liner away: once that work is committed or stashed, run `node release.js` from
-  `simple-addon/` — it bumps the build number, commits, tags `addon-vX.Y.Z` and pushes;
-  `.github/workflows/build-addon.yml` then publishes the (draft) release and running apps
-  pick it up on their next update check or via **Check for Updates** in the dashboard.
+- ✅ **Released as v1.0.48** (build #48, tag `addon-v1.0.48` → `ec04268`; CI run
+  [34798103518](https://github.com/tnnrhpwd/portfolio-app/actions/runs/34798103518)). The
+  first attempt was blocked, and the reason is worth keeping: `simple-addon/release.js`
+  runs its own preflight and **refuses unless `git status --porcelain` is empty** — at the
+  time, this shared working tree held **25 uncommitted files from other in-flight
+  sessions** (`pages/Simple/**` — Market, Net, Plans, DreamBoard, GoalDetail, SimplePage —
+  `components/SimpleAddon/*.css`, `frontend/src/index.css`, `Projects/Halfway/Halfway.js`,
+  `FRONTEND_UI_STANDARD.md`, `netlify.toml`) with nothing under `simple-addon/`. Committing
+  or stashing another session's work to get a build out was not this pass's call, so the
+  code was published first (`42c6345`) and the release waited; once that work landed, the
+  tree was clean and `node release.js` ran normally. **If it is ever blocked again, the
+  answer is to let the other work land — not to `git add -A`**, because the preflight exists
+  so a tagged build cannot be cut from a state nobody has committed.
+- ⬜ **Still to confirm by eye: the packaged addon.** CI builds and publishes the release;
+  the running install picks it up on its next update check. Nobody has opened the built
+  v1.0.48 window in this pass (see the note above about the stubbed bridge).
 
 ---
 
