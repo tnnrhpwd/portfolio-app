@@ -6,7 +6,7 @@ import Header from '../../../components/Header/Header';
 import Footer from '../../../components/Footer/Footer';
 import SEO from '../../../components/SEO/SEO.jsx';
 import { createData, createPublicData, getData } from '../../../features/data/dataSlice';
-import { shuffle, formatTime, scoreTraits } from './quizEngine';
+import { shuffle, formatTime, scoreTraits, selectItemIndices } from './quizEngine';
 import { QUIZ_SOURCE_URL } from './meta';
 import './QuizPage.css';
 
@@ -54,6 +54,7 @@ function QuizPage({ quiz }) {
 
   const [screen, setScreen] = useState('start'); // 'start' | 'quiz' | 'results'
   const [order, setOrder] = useState([]); // shuffled indices into quiz.items
+  const [lengthId, setLengthId] = useState(quiz.defaultLength || 'standard');
   const [answers, setAnswers] = useState([]); // answer index per question position
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selected, setSelected] = useState(null);
@@ -71,6 +72,27 @@ function QuizPage({ quiz }) {
   const advanceRef = useRef(null);
   const savedRef = useRef(false);
 
+  // Length presets (short / standard / full). `count` is how many items that
+  // length asks; null means the whole set. `lengths` is an object so its key
+  // order is the display order.
+  //
+  // ⚠️ Derived AFTER the state above, not next to `scaleMax`: `selectedLength`
+  // reads `lengthId`, and computing it before the `useState` that declares it
+  // trips the temporal dead zone (`Cannot access 'lengthId' before
+  // initialization`) and takes the whole page to the error boundary.
+  const lengthOptions = Object.entries(quiz.lengths || {}).map(([id, preset]) => ({
+    id,
+    ...preset,
+    total: preset.count ?? quiz.items.length,
+  }));
+  const selectedLength = lengthOptions.find((option) => option.id === lengthId)
+    // A config with no `lengths` still works: one implicit "everything" option.
+    || { id: 'full', label: 'Full', count: null, total: quiz.items.length, blurb: '' };
+
+  // The likert quizzes call their items statements; the guided one calls them
+  // questions. Derived rather than configured, so it cannot drift.
+  const itemNoun = quiz.scale ? 'statements' : 'questions';
+
   const clearAdvance = useCallback(() => {
     if (advanceRef.current) {
       clearTimeout(advanceRef.current);
@@ -87,9 +109,10 @@ function QuizPage({ quiz }) {
   }, []);
 
   const startQuiz = useCallback(() => {
-    // Most quizzes shuffle their items to blunt order effects. A quiz whose
-    // parts carry meaning (the ADHD screener) opts out with `shuffle: false`.
-    const positions = quiz.items.map((_, i) => i);
+    // The chosen length decides WHICH items, this decides their order. Most
+    // quizzes shuffle to blunt order effects; a quiz whose parts carry meaning
+    // (the ADHD screener) opts out with `shuffle: false`.
+    const positions = selectItemIndices(quiz.items, selectedLength.count);
     setOrder(quiz.shuffle === false ? positions : shuffle(positions));
     setAnswers([]);
     setCurrentIndex(0);
@@ -106,7 +129,7 @@ function QuizPage({ quiz }) {
 
     setScreen('quiz');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [quiz.items, quiz.shuffle]);
+  }, [quiz.items, quiz.shuffle, selectedLength.count]);
 
   // Return to the start screen rather than restarting immediately, so the
   // quiz doesn't re-run itself until the user asks for it again.
@@ -187,8 +210,10 @@ function QuizPage({ quiz }) {
     savedRef.current = true;
 
     const record = {
-      text: `Creator:${user._id}|Quiz:${quiz.slug}|Result:${clean(result.headline)}`
-        + `|Detail:${clean(result.headlineSub)}|Time:${elapsed}|Timestamp:${new Date().toISOString()}`,
+      text: `Creator:${user._id}|Quiz:${quiz.slug}|Length:${selectedLength.id}`
+        + `|Result:${clean(result.headline)}|Detail:${clean(result.headlineSub)}`
+        + `|Questions:${order.length}`
+        + `|Time:${elapsed}|Timestamp:${new Date().toISOString()}`,
     };
     dispatch(createData(record)).unwrap().catch((error) => {
       console.error('Failed to save quiz history:', error);
@@ -281,6 +306,32 @@ function QuizPage({ quiz }) {
               <div className="quiz-underline" aria-hidden="true" />
               <p className="quiz-subtitle">{quiz.intro}</p>
             </div>
+
+            {lengthOptions.length > 1 && (
+              <div className="quiz-card">
+                <h2>Choose a length</h2>
+                <div className="quiz-length-row" role="radiogroup" aria-label="Quiz length">
+                  {lengthOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className={`quiz-length-btn${option.id === selectedLength.id ? ' selected' : ''}`}
+                      role="radio"
+                      aria-checked={option.id === selectedLength.id}
+                      onClick={() => setLengthId(option.id)}
+                    >
+                      <span className="label">{option.label}</span>
+                      <span className="count">{option.total} {itemNoun}</span>
+                      <span className="blurb">{option.blurb}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="quiz-hint">
+                  A shorter run draws evenly from every part of the quiz rather than dropping any of it, so
+                  your result still covers all of it — it just gets less precise.
+                </p>
+              </div>
+            )}
 
             <div className="quiz-card">
               {quiz.pills?.length > 0 && (
@@ -437,6 +488,14 @@ function QuizPage({ quiz }) {
                 <p className="quiz-disclaimer quiz-disclaimer-left">{result.note}</p>
               )}
 
+              {order.length < quiz.items.length && (
+                <p className="quiz-disclaimer quiz-disclaimer-left">
+                  You took the {selectedLength.label.toLowerCase()} version — {order.length} of{' '}
+                  {quiz.items.length} {itemNoun}. Every area is still covered and scored the same way,
+                  but a shorter quiz is a rougher read than the full set.
+                </p>
+              )}
+
               <div className="quiz-btn-row">
                 <button className="quiz-btn" onClick={resetToStart}>Take It Again</button>
                 <button className="quiz-btn secondary" onClick={() => setShowReview((v) => !v)}>
@@ -531,6 +590,11 @@ function QuizPage({ quiz }) {
                       <div className="quiz-history-main">
                         <span className="quiz-history-score">{entry.Result}</span>
                         {entry.Detail && <span className="quiz-history-detail">{entry.Detail}</span>}
+                        {entry.Questions && (
+                          <span className="quiz-history-detail">
+                            {entry.Questions} {itemNoun}
+                          </span>
+                        )}
                         <span className="quiz-history-detail">{formatTime(Number(entry.Time) || 0)}</span>
                       </div>
                       <div className="quiz-history-date">

@@ -58,6 +58,13 @@ const meta = quizBySlug('autism');
 
 export default {
   ...meta,
+  // 6 statements per area, so these divide evenly (2 / 4 per area).
+  lengths: {
+    short: { label: 'Short', count: 8, blurb: '~2 min' },
+    standard: { label: 'Standard', count: 16, blurb: '~4 min' },
+    full: { label: 'Full', count: null, blurb: '~6 min' },
+  },
+  defaultLength: 'standard',
   seoTitle: 'Autism Spectrum Screening (AQ / RAADS-R Style)',
   seoDescription:
     'A free 24-statement autism spectrum screening questionnaire across social interaction, communication, flexibility and attention to detail — with instant, clearly non-diagnostic results.',
@@ -73,8 +80,8 @@ export default {
     { emoji: '🔍', label: 'Attention to detail' },
   ],
   hint:
-    '24 statements, four-point disagree/agree scale, no skip and no time limit. Answer for your whole life, '
-    + 'not just the last fortnight — a screening score is only as useful as the timescale behind it.',
+    'Four-point disagree/agree scale, no skip and no time limit. Answer for your whole life, not just the '
+    + 'last fortnight — a screening score is only as useful as the timescale behind it.',
   scale: ['Definitely disagree', 'Slightly disagree', 'Slightly agree', 'Definitely agree'],
   allowSkip: false,
   disclaimer:

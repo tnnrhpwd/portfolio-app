@@ -9,6 +9,7 @@ import {
   strengthLabel,
   itemLean,
   compareResponses,
+  selectItemIndices,
 } from './quizEngine';
 
 describe('shuffle', () => {
@@ -336,5 +337,150 @@ describe('strengthLabel', () => {
     [100, 'High'],
   ])('labels %p as %p', (pct, expected) => {
     expect(strengthLabel(pct)).toBe(expected);
+  });
+});
+
+describe('selectItemIndices', () => {
+  // A stand-in for a real config: 4 dimensions, 6 items each, half reverse-keyed.
+  const build = (dims = 4, perDim = 6) => {
+    const items = [];
+    for (let d = 0; d < dims; d += 1) {
+      for (let i = 0; i < perDim; i += 1) {
+        items.push({ dim: `d${d}`, key: i % 2 === 0 ? 1 : -1, text: `d${d}-${i}` });
+      }
+    }
+    return items;
+  };
+
+  const dimsOf = (items, indices) => new Set(indices.map((i) => items[i].dim));
+
+  it('returns everything when the count is missing, zero, or the whole set', () => {
+    const items = build();
+    const all = items.map((_, i) => i);
+    expect(selectItemIndices(items, null)).toEqual(all);
+    expect(selectItemIndices(items, 0)).toEqual(all);
+    expect(selectItemIndices(items, undefined)).toEqual(all);
+    expect(selectItemIndices(items, items.length)).toEqual(all);
+    expect(selectItemIndices(items, items.length + 10)).toEqual(all);
+  });
+
+  it('returns exactly the requested number of items', () => {
+    const items = build();
+    [4, 8, 12, 16, 20].forEach((n) => {
+      expect(selectItemIndices(items, n)).toHaveLength(n);
+    });
+  });
+
+  it('keeps every dimension represented, however short the quiz gets', () => {
+    const items = build(4, 6);
+    [4, 8, 12, 16].forEach((n) => {
+      expect(dimsOf(items, selectItemIndices(items, n)).size).toBe(4);
+    });
+  });
+
+  it('splits an uneven count across dimensions rather than dumping it on one', () => {
+    const items = build(4, 6);
+    const counts = {};
+    selectItemIndices(items, 10).forEach((i) => {
+      counts[items[i].dim] = (counts[items[i].dim] || 0) + 1;
+    });
+    const spread = Object.values(counts);
+    expect(spread.reduce((a, b) => a + b, 0)).toBe(10);
+    // 10 across 4 dimensions: 3/3/2/2, never 10/0/0/0 or 4/4/1/1.
+    expect(Math.max(...spread) - Math.min(...spread)).toBeLessThanOrEqual(1);
+  });
+
+  it('preserves the forward / reverse key mix inside a dimension', () => {
+    // The whole point: a short quiz must not become all forward-keyed.
+    const items = build(4, 6); // 3 forward + 3 reverse per dimension
+    const selected = selectItemIndices(items, 8); // 2 per dimension
+    const perDim = {};
+    selected.forEach((i) => {
+      const d = items[i].dim;
+      perDim[d] = perDim[d] || { fwd: 0, rev: 0 };
+      if (items[i].key >= 0) perDim[d].fwd += 1;
+      else perDim[d].rev += 1;
+    });
+    Object.values(perDim).forEach(({ fwd, rev }) => {
+      expect(fwd).toBe(1);
+      expect(rev).toBe(1);
+    });
+  });
+
+  it('spaces its picks through a dimension instead of taking the first n', () => {
+    const items = build(1, 6);
+    const shortest = selectItemIndices(items, 2);
+    expect(shortest).not.toEqual([0, 1]);
+    // 3 forward (0,2,4) + 3 reverse (1,3,5): one of each, taken from the MIDDLE
+    // of each half — so the pick is not the opening pair of the block.
+    expect(shortest).toEqual([2, 3]);
+    expect(selectItemIndices(items, 3)).not.toEqual([0, 1, 2]);
+  });
+
+  it('always includes items flagged core, and counts them against the budget', () => {
+    // The ADHD screener: 6 core items (its Part A) then 12 ordinary ones.
+    const items = [
+      ...Array.from({ length: 6 }, (_, i) => ({ dim: i < 3 ? 'attention' : 'energy', key: 1, text: `core${i}`, core: true })),
+      ...Array.from({ length: 6 }, (_, i) => ({ dim: 'attention', key: 1, text: `b${i}` })),
+      ...Array.from({ length: 6 }, (_, i) => ({ dim: 'energy', key: 1, text: `b${i + 6}` })),
+    ];
+    const set = selectItemIndices(items, 6);
+    expect(set).toHaveLength(6);
+    expect(set).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(set.every((i) => items[i].core)).toBe(true);
+
+    const longer = selectItemIndices(items, 12);
+    expect(longer).toHaveLength(12);
+    // The six core items are all still there...
+    expect([0, 1, 2, 3, 4, 5].every((i) => longer.includes(i))).toBe(true);
+    // ...and the remaining six are split evenly across the two dimensions.
+    const extras = longer.filter((i) => i >= 6);
+    expect(extras.filter((i) => items[i].dim === 'attention')).toHaveLength(3);
+    expect(extras.filter((i) => items[i].dim === 'energy')).toHaveLength(3);
+  });
+
+  it('never drops a core item to hit a smaller target', () => {
+    const items = [
+      ...Array.from({ length: 4 }, (_, i) => ({ dim: 'a', key: 1, text: `c${i}`, core: true })),
+      ...Array.from({ length: 4 }, (_, i) => ({ dim: 'a', key: 1, text: `r${i}` })),
+    ];
+    expect(selectItemIndices(items, 2)).toEqual([0, 1, 2, 3]);
+  });
+
+  it('groups the guided quiz by set, since its questions have no dimension', () => {
+    const items = Array.from({ length: 36 }, (_, i) => ({ set: 'I', text: `q${i}` }))
+      .map((item, i) => ({ ...item, set: i < 12 ? 'I' : i < 24 ? 'II' : 'III' }));
+    const picked = selectItemIndices(items, 12);
+    expect(picked).toHaveLength(12);
+    const sets = new Set(picked.map((i) => items[i].set));
+    expect(sets.size).toBe(3);
+    expect(picked.filter((i) => items[i].set === 'I')).toHaveLength(4);
+  });
+
+  it('is deterministic, so a re-take only varies by the shuffle the page applies', () => {
+    const items = build();
+    expect(selectItemIndices(items, 12)).toEqual(selectItemIndices(items, 12));
+  });
+
+  it('returns ascending indices so the original order is preserved', () => {
+    const indices = selectItemIndices(build(), 12);
+    expect(indices).toEqual(indices.slice().sort((a, b) => a - b));
+  });
+
+  it('keeps every scoreable dimension scoreable at the shortest setting', () => {
+    // The real check: a shortened run must still produce a pct per dimension.
+    const items = build(4, 6);
+    const indices = selectItemIndices(items, 4);
+    const responses = indices.map((i) => ({ ...items[i], value: 4 }));
+    const scores = scoreTraits(responses, 4);
+    expect(Object.keys(scores).sort()).toEqual(['d0', 'd1', 'd2', 'd3']);
+    Object.values(scores).forEach((bucket) => expect(bucket.count).toBe(1));
+  });
+
+  it('copes with an empty list and a list with no dimensions', () => {
+    expect(selectItemIndices([], 5)).toEqual([]);
+    expect(selectItemIndices(undefined, 5)).toEqual([]);
+    const flat = [{ text: 'a' }, { text: 'b' }, { text: 'c' }, { text: 'd' }];
+    expect(selectItemIndices(flat, 2)).toHaveLength(2);
   });
 });

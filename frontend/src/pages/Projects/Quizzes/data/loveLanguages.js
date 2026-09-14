@@ -85,6 +85,13 @@ const meta = quizBySlug('love-languages');
 
 export default {
   ...meta,
+  // 5 statements per language, so these divide evenly (2 / 3 per language).
+  lengths: {
+    short: { label: 'Short', count: 10, blurb: '~2 min' },
+    standard: { label: 'Standard', count: 15, blurb: '~4 min' },
+    full: { label: 'Full', count: null, blurb: '~6 min' },
+  },
+  defaultLength: 'standard',
   seoTitle: 'Love Languages Test',
   seoDescription:
     'A free 25-statement love languages test scoring words of affirmation, quality time, acts of service, receiving gifts and physical touch — with instant results and what each one means in practice.',
@@ -100,9 +107,8 @@ export default {
     { emoji: '🤗', label: 'Physical touch' },
   ],
   hint:
-    '25 statements, five per language, five-point agree/disagree scale. Answer for how you feel most cared '
-    + 'for rather than how you show care — those two are often different, and that gap is the interesting '
-    + 'part of this quiz.',
+    'Five-point agree/disagree scale. Answer for how you feel most cared for rather than how you show '
+    + 'care — those two are often different, and that gap is the interesting part of this quiz.',
   scale: ['Strongly disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly agree'],
   allowSkip: true,
   disclaimer:

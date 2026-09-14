@@ -81,6 +81,13 @@ const meta = quizBySlug('mbti');
 
 export default {
   ...meta,
+  // 7 statements per dichotomy, so these divide evenly (2 / 4 per dichotomy).
+  lengths: {
+    short: { label: 'Short', count: 8, blurb: '~2 min' },
+    standard: { label: 'Standard', count: 16, blurb: '~5 min' },
+    full: { label: 'Full', count: null, blurb: '~8 min' },
+  },
+  defaultLength: 'standard',
   seoTitle: '16 Personality Types Test (MBTI Style)',
   seoDescription:
     'A free 16-types personality quiz: 28 statements across four dichotomies — Extraversion/Introversion, Sensing/Intuition, Thinking/Feeling and Judging/Perceiving — with instant results.',
@@ -95,8 +102,8 @@ export default {
     { emoji: '🗂️', label: 'Structure: J or P' },
   ],
   hint:
-    '7 statements per dichotomy, on a five-point agree/disagree scale, no time limit. Answer for how you '
-    + 'usually are rather than how you would like to be — the pairs are only useful if the answers are honest.',
+    'Five-point agree/disagree scale, no time limit. Answer for how you usually are rather than how you '
+    + 'would like to be — the pairs are only useful if the answers are honest.',
   scale: ['Strongly disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly agree'],
   allowSkip: true,
   disclaimer:

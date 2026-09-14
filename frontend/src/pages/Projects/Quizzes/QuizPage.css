@@ -172,6 +172,40 @@
 .quiz-pill .emoji { font-size: 1.6rem; display: block; margin-bottom: 6px; }
 .quiz-hint { color: var(--text-color-accent); font-size: calc(var(--nav-size) * 0.28); line-height: 1.6; }
 
+/* ── Length picker (start screen) ─────────────────────────────────────────
+   Mirrors the IQ Test's own "Choose a test length" row, so the two read the
+   same. `:not(:disabled)` and the restated `color` are both deliberate — see
+   the note above `.quiz-option`. */
+.quiz-length-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: calc(var(--nav-size) * 0.2);
+  margin: calc(var(--nav-size) * 0.2) 0;
+}
+.quiz-length-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  padding: calc(var(--nav-size) * 0.25);
+  border-radius: 8px;
+  border: 2px solid #ffffff26;
+  background: #ffffff0d;
+  color: var(--text-color);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.quiz-length-btn:hover:not(:disabled) { background: #ffffff1a; color: var(--text-color); }
+.quiz-length-btn.selected {
+  border-color: var(--quiz-accent, var(--fg-blue));
+  background: linear-gradient(45deg, #ffffff1f, #ffffff0d);
+  box-shadow: 0 4px 15px #00000033;
+}
+.quiz-length-btn .label { font-size: calc(var(--nav-size) * 0.32); font-weight: 700; }
+.quiz-length-btn .count { font-size: calc(var(--nav-size) * 0.26); font-weight: 600; color: var(--text-color-accent); }
+.quiz-length-btn .blurb { font-size: calc(var(--nav-size) * 0.22); color: var(--text-color-accent); }
+
 .quiz-btn, .quiz-btn.secondary {
   font-weight: 700;
   font-size: calc(var(--nav-size) * 0.3);

@@ -63,6 +63,14 @@ const meta = quizBySlug('values-alignment');
 export default {
   ...meta,
   mode: 'compare',
+  // 5 areas (3, 3, 4, 4, 4 items), so these land evenly: 1 / 2 per area.
+  // Times are doubled from a solo quiz because BOTH partners answer.
+  lengths: {
+    short: { label: 'Short', count: 5, blurb: '~3 min' },
+    standard: { label: 'Standard', count: 10, blurb: '~6 min' },
+    full: { label: 'Full', count: null, blurb: '~10 min' },
+  },
+  defaultLength: 'standard',
   seoTitle: 'Values & Future Vision Alignment Quiz for Couples',
   seoDescription:
     'A free couples quiz: both partners answer 18 statements about family, money, lifestyle, ambition and closeness, then see exactly where you align and where you differ — with prompts for the gaps.',
@@ -78,9 +86,9 @@ export default {
     { emoji: '🚫', label: 'Nothing saved' },
   ],
   hint:
-    '18 statements, five-point agree/disagree scale, answered one partner at a time. Use the middle option '
-    + 'when you genuinely have no view — a "neutral" from both of you is not agreement, and this quiz will '
-    + 'tell you when it happens. Answer for what you actually want, not for what you think is expected.',
+    'Five-point agree/disagree scale, answered one partner at a time. Use the middle option when you '
+    + 'genuinely have no view — a "neutral" from both of you is not agreement, and this quiz will tell you '
+    + 'when it happens. Answer for what you actually want, not for what you think is expected.',
   scale: ['Strongly disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly agree'],
   allowSkip: true,
   disclaimer:

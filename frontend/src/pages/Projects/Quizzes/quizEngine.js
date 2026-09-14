@@ -272,3 +272,144 @@ export function strengthLabel(pct) {
   if (pct >= 40) return 'Balanced';
   return 'Low';
 }
+
+/* ══ Shortening a quiz without breaking it ══════════════════════════════════
+ *
+ * The IQ Test can take any 10 of its bank, because it has hundreds of items per
+ * category and scores a running estimate. These quizzes cannot: their item sets
+ * are small and deliberately balanced (MBTI has exactly 7 per dichotomy, half
+ * of them reverse-keyed; the screening quizzes have exactly 6 per area, half
+ * reverse-keyed). Taking the first N would give a short quiz with, say, one
+ * reverse-keyed item instead of three — and because a dimension's score is the
+ * MEAN of its items' leans, that silently skews the result rather than merely
+ * making it noisier.
+ *
+ * So a shorter quiz keeps every dimension it had, keeps each dimension's
+ * forward/reverse mix, and spaces its picks through each dimension rather than
+ * always asking the opening statements. What it loses is precision, which is
+ * the honest trade and is disclosed on the result.
+ *
+ * ⚠️ The SCREENING quizzes are the reason this matters most: `pct` is
+ * length-independent (it is a mean), but a band label read off 8 answers
+ * instead of 24 is a much rougher instrument, so the page says so.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Which group an item belongs to: its dimension, or its set in the guided mode. */
+const groupKeyOf = (item) => item.dim || item.set || '__all__';
+
+/**
+ * Largest-remainder allocation of `total` across `weights`.
+ *
+ * Plain rounding overshoots or undershoots; this gives each group its floor and
+ * then hands the leftovers to the largest fractional parts, so the parts always
+ * sum to exactly `total`. Ties go to the earlier group, which keeps the result
+ * deterministic.
+ *
+ * Callers must pass `total <= sum(weights)`: that is what guarantees no group is
+ * allocated more than it holds.
+ *
+ * @param {number} total
+ * @param {number[]} weights
+ * @returns {number[]} allocation per weight
+ */
+function allocate(total, weights) {
+  const sum = weights.reduce((a, b) => a + b, 0);
+  if (sum <= 0 || total <= 0) return weights.map(() => 0);
+
+  const quotas = weights.map((w) => (total * w) / sum);
+  const out = quotas.map(Math.floor);
+  let left = total - out.reduce((a, b) => a + b, 0);
+
+  const byRemainder = quotas
+    .map((q, i) => ({ i, frac: q - Math.floor(q) }))
+    .sort((a, b) => b.frac - a.frac || a.i - b.i);
+
+  for (let k = 0; left > 0 && k < byRemainder.length; k += 1) {
+    out[byRemainder[k].i] += 1;
+    left -= 1;
+  }
+  // Only reachable if callers pass total > sum, which they must not.
+  for (let k = 0; left > 0; k = (k + 1) % out.length) {
+    out[k] += 1;
+    left -= 1;
+  }
+  return out;
+}
+
+/**
+ * Picks `n` entries from `list` spread evenly through it, rather than the first
+ * `n`. Items are listed in a meaningful order (the ADHD screener's six come
+ * first, the guided quiz's sets escalate), so "the first n" would always ask the
+ * opening items and never reach the end of a block.
+ *
+ * @template T
+ * @param {T[]} list
+ * @param {number} n
+ * @returns {T[]}
+ */
+function spread(list, n) {
+  if (n <= 0 || list.length === 0) return [];
+  if (n >= list.length) return list.slice();
+  if (n === 1) return [list[Math.floor((list.length - 1) / 2)]];
+
+  const out = [];
+  for (let j = 0; j < n; j += 1) {
+    out.push(list[Math.round((j * (list.length - 1)) / (n - 1))]);
+  }
+  return out;
+}
+
+/**
+ * Picks a balanced subset of `count` items and returns their indices into
+ * `items`, sorted into the original order.
+ *
+ * Items flagged `core: true` are ALWAYS included and are counted against
+ * `count` — the ADHD screener uses this for its six-item Part A, which the
+ * result screen reports as "x / 6". The rest of the budget is allocated across
+ * the quiz's dimensions in proportion to their size, then within each dimension
+ * across its forward- and reverse-keyed halves so the mix is preserved.
+ *
+ * Deterministic: the same inputs always give the same indices (the page applies
+ * its own shuffle afterwards, so a re-take still varies).
+ *
+ * @param {Array<{dim?:string,set?:string,key?:number,core?:boolean}>} items
+ * @param {number|null} count - target size; null/0/≥ length means "all of them".
+ * @returns {number[]} indices into `items`, ascending
+ */
+export function selectItemIndices(items, count) {
+  const all = items || [];
+  if (!count || count >= all.length) return all.map((_, i) => i);
+
+  const coreIdx = [];
+  const restIdx = [];
+  all.forEach((item, i) => (item.core ? coreIdx : restIdx).push(i));
+
+  // Never drop a core item to hit the number: a quiz that reports "x / 6" of
+  // its screener has to have asked all six.
+  const budget = count - coreIdx.length;
+  if (budget <= 0 || restIdx.length === 0) return coreIdx.slice().sort((a, b) => a - b);
+
+  const groups = new Map();
+  restIdx.forEach((i) => {
+    const key = groupKeyOf(all[i]);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(i);
+  });
+
+  const keys = [...groups.keys()];
+  const perGroup = allocate(budget, keys.map((k) => groups.get(k).length));
+
+  const picked = [];
+  keys.forEach((key, gi) => {
+    const indices = groups.get(key);
+    const forward = indices.filter((i) => (all[i].key ?? 1) >= 0);
+    const reverse = indices.filter((i) => (all[i].key ?? 1) < 0);
+    const [fwdN, revN] = allocate(perGroup[gi], [forward.length, reverse.length]);
+
+    spread(forward, fwdN).forEach((i) => picked.push(i));
+    spread(reverse, revN).forEach((i) => picked.push(i));
+  });
+
+  return [...coreIdx, ...picked].sort((a, b) => a - b);
+}
+

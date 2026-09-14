@@ -81,6 +81,13 @@ const meta = quizBySlug('enneagram');
 
 export default {
   ...meta,
+  // 4 statements per type, so these divide evenly (2 / 3 per type).
+  lengths: {
+    short: { label: 'Short', count: 18, blurb: '~5 min' },
+    standard: { label: 'Standard', count: 27, blurb: '~7 min' },
+    full: { label: 'Full', count: null, blurb: '~9 min' },
+  },
+  defaultLength: 'standard',
   seoTitle: 'Enneagram Test — Find Your Type',
   seoDescription:
     'A free Enneagram test: 36 statements scored across all nine types, with your core type, your wing, and a full nine-bar profile.',
@@ -94,8 +101,8 @@ export default {
     { emoji: '📊', label: 'Full nine-bar profile' },
   ],
   hint:
-    '36 statements, four per type, five-point agree/disagree scale, no time limit. Types that share a '
-    + 'centre (2-3-4, 5-6-7, 8-9-1) tend to score near each other, so expect a few bars to be close.',
+    'Five-point agree/disagree scale, no time limit. Types that share a centre (2-3-4, 5-6-7, 8-9-1) tend '
+    + 'to score near each other, so expect a few bars to be close.',
   scale: ['Strongly disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly agree'],
   allowSkip: true,
   disclaimer:

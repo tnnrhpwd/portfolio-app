@@ -1,5 +1,5 @@
 import { QUIZZES, STANDALONE_QUIZZES, HUB_QUIZZES } from './meta';
-import { scoreTraits, traitRows, compareResponses } from './quizEngine';
+import { scoreTraits, traitRows, compareResponses, selectItemIndices } from './quizEngine';
 import mbti from './data/mbti';
 import bigfive from './data/bigfive';
 import enneagram from './data/enneagram';
@@ -100,6 +100,100 @@ describe('quiz catalogue', () => {
     expect(SOLO).toHaveLength(7);
     expect(COMPARE).toHaveLength(1);
     expect(PROMPT).toHaveLength(1);
+  });
+});
+
+/** The group a config's items are balanced across: its dimension, or its set. */
+const groupOf = (item) => item.dim || item.set;
+
+describe('length presets', () => {
+  it('gives every quiz a short / standard / full choice and a valid default', () => {
+    ALL.forEach((quiz) => {
+      expect(quiz.lengths).toBeDefined();
+      expect(Object.keys(quiz.lengths)).toEqual(['short', 'standard', 'full']);
+      expect(quiz.lengths[quiz.defaultLength]).toBeDefined();
+      Object.values(quiz.lengths).forEach((preset) => {
+        expect(preset.label).toBeTruthy();
+        expect(preset.blurb).toBeTruthy();
+        const ok = preset.count === null || (Number.isInteger(preset.count) && preset.count > 0);
+        expect(ok).toBe(true);
+      });
+    });
+  });
+
+  it('always offers everything, plus at least one genuinely shorter run', () => {
+    ALL.forEach((quiz) => {
+      expect(quiz.lengths.full.count).toBeNull();
+      const shorter = Object.values(quiz.lengths)
+        .filter((preset) => preset.count && preset.count < quiz.items.length);
+      expect(shorter.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  it('asks exactly the advertised number, with no repeats and no duplicates', () => {
+    ALL.forEach((quiz) => {
+      Object.entries(quiz.lengths).forEach(([, preset]) => {
+        const count = preset.count ?? quiz.items.length;
+        const indices = selectItemIndices(quiz.items, count);
+        expect(indices).toHaveLength(count);
+        expect(new Set(indices).size).toBe(count);
+        indices.forEach((i) => {
+          expect(Number.isInteger(i)).toBe(true);
+          expect(i).toBeGreaterThanOrEqual(0);
+          expect(i).toBeLessThan(quiz.items.length);
+        });
+      });
+    });
+  });
+
+  it('keeps every dimension — and so every bar and area — at every length', () => {
+    // This is the property that makes shortening safe. A length that dropped a
+    // dimension would leave a result screen missing a bar, or an alignment
+    // screen missing an area, with nothing to indicate why.
+    ALL.forEach((quiz) => {
+      const declared = new Set(quiz.items.map(groupOf));
+      Object.entries(quiz.lengths).forEach(([id, preset]) => {
+        const count = preset.count ?? quiz.items.length;
+        const kept = new Set(selectItemIndices(quiz.items, count).map((i) => groupOf(quiz.items[i])));
+        expect([quiz.slug, id, kept.size]).toEqual([quiz.slug, id, declared.size]);
+      });
+    });
+  });
+
+  it('remains scoreable at the shortest length, for the quizzes that score', () => {
+    SOLO.forEach((quiz) => {
+      const shortest = selectItemIndices(quiz.items, quiz.lengths.short.count);
+      const responses = shortest.map((i) => ({ ...quiz.items[i], value: 1 }));
+      const scores = scoreTraits(responses, quiz.scale.length - 1);
+      const declared = new Set(quiz.items.map((item) => item.dim));
+      expect(Object.keys(scores).sort()).toEqual([...declared].sort());
+      traitRows(scores, quiz.items.map((item) => ({ key: item.dim, name: item.dim })))
+        .forEach((row) => {
+          expect(Number.isFinite(row.pct)).toBe(true);
+        });
+    });
+  });
+
+  it('compares every area at the shortest length, for the couples quiz', () => {
+    COMPARE.forEach((quiz) => {
+      const shortest = selectItemIndices(quiz.items, quiz.lengths.short.count);
+      const responses = shortest.map((i) => ({ ...quiz.items[i], value: 2 }));
+      const comparison = compareResponses(responses, responses, quiz.scale.length - 1);
+      const declared = new Set(quiz.items.map((item) => item.dim));
+      expect(Object.keys(comparison.byDim).sort()).toEqual([...declared].sort());
+      expect(comparison.overallPct).toBe(100);
+    });
+  });
+
+  it('keeps every core item in every length, so a reported "x / 6" stays true', () => {
+    ALL.forEach((quiz) => {
+      const coreIdx = quiz.items.map((item, i) => (item.core ? i : -1)).filter((i) => i >= 0);
+      if (coreIdx.length === 0) return;
+      Object.entries(quiz.lengths).forEach(([, preset]) => {
+        const indices = selectItemIndices(quiz.items, preset.count ?? quiz.items.length);
+        coreIdx.forEach((i) => expect(indices).toContain(i));
+      });
+    });
   });
 });
 

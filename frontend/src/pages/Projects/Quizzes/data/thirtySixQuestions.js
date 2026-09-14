@@ -131,6 +131,15 @@ const meta = quizBySlug('thirty-six-questions');
 export default {
   ...meta,
   mode: 'prompt',
+  // 3 escalating sets of 12. A shorter run takes fewer from EACH set rather
+  // than dropping a set, so the arc from light to vulnerable survives — which
+  // is the only reason the exercise works at all.
+  lengths: {
+    short: { label: 'One pass', count: 12, blurb: '~20 min' },
+    standard: { label: 'Standard', count: 24, blurb: '~40 min' },
+    full: { label: 'All three sets', count: null, blurb: '~60 min' },
+  },
+  defaultLength: 'standard',
   seoTitle: 'The 36 Questions — A Conversation for Two',
   seoDescription:
     'A guided 36-question conversation for couples in three escalating sets, with a private closeness rating at the end and a full question list to keep. Nothing scored, nothing saved.',
@@ -145,9 +154,9 @@ export default {
     { emoji: '🔒', label: 'Nothing saved, ever' },
   ],
   hint:
-    'Budget an hour, put the phones out of reach, and go in order — the sets depend on the earlier ones '
-    + 'having been answered. If a question lands badly, say so and move on; that is a better outcome than '
-    + 'pushing through it.',
+    'Put the phones out of reach and go in order — the sets depend on the earlier ones having been '
+    + 'answered. If a question lands badly, say so and move on; that is a better outcome than pushing '
+    + 'through it.',
   // The escalation is the whole design, so the order is fixed. CoupleQuizPage
   // also enforces this for prompt mode; declaring it here documents why.
   shuffle: false,

@@ -36,6 +36,56 @@ Quizzes/
 6. Optional: add a Bedrock prompt for its card art in
    `backend/scripts/generate-project-art.js` and run it with the slug.
 
+## Length presets
+
+Every quiz offers the same three lengths the IQ Test does — short, standard,
+full — declared in the config:
+
+```js
+lengths: {
+  short:    { label: 'Short',   count: 10, minutes: 3 },
+  standard: { label: 'Standard', count: 20, minutes: 5 },
+  full:     { label: 'Full',    count: 30, minutes: 7 },
+},
+defaultLength: 'standard',
+```
+
+A length is just a **count**; the labels and minutes are only display copy.
+
+### A subset must be balanced, not a slice
+
+`selectItemIndices(items, count)` in `quizEngine.js` picks which items to ask.
+It never takes the first *N*, and never samples at random, because these quizzes
+are built from small deliberately-balanced groups (4 dichotomies, 5 traits, 3
+sets, …) — a slice or a random pick would silently drop whole areas from the
+result. Instead it:
+
+1. keeps every item marked `core: true`, and counts those against the budget;
+2. allocates the remainder across groups (by `dim`, else `set`) in proportion
+   to group size, using largest-remainder so the total always lands exactly on
+   `count`, then spreads each group's picks evenly rather than clustering them;
+3. prefers an even mix of forward- and reverse-keyed items, so a short run
+   isn't systematically skewed by acquiescence.
+
+It is deterministic, so the same length always produces the same quiz. Callers
+must **not** re-shuffle the result out of order for prompt-mode quizzes — see
+below.
+
+`core: true` is how ADHD keeps its six-item ASRS screener in every length, and
+why that quiz's shortest option is a "Screener" rather than a smaller balanced
+set. Use it sparingly: core items are taken off the top of the budget, so a
+large `core` set makes the shorter lengths less representative, not more.
+
+### The other copy has to stay honest
+
+`intro`, `hint`, and `disclaimer` describe the **full** quiz and must not
+contradict the picker. In practice that means do not restate item counts or
+per-group counts in `hint` ("30 statements, six per trait") — the picker sits
+directly above it and owns that number. Describe the scale and the answering
+rules instead, and let the picker say how long it is. `QuizPage` and
+`CoupleQuizPage` render one shared explanatory line under the picker covering
+what shortening does.
+
 ## The three modes
 
 `mode` selects both the config shape and the page component.

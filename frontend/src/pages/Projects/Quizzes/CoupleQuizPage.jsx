@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import Header from '../../../components/Header/Header';
 import Footer from '../../../components/Footer/Footer';
 import SEO from '../../../components/SEO/SEO.jsx';
-import { shuffle, formatTime, compareResponses } from './quizEngine';
+import { shuffle, formatTime, compareResponses, selectItemIndices } from './quizEngine';
 import { QUIZ_SOURCE_URL } from './meta';
 import './QuizPage.css';
 import './CoupleQuizPage.css';
@@ -34,6 +34,17 @@ const ADVANCE_MS = 180;
 function CoupleQuizPage({ quiz }) {
   const isPrompt = quiz.mode === 'prompt';
   const scaleMax = Math.max(((quiz.scale?.length ?? 2) - 1), 1);
+
+  // Length presets, shared with the single-person page's picker.
+  const lengthOptions = Object.entries(quiz.lengths || {}).map(([id, preset]) => ({
+    id,
+    ...preset,
+    total: preset.count ?? quiz.items.length,
+  }));
+  const [lengthId, setLengthId] = useState(quiz.defaultLength || 'standard');
+  const selectedLength = lengthOptions.find((option) => option.id === lengthId)
+    || { id: 'full', label: 'Full', count: null, total: quiz.items.length, blurb: '' };
+  const itemNoun = isPrompt ? 'questions' : 'statements';
 
   const [screen, setScreen] = useState('start'); // start | quiz | handoff | rate | result
   const [partner, setPartner] = useState('a');
@@ -66,7 +77,7 @@ function CoupleQuizPage({ quiz }) {
   useEffect(() => stopTimers, [stopTimers]);
 
   const start = useCallback(() => {
-    const positions = quiz.items.map((_, i) => i);
+    const positions = selectItemIndices(quiz.items, selectedLength.count);
     // In prompt mode the order IS the content — the sets escalate, so shuffling
     // them would destroy the structure the exercise depends on. Compare mode is
     // free to shuffle, because both partners get the same order either way.
@@ -88,7 +99,7 @@ function CoupleQuizPage({ quiz }) {
 
     setScreen('quiz');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [isPrompt, quiz.items, quiz.shuffle, stopTimers]);
+  }, [isPrompt, quiz.items, quiz.shuffle, selectedLength.count, stopTimers]);
 
   const reset = useCallback(() => {
     stopTimers();
@@ -272,6 +283,32 @@ function CoupleQuizPage({ quiz }) {
                 </label>
               </div>
             </div>
+
+            {lengthOptions.length > 1 && (
+              <div className="quiz-card">
+                <h2>Choose a length</h2>
+                <div className="quiz-length-row" role="radiogroup" aria-label="Quiz length">
+                  {lengthOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className={`quiz-length-btn${option.id === selectedLength.id ? ' selected' : ''}`}
+                      role="radio"
+                      aria-checked={option.id === selectedLength.id}
+                      onClick={() => setLengthId(option.id)}
+                    >
+                      <span className="label">{option.label}</span>
+                      <span className="count">{option.total} {itemNoun}</span>
+                      <span className="blurb">{option.blurb}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="quiz-hint">
+                  A shorter run draws evenly from every part of the quiz rather than dropping any of it, so
+                  your result still covers all of it — it just gets less precise.
+                </p>
+              </div>
+            )}
 
             <div className="quiz-card">
               {quiz.pills?.length > 0 && (
@@ -517,6 +554,14 @@ function CoupleQuizPage({ quiz }) {
               )}
 
               {result.note && <p className="quiz-disclaimer quiz-disclaimer-left">{result.note}</p>}
+
+              {order.length < quiz.items.length && (
+                <p className="quiz-disclaimer quiz-disclaimer-left">
+                  {isPrompt
+                    ? `You worked through ${order.length} of ${quiz.items.length} questions. Fewer from each set keeps the arc from light to vulnerable, but a question that lands differently without the ones around it is the price.`
+                    : `You each answered the ${selectedLength.label.toLowerCase()} set — ${order.length} of ${quiz.items.length} statements. Every area is still compared the same way, but a shorter set is a rougher read.`}
+                </p>
+              )}
 
               <div className="quiz-btn-row">
                 <button className="quiz-btn" onClick={reset}>

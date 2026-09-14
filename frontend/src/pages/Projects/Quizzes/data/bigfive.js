@@ -53,13 +53,19 @@ const meta = quizBySlug('bigfive');
 
 export default {
   ...meta,
+  // 6 statements per trait, so these divide evenly (2 / 4 per trait).
+  lengths: {
+    short: { label: 'Short', count: 10, blurb: '~3 min' },
+    standard: { label: 'Standard', count: 20, blurb: '~5 min' },
+    full: { label: 'Full', count: null, blurb: '~7 min' },
+  },
+  defaultLength: 'standard',
   seoTitle: 'Big Five Personality Test (OCEAN)',
   seoDescription:
     'A free Big Five (OCEAN) personality test: 30 statements scoring Openness, Conscientiousness, Extraversion, Agreeableness and Emotional Reactivity, with instant results.',
   intro:
     'The Big Five is the trait model most personality researchers keep coming back to: instead of putting you '
-    + 'in a box, it scores you on five broad dimensions and lets you sit high on some and low on others. '
-    + 'Thirty statements, about five minutes.',
+    + 'in a box, it scores you on five broad dimensions and lets you sit high on some and low on others.',
   pills: [
     { emoji: '💡', label: 'Openness' },
     { emoji: '📋', label: 'Conscientiousness' },
@@ -68,8 +74,8 @@ export default {
     { emoji: '🌊', label: 'Emotional Reactivity' },
   ],
   hint:
-    '30 statements, six per trait, five-point agree/disagree scale. About half are worded in the opposite '
-    + 'direction on purpose, so answer each one on its own rather than trying to be consistent.',
+    'Five-point agree/disagree scale. About half the statements are worded in the opposite direction on '
+    + 'purpose, so answer each one on its own rather than trying to be consistent.',
   scale: ['Strongly disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly agree'],
   allowSkip: true,
   disclaimer:

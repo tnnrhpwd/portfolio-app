@@ -41,21 +41,29 @@ const meta = quizBySlug('adhd');
 
 export default {
   ...meta,
+  // The six Part A items are `core`, so every length asks the whole screener
+  // and the result's "Part A elevated: x / 6" stays true. Short IS Part A.
+  lengths: {
+    short: { label: 'Screener', count: 6, blurb: '~2 min' },
+    standard: { label: 'Standard', count: 12, blurb: '~3 min' },
+    full: { label: 'Full', count: null, blurb: '~5 min' },
+  },
+  defaultLength: 'standard',
   seoTitle: 'ADHD Self-Report Scale (ASRS Style)',
   seoDescription:
     'A free 18-statement ADHD self-report questionnaire in the ASRS style — a six-item screener plus twelve more across attention and hyperactivity/impulsivity, with clear non-diagnostic results.',
   intro:
-    'This is a screening questionnaire, not a diagnosis. It follows the shape of the ASRS: six screener '
-    + 'questions first, then twelve more, scored across attention and hyperactivity/impulsivity. It is '
-    + 'written for adults, and it is most useful if you answer for how you have been throughout your life '
-    + 'rather than how you have been this month.',
+    'This is a screening questionnaire, not a diagnosis. It follows the shape of the ASRS: a six-item '
+    + 'screener first, then further statements, scored across attention and hyperactivity/impulsivity. It '
+    + 'is written for adults, and it is most useful if you answer for how you have been throughout your '
+    + 'life rather than how you have been this month.',
   pills: [
     { emoji: '🎯', label: '6-question screener' },
     { emoji: '🧠', label: 'Attention' },
     { emoji: '⚡', label: 'Hyperactivity & impulsivity' },
   ],
   hint:
-    '18 statements on a never-to-very-often frequency scale, in a fixed order — the first six are the short '
+    'Never-to-very-often frequency scale, in a fixed order — every length starts with the six-item '
     + 'screener. There is no skip: every statement needs an answer for the totals to mean anything.',
   scale: ['Never', 'Rarely', 'Sometimes', 'Often', 'Very often'],
   shuffle: false,
@@ -68,12 +76,13 @@ export default {
 
   items: [
     // ── Part A: the six-item screener ──
-    { part: 'A', dim: 'attention', key: 1, text: 'How often do you find it hard to keep your attention on a task once it stops being interesting?' },
-    { part: 'A', dim: 'attention', key: 1, text: 'How often do you put something off until the pressure becomes unavoidable?' },
-    { part: 'A', dim: 'attention', key: 1, text: 'How often do you have trouble getting things in order when a task needs organising?' },
-    { part: 'A', dim: 'energy', key: 1, text: 'How often do you fidget, tap or shift in your seat when you need to sit still?' },
-    { part: 'A', dim: 'energy', key: 1, text: 'How often do you feel restless or wound up inside, even when you are sitting down?' },
-    { part: 'A', dim: 'energy', key: 1, text: 'How often do you act on a decision before you have fully thought it through?' },
+    // `core: true` keeps all six in every length — see `lengths` above.
+    { part: 'A', core: true, dim: 'attention', key: 1, text: 'How often do you find it hard to keep your attention on a task once it stops being interesting?' },
+    { part: 'A', core: true, dim: 'attention', key: 1, text: 'How often do you put something off until the pressure becomes unavoidable?' },
+    { part: 'A', core: true, dim: 'attention', key: 1, text: 'How often do you have trouble getting things in order when a task needs organising?' },
+    { part: 'A', core: true, dim: 'energy', key: 1, text: 'How often do you fidget, tap or shift in your seat when you need to sit still?' },
+    { part: 'A', core: true, dim: 'energy', key: 1, text: 'How often do you feel restless or wound up inside, even when you are sitting down?' },
+    { part: 'A', core: true, dim: 'energy', key: 1, text: 'How often do you act on a decision before you have fully thought it through?' },
 
     // ── Part B: the remaining twelve ──
     { part: 'B', dim: 'attention', key: 1, text: 'How often do you finish the last steps of a project after the interesting part is over?' },

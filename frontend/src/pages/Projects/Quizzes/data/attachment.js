@@ -78,6 +78,13 @@ const meta = quizBySlug('attachment');
 
 export default {
   ...meta,
+  // 6 statements per pattern, so these divide evenly (2 / 4 per pattern).
+  lengths: {
+    short: { label: 'Short', count: 8, blurb: '~2 min' },
+    standard: { label: 'Standard', count: 16, blurb: '~4 min' },
+    full: { label: 'Full', count: null, blurb: '~6 min' },
+  },
+  defaultLength: 'standard',
   seoTitle: 'Attachment Style Quiz',
   seoDescription:
     'A free 24-statement attachment style quiz scoring secure, anxious-preoccupied, dismissive-avoidant and fearful-avoidant patterns, with instant results and a full breakdown.',
@@ -93,9 +100,9 @@ export default {
     { emoji: '🌀', label: 'Fearful-avoidant' },
   ],
   hint:
-    '24 statements, six per pattern, five-point agree/disagree scale, no time limit. Answer for how you '
-    + 'actually behave in close relationships — not for how you behave at your best, and not for a '
-    + 'particular relationship you are trying to make work.',
+    'Five-point agree/disagree scale, no time limit. Answer for how you actually behave in close '
+    + 'relationships — not for how you behave at your best, and not for a particular relationship you are '
+    + 'trying to make work.',
   scale: ['Strongly disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly agree'],
   allowSkip: true,
   disclaimer:
