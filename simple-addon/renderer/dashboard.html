@@ -96,11 +96,6 @@
   .dash-readout:empty { display: none; }
 
   .dash-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-  #nav-toggle {
-    background: var(--control); border: 1px solid var(--glass-edge); border-radius: 8px;
-    color: var(--text); font-size: 15px; padding: 5px 10px; cursor: pointer; line-height: 1;
-  }
-  #nav-toggle:hover { background: var(--control-hover); }
   /* The one action in the head, so it wears the scheme's ramp (solid, never glass). */
   .btn-webapp {
     background: var(--accent-fill); color: var(--on-accent); border: none; border-radius: 8px;
@@ -109,28 +104,21 @@
   /* Brightness rather than a second hand-picked hover colour: the fill is a ramp built
      from the scheme's two hues, so there is no fixed hex to step it to. */
   .btn-webapp:hover { filter: brightness(1.12); }
-  #nav-dropdown {
-    position: absolute; top: 100%; right: 14px; margin-top: 6px; min-width: 220px;
-    background: var(--glass); border-radius: 12px;
-    box-shadow: var(--glass-shadow); padding: 6px; display: none; flex-direction: column;
-    z-index: 20;
-  }
-  #nav-dropdown.open { display: flex; }
-  #nav-dropdown a, #nav-dropdown button {
-    display: block; width: 100%; text-align: left; background: none; border: none;
-    color: var(--text); padding: 8px 10px; font-size: 13px; cursor: pointer; border-radius: 8px;
-    text-decoration: none;
-  }
-  #nav-dropdown a:hover, #nav-dropdown button:hover { background: var(--glass-hover); }
-  #nav-dropdown .nav-sep { border-top: 1px solid var(--glass-edge); margin: 6px 2px; }
-  #nav-dropdown .nav-webapp { color: var(--accent); font-weight: 600; }
 
   /* ── The view tabs: one scrolling row of pills inside the head ───────── */
-  #sidebar {
+  #view-tabs {
     display: flex; gap: 6px; padding-bottom: 10px;
-    overflow-x: auto; scrollbar-width: none;
+    overflow-x: auto;
+    /* ⚠️ The row IS the navigation — there is no ☰ dropdown behind it — so its overflow
+       has to be VISIBLE. With the scrollbar hidden (as it was while the dropdown existed
+       as a fallback), a mouse user on a narrow window had no way to reach a tab that had
+       scrolled out of sight. Thin and themed rather than the default chrome. */
+    scrollbar-width: thin;
+    scrollbar-color: var(--glass-edge) transparent;
   }
-  #sidebar::-webkit-scrollbar { display: none; }
+  #view-tabs::-webkit-scrollbar { height: 6px; }
+  #view-tabs::-webkit-scrollbar-track { background: transparent; }
+  #view-tabs::-webkit-scrollbar-thumb { background: var(--glass-edge); border-radius: 999px; }
   .tab-btn {
     flex-shrink: 0; display: inline-flex; align-items: center; background: transparent;
     border: none; border-radius: 999px; color: var(--muted);
@@ -486,11 +474,10 @@
     </span>
     <ul class="dash-readout" id="dash-readout"></ul>
     <div class="dash-actions">
-      <button id="nav-toggle" title="All views" aria-label="All views">☰</button>
       <button id="topbar-webapp" class="btn-webapp">Open Web App ↗</button>
     </div>
   </div>
-  <nav id="sidebar" aria-label="Dashboard views">
+  <nav id="view-tabs" aria-label="Dashboard views">
     <button class="tab-btn active" data-tab="status">Status</button>
     <button class="tab-btn" data-tab="agent">Agent <span class="badge" id="tab-badge-agent"></span></button>
     <button class="tab-btn" data-tab="voice">Voice</button>
@@ -504,22 +491,6 @@
     <button class="tab-btn" data-tab="updates">Updates <span class="badge" id="tab-badge-updates"></span></button>
     <button class="tab-btn" data-tab="settings">Settings</button>
   </nav>
-  <div id="nav-dropdown">
-    <button data-tab="status">Status</button>
-    <button data-tab="agent">Agent</button>
-    <button data-tab="voice">Voice</button>
-    <button data-tab="perception">Perception</button>
-    <button data-tab="recorder">Recorder &amp; Skills</button>
-    <button data-tab="workspace">Workspace Profiles</button>
-    <button data-tab="triggers">Triggers</button>
-    <button data-tab="permissions">Permissions</button>
-    <button data-tab="eyetracking">Eye Tracking</button>
-    <button data-tab="updates">Updates</button>
-    <button data-tab="settings">Settings</button>
-    <div class="nav-sep"></div>
-    <button data-tab="marketplace">Marketplace</button>
-    <button id="nav-webapp" class="nav-webapp">Open Web App ↗</button>
-  </div>
 </header>
 
 <div id="content">
@@ -1603,29 +1574,11 @@ for (const btn of document.querySelectorAll('.tab-btn')) {
   btn.addEventListener('click', () => activateTab(btn.dataset.tab));
 }
 
-// ── Top nav dropdown ("header dropper") ──
-const navToggle = document.getElementById('nav-toggle');
-const navDropdown = document.getElementById('nav-dropdown');
-navToggle.addEventListener('click', (e) => {
-  e.stopPropagation();
-  navDropdown.classList.toggle('open');
-});
-document.addEventListener('click', (e) => {
-  if (navDropdown.classList.contains('open') && !navDropdown.contains(e.target) && e.target !== navToggle) {
-    navDropdown.classList.remove('open');
-  }
-});
-for (const btn of navDropdown.querySelectorAll('button[data-tab]')) {
-  btn.addEventListener('click', () => {
-    activateTab(btn.dataset.tab);
-    navDropdown.classList.remove('open');
-  });
-}
+// ── The head's one action ──
+// There is deliberately no ☰ nav dropdown: the view tabs are the navigation and they
+// live in the head itself (see #view-tabs' visible overflow in the <style> block). Every
+// view is therefore reachable from the same place, at every window width.
 document.getElementById('topbar-webapp').addEventListener('click', () => window.simpleDashboard.openWebApp());
-document.getElementById('nav-webapp').addEventListener('click', () => {
-  window.simpleDashboard.openWebApp();
-  navDropdown.classList.remove('open');
-});
 const MARKETPLACE_URL = 'https://sthopwood.com/market';
 let marketplaceLoaded = false;
 
