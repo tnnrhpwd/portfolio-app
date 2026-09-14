@@ -1731,9 +1731,15 @@ stack before computing each ratio:
   the end (the shared browser surface collapsed to 6px wide, §13.17's hazard), so the final
   checks are geometric plus computed styles. Worth one real run of the addon.
 
-- ✅ **Released as v1.0.48** (build #48, tag `addon-v1.0.48` → `ec04268`; CI run
-  [34798103518](https://github.com/tnnrhpwd/portfolio-app/actions/runs/34798103518)). The
-  first attempt was blocked, and the reason is worth keeping: `simple-addon/release.js`
+- ✅ **Released as v1.0.48** (build #48, tag `addon-v1.0.48` → `ec04268`), then **v1.0.49**
+  (build #49, `addon-v1.0.49`) for the follow-up that removed the dashboard's ☰ hamburger
+  menu. The hamburger and its dropdown were a fallback for the old left sidebar; once the
+  view tabs moved into the head they duplicated it exactly, so both went — along with their
+  CSS and the click-outside handler. **Because the tab row is now the only navigation, its
+  overflow had to stop being hidden**: it carries a thin themed scrollbar, which is what lets
+  a mouse user on a narrow window reach a tab that scrolled out of view. The row's id was
+  renamed `#sidebar` → `#view-tabs`, which is what it has actually been since the overhaul.
+  (The v1.0.48 attempt was blocked first, and the reason is worth keeping: `release.js`
   runs its own preflight and **refuses unless `git status --porcelain` is empty** — at the
   time, this shared working tree held **25 uncommitted files from other in-flight
   sessions** (`pages/Simple/**` — Market, Net, Plans, DreamBoard, GoalDetail, SimplePage —
@@ -1743,7 +1749,7 @@ stack before computing each ratio:
   code was published first (`42c6345`) and the release waited; once that work landed, the
   tree was clean and `node release.js` ran normally. **If it is ever blocked again, the
   answer is to let the other work land — not to `git add -A`**, because the preflight exists
-  so a tagged build cannot be cut from a state nobody has committed.
+  so a tagged build cannot be cut from a state nobody has committed.)
 - ⬜ **Still to confirm by eye: the packaged addon.** CI builds and publishes the release;
   the running install picks it up on its next update check. Nobody has opened the built
   v1.0.48 window in this pass (see the note above about the stubbed bridge).
