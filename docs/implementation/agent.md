@@ -1852,4 +1852,79 @@ glance, the drawer is the only place that also reaches the actions.
 
 ---
 
+### 13.21 Service-first pass: the tab row is gone, and the dashboard follows the UI standard (2026-09-13)
+
+The addon asked for two things at once — stop listing the views in the header (the drawer has
+them), and bring the dashboard onto [`FRONTEND_UI_STANDARD.md`](../guides/FRONTEND_UI_STANDARD.md)
+with §5.7's **service page** rules, which is the section that applies: this is a tool someone
+already opened, not a page being sold.
+
+**The head is the toolbar now, and one row of it.** The `<h1>` is the **open view's name**
+("Settings", "Recorder & Skills"), not the app's — the console's shape in §5.7, and the tab row
+was the thing that used to say where you were. The app's own name moved into the drawer's head,
+which also put a stop to the 60px of empty padding that had existed only to clear the ☰/✕.
+
+| | before | after |
+| --- | --- | --- |
+| Head, desktop | 93–103px (2 rows) | **58px** (1 row) |
+| Head, 320px | 175px | **130px** |
+| View switchers | tab row + drawer | **drawer only** |
+
+- 🔧 **`VIEWS` is now the single source** for the view list, because the list used to be
+  *generated from the tab row* — delete the row without replacing that and the drawer silently
+  loses its contents. It also feeds the head's `<h1>` and `setViewBadge()`, so the three can't
+  disagree.
+- **`setViewBadge(id, text, tone)` replaced** both the `MutationObserver` mirror and the six
+  direct `badge.textContent` / `badge.className` writes in the update code. With the tab row gone
+  there is no second copy to mirror, so the helper is simply the one place that writes one —
+  a wash, some state and less code. (An empty badge is hidden explicitly: a pill with padding and
+  no content is a 2px sliver, which is not a thing to rely on.)
+- **A trap this pass produced and then disproved:** for a few seconds the console showed
+  `Cannot set properties of null (setting 'textContent')` from the two badge writers, at three
+  *different* line numbers. Those were artefacts of the live-reload server reloading the page
+  **mid-edit** — the file was between my CSS edit and my JS edit, so the old writers ran against
+  markup that no longer had `#tab-badge-*`. Re-running both functions against the final file gave
+  zero errors. Don't chase a phantom that moves line numbers between reloads.
+- **Rows are tonal blocks, not hairlines.** Every `.row` carries `--glass-row` and the
+  `border-bottom` is gone (the token the standard names for exactly this). Uniform, **not**
+  alternating stripes, and the reason is in the CSS: a `.panel` here holds one to five *setting*
+  rows, and alternation would leave the first row unstyled and depend on whether the pane happens
+  to open with a heading or a hint.
+- **Neutral-grey outlines removed from every container** — list items, the skill summary, the NL
+  result, the console, the progress track, both dialogs, the toast and the `pre` blocks. They are
+  fills on a pane now. **Coloured** edges were left alone: the standard's own `.foo-error` recipe
+  draws one, so an alarm keeps its signal-coloured edge, and controls (buttons, inputs, badges)
+  keep their borders because they are objects.
+- **Copy:** the Appearance panel's two-line lead paragraph became one hint line
+  ("Shared with the web app — one value, both surfaces.") — §5.7 bans a paragraph above a control.
+- **Measured, 96 cells** (12 schemes × 2 modes × 4 pairs) on the pane over the room and the row
+  over that: **0 failures, worst 4.56:1** (`--text` on a row, cyberpunk/dark). The tonal row costs
+  a little headroom against the pane (4.72 vs 14.71 in ocean/dark) because a 4% text wash lifts
+  the background toward the text — it passes everywhere, with the thinnest margin in the scheme
+  whose room is brightest.
+- ⚠️ **Two ways I got that sweep wrong first, both worth avoiding.** (1) I bounded the room by
+  compositing `--scheme-accent` at **full strength** and reported a bogus 3.8:1 failure; the halo
+  is `color-mix(… var(--room-halo))`, i.e. the accent at **10–12% alpha**, so the bound was ~8×
+  too bright. Read the mix percentage out of the token (`--room-mix`, `--room-halo`, `--glass-a`)
+  and composite with it. (2) I hoisted `--glass` and `--glass-row` **out** of the scheme×mode
+  loop and "found" light mode failing at 1.22:1 — they are mode-dependent, so they have to be
+  re-read per mode. Both errors were in the measuring code, not the page, and both would have
+  sent me chasing a real-looking regression that did not exist.
+- **Verified:** all 12 views driven through the drawer (panel shown, `<h1>` matched its label,
+  drawer closed, exactly one row marked current, exactly one panel visible); no horizontal
+  overflow 320→1600px; Esc / scrim / trigger still close, focus still returns only if it was
+  inside. The `#view-tabs` thin scrollbar that §13.18 added for narrow windows is gone with the
+  row — the ☰ is always visible, so no view is ever unreachable now.
+- ⚠️ **A deliberate, stated deviation:** §3's `calc(var(--nav-size) * N)` unit is part of the
+  *website shell* (it tracks the site's header and font scale). The addon is an Electron window
+  with its own palette and scale, so it is not adopted here; what is adopted is the principle —
+  one scale, tokens for every colour, and the contrast/tap-target/focus bar. The addon's own
+  tokens (`--bg`, `--glass-*`, `--scheme-*`, `--room-*`) are the equivalent, and the scheme
+  tokens are already mirrored from the site by `appearance.js` with a test asserting they agree.
+- **No test run for this change:** it touches `renderer/dashboard.html` only, and no test file in
+  the repo reads it (checked). Running the 38-script `test:unit` chain for a markup/CSS pass would
+  be exactly the sweep the repo's instructions forbid.
+
+---
+
 **Companion doc:** [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md) — threat model, trust boundaries, and the permissions matrix.

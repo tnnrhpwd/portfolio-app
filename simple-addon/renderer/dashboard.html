@@ -62,18 +62,25 @@
     50% { transform: translate3d(1.8%, -2%, 0) scale(1.05); }
   }
 
-  /* ── The head: one floating pane, and deliberately NOT sticky ──────────
-     Sticky would claim ~150px of every screen permanently and force an opaque base for
-     text scrolling under it; with nothing scrolling beneath, the head can be ordinary
-     glass and the workspace keeps its height. */
+  /* ── The head: the toolbar, and one row of it ─────────────────────────
+     Name + live state + readout + the two actions. The view list moved into the drawer
+     (§5.7's toolbar: the tool above the fold, the head as short as it can be), so this is
+     one row where there were three — and the workspace gets that height back.
+
+     Deliberately NOT `position: sticky`: it sits OUTSIDE `#content`, which is what
+     actually scrolls, so it is already permanently visible — and because nothing scrolls
+     under it there is no opacity problem to solve, so it can stay ordinary glass. */
   #topbar {
     position: relative; z-index: 10; flex-shrink: 0;
-    margin: 12px 14px 0; padding: 12px 16px 0;
+    margin: 12px 14px 0; padding: 12px 16px;
     background: var(--glass); border-radius: var(--glass-radius);
     box-shadow: var(--glass-shadow);
-    display: flex; flex-direction: column; gap: 10px;
+    display: flex; flex-direction: column;
   }
   .dash-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  /* The <h1> is the VIEW's name, not the app's — the tab row that used to say where you
+     were is gone, so the head has to say it (the console's shape, §5.7). The app's own
+     name is on the drawer and in the window title. */
   .dash-title { font-weight: 700; letter-spacing: -0.01em; }
   .dash-state { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
   .dash-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted-dim); flex-shrink: 0; }
@@ -106,8 +113,10 @@
   .btn-webapp:hover { filter: brightness(1.12); }
 
   /* ── The dropper: the webapp's HeaderDropper, ported ─────────────────────
-     A ☰ in the head that slides a drawer in from the right. It is NOT a list of views —
-     `#view-tabs` is the navigation — so see the markup for what it holds instead.
+     A ☰ in the head that slides a drawer in from the right, holding every view, the
+     app-level actions, and the mode toggle at its foot. The tab row that used to sit in
+     the head is gone, so this is now the ONLY view switcher — see the markup for what
+     is in it.
 
      ⚠️ THE TRIGGER, THE SCRIM AND THE DRAWER ARE ALL DESCENDANTS OF `#topbar`, and that
      is load-bearing rather than incidental. `#topbar` carries `z-index: 10`, so it is a
@@ -165,9 +174,10 @@
     position: fixed; top: 0; right: 0; z-index: 60;
     width: min(320px, 88vw); height: 100%;
     display: flex; flex-direction: column; gap: 18px;
-    /* The extra top padding clears the ☰/✕, which floats over the drawer's own header at
-       the same offset it holds in the head (the webapp leaves the same gap this way). */
-    padding: 60px 14px 18px;
+    /* The first row is the drawer's own head, sized to sit LEVEL with the ☰/✕ that floats
+       over it — so the app's name occupies the space the button needs instead of the pad
+       of empty pixels that used to be here. */
+    padding: 22px 14px 18px;
     background: color-mix(in srgb, var(--glass-land) 92%, transparent);
     border-left: 1px solid var(--glass-edge);
     box-shadow: var(--shadow-lift);
@@ -176,6 +186,12 @@
     overflow-y: auto;
   }
   #nav-drawer.is-open { transform: translateX(0); }
+
+  /* The app's name. It used to be the head's <h1>, which is the VIEW's name now, so this
+     is where the surface names itself — and the drawer is the navigation, so it is the
+     right place for it. Sits left of the ✕. */
+  .drawer-head { display: flex; align-items: center; min-height: 34px; padding: 0 10px; }
+  .drawer-brand { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
 
   .drawer-group { display: flex; flex-direction: column; gap: 2px; }
   /* The foot group is pushed down with `margin-top: auto` — the same mechanism the
@@ -205,21 +221,23 @@
     content: '→' / ''; color: var(--accent-in-text); opacity: 0; transform: translateX(-4px);
     margin-left: auto; transition: opacity .18s ease, transform .18s ease;
   }
-  /* The current view, marked the way the tab row marks it: an accent-tinted wash with the
-     ink pair on it, because a label on a wash of its own hue is the one case where the
-     page's `--accent` is not the right colour for text. Same recipe as `.tab-btn.active`,
-     re-measured against the drawer's own background in §13.20. */
+  /* The current view, marked with an accent-tinted wash and the ink pair on it, because a
+     label on a wash of its own hue is the one case where the page's `--accent` is not the
+     right colour for text (§2.1 of the UI standard) — measured in §13.21. */
   .drawer-link.active {
     background: color-mix(in srgb, var(--scheme-hue-accent) 16%, transparent);
     color: var(--accent-in-text); font-weight: 600;
   }
-  /* Mirrors `.tab-btn .badge` — which is scoped to the tab row and so cannot reach a clone
-     in here. The clone is kept in step by a MutationObserver, never frozen at load time,
-     and deliberately inherits its font-weight like the original does. */
+  /* A view's live state. The badge lives HERE and nowhere else now the tab row is gone —
+     there is no second copy to mirror, so `setViewBadge()` in the script is the one place
+     that writes it. Inherits its weight like any other inline label. */
   .drawer-badge {
     display: inline-block; padding: 1px 6px; border-radius: 10px;
     font-size: 10px; background: var(--glass-sunken); color: var(--muted);
   }
+  /* An empty badge is a pill with padding and no content, which renders as a 2px sliver.
+     Say so explicitly rather than relying on that. */
+  .drawer-badge:empty { display: none; }
   .drawer-badge.on { background: var(--green); color: var(--on-solid); }
   .drawer-badge.warn { background: var(--yellow); color: var(--on-solid); }
   .drawer-badge.err { background: var(--red); color: var(--on-solid); }
@@ -238,45 +256,12 @@
   }
   .drawer-mode:hover { filter: brightness(1.12); }
 
-  /* ── The view tabs: one scrolling row of pills inside the head ───────── */
-  #view-tabs {
-    display: flex; gap: 6px; padding-bottom: 10px;
-    overflow-x: auto;
-    /* ⚠️ The row IS the navigation — the ☰ beside the web app button opens actions, not a
-       list of views — so its overflow has to be VISIBLE. With the scrollbar hidden (as it
-       was while a nav dropdown existed as a fallback), a mouse user on a narrow window
-       had no way to reach a tab that had scrolled out of sight. Thin and themed rather
-       than the default chrome. */
-    scrollbar-width: thin;
-    scrollbar-color: var(--glass-edge) transparent;
-  }
-  #view-tabs::-webkit-scrollbar { height: 6px; }
-  #view-tabs::-webkit-scrollbar-track { background: transparent; }
-  #view-tabs::-webkit-scrollbar-thumb { background: var(--glass-edge); border-radius: 999px; }
-  .tab-btn {
-    flex-shrink: 0; display: inline-flex; align-items: center; background: transparent;
-    border: none; border-radius: 999px; color: var(--muted);
-    padding: 6px 12px; font-size: 13px; cursor: pointer; white-space: nowrap;
-    transition: background .15s ease, color .15s ease;
-  }
-  .tab-btn:hover { background: var(--glass-hover); color: var(--text); }
-  .tab-btn.active {
-    /* The one place the chosen scheme shows up in the chrome, so a scheme change is
-       visible on a surface that is otherwise neutral. A tint of the scheme's own hue
-       rather than a grey.
-       The LABEL uses the ink pair, not `--accent`: it sits on a wash of its own hue,
-       which is the one case where the page-measured accent is not the right colour
-       (see `--accent-in-text` in appearance.css) — measured 7.0:1 at its worst. */
-    background: color-mix(in srgb, var(--scheme-hue-accent) 16%, transparent);
-    color: var(--accent-in-text); font-weight: 600;
-  }
-  .tab-btn .badge {
-    display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 10px;
-    font-size: 10px; background: var(--glass-sunken); color: var(--muted);
-  }
-  .tab-btn .badge.on { background: var(--green); color: var(--on-solid); }
-  .tab-btn .badge.warn { background: var(--yellow); color: var(--on-solid); }
-  .tab-btn .badge.err { background: var(--red); color: var(--on-solid); }
+  /* ── The view list lives in the drawer now ──────────────────────────────
+     There was a scrolling row of tab pills here. It is gone: the drawer lists the same
+     views plus the app-level actions and the mode, so two switchers for one set of views
+     was one too many — and dropping it takes the head from three rows to one. The styles
+     that moved with it are `.drawer-*` above; `VIEWS` in the script is now the single
+     source for the list, and `#dash-title` says which view is open. */
 
   /* ── Content: a stack of glass panes ─────────────────────────────────── */
   #content { flex: 1; overflow-y: auto; padding: 14px; position: relative; z-index: 1; }
@@ -301,18 +286,22 @@
     margin: 0 0 10px; font-size: 11px; font-weight: 600;
     text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
   }
-  /* Rows are separated by a TONE, not by a grey rule: `--glass-edge` is a wash of the
-     text colour, so it works in both modes without a second token.
+  /* Rows are TONAL blocks, never a hairline under each one (§5 of the UI standard).
+     One low-dose wash per row rather than alternating stripes: a `.panel` here holds one
+     to five SETTING rows, not a data table, and alternation would leave the first row
+     unstyled and depend on whether the pane happens to open with a heading or a hint.
+     The wash comes from `--glass-row` (a mix of the TEXT colour), so it holds in both
+     modes with no second token.
      ⚠️ The row WRAPS, which is what lets a wide action group drop to its own line in a
      narrow grid track. Without it a `.actions` box (flex-shrink: 0, by definition) hangs
      past the pane edge — and because `#content` scrolls, that overhang is silently
      scrollable sideways rather than reported as page overflow. */
   .row {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 10px 0; border-bottom: 1px solid var(--glass-edge); flex-wrap: wrap;
+    padding: 10px 12px; border-radius: 8px; background: var(--glass-row); flex-wrap: wrap;
   }
+  .row + .row { margin-top: 4px; }
   .row > div:first-child { min-width: 0; flex: 1 1 auto; }
-  .row:last-child { border-bottom: none; padding-bottom: 0; }
   .row .name { font-weight: 600; font-size: 13px; }
   .row .desc { color: var(--muted); font-size: 12px; margin-top: 2px; word-break: break-all; }
   .actions { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
@@ -375,12 +364,12 @@
   }
   .modal-backdrop.open { display: flex; }
   .modal {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    background: var(--panel); border-radius: 8px; box-shadow: var(--shadow-lift);
     width: min(720px, 90vw); max-height: 80vh; overflow: auto; padding: 20px;
   }
   .modal h3 { margin: 0 0 12px; font-size: 16px; }
   pre.steps {
-    background: var(--sunken); border: 1px solid var(--border); border-radius: 6px;
+    background: var(--sunken); border-radius: 6px;
     padding: 12px; font-family: "Consolas", monospace; font-size: 12px;
     max-height: 360px; overflow: auto;
   }
@@ -393,12 +382,14 @@
   .rs-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
   .rs-search { flex: 1 1 220px; min-width: 160px; }
   .rs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  /* Tone, not a box — a row in a list is a fill on the pane (§5.7), and "running" is a
+     signal carried by the wash rather than a line drawn round it. */
   .rs-item {
     display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px;
-    background: var(--sunken); border: 1px solid var(--border); border-radius: 8px;
-    transition: border-color .15s ease;
+    background: var(--sunken); border-radius: 8px;
+    transition: background-color .15s ease;
   }
-  .rs-item.is-running { border-color: var(--accent); }
+  .rs-item.is-running { background: color-mix(in srgb, var(--accent) 12%, var(--sunken)); }
   .rs-item-icon { font-size: 18px; line-height: 1; flex-shrink: 0; margin-top: 1px; }
   .rs-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
   .rs-item-title { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; min-width: 0; }
@@ -415,7 +406,7 @@
   .param-grid { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
   .param-field label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
   .param-field input { width: 100%; }
-  .skill-summary { margin-top: 12px; border: 1px solid var(--border); border-radius: 6px; padding: 12px; background: var(--sunken); }
+  .skill-summary { margin-top: 12px; border-radius: 6px; padding: 12px; background: var(--sunken); }
   .skill-summary h4 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
   .skill-summary ul { margin: 0 0 8px; padding-left: 18px; }
   .skill-summary li { font-size: 13px; margin: 2px 0; }
@@ -444,11 +435,11 @@
   /* ── NL macro compiler + recorder hero panels ── */
   .rs-hero {
     /* The "this panel does AI" wash, built from the scheme's two hues so it moves with
-       the picker instead of being the one violet thing on a cyan page. */
+       the picker instead of being the one violet thing on a cyan page. A wash, not a
+       wash-plus-outline: the tone is the whole mark (§5.7). */
     background: linear-gradient(160deg,
       color-mix(in srgb, var(--scheme-hue-primary) 12%, transparent),
       color-mix(in srgb, var(--scheme-hue-accent) 8%, transparent));
-    border: 1px solid color-mix(in srgb, var(--scheme-hue-primary) 35%, transparent);
   }
   .rs-hero-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .rs-hero-header h2 { margin: 0; }
@@ -464,11 +455,12 @@
   .rs-nl-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .rs-nl-row input[type="text"] { flex: 1 1 220px; min-width: 180px; }
   .rs-nl-result {
-    margin-top: 12px; background: var(--sunken); border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+    margin-top: 12px; background: var(--sunken); border-radius: 6px; overflow: hidden;
   }
+  /* No rule between head and body: `--panel` over `--sunken` is already the division. */
   .rs-nl-result-header {
     display: flex; align-items: center; justify-content: space-between; padding: 8px 12px;
-    background: var(--panel); border-bottom: 1px solid var(--border); font-size: 12px; color: var(--muted); font-weight: 500;
+    background: var(--panel); font-size: 12px; color: var(--muted); font-weight: 500;
   }
   .rs-nl-preview {
     margin: 0; padding: 10px 12px; font-size: 11px; font-family: "Consolas", monospace;
@@ -485,9 +477,9 @@
   .rs-run {
     margin-bottom: 18px; padding: 10px 14px; border-radius: 8px; font-size: 13px; line-height: 1.5;
   }
-  .rs-run.running { background: color-mix(in srgb, var(--accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); }
-  .rs-run.done { background: color-mix(in srgb, var(--green) 10%, transparent); border: 1px solid color-mix(in srgb, var(--green) 40%, transparent); }
-  .rs-run.failed { background: color-mix(in srgb, var(--red) 10%, transparent); border: 1px solid color-mix(in srgb, var(--red) 40%, transparent); }
+  .rs-run.running { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .rs-run.done { background: color-mix(in srgb, var(--green) 10%, transparent); }
+  .rs-run.failed { background: color-mix(in srgb, var(--red) 10%, transparent); }
   .rs-run-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .rs-run-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
   .rs-run-spinner {
@@ -503,7 +495,7 @@
   .rs-run-dismiss { opacity: .6; font-size: 12px; cursor: pointer; }
   .rs-run-progress { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
   .rs-run-progress-track {
-    flex: 1; height: 5px; border-radius: 3px; background: var(--sunken); border: 1px solid var(--border); overflow: hidden;
+    flex: 1; height: 5px; border-radius: 3px; background: var(--sunken); overflow: hidden;
   }
   .rs-run-progress-fill { height: 100%; background: var(--accent); transition: width .25s ease; }
   .rs-run.failed .rs-run-progress-fill { background: var(--red); }
@@ -513,7 +505,7 @@
     background: var(--sunken); font-size: 11px; line-height: 1.45; overflow: auto; max-height: 240px;
   }
   .rs-console {
-    margin-top: 8px; max-height: 220px; overflow-y: auto; background: var(--sunken); border: 1px solid var(--border);
+    margin-top: 8px; max-height: 220px; overflow-y: auto; background: var(--sunken);
     border-radius: 6px; padding: 8px 10px; font-family: "Consolas", monospace; font-size: 11.5px; line-height: 1.7;
   }
   .rs-console-line { display: flex; align-items: baseline; gap: 8px; color: var(--text); white-space: nowrap; overflow: hidden; }
@@ -546,7 +538,7 @@
     border-radius: 6px; padding: 12px 16px; margin-bottom: 12px;
   }
   .approval-card pre {
-    background: var(--sunken); border: 1px solid var(--border); padding: 8px;
+    background: var(--sunken); padding: 8px;
     border-radius: 4px; overflow: auto; font-size: 11px; margin: 8px 0;
   }
   .approval-card .actions { display: flex; gap: 8px; }
@@ -556,7 +548,7 @@
   /* ── In-app toast + confirm (replaces native alert()/confirm() popups) ── */
   #app-toast {
     position: fixed; bottom: 20px; right: 20px; max-width: 440px;
-    background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    background: var(--panel); color: var(--text);
     padding: 12px 16px; border-radius: 8px; font-size: 13px; z-index: 9999;
     box-shadow: var(--shadow-lift); opacity: 0; transform: translateY(8px);
     transition: opacity .2s ease, transform .2s ease; pointer-events: none; white-space: pre-wrap;
@@ -567,7 +559,7 @@
     display: flex; align-items: center; justify-content: center;
   }
   #app-confirm-box {
-    background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    background: var(--panel); color: var(--text);
     padding: 18px 20px; border-radius: 10px; max-width: 460px; width: 90%;
     box-shadow: var(--shadow-lift);
   }
@@ -588,7 +580,7 @@
   }
   @media (prefers-contrast: more) {
     :root { --glass-edge: color-mix(in srgb, var(--text) 34%, transparent); }
-    .tab-btn.active { background: var(--glass-hover); }
+    .drawer-link.active { background: var(--glass-hover); }
   }
 </style>
 </head>
@@ -597,11 +589,14 @@
 <!-- The room: the scheme's two hues, held well back. Decorative, so aria-hidden. -->
 <div id="room" aria-hidden="true"></div>
 
-<!-- One floating glass head: the surface's name, its live state, its actions, and the
-     view tabs. Not sticky on purpose — see the note in the <style> block. -->
+<!-- One floating glass head — the toolbar, and one row of it: the open VIEW's name, its
+     live state, the readout, and the two actions. The view list is in the drawer, which is
+     why this is a single row. Not sticky on purpose — see the note in the <style> block. -->
 <header id="topbar">
   <div class="dash-head">
-    <h1 class="dash-title">Simple</h1>
+    <!-- The view's name, set by `activateTab()` from `VIEWS`. Starts on the panel the
+         markup marks active, so there is no flash of a stale name before the script runs. -->
+    <h1 class="dash-title" id="dash-title">Status</h1>
     <span class="dash-state">
       <span class="dash-dot" id="dash-state-dot"></span>
       <span id="dash-state-text">Checking…</span>
@@ -617,31 +612,18 @@
       </button>
     </div>
   </div>
-  <nav id="view-tabs" aria-label="Dashboard views">
-    <button class="tab-btn active" data-tab="status">Status</button>
-    <button class="tab-btn" data-tab="agent">Agent <span class="badge" id="tab-badge-agent"></span></button>
-    <button class="tab-btn" data-tab="voice">Voice</button>
-    <button class="tab-btn" data-tab="perception">Perception</button>
-    <button class="tab-btn" data-tab="recorder">Recorder &amp; Skills</button>
-    <button class="tab-btn" data-tab="marketplace">Marketplace</button>
-    <button class="tab-btn" data-tab="workspace">Workspace Profiles</button>
-    <button class="tab-btn" data-tab="triggers">Triggers</button>
-    <button class="tab-btn" data-tab="permissions">Permissions</button>
-    <button class="tab-btn" data-tab="eyetracking">Eye Tracking</button>
-    <button class="tab-btn" data-tab="updates">Updates <span class="badge" id="tab-badge-updates"></span></button>
-    <button class="tab-btn" data-tab="settings">Settings</button>
-  </nav>
 
-  <!-- ── The dropper ───────────────────────────────────────────────────────
+  <!-- ── The dropper ──────────────────────────────────────────────────────
        The webapp's HeaderDropper, ported: a ☰ in the head that slides a drawer in from
-       the right, listing every surface, then the app-level actions, with the mode toggle
-       at its foot — the same shape as the site's drawer (groups of links, theme last).
+       the right, holding every view, then the app-level actions, with the mode toggle at
+       its foot — the shape of the site's drawer (groups of links, theme last).
 
-       The VIEWS group is the SAME list as `#view-tabs` above, generated from it rather
-       than written out a second time: a view added to the tab row appears here with no
-       second edit, and the two lists cannot fall out of step. Both stay — the tab row is
-       the fast way to move between views at a glance, and the drawer is the one place
-       that also reaches the app-level actions and the mode.
+       THE VIEWS GROUP IS THE ONLY VIEW SWITCHER NOW. The scrolling row of tab pills that
+       used to sit in the head is gone: two switchers for one set of views was one too
+       many, and dropping it took the head from three rows to one — the height §5.7 asks a
+       workspace to keep. `VIEWS` in the script is the single source for this list (it used
+       to be generated from that tab row), so the names, their order and the set of them
+       still live in exactly one place.
 
        Both elements are inside <header> (see the stacking-context note in the <style>
        block) and `position: fixed`, so they overlay the workspace without taking part in
@@ -650,6 +632,9 @@
        hand-rolled focus trap. -->
   <div id="nav-scrim"></div>
   <aside id="nav-drawer" aria-label="Simple menu" inert>
+    <!-- The app's own name. It cannot be the head's <h1> any more — that names the open
+         view — so the drawer, which is the navigation, is where the surface names itself. -->
+    <div class="drawer-head"><span class="drawer-brand">Simple</span></div>
     <div class="drawer-group" id="drawer-pages">
       <div class="drawer-label">Views</div>
     </div>
@@ -1517,7 +1502,7 @@
     <div class="panel">
       <h2>Appearance</h2>
       <div class="desc" style="color:var(--muted); font-size:12px; margin-bottom:8px">
-        The addon uses the same colour schemes as the web app. Picking one here also sets it on the site, and the site's picker sets it here — one value, both surfaces.
+        Shared with the web app — one value, both surfaces.
       </div>
       <div class="row">
         <div>
@@ -1728,21 +1713,52 @@ async function api(path, opts = {}) {
   return json;
 }
 
+/** The views, in the order the drawer lists them — the ONE source for the list. It was read
+ *  out of the tab row in the head until that row was removed; it lives here now rather than
+ *  being written out twice, so the drawer, the head's <h1> and `setViewBadge` all agree by
+ *  construction. `badge: true` means the row gets a live badge element (see `setViewBadge`). */
+const VIEWS = [
+  { id: 'status', label: 'Status' },
+  { id: 'agent', label: 'Agent', badge: true },
+  { id: 'voice', label: 'Voice' },
+  { id: 'perception', label: 'Perception' },
+  { id: 'recorder', label: 'Recorder & Skills' },
+  { id: 'marketplace', label: 'Marketplace' },
+  { id: 'workspace', label: 'Workspace Profiles' },
+  { id: 'triggers', label: 'Triggers' },
+  { id: 'permissions', label: 'Permissions' },
+  { id: 'eyetracking', label: 'Eye Tracking' },
+  { id: 'updates', label: 'Updates', badge: true },
+  { id: 'settings', label: 'Settings' },
+];
+
+/** The badge on a view's drawer row — the one place that writes one. It used to be written
+ *  on the tab row and mirrored into a clone; with the row gone there is no second copy, so
+ *  this replaces both the mirroring and the six direct DOM writes in the update code. */
+function setViewBadge(tabId, text, tone) {
+  const badge = document.querySelector(`.drawer-page[data-tab="${tabId}"] .drawer-badge`);
+  if (!badge) return;
+  badge.textContent = text || '';
+  badge.className = 'drawer-badge' + (tone ? ` ${tone}` : '');
+}
+
 function activateTab(tabId) {
   if (!document.getElementById(`panel-${tabId}`)) return;
-  for (const b of document.querySelectorAll('.tab-btn')) b.classList.remove('active');
   for (const p of document.querySelectorAll('.tab-panel')) p.classList.remove('active');
-  const sidebarBtn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
-  sidebarBtn?.classList.add('active');
   document.getElementById(`panel-${tabId}`).classList.add('active');
 
-  // The drawer lists these same views, so exactly one item there is current too. Queried
+  // The head's <h1> is the OPEN VIEW's name. The tab row that used to say where you were is
+  // gone, so the head has to say it — the console's shape in the UI standard (§5.7).
+  const view = VIEWS.find((v) => v.id === tabId);
+  if (view) document.getElementById('dash-title').textContent = view.label;
+
+  // The drawer holds the only view list now, so exactly one of its rows is current. Queried
   // rather than read out of a variable, so this stays correct however the drawer was built.
   for (const item of document.querySelectorAll('.drawer-page')) {
     const current = item.dataset.tab === tabId;
     item.classList.toggle('active', current);
-    // Additive for screen readers: the tab row carries no such marker, so saying which
-    // view is open can only help, never contradict it.
+    // `aria-current` says which view is open out loud — the only such marker in the app now
+    // that the tab row is gone, and the reason it matters more here than it did before.
     if (current) item.setAttribute('aria-current', 'true');
     else item.removeAttribute('aria-current');
   }
@@ -1757,15 +1773,10 @@ function activateTab(tabId) {
   if (tabId === 'settings') loadAppearance();
 }
 
-for (const btn of document.querySelectorAll('.tab-btn')) {
-  btn.addEventListener('click', () => activateTab(btn.dataset.tab));
-}
-
 // ── The head's actions ──
-// The view tabs are the navigation and they live in the head itself (see #view-tabs'
-// visible overflow in the <style> block), so every view is reachable from the same place
-// at every window width. The ☰ beside the web app button is NOT a second copy of them:
-// it opens the dropper, which holds only what a tab cannot.
+// The drawer is the navigation now: the ☰ beside the web app button opens it, and it holds
+// every view (from `VIEWS`), the app-level actions, and the mode. There is no second
+// switcher in the head — its only job is to say where you are and offer the one action.
 document.getElementById('topbar-webapp').addEventListener('click', () => window.simpleDashboard.openWebApp());
 
 const navDropBtn = document.getElementById('nav-drop-btn');
@@ -1840,55 +1851,39 @@ document.getElementById('drawer-mode').addEventListener('click', () => {
 });
 
 // ── The drawer's view list ──
-// Built FROM the tab row rather than written out again: the page names, their order and
-// the set of them stay in one place, so a view added to the head shows up here for free
-// and the two lists cannot disagree about what the app contains.
+// Rendered from `VIEWS`, the one source: the names, their order and the set of them are
+// defined once, so this list cannot disagree with what `activateTab` knows about.
 const drawerPages = document.getElementById('drawer-pages');
 
-for (const tabBtn of document.querySelectorAll('.tab-btn')) {
-  const tabId = tabBtn.dataset.tab;
+for (const view of VIEWS) {
   const item = document.createElement('button');
   item.type = 'button';
   item.className = 'drawer-link drawer-page';
-  item.dataset.tab = tabId;
+  item.dataset.tab = view.id;
 
-  // The label is the tab's own text with the badge left out. The badge is live state, so
-  // copying it as text here would freeze it at whatever it said during load.
   const label = document.createElement('span');
-  label.textContent = [...tabBtn.childNodes]
-    .filter((n) => !(n.nodeType === 1 && n.classList.contains('badge')))
-    .map((n) => n.textContent).join('').trim();
+  label.textContent = view.label;
   item.appendChild(label);
 
-  const sourceBadge = tabBtn.querySelector('.badge');
-  if (sourceBadge) {
-    const badge = sourceBadge.cloneNode(true);
-    badge.classList.add('drawer-badge');
+  // Only a view that HAS live state gets a badge element to write into; the rest would
+  // carry an empty pill for nothing.
+  if (view.badge) {
+    const badge = document.createElement('span');
+    badge.className = 'drawer-badge';
     item.appendChild(badge);
-    // A MIRROR, not a snapshot: it copies whatever the tab row is showing, classes
-    // included, so `on`/`warn`/`err` arrive with it and a badge introduced on a tab later
-    // needs no change here. Watching the source (not the clone) is what stops a loop.
-    const mirror = () => {
-      badge.textContent = sourceBadge.textContent;
-      badge.className = sourceBadge.className + ' drawer-badge';
-    };
-    new MutationObserver(mirror).observe(sourceBadge, {
-      childList: true, characterData: true, subtree: true,
-      attributes: true, attributeFilter: ['class'],
-    });
   }
 
   item.addEventListener('click', () => {
     setDrawerOpen(false);
-    activateTab(tabId);
+    activateTab(view.id);
   });
   drawerPages.appendChild(item);
 }
 
-// Mark whichever view the markup starts on, so the drawer agrees with the head before
-// anything has been clicked. `activateTab` keeps it in step from here on. Read from the
-// DOM rather than hardcoding the default a second time.
-activateTab(document.querySelector('.tab-btn.active')?.dataset.tab || 'status');
+// Mark whichever view the markup starts on (`#panel-status` is the one it marks active), so
+// the head and the drawer agree before anything has been clicked. Read from the DOM rather
+// than hardcoding the default a second time; `activateTab` keeps them in step from here.
+activateTab(document.querySelector('.tab-panel.active')?.id.replace('panel-', '') || VIEWS[0].id);
 const MARKETPLACE_URL = 'https://sthopwood.com/market';
 let marketplaceLoaded = false;
 
@@ -2106,14 +2101,7 @@ async function refreshAgentStatus() {
       agentPollTimer = null;
     }
 
-    const badge = document.getElementById('tab-badge-agent');
-    if (running) {
-      badge.textContent = 'running';
-      badge.className = 'badge on';
-    } else {
-      badge.textContent = '';
-      badge.className = 'badge';
-    }
+    setViewBadge('agent', running ? 'running' : '', running ? 'on' : '');
     renderAgentWorkers(s.workers || []);
   } catch (e) {
     console.error('Agent status check failed:', e);
@@ -4611,7 +4599,6 @@ async function refreshUpdateStatus() {
     const descEl = document.getElementById('update-state-desc');
     const checkBtn = document.getElementById('update-check');
     const installBtn = document.getElementById('update-install');
-    const badge = document.getElementById('tab-badge-updates');
 
     if (!s.supported) {
       nameEl.textContent = 'Not supported in this build';
@@ -4619,8 +4606,7 @@ async function refreshUpdateStatus() {
       descEl.textContent = `Current version: ${s.currentVersion}`;
       checkBtn.disabled = true;
       installBtn.disabled = true;
-      badge.textContent = '';
-      badge.className = 'badge';
+      setViewBadge('updates', '');
       return;
     }
 
@@ -4628,27 +4614,25 @@ async function refreshUpdateStatus() {
     // Always keep the combined check+install button clickable — it runs the
     // check itself and only restarts when an update is actually ready.
     installBtn.disabled = false;
-    badge.className = 'badge';
-    badge.textContent = '';
+    // Cleared here, then set again by whichever state matches below, so a stale badge can
+    // never survive into a state that has none of its own.
+    setViewBadge('updates', '');
 
     switch (s.state) {
       case 'downloading':
         nameEl.textContent = `Downloading update... ${s.downloadProgress || 0}%`;
         nameEl.className = 'name status-warn';
-        badge.textContent = 'downloading';
-        badge.className = 'badge warn';
+        setViewBadge('updates', 'downloading', 'warn');
         break;
       case 'ready':
         nameEl.textContent = `Update ready (v${s.latestVersion || '?'}) — installs on quit`;
         nameEl.className = 'name status-ok';
-        badge.textContent = 'ready';
-        badge.className = 'badge on';
+        setViewBadge('updates', 'ready', 'on');
         break;
       case 'error':
         nameEl.textContent = 'Update check failed';
         nameEl.className = 'name status-err';
-        badge.textContent = 'error';
-        badge.className = 'badge err';
+        setViewBadge('updates', 'error', 'err');
         break;
       case 'up-to-date':
         nameEl.textContent = 'App is up to date';
@@ -4670,8 +4654,7 @@ async function refreshUpdateStatus() {
       if (s.state === 'up-to-date') {
         nameEl.textContent = 'Possibly up to date (see warning below)';
         nameEl.className = 'name status-warn';
-        badge.textContent = 'check';
-        badge.className = 'badge warn';
+        setViewBadge('updates', 'check', 'warn');
       }
     } else {
       staleWarning.style.display = 'none';
