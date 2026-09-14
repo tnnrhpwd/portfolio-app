@@ -8,7 +8,7 @@ import { getUserUsage } from '../../features/data/dataSlice.js';
 import dataService from '../../features/data/dataService.js';
 import useScrollReveal from '../../hooks/useScrollReveal.js';
 import { PROJECTS } from '../../constants/projects';
-import { isAdminUser, isMuseVisitor as isMuseVisitorAllowed } from '../../constants/admin';
+import { canUseAdminConsole, isMuseVisitor as isMuseVisitorAllowed } from '../../constants/admin';
 import { fetchProjectRankings } from '../../services/projectRankingsApi';
 import SimpleCtaBand from '../../components/Simple/SimpleCtaBand/SimpleCtaBand.jsx';
 
@@ -203,7 +203,7 @@ function Home() {
     }, []);
 
     const isMuseVisitor = isMuseVisitorAllowed(user);
-    const isAdmin = isAdminUser(user);
+    const isAdmin = canUseAdminConsole(user);
 
     const [titleText, setTitleText] = useState(FALLBACK_TITLE);
 
@@ -349,14 +349,6 @@ function Home() {
                         <p className={`home-subtitle ${animationPhase >= 1 ? 'is-visible' : ''}`}>
                             Let's build a brighter tomorrow!
                         </p>
-                        <div className={`home-actions ${animationPhase >= 1 ? 'is-visible' : ''}`}>
-                            {/* Product first: "what I can do for you" used to send the
-                                visitor to /pricing before they had seen anything work.
-                                /simple explains the whole loop and stays readable
-                                signed-out, so it is the honest first step. */}
-                            <Link className="home-btn" to="/simple">See it work <span aria-hidden="true">→</span></Link>
-                            <Link className="home-btn home-btn-text" to="/projects">Browse my work <span aria-hidden="true">→</span></Link>
-                        </div>
                     </div>
                 </section>
 

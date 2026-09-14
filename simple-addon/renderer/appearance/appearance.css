@@ -1,0 +1,377 @@
+/**
+ * Appearance — the addon's palette, derived from (scheme × mode).
+ *
+ * Loaded by every addon window (`renderer/dashboard.html`, `calibration.html`,
+ * `eye-overlay.html`) BEFORE the window's own `<style>` block, with
+ * `appearance/appearance.js` in front of it and a one-line `bootstrap()` call that
+ * writes `data-scheme` / `data-mode` on `<html>`. Everything below keys off those
+ * two attributes and nothing else.
+ *
+ * This is the addon's port of the site-wide scheme system: `frontend/src/index.css`
+ * owns the website's derivation and this file owns the addon's. They are separate
+ * because the two need different TOKENS — the site paints with `--bg-page` /
+ * `--bg-1` / `--text-color`, the addon's pages are written against `--bg` /
+ * `--panel` / `--text` — not because the rules differ. Two rules are load-bearing
+ * and are copied verbatim from there:
+ *
+ *  1. THE SCHEME IS TWO HUES. `--scheme-hue-accent` and `--scheme-hue-primary` are
+ *     a scheme's whole identity; every colour that follows is DERIVED from them, so
+ *     adding a scheme is one line and a scheme cannot half-apply. The accents keep
+ *     the identity hue's ANGLE and are re-pinned to a lightness per mode, which is
+ *     what gives one scheme a light and a dark version without a second palette —
+ *     and what stops a pale identity hue (Cyberpunk's yellow, Monokai's lime) from
+ *     being unreadable in one of the two modes.
+ *
+ *  2. ⚠️ EVERYTHING IS DECLARED ON `:root`. A custom property is substituted where
+ *     it is DECLARED, not where it is used, so the derivation has to sit on the
+ *     same element as the palette it reads. In the addon that element is `<html>',
+ *     which is also where `data-scheme` / `data-mode` land — one element, one
+ *     palette, no ordering trap. (On the site the palette lives on `<body>` and the
+ *     equivalent mistake silently deletes every accent; see `index.css`.)
+ *
+ * ORDER IS LOAD-BEARING HERE TOO: the default palette and the derivation come FIRST,
+ * the schemes after them, and the mode blocks last, because a mode block and a
+ * scheme rule both land at `(0,1,1)` and the later one wins at equal specificity.
+ * Move the mode blocks above the schemes and a scheme's own override stops working
+ * — with no error to tell you.
+ */
+
+/* ── 1. Defaults: dark + the default scheme ───────────────────────────────
+ *
+ * The addon has always been a dark app, so `:root` IS the dark palette rather than
+ * a light one that a missing attribute would leave in place. A window that never
+ * gets its attributes (no JS, a blocked script) therefore renders exactly as it did
+ * before this file existed.
+ *
+ * `--scheme-hue-*` here are the DEFAULT scheme's hues — keep them in step with
+ * `DEFAULT_SCHEME` in `appearance.js` (`ocean`). They exist so the derived tokens
+ * resolve even when `data-scheme` is absent.
+ */
+:root {
+  /* Surfaces. `--bg` is the page, `--panel` a card, `--sunken` a field INSIDE a
+     panel (input, `pre`, console), `--control` the neutral button, and `--rule` the
+     quiet hairline that separates rows within a panel (one step lighter than the
+     page in light mode, one step darker than the panel in dark — a `--border` there
+     would draw a line where the intent was a whisper). */
+  --bg: #0d1117;
+  --bg-deep: #05070c;
+  --sunken: #0d1117;
+  --panel: #161b22;
+  --control: #21262d;
+  --control-hover: #30363d;
+  --hover: #21262d;
+  --border: #30363d;
+  --rule: #21262d;
+  --border-strong: #3d444d;
+
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --muted-dim: #6e7681;
+
+  /* The alarm. DELIBERATELY NOT PART OF A SCHEME (§2.1 on the site): an alarm that
+     changes colour with the decor is not an alarm. The inks are per mode because
+     they are TEXT — a green tuned for near-black is a smudge on white — while the
+     solid fills stay bright in both, which is why one dark ink serves them all. */
+  --green: #3fb950;
+  --green-solid: #238636;
+  --green-solid-hover: #2ea043;
+  --yellow: #d29922;
+  --yellow-solid: #9e6a03;
+  --red: #f85149;
+  --red-solid: #da3633;
+  --red-solid-hover: #f85149;
+  /* Ink for a FILLED control whose fill is bright (the status solids). Dark in both
+     modes: those fills are bright in both, and the addon's status buttons have
+     always used dark text on them. */
+  --on-solid: #0a0d12;
+
+  --scrim: rgba(0, 0, 0, 0.5);
+  --shadow-lift: 0 8px 24px rgba(0, 0, 0, 0.45);
+
+  /* The default scheme, so the derivation below always has a hue to work from. */
+  --scheme-hue-accent: #06b6d4;
+  --scheme-hue-primary: #3b82f6;
+}
+
+/* ── 2. The derivation: two hues → every scheme token ─────────────────────
+ *
+ * Lightness is the site's, measured there rather than picked: 0.52 is the highest
+ * value at which the worst identity hue still clears 4.5:1 as TEXT on a light page,
+ * and dark takes 0.76 because a hue at 0.52 on near-black is a smudge. Chroma rides
+ * along so a scheme with no chroma stays grey.
+ *
+ * `-l-primary` / `-c-primary` exist so a scheme MAY give its two roles different
+ * lightnesses; only `neutral` uses them, because it is the one scheme whose roles
+ * cannot be told apart by hue.
+ */
+:root {
+  --scheme-l: 0.52;
+  --scheme-c: 0.125;
+  --scheme-l-primary: var(--scheme-l);
+  --scheme-c-primary: var(--scheme-c);
+  --scheme-accent: oklch(from var(--scheme-hue-accent) var(--scheme-l) var(--scheme-c) h);
+  --scheme-primary: oklch(from var(--scheme-hue-primary) var(--scheme-l-primary) var(--scheme-c-primary) h);
+  --scheme-accent-bg: color-mix(in srgb, var(--scheme-hue-accent) 38%, var(--bg));
+  --scheme-primary-bg: color-mix(in srgb, var(--scheme-hue-primary) 38%, var(--bg));
+
+  /* A BACKDROP is not a TINT: it pins its lightness per mode and takes only the hue,
+     so it is safe for any hue, pale or deep. `min(c, …)` rather than a flat chroma so
+     a scheme with NO chroma stays grey. */
+  --scheme-backdrop-a: oklch(from var(--scheme-hue-accent) 0.9 min(c, 0.07) h);
+  --scheme-backdrop-b: oklch(from var(--scheme-hue-primary) 0.9 min(c, 0.07) h);
+
+  /* ── The addon's two forms of the accent ──
+   *
+   * `--accent` is the accent as INK and as a line — links, focus rings, an active
+   * border, status text. It carries the per-mode lightness above, which is what makes
+   * it readable on the page in both modes.
+   *
+   * `--accent-fill` is the accent as a FILL under text, and it is pinned separately
+   * because ink and fill have opposite contrast budgets: a colour dark enough to read
+   * ON the page is not necessarily dark enough to write ON. The fills are pinned deep
+   * (0.42 / 0.46) so ONE ink serves every hue — white — instead of the ink having to
+   * change per scheme. White on 0.42 measures ≈5.8:1 and on 0.46 ≈5.0:1, i.e. AA for
+   * the 13px labels these buttons carry. `--accent-fill` is the pair as a ramp, which
+   * is the one place the scheme's second hue is visible as more than a shade. */
+  --accent: var(--scheme-accent);
+  --accent-2: var(--scheme-primary);
+  --accent-solid: oklch(from var(--scheme-hue-accent) 0.42 min(c, 0.15) h);
+  --accent-solid-2: oklch(from var(--scheme-hue-primary) 0.46 min(c, 0.15) h);
+  --accent-fill: linear-gradient(135deg, var(--accent-solid), var(--accent-solid-2));
+  --on-accent: #ffffff;
+
+  /* ── Tints of the status inks ──
+   *
+   * ⚠️ 10%, not the 15% the chips shipped with, and it is a measured number: an ink
+   * printed on a wash of ITSELF loses contrast, so a green tuned to read on the page
+   * (4.5:1) comes in ~4.15:1 on a 15% wash of its own hue and ~4.6:1 at 10%. The wash
+   * only has to say "this chip is green"; the ink is what carries the meaning. */
+  --green-bg: color-mix(in srgb, var(--green) 10%, transparent);
+  --yellow-bg: color-mix(in srgb, var(--yellow) 10%, transparent);
+  --red-bg: color-mix(in srgb, var(--red) 10%, transparent);
+
+  /* ── A hue used as TEXT on a field of its own hue ──
+   *
+   * `--accent` / `--accent-2` are measured against the PAGE. Printed on a wash of
+   * their own hue they sit at ~2.8–3.7:1 in light mode — i.e. a chip nobody can read
+   * — because the background rises toward the ink's own lightness. The fix is the
+   * site's `--plane-ink-*` recipe: re-pin the hue to an ink lightness, away from the
+   * page in BOTH directions (dark ink on a light page, light ink on a dark one), and
+   * keep the chroma so the colour is still recognisably the scheme's.
+   *
+   * These are `--accent-in-text` / `--accent-2-in-text` by role: use them wherever the
+   * accent is the COLOUR OF TEXT and the background behind it is a scheme wash. For a
+   * line, a border or a filled button, keep `--accent`.
+   * ⚠️ The fallback (`color-mix`) line comes first and the relative-colour line second,
+   * on purpose: a browser without relative colour syntax gets a slightly muddy chip
+   * rather than no chip at all. */
+  --scheme-ink-l: 0.88;
+  --scheme-ink-fallback: 62%;
+  --accent-in-text: color-mix(in srgb, var(--scheme-hue-accent) var(--scheme-ink-fallback), var(--text));
+  --accent-in-text: oklch(from var(--scheme-hue-accent) var(--scheme-ink-l) c h);
+  --accent-2-in-text: color-mix(in srgb, var(--scheme-hue-primary) var(--scheme-ink-fallback), var(--text));
+  --accent-2-in-text: oklch(from var(--scheme-hue-primary) var(--scheme-ink-l) c h);
+
+  --focus-ring: 2px solid var(--accent);
+}
+
+/* ── 3. The schemes. One line each — this is the entire palette. ────────── */
+html[data-scheme='ocean']     { --scheme-hue-accent: #06b6d4; --scheme-hue-primary: #3b82f6; }
+html[data-scheme='aurora']    { --scheme-hue-accent: #00c1c1; --scheme-hue-primary: #ff379b; }
+html[data-scheme='crimson']   { --scheme-hue-accent: #dc2626; --scheme-hue-primary: #f472b6; }
+html[data-scheme='emerald']   { --scheme-hue-accent: #10b981; --scheme-hue-primary: #06b6d4; }
+html[data-scheme='sakura']    { --scheme-hue-accent: #ec4899; --scheme-hue-primary: #a78bfa; }
+html[data-scheme='midnight']  { --scheme-hue-accent: #3b82f6; --scheme-hue-primary: #8b5cf6; }
+html[data-scheme='sunset']    { --scheme-hue-accent: #f97316; --scheme-hue-primary: #ec4899; }
+html[data-scheme='cyberpunk'] { --scheme-hue-accent: #f0e030; --scheme-hue-primary: #e040fb; }
+html[data-scheme='monokai']   { --scheme-hue-accent: #a6e22e; --scheme-hue-primary: #66d9ef; }
+html[data-scheme='usa']       { --scheme-hue-accent: #b22234; --scheme-hue-primary: #3c3b6e; }
+html[data-scheme='forest']    { --scheme-hue-accent: #4d8c57; --scheme-hue-primary: #65a30d; }
+
+/* Neutral — the one scheme with no hue, so its two roles are told apart by LIGHTNESS
+   instead of colour: the accent is a reading grey at the shared lightness, and the
+   primary is pushed AWAY from the page so the thing to PRESS still separates from the
+   thing to READ.
+   ⚠️ `--scheme-c: 0` is the load-bearing line and it has to be in BOTH blocks. A grey
+   handed chroma is not a grey — the angle falls back to 0, and hue 0 at 0.125 chroma
+   is pink. */
+html[data-scheme='neutral'] {
+  --scheme-hue-accent: #808080;
+  --scheme-hue-primary: #808080;
+  --scheme-c: 0;
+  --scheme-c-primary: 0;
+  --scheme-l-primary: 0.36;
+}
+
+/* Custom — the pair the user picks. `appearance.js` writes it as an INLINE custom
+   property on `<html>`, which is why this block can be the same derivation as the
+   named schemes and still follow the picker.
+   CHROMA is the user's own, CAPPED at the shared `--scheme-c` rather than replaced by
+   it: the cap keeps a grey grey (zero is below it), harmonises a vivid pick onto
+   exactly what a named scheme would do with that hue, and lets a muted pick keep its
+   muting (it is a `min`, not a replacement). The hexes are only a SEED for the first
+   paint before the inline pair exists. */
+html[data-scheme='custom'] {
+  --scheme-hue-accent: #06b6d4;
+  --scheme-hue-primary: #3b82f6;
+  --scheme-accent: var(--scheme-hue-accent);
+  --scheme-primary: var(--scheme-hue-primary);
+  --scheme-accent: oklch(from var(--scheme-hue-accent) var(--scheme-l) min(c, var(--scheme-c)) h);
+  --scheme-primary: oklch(from var(--scheme-hue-primary) var(--scheme-l-primary) min(c, var(--scheme-c-primary)) h);
+}
+
+/* ── 4. The modes ─────────────────────────────────────────────────────────
+ *
+ * The light palette, then the dark re-pins. Dark is re-declared rather than left to
+ * `:root` so that `data-mode` is authoritative in both directions — a window that
+ * switches mode at runtime must not keep whatever it inherited.
+ */
+html[data-mode='light'] {
+  color-scheme: light;
+
+  /* On a light page the "ink" version of a hue has to come DOWN, and it is the plane
+     tokens' light value (0.38 / 55%) rather than a new number: the site measured it
+     for exactly this job. */
+  --scheme-ink-l: 0.38;
+  --scheme-ink-fallback: 55%;
+
+  --bg: #f4f5f7;
+  --bg-deep: #e4e7ec;
+  --sunken: #eceef2;
+  --panel: #ffffff;
+  --control: #ffffff;
+  --control-hover: #f0f1f4;
+  --hover: #e9ebef;
+  --border: #d8dbe1;
+  --rule: #e6e9ee;
+  --border-strong: #c3c7ce;
+
+  --text: #1b1f24;
+  --muted: #5b636e;
+  --muted-dim: #7b838d;
+
+  /* Text greens/yellows/reds have to come DOWN on white — the dark values measure
+     ~2.5:1 there. These are the light-mode counterparts, not tints of them, and they
+     are a step deeper than the usual light-mode “success/danger” inks because they
+     also have to hold up on a chip's wash of their own hue rather than on the page
+     (measured: the page-only values came in at 4.43:1 and 4.28:1). */
+  --green: #14682c;
+  --green-solid: #1f883d;
+  --green-solid-hover: #1a7f37;
+  --yellow: #7d4e00;
+  --yellow-solid: #bf8700;
+  --red: #bc1c28;
+  --red-solid: #cf222e;
+  --red-solid-hover: #a40e26;
+
+  --scrim: rgba(20, 22, 28, 0.35);
+  --shadow-lift: 0 8px 24px rgba(20, 22, 28, 0.16);
+}
+
+html[data-mode='dark'] {
+  color-scheme: dark;
+}
+
+/* On a dark page the accents come UP, not down. The backdrops follow the same logic
+   in the other direction — DOWN, to the depth the app's own panels sit at. */
+html[data-mode='dark'][data-scheme] {
+  --scheme-l: 0.76;
+  --scheme-c: 0.13;
+  --scheme-backdrop-a: oklch(from var(--scheme-hue-accent) 0.3 min(c, 0.07) h);
+  --scheme-backdrop-b: oklch(from var(--scheme-hue-primary) 0.3 min(c, 0.07) h);
+}
+
+/* More specific than the block above, which is what stops a greyscale scheme from
+   being handed a dark mode with chroma in it. */
+html[data-mode='dark'][data-scheme='neutral'] {
+  --scheme-c: 0;
+  --scheme-c-primary: 0;
+  --scheme-l-primary: 0.86;
+}
+
+/* ── 5. The service material ───────────────────────────────────────────────
+ *
+ * The addon's windows are all SERVICE surfaces — a tool someone already opened — so
+ * they follow the service-page rules rather than the site's discovery ones: one surface
+ * (no bands), a head carrying the name + live state + the primary action, a dense grid
+ * of panels, and colour reserved for SIGNAL. The material is **glass over a room**:
+ * translucent panes over a field the scheme paints, with the panes neutral so a hue can
+ * mean something again.
+ *
+ * ⚠️ Three rules the material depends on (all three are house rules, not preferences):
+ *  · never glass on glass — a block INSIDE a pane is a flat sunken tint;
+ *  · never glass a control — buttons/inputs stay solid, they must read as pushable;
+ *  · no `backdrop-filter` — depth is layering, and a blur is a per-frame repaint.
+ */
+:root {
+  --glass-radius: 14px;
+  /* What a pane is MADE of, and how much of it the pane keeps. `--glass-land` is the
+     page colour (the pane is neutral), `--glass-a` is an ALPHA rather than a mix toward
+     the page — because what shows through must be the COLOURED ROOM, not the neutral
+     page. Mixing toward the page instead is just a grey tint. */
+  --glass-land: var(--bg);
+  --glass-a: 84%;
+  --glass: color-mix(in srgb, var(--glass-land) var(--glass-a), transparent);
+  --glass-hover: color-mix(in srgb, var(--glass-land) calc(var(--glass-a) + 6%), transparent);
+  /* A pane's parts, all mixed from the TEXT colour so none of them can smuggle in a hue
+     of its own: its head, a nested block, a zebra row, an edge. */
+  --glass-sheen: color-mix(in srgb, var(--text) 6.5%, transparent);
+  --glass-sunken: color-mix(in srgb, var(--text) 6%, transparent);
+  --glass-sunken-strong: color-mix(in srgb, var(--text) 11%, transparent);
+  --glass-row: color-mix(in srgb, var(--text) 4%, transparent);
+  --glass-row-strong: color-mix(in srgb, var(--text) 7.5%, transparent);
+  --glass-edge: color-mix(in srgb, var(--text) 12%, transparent);
+  --glass-shadow: 0 12px 34px rgb(0 0 0 / 30%);
+  /* How much of the scheme the room keeps. Nearly all of it — the room is built from the
+     `-bg` TINT family (already pulled toward the page) and then held back a further 10%,
+     which is why it can be this strong without competing with the data. An alpha here
+     would let the neutral page through and turn the whole room grey. */
+  --room-mix: 90%;
+  --room-halo: 10%;
+}
+
+html[data-mode='light'] {
+  --glass-land: color-mix(in srgb, var(--bg) 93%, #ffffff);
+  --glass-shadow: 0 12px 30px rgb(20 22 28 / 12%);
+  --room-mix: 86%;
+  --room-halo: 12%;
+}
+
+/* ── 6. Shared controls ───────────────────────────────────────────────────
+ *
+ * Only what more than one window needs. A window's own chrome stays in its own
+ * `<style>` block — this file is the palette, not a design system.
+ */
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+
+/* The custom-colour pair in the Appearance picker. A real `input[type=color]`, so
+   the OS picker does the work; it is a SOLID control on purpose (never a translucent
+   one), because a swatch you are about to change has to read as an object. */
+.appearance-swatch {
+  width: 44px;
+  height: 30px;
+  padding: 2px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--panel);
+  cursor: pointer;
+}
+.appearance-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+.appearance-swatch::-webkit-color-swatch { border: none; border-radius: 4px; }
+
+/* ── 7. Deliberately outside the two axes ─────────────────────────────────
+ *
+ * The eye overlay is a transparent window that floats over whatever is on the
+ * DESKTOP, not over the addon's own surfaces: a HUD that went light with the mode
+ * would vanish against a white page, and a gaze dot that ignored the scheme would be
+ * the one part of the product that never matched it. So the HUD keeps a fixed dark
+ * shell, and only the marker colours follow the scheme. */
+:root {
+  --hud-bg: rgba(10, 10, 18, 0.55);
+  --hud-text: #cfe9ff;
+  --hud-border: color-mix(in srgb, var(--scheme-accent) 30%, transparent);
+  --hud-divider: color-mix(in srgb, var(--scheme-accent) 18%, transparent);
+}

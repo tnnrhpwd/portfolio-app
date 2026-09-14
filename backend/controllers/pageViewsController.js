@@ -16,6 +16,7 @@ const { DynamoDBDocumentClient, PutCommand, ScanCommand } = require('@aws-sdk/li
 const crypto = require('crypto');
 const { logger } = require('../utils/logger');
 const { expiresAtSeconds, TTL_ATTRIBUTE } = require('../utils/analyticsRetention');
+const { isAdminOrSpecialRequest } = require('../middleware/adminAccess');
 
 // ── DynamoDB client (matches accessData.js / adminController.js pattern) ──
 const client = new DynamoDBClient({
@@ -154,10 +155,12 @@ const recordPageView = asyncHandler(async (req, res) => {
 /**
  * @desc    Rank pages by total visits
  * @route   GET /api/data/analytics/page-rankings
- * @access  Private (Admin only)
+ * @access  Private (admin, or an account flagged Special — see
+ *          middleware/adminAccess.js; Page rankings is one of the four views a
+ *          Special account may open)
  */
 const getPageRankings = asyncHandler(async (req, res) => {
-    if (!req.user || req.user.id !== process.env.ADMIN_USER_ID) {
+    if (!isAdminOrSpecialRequest(req)) {
         res.status(403);
         throw new Error('Access denied. Admin privileges required.');
     }

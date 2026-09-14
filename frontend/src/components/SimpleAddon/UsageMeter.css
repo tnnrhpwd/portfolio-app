@@ -120,8 +120,10 @@
   display: block;
   margin-top: calc(var(--spacing-xs) * 0.5);
   padding: calc(var(--spacing-xs) * 0.5) var(--spacing-xs);
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  color: #fff;
+  /* The site's one action colour and its matched ink — a money path, so it wears
+     `--action` rather than the chat's own accent pair (§16.6). */
+  background: var(--action);
+  color: var(--text-color-inv);
   border-radius: var(--border-radius-sm);
   font-size: var(--font-size-small);
   font-weight: var(--font-weight-medium, 500);

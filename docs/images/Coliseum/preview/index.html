@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rocket sprites — extraction proof sheet</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 28px; background:#111318; color:#e8eaf0;
+         font: 14px/1.5 "Segoe UI", Arial, sans-serif; }
+  h1 { margin:0 0 6px; font-size: 24px; }
+  h2 { margin:0 0 12px; font-size: 16px; font-weight:600; }
+  .muted { color:#8b93a7; font-weight:400; }
+  .sheet { margin: 0 0 44px; padding: 20px; background:#191c23; border:1px solid #262a34; border-radius:12px; }
+  .overlay { display:block; margin-bottom:16px; }
+  .overlay img { max-width:100%; height:auto; border-radius:8px; border:1px solid #2c313c; }
+  .grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+  .cell { margin:0; background:#12141a; border:1px solid #262a34; border-radius:10px; padding:8px; }
+  .thumb { height:104px; display:flex; align-items:center; justify-content:center;
+           border-radius:6px; margin-bottom:6px;
+           background-color:#20242e;
+           background-image:
+             linear-gradient(45deg,#2b3040 25%,transparent 25%,transparent 75%,#2b3040 75%),
+             linear-gradient(45deg,#2b3040 25%,transparent 25%,transparent 75%,#2b3040 75%);
+           background-size:16px 16px; background-position:0 0,8px 8px; }
+  .thumb img { max-width:100%; max-height:96px; image-rendering:auto; }
+  figcaption { display:flex; justify-content:space-between; gap:6px; align-items:baseline; }
+  code { font-size:11.5px; color:#9fd7ff; word-break:break-all; }
+  figcaption .muted { font-size:10.5px; white-space:nowrap; }
+</style>
+</head>
+<body>
+  <h1>Rocket sprite extraction</h1>
+  <p class="muted">Each box below is one cropped, de-fringed PNG. Cyan = auto-detected, orange = hand-placed region.
+  Checkerboard shows transparency. Rename anything wrong in <code>scripts/rocket/sheets.json</code> and re-run.</p>
+
+  <section class="sheet">
+    <h2>UI: ornate menu panel (9-slice) <span class="muted">— coliseum-ui-panel.png · 27 assets</span></h2>
+    <a class="overlay" href="ui-panel-regions.png" target="_blank">
+      <img src="ui-panel-regions.png" alt="ui-panel detected regions" loading="lazy">
+    </a>
+    <div class="grid">
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-bar-1.png" alt="chrome-bar-1" loading="lazy"></div>
+        <figcaption><code>chrome-bar-1</code><span class="muted">174×72</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-bar-2.png" alt="chrome-bar-2" loading="lazy"></div>
+        <figcaption><code>chrome-bar-2</code><span class="muted">188×83</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-bar-3.png" alt="chrome-bar-3" loading="lazy"></div>
+        <figcaption><code>chrome-bar-3</code><span class="muted">208×67</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-bar-4.png" alt="chrome-bar-4" loading="lazy"></div>
+        <figcaption><code>chrome-bar-4</code><span class="muted">161×65</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-bar-5.png" alt="chrome-bar-5" loading="lazy"></div>
+        <figcaption><code>chrome-bar-5</code><span class="muted">172×69</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-bar-6.png" alt="chrome-bar-6" loading="lazy"></div>
+        <figcaption><code>chrome-bar-6</code><span class="muted">167×66</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-bar-7.png" alt="chrome-bar-7" loading="lazy"></div>
+        <figcaption><code>chrome-bar-7</code><span class="muted">167×67</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-bar-8.png" alt="chrome-bar-8" loading="lazy"></div>
+        <figcaption><code>chrome-bar-8</code><span class="muted">192×68</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-lens-1.png" alt="chrome-lens-1" loading="lazy"></div>
+        <figcaption><code>chrome-lens-1</code><span class="muted">130×85</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-lens-2.png" alt="chrome-lens-2" loading="lazy"></div>
+        <figcaption><code>chrome-lens-2</code><span class="muted">133×108</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-lens-3.png" alt="chrome-lens-3" loading="lazy"></div>
+        <figcaption><code>chrome-lens-3</code><span class="muted">202×128</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-medallion-1.png" alt="chrome-medallion-1" loading="lazy"></div>
+        <figcaption><code>chrome-medallion-1</code><span class="muted">137×138</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-medallion-2.png" alt="chrome-medallion-2" loading="lazy"></div>
+        <figcaption><code>chrome-medallion-2</code><span class="muted">166×134</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-medallion-3.png" alt="chrome-medallion-3" loading="lazy"></div>
+        <figcaption><code>chrome-medallion-3</code><span class="muted">146×122</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-medallion-4.png" alt="chrome-medallion-4" loading="lazy"></div>
+        <figcaption><code>chrome-medallion-4</code><span class="muted">162×154</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-medallion-5.png" alt="chrome-medallion-5" loading="lazy"></div>
+        <figcaption><code>chrome-medallion-5</code><span class="muted">153×163</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-medallion-6.png" alt="chrome-medallion-6" loading="lazy"></div>
+        <figcaption><code>chrome-medallion-6</code><span class="muted">156×163</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-octagon-1.png" alt="chrome-octagon-1" loading="lazy"></div>
+        <figcaption><code>chrome-octagon-1</code><span class="muted">152×139</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-octagon-2.png" alt="chrome-octagon-2" loading="lazy"></div>
+        <figcaption><code>chrome-octagon-2</code><span class="muted">159×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-panel-1.png" alt="chrome-panel-1" loading="lazy"></div>
+        <figcaption><code>chrome-panel-1</code><span class="muted">172×85</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-panel-2.png" alt="chrome-panel-2" loading="lazy"></div>
+        <figcaption><code>chrome-panel-2</code><span class="muted">209×163</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-shield-1.png" alt="chrome-shield-1" loading="lazy"></div>
+        <figcaption><code>chrome-shield-1</code><span class="muted">194×237</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-shield-2.png" alt="chrome-shield-2" loading="lazy"></div>
+        <figcaption><code>chrome-shield-2</code><span class="muted">142×237</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-square-1.png" alt="chrome-square-1" loading="lazy"></div>
+        <figcaption><code>chrome-square-1</code><span class="muted">144×112</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-square-2.png" alt="chrome-square-2" loading="lazy"></div>
+        <figcaption><code>chrome-square-2</code><span class="muted">203×130</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-square-3.png" alt="chrome-square-3" loading="lazy"></div>
+        <figcaption><code>chrome-square-3</code><span class="muted">194×176</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/chrome-tall-1.png" alt="chrome-tall-1" loading="lazy"></div>
+        <figcaption><code>chrome-tall-1</code><span class="muted">141×221</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="sheet">
+    <h2>UI: button plaque, taken from the flat-plate poster <span class="muted">— coliseum-ui-button-flat.png · 1 assets</span></h2>
+    <a class="overlay" href="ui-button-plate-regions.png" target="_blank">
+      <img src="ui-button-plate-regions.png" alt="ui-button-plate detected regions" loading="lazy">
+    </a>
+    <div class="grid">
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/ui-button-plate.png" alt="ui-button-plate" loading="lazy"></div>
+        <figcaption><code>ui-button-plate</code><span class="muted">230×86</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="sheet">
+    <h2>Weapons: spear, dagger, trident <span class="muted">— coliseum-weapons-2.png · 12 assets</span></h2>
+    <a class="overlay" href="weapons-2-regions.png" target="_blank">
+      <img src="weapons-2-regions.png" alt="weapons-2 detected regions" loading="lazy">
+    </a>
+    <div class="grid">
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/axe-crescent.png" alt="axe-crescent" loading="lazy"></div>
+        <figcaption><code>axe-crescent</code><span class="muted">60×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/crystal-shard.png" alt="crystal-shard" loading="lazy"></div>
+        <figcaption><code>crystal-shard</code><span class="muted">72×134</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/dagger-gold.png" alt="dagger-gold" loading="lazy"></div>
+        <figcaption><code>dagger-gold</code><span class="muted">39×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/mace-gem.png" alt="mace-gem" loading="lazy"></div>
+        <figcaption><code>mace-gem</code><span class="muted">32×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/pike-gem.png" alt="pike-gem" loading="lazy"></div>
+        <figcaption><code>pike-gem</code><span class="muted">22×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/scythe-blade.png" alt="scythe-blade" loading="lazy"></div>
+        <figcaption><code>scythe-blade</code><span class="muted">102×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/short-spear.png" alt="short-spear" loading="lazy"></div>
+        <figcaption><code>short-spear</code><span class="muted">33×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/spear-barbed.png" alt="spear-barbed" loading="lazy"></div>
+        <figcaption><code>spear-barbed</code><span class="muted">24×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/spear-wide-gem.png" alt="spear-wide-gem" loading="lazy"></div>
+        <figcaption><code>spear-wide-gem</code><span class="muted">27×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/spear-winged.png" alt="spear-winged" loading="lazy"></div>
+        <figcaption><code>spear-winged</code><span class="muted">29×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/spearhead-float.png" alt="spearhead-float" loading="lazy"></div>
+        <figcaption><code>spearhead-float</code><span class="muted">59×135</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/trident.png" alt="trident" loading="lazy"></div>
+        <figcaption><code>trident</code><span class="muted">34×160</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="sheet">
+    <h2>Weapons: greatsword, war maul, halberd <span class="muted">— coliseum-weapons-3.png · 28 assets</span></h2>
+    <a class="overlay" href="weapons-3-regions.png" target="_blank">
+      <img src="weapons-3-regions.png" alt="weapons-3 detected regions" loading="lazy">
+    </a>
+    <div class="grid">
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/axe-bearded.png" alt="axe-bearded" loading="lazy"></div>
+        <figcaption><code>axe-bearded</code><span class="muted">87×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/axe-crystal.png" alt="axe-crystal" loading="lazy"></div>
+        <figcaption><code>axe-crystal</code><span class="muted">72×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/axe-curved.png" alt="axe-curved" loading="lazy"></div>
+        <figcaption><code>axe-curved</code><span class="muted">72×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/axe-double-1.png" alt="axe-double-1" loading="lazy"></div>
+        <figcaption><code>axe-double-1</code><span class="muted">109×157</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/axe-double-2.png" alt="axe-double-2" loading="lazy"></div>
+        <figcaption><code>axe-double-2</code><span class="muted">99×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/axe-double-3.png" alt="axe-double-3" loading="lazy"></div>
+        <figcaption><code>axe-double-3</code><span class="muted">104×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/axe-small.png" alt="axe-small" loading="lazy"></div>
+        <figcaption><code>axe-small</code><span class="muted">66×159</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/axe-war.png" alt="axe-war" loading="lazy"></div>
+        <figcaption><code>axe-war</code><span class="muted">120×156</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/hammer-bar.png" alt="hammer-bar" loading="lazy"></div>
+        <figcaption><code>hammer-bar</code><span class="muted">93×153</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/hammer-gem.png" alt="hammer-gem" loading="lazy"></div>
+        <figcaption><code>hammer-gem</code><span class="muted">103×99</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/hammer-wide.png" alt="hammer-wide" loading="lazy"></div>
+        <figcaption><code>hammer-wide</code><span class="muted">68×157</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/mace-crystal-1.png" alt="mace-crystal-1" loading="lazy"></div>
+        <figcaption><code>mace-crystal-1</code><span class="muted">43×158</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/mace-crystal-2.png" alt="mace-crystal-2" loading="lazy"></div>
+        <figcaption><code>mace-crystal-2</code><span class="muted">57×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/mace-crystal-3.png" alt="mace-crystal-3" loading="lazy"></div>
+        <figcaption><code>mace-crystal-3</code><span class="muted">48×101</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/mace-diamond-1.png" alt="mace-diamond-1" loading="lazy"></div>
+        <figcaption><code>mace-diamond-1</code><span class="muted">54×155</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/mace-diamond-2.png" alt="mace-diamond-2" loading="lazy"></div>
+        <figcaption><code>mace-diamond-2</code><span class="muted">76×107</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/mace-diamond-3.png" alt="mace-diamond-3" loading="lazy"></div>
+        <figcaption><code>mace-diamond-3</code><span class="muted">66×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/mace-diamond-4.png" alt="mace-diamond-4" loading="lazy"></div>
+        <figcaption><code>mace-diamond-4</code><span class="muted">73×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/mace-flanged.png" alt="mace-flanged" loading="lazy"></div>
+        <figcaption><code>mace-flanged</code><span class="muted">100×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/mace-leaf.png" alt="mace-leaf" loading="lazy"></div>
+        <figcaption><code>mace-leaf</code><span class="muted">64×106</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/mace-orb.png" alt="mace-orb" loading="lazy"></div>
+        <figcaption><code>mace-orb</code><span class="muted">76×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/maul-1.png" alt="maul-1" loading="lazy"></div>
+        <figcaption><code>maul-1</code><span class="muted">72×153</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/maul-2.png" alt="maul-2" loading="lazy"></div>
+        <figcaption><code>maul-2</code><span class="muted">156×142</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/shield-round.png" alt="shield-round" loading="lazy"></div>
+        <figcaption><code>shield-round</code><span class="muted">105×155</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/spear-1.png" alt="spear-1" loading="lazy"></div>
+        <figcaption><code>spear-1</code><span class="muted">56×118</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/spear-crystal-1.png" alt="spear-crystal-1" loading="lazy"></div>
+        <figcaption><code>spear-crystal-1</code><span class="muted">47×158</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/spear-crystal-2.png" alt="spear-crystal-2" loading="lazy"></div>
+        <figcaption><code>spear-crystal-2</code><span class="muted">47×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/spear-gem.png" alt="spear-gem" loading="lazy"></div>
+        <figcaption><code>spear-gem</code><span class="muted">54×105</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="sheet">
+    <h2>Swords: two-handed long swords <span class="muted">— coliseum-swords-2.png · 2 assets</span></h2>
+    <a class="overlay" href="swords-2-regions.png" target="_blank">
+      <img src="swords-2-regions.png" alt="swords-2 detected regions" loading="lazy">
+    </a>
+    <div class="grid">
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/sword-gladius.png" alt="sword-gladius" loading="lazy"></div>
+        <figcaption><code>sword-gladius</code><span class="muted">43×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/sword-greatsword.png" alt="sword-greatsword" loading="lazy"></div>
+        <figcaption><code>sword-greatsword</code><span class="muted">20×160</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="sheet">
+    <h2>Helmets (AI poster, 9 cols) <span class="muted">— coliseum-armor-helmet.png · 3 assets</span></h2>
+    <a class="overlay" href="armor-helmet-regions.png" target="_blank">
+      <img src="armor-helmet-regions.png" alt="armor-helmet detected regions" loading="lazy">
+    </a>
+    <div class="grid">
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/head-0.png" alt="head-0" loading="lazy"></div>
+        <figcaption><code>head-0</code><span class="muted">100×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/head-1.png" alt="head-1" loading="lazy"></div>
+        <figcaption><code>head-1</code><span class="muted">107×141</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/head-2.png" alt="head-2" loading="lazy"></div>
+        <figcaption><code>head-2</code><span class="muted">110×159</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="sheet">
+    <h2>Cuirasses (AI poster, 10 cols) <span class="muted">— coliseum-armor-cuirass.png · 3 assets</span></h2>
+    <a class="overlay" href="armor-cuirass-regions.png" target="_blank">
+      <img src="armor-cuirass-regions.png" alt="armor-cuirass detected regions" loading="lazy">
+    </a>
+    <div class="grid">
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/torso-0.png" alt="torso-0" loading="lazy"></div>
+        <figcaption><code>torso-0</code><span class="muted">86×104</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/torso-1.png" alt="torso-1" loading="lazy"></div>
+        <figcaption><code>torso-1</code><span class="muted">84×103</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/torso-2.png" alt="torso-2" loading="lazy"></div>
+        <figcaption><code>torso-2</code><span class="muted">87×113</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="sheet">
+    <h2>Greaves (AI poster - greaves are the BOTTOM rows, the top rows are helmets) <span class="muted">— coliseum-armor-greaves.png · 3 assets</span></h2>
+    <a class="overlay" href="armor-greaves-regions.png" target="_blank">
+      <img src="armor-greaves-regions.png" alt="armor-greaves detected regions" loading="lazy">
+    </a>
+    <div class="grid">
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/legs-0.png" alt="legs-0" loading="lazy"></div>
+        <figcaption><code>legs-0</code><span class="muted">86×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/legs-1.png" alt="legs-1" loading="lazy"></div>
+        <figcaption><code>legs-1</code><span class="muted">77×160</span></figcaption>
+      </figure>
+      <figure class="cell">
+        <div class="thumb"><img src="../../../../frontend/public/coliseum/legs-2.png" alt="legs-2" loading="lazy"></div>
+        <figcaption><code>legs-2</code><span class="muted">86×160</span></figcaption>
+      </figure>
+    </div>
+  </section>
+</body>
+</html>

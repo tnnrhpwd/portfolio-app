@@ -1,658 +1,470 @@
 /**
- * Email templates for user subscription events
+ * Transactional email templates.
+ *
+ * Every template is built from ONE layout builder (`renderEmail`) so the six
+ * emails a user can receive are the same document with different content — the
+ * old file hand-copied a `<style>` block and a header/footer into each of them,
+ * which is how the six drifted apart.
+ *
+ * Rules that keep these readable in real inboxes:
+ *
+ * - **Tables, not divs.** Outlook (and a few webmail clients) throw away
+ *   flex/grid, so the shell is a nested `role="presentation"` table.
+ * - **Inline styles for anything structural.** A `<style>` block is stripped by
+ *   some clients, so it only carries progressive extras: the mobile stack, the
+ *   dark-mode palette, and the hover state.
+ * - **Every color has a solid fallback.** The accent bar and the button use
+ *   `background-color` first and a `linear-gradient` second; a client that drops
+ *   the gradient still paints a readable brand color.
+ * - **Escape every interpolated value.** Nicknames, bug titles, resolutions and
+ *   (especially) user-agent strings reach the HTML — an unescaped `&` or `<`
+ *   corrupts the message.
+ * - **A preheader.** The first line of body text is what most clients show next
+ *   to the subject, so each template sets one explicitly and hides it.
+ *
+ * Exports and data contracts are unchanged — `services/emailService.js` selects
+ * a template by name and only ever reads `{ subject, html, text }`.
  */
+
 const { FEATURES_PLAIN, isProTier } = require('../constants/pricing');
 
 // Centralized origin for links inside emails. Mirrors passwordReset.js:
 // defaults to production, overridable via FRONTEND_URL (dev / deploy previews).
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://www.sthopwood.com';
 
-/**
- * Get plain-text feature bullets for a plan (for emails).
- * @param {string} plan - Plan name (e.g. 'Simple', 'Pro', 'Free', 'Premium', 'Flex')
- * @returns {string[]} Array of feature strings
- */
+const BRAND = {
+  name: 'ST Hopwood',
+  page: '#eef1f7',        // page behind the card
+  card: '#ffffff',
+  panel: '#f4f6fa',       // inset readout
+  text: '#212124',
+  muted: '#5b5b63',
+  rule: '#d9dee8',
+  blue: '#1f5fd0',        // link + button, contrast-checked on white
+  mint: '#0d8f8f',        // text-safe mint (raw --fg-mint is a display color)
+  pink: '#c22b76',
+  warnBg: '#fff6e5',
+  warnEdge: '#c47d00',
+  badBg: '#fdecec',
+  badEdge: '#b3261e',
+};
+
+const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+
+/** Escape a value for HTML text/attribute context. */
+const esc = (value) =>
+  String(value ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[c]);
+
+/** Get plain-text feature bullets for a plan (for emails). */
 function getPlanFeatures(plan) {
-  const lc = plan.toLowerCase();
+  const lc = String(plan || '').toLowerCase();
   if (isProTier(plan) || lc === 'pro' || lc === 'simple') return FEATURES_PLAIN.pro;
   return FEATURES_PLAIN.free;
 }
 
-/** HTML <li> list from plan features */
+/** HTML `<li>` list from plan features. */
 function featuresHtml(plan) {
-  return getPlanFeatures(plan).map(f => `<li>${f}</li>`).join('\n                ');
+  return getPlanFeatures(plan).map((f) => `<li>${esc(f)}</li>`).join('');
 }
 
-/** Plain-text bullet list from plan features */
+/** Plain-text bullet list from plan features. */
 function featuresText(plan) {
-  return getPlanFeatures(plan).map(f => `- ${f}`).join('\n');
+  return getPlanFeatures(plan).map((f) => `- ${f}`).join('\n');
 }
+
+// ── Layout primitives ────────────────────────────────────────────────────────
+
+/** Body paragraph. `html` may contain markup; escape dynamic values first. */
+const p = (html, { size = 15, muted = false, bottom = 14 } = {}) =>
+  `<p class="${muted ? 'dm-muted' : 'dm-text'}" style="margin:0 0 ${bottom}px;font-size:${size}px;line-height:1.6;color:${muted ? BRAND.muted : BRAND.text};">${html}</p>`;
+
+/** Inset panel — a label plus rows, or free content. */
+const panel = (content, { tone = 'panel', title = '' } = {}) => {
+  const bg = tone === 'warn' ? BRAND.warnBg : tone === 'bad' ? BRAND.badBg : BRAND.panel;
+  const edge = tone === 'warn' ? BRAND.warnEdge : tone === 'bad' ? BRAND.badEdge : BRAND.rule;
+  return `
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;">
+    <tr>
+      <td class="dm-panel" style="background-color:${bg};border-left:3px solid ${edge};border-radius:6px;padding:16px 18px;">
+        ${title ? `<p class="dm-text" style="margin:0 0 10px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${BRAND.muted};">${esc(title)}</p>` : ''}
+        ${content}
+      </td>
+    </tr>
+  </table>`;
+};
+
+/** Label/value rows for a panel — a two-column table so the values align. */
+const rows = (pairs) => `
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+    ${pairs
+      .map(
+        ([label, value], i) => `
+    <tr>
+      <td class="dm-muted" style="padding:${i === 0 ? '0' : '7px'} 12px 7px 0;font-size:13px;line-height:1.5;color:${BRAND.muted};white-space:nowrap;vertical-align:top;">${esc(label)}</td>
+      <td class="dm-text" style="padding:${i === 0 ? '0' : '7px'} 0 7px 0;font-size:14px;line-height:1.5;color:${BRAND.text};word-break:break-word;">${esc(value)}</td>
+    </tr>`,
+      )
+      .join('')}
+  </table>`;
+
+/** Bulleted list (small, muted, for security notes). */
+const bullets = (items) => `
+  <ul class="dm-muted" style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.6;color:${BRAND.muted};">
+    ${items.map((item) => `<li style="margin:0 0 6px;">${item}</li>`).join('')}
+  </ul>`;
+
+/**
+ * Primary action button. A padded `<a>` inside a colored cell: the cell carries
+ * a solid `bgcolor` (Outlook) plus a gradient (everything else), and the anchor
+ * carries the label, so the button is clickable even if the styling is dropped.
+ */
+const button = ({ label, href }) => `
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:22px 0;">
+    <tr>
+      <td class="sm-btn" align="center" bgcolor="#1f5fd0" style="border-radius:999px;background-color:${BRAND.blue};background-image:linear-gradient(90deg,#2f6fe4,#0d8f8f);">
+        <a href="${esc(href)}" style="display:inline-block;padding:13px 28px;font-family:${FONT};font-size:15px;font-weight:700;letter-spacing:.02em;color:#ffffff;text-decoration:none;border-radius:999px;">${esc(label)}</a>
+      </td>
+    </tr>
+  </table>`;
+
+/** The raw URL, for the (common) case where the button is stripped. */
+const linkFallback = (href) => `
+  <p class="dm-muted" style="margin:0 0 14px;font-size:12px;line-height:1.6;color:${BRAND.muted};">
+    If the button doesn’t work, paste this into your browser:<br>
+    <a href="${esc(href)}" style="color:${BRAND.blue};word-break:break-all;">${esc(href)}</a>
+  </p>`;
+
+const footer = (reason) => `
+  <tr>
+    <td class="dm-bg" style="padding:18px 6px 0;font-family:${FONT};">
+      <p class="dm-muted" style="margin:0 0 6px;font-size:12px;line-height:1.6;color:${BRAND.muted};text-align:center;">
+        ${esc(reason)}
+      </p>
+      <p class="dm-muted" style="margin:0;font-size:12px;line-height:1.6;color:${BRAND.muted};text-align:center;">
+        <a href="${FRONTEND_URL}/settings#notifications" style="color:${BRAND.muted};text-decoration:underline;">Email settings</a>
+        &nbsp;·&nbsp;
+        <a href="${FRONTEND_URL}/support" style="color:${BRAND.muted};text-decoration:underline;">Get help</a>
+      </p>
+      <p class="dm-muted" style="margin:10px 0 0;font-size:11px;line-height:1.6;color:${BRAND.muted};text-align:center;">
+        &copy; ${new Date().getFullYear()} ${BRAND.name}. All rights reserved.
+      </p>
+    </td>
+  </tr>`;
+
+/**
+ * The one document every template is built from.
+ *
+ * @param {Object}   spec
+ * @param {string}   spec.title      `<title>` + the document name
+ * @param {string}   spec.preheader  Hidden first line, shown next to the subject
+ * @param {string}   [spec.eyebrow]  Small uppercase label above the heading
+ * @param {string}   spec.heading    The `<h1>` — what happened, in a few words
+ * @param {string[]} spec.body       Body blocks (already-escaped HTML)
+ * @param {Object}   [spec.cta]      { label, href }
+ * @param {string}   [spec.footerReason]
+ */
+function renderEmail({ title, preheader, eyebrow, heading, body = [], cta, footerReason }) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="x-apple-disable-message-reformatting">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>${esc(title)}</title>
+  <style>
+    /* Only progressive extras live here — a client that strips <style> still
+       gets the full inline layout below. */
+    a { text-decoration: none; }
+    @media (max-width: 600px) {
+      .sm-pad { padding-left: 20px !important; padding-right: 20px !important; }
+      .sm-btn { display: block !important; }
+      .sm-btn a { display: block !important; }
+    }
+    /* Dark mode. Named classes rather than a blanket filter, so the accent bar
+       and the button keep their brand colors. */
+    @media (prefers-color-scheme: dark) {
+      .dm-bg   { background-color: #141416 !important; }
+      .dm-card { background-color: #1e1e21 !important; }
+      .dm-panel{ background-color: #26262a !important; }
+      .dm-text { color: #f4f7fd !important; }
+      .dm-muted{ color: #a5a5aa !important; }
+      .dm-rule { border-color: #33333a !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;width:100%;background-color:${BRAND.page};-webkit-text-size-adjust:100%;">
+  <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;color:${BRAND.page};">
+    ${esc(preheader)}
+  </div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${BRAND.page};" class="dm-bg">
+    <tr>
+      <td align="center" style="padding:24px 12px 32px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
+          <tr>
+            <td style="height:4px;line-height:4px;font-size:0;background-color:${BRAND.mint};background-image:linear-gradient(90deg,#4da6ff,#0d8f8f 45%,${BRAND.pink});">&nbsp;</td>
+          </tr>
+          <tr>
+            <td class="dm-card sm-pad" style="background-color:${BRAND.card};padding:32px 30px 28px;font-family:${FONT};border-radius:0 0 10px 10px;">
+              ${eyebrow ? `<p class="dm-muted" style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:${BRAND.muted};">${esc(eyebrow)}</p>` : ''}
+              <h1 class="dm-text" style="margin:0 0 16px;font-size:24px;line-height:1.3;font-weight:700;color:${BRAND.text};">${esc(heading)}</h1>
+              ${body.join('\n')}
+              ${cta ? button(cta) : ''}
+              ${cta ? linkFallback(cta.href) : ''}
+            </td>
+          </tr>
+          ${footer(footerReason || `You’re receiving this because you have an ${BRAND.name} account.`)}
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+// ── Templates ────────────────────────────────────────────────────────────────
 
 // Template for password reset
 const passwordResetTemplate = (data) => {
   const { resetLink, userNickname, requestInfo } = data;
-  
+
   // Format timestamp for display. Wrapped in try/catch because an invalid
   // IANA zone name (e.g. a stale/placeholder value like 'Unknown' from a
   // failed geolocation lookup) makes toLocaleString() throw a RangeError,
   // which would otherwise abort the whole password-reset email silently.
   const formatTimestamp = (timestamp) => {
     const timeZone = requestInfo?.location?.timezone || 'UTC';
+    const options = {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    };
     try {
-      return new Date(timestamp).toLocaleString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone
-      });
+      return new Date(timestamp).toLocaleString('en-US', { ...options, timeZone });
     } catch (error) {
-      return new Date(timestamp).toLocaleString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'UTC'
-      });
+      return new Date(timestamp).toLocaleString('en-US', { ...options, timeZone: 'UTC' });
     }
   };
 
-  const formattedTime = requestInfo ? formatTimestamp(requestInfo.timestamp) : 'Unknown time';
-  
-  return {
-    subject: 'Password Reset Request',
-    html: `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Password Reset</title>
-      <style>
-        body { 
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          line-height: 1.6;
-          color: #333;
-          margin: 0;
-          padding: 0;
-        }
-        .container {
-          max-width: 600px;
-          margin: 0 auto;
-          padding: 20px;
-          background-color: #ffffff;
-        }
-        .header {
-          background-color: #4a6fa5;
-          padding: 20px;
-          text-align: center;
-          color: white;
-          border-radius: 5px 5px 0 0;
-        }
-        .content {
-          padding: 20px;
-          border: 1px solid #e9e9e9;
-          border-top: none;
-          border-radius: 0 0 5px 5px;
-        }
-        .footer {
-          margin-top: 20px;
-          text-align: center;
-          font-size: 12px;
-          color: #999;
-        }
-        .button {
-          display: inline-block;
-          padding: 15px 25px;
-          background-color: #4a6fa5;
-          color: white;
-          text-decoration: none;
-          border-radius: 4px;
-          margin: 20px 0;
-          font-weight: bold;
-        }
-        .warning {
-          background-color: #fff3cd;
-          border: 1px solid #ffeaa7;
-          border-radius: 4px;
-          padding: 15px;
-          margin: 20px 0;
-        }
-        .security-note {
-          background-color: #f8f9fa;
-          border-left: 4px solid #4a6fa5;
-          padding: 15px;
-          margin: 20px 0;
-        }
-        .request-info {
-          background-color: #f0f7ff;
-          border: 1px solid #b8daff;
-          border-radius: 4px;
-          padding: 15px;
-          margin: 20px 0;
-        }
-        .info-table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-        .info-table td {
-          padding: 5px 10px;
-          border-bottom: 1px solid #e9e9e9;
-        }
-        .info-table td:first-child {
-          font-weight: bold;
-          width: 30%;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>Password Reset Request</h1>
-        </div>
-        <div class="content">
-          <h2>Hello ${userNickname || 'valued user'},</h2>
-          <p>We received a request to reset your password for your ST Hopwood account.</p>
-          
-          <p>Click the button below to reset your password:</p>
-          
-          <div style="text-align: center;">
-            <a href="${resetLink}" class="button">Reset My Password</a>
-          </div>
-          
-          <div class="warning">
-            <p><strong>⚠️ Important:</strong> This link will expire in 1 hour for security reasons.</p>
-          </div>
+  const name = userNickname || 'there';
+  const formattedTime = requestInfo ? formatTimestamp(requestInfo.timestamp) : null;
+  const place = requestInfo?.location
+    ? [requestInfo.location.city, requestInfo.location.region, requestInfo.location.country]
+        .filter(Boolean)
+        .join(', ')
+    : null;
 
-          ${requestInfo ? `
-          <div class="request-info">
-            <h3>🔍 Request Details:</h3>
-            <p>For your security, here are the details of this password reset request:</p>
-            <table class="info-table">
-              <tr>
-                <td>Time:</td>
-                <td>${formattedTime}</td>
-              </tr>
-              <tr>
-                <td>IP Address:</td>
-                <td>${requestInfo.ipAddress}</td>
-              </tr>
-              <tr>
-                <td>Location:</td>
-                <td>${requestInfo.location.city}, ${requestInfo.location.region}, ${requestInfo.location.country}</td>
-              </tr>
-              <tr>
-                <td>Browser:</td>
-                <td>${requestInfo.device.browser}</td>
-              </tr>
-              <tr>
-                <td>Operating System:</td>
-                <td>${requestInfo.device.os}</td>
-              </tr>
-            </table>
-          </div>
-          ` : ''}
-          
-          <div class="security-note">
-            <h3>Security Information:</h3>
-            <ul>
-              <li>If you didn't request this password reset from the above location, please ignore this email and contact our support team immediately</li>
-              <li>Your password won't change until you click the link above and create a new one</li>
-              <li>For your security, this link can only be used once</li>
-              <li>Never share this email or reset link with anyone</li>
-            </ul>
-          </div>
-          
-          <p>If the button above doesn't work, copy and paste this link into your browser:</p>
-          <p style="word-break: break-all; color: #4a6fa5;">${resetLink}</p>
-          
-          <p>If you continue to have trouble, please contact our support team.</p>
-          
-          <p>Best regards,<br>The ST Hopwood Team</p>
-        </div>
-        <div class="footer">
-          <p>&copy; ${new Date().getFullYear()} ST Hopwood. All rights reserved.</p>
-          <p>This email was sent because a password reset was requested for your account.</p>
-        </div>
-      </div>
-    </body>
-    </html>
-    `,
-    text: `Hello ${userNickname || 'valued user'},
+  const requestRows = requestInfo
+    ? [
+        ['Time', formattedTime],
+        ['IP address', requestInfo.ipAddress],
+        ['Location', place],
+        ['Browser', requestInfo.device?.browser],
+        ['Operating system', requestInfo.device?.os],
+      ].filter(([, value]) => Boolean(value))
+    : [];
 
-We received a request to reset your password for your ST Hopwood account.
+  const html = renderEmail({
+    title: 'Reset your password',
+    preheader: 'Reset your ST Hopwood password — the link works for one hour.',
+    eyebrow: 'Account security',
+    heading: 'Reset your password',
+    body: [
+      p(`Hi ${esc(name)},`),
+      p('We received a request to reset the password on your ST Hopwood account. If that was you, set a new one below.'),
+      panel(
+        `<p class="dm-text" style="margin:0 0 8px;font-size:14px;line-height:1.6;color:${BRAND.text};"><strong>This link expires in 1 hour</strong> and can only be used once.</p>
+         <p class="dm-muted" style="margin:0;font-size:13px;line-height:1.6;color:${BRAND.muted};">Your password stays as it is until you finish this step.</p>`,
+        { tone: 'warn' },
+      ),
+      requestRows.length ? panel(rows(requestRows), { title: 'Where this request came from' }) : '',
+      p(`<strong>Didn’t ask for this?</strong> You can ignore this email — nothing changes. If it keeps happening, tell us and we’ll help you lock the account down.`, { size: 14, muted: true, bottom: 6 }),
+      `<p style="margin:0 0 10px;font-size:14px;line-height:1.6;color:${BRAND.text};" class="dm-text"><strong>For your security:</strong></p>`,
+      bullets([
+        'Never share this email or the reset link with anyone.',
+        'ST Hopwood will never ask you for your password.',
+        'Only open the link if you started this request.',
+      ]),
+    ],
+    cta: { label: 'Choose a new password', href: resetLink },
+    footerReason: 'You’re receiving this because a password reset was requested for your account.',
+  });
 
-To reset your password, visit this link: ${resetLink}
+  const text = `RESET YOUR PASSWORD
 
-⚠️ Important: This link will expire in 1 hour for security reasons.
+Hi ${name},
 
-REQUEST DETAILS:
-${requestInfo ? `
-Time: ${formattedTime}
-IP Address: ${requestInfo.ipAddress}
-Location: ${requestInfo.location.city}, ${requestInfo.location.region}, ${requestInfo.location.country}
-Browser: ${requestInfo.device.browser}
-Operating System: ${requestInfo.device.os}
-` : 'Request details not available'}
+We received a request to reset the password on your ST Hopwood account. If that was you, open this link — it expires in 1 hour and can only be used once:
 
-Security Information:
-- If you didn't request this password reset from the above location, please ignore this email and contact our support team immediately
-- Your password won't change until you click the link above and create a new one
-- For your security, this link can only be used once
-- Never share this email or reset link with anyone
+${resetLink}
 
-If you continue to have trouble, please contact our support team.
+${requestRows.length ? `WHERE THIS REQUEST CAME FROM\n${requestRows.map(([label, value]) => `${label}: ${value}`).join('\n')}\n` : ''}
+FOR YOUR SECURITY
+- Never share this email or the reset link with anyone.
+- ST Hopwood will never ask you for your password.
+- Only open the link if you started this request.
 
-Best regards,
-The ST Hopwood Team
+Didn't ask for this? You can ignore this email — nothing changes. If it keeps happening, reply and we'll help you lock the account down.
 
-© ${new Date().getFullYear()} ST Hopwood. All rights reserved.
-This email was sent because a password reset was requested for your account.`
-  };
+Manage your email settings: ${FRONTEND_URL}/settings#notifications
+Get help: ${FRONTEND_URL}/support
+
+© ${new Date().getFullYear()} ${BRAND.name}. All rights reserved.
+You're receiving this because a password reset was requested for your account.`;
+
+  return { subject: 'Reset your ST Hopwood password', html, text };
 };
 
 // Template for when a user creates a new subscription
 const subscriptionCreatedTemplate = (data) => {
   const { plan, userData } = data;
-  const userNickname = userData?.text?.match(/Nickname:([^|]+)/)?.[1]?.trim() || 'valued customer';
-  
-  return {
-    subject: `Welcome to ${plan} Membership!`,
-    html: `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Subscription Confirmation</title>
-      <style>
-        body { 
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          line-height: 1.6;
-          color: #333;
-          margin: 0;
-          padding: 0;
-        }
-        .container {
-          max-width: 600px;
-          margin: 0 auto;
-          padding: 20px;
-          background-color: #ffffff;
-        }
-        .header {
-          background-color: #4a6fa5;
-          padding: 20px;
-          text-align: center;
-          color: white;
-          border-radius: 5px 5px 0 0;
-        }
-        .content {
-          padding: 20px;
-          border: 1px solid #e9e9e9;
-          border-top: none;
-          border-radius: 0 0 5px 5px;
-        }
-        .footer {
-          margin-top: 20px;
-          text-align: center;
-          font-size: 12px;
-          color: #999;
-        }
-        .button {
-          display: inline-block;
-          padding: 10px 20px;
-          background-color: #4a6fa5;
-          color: white;
-          text-decoration: none;
-          border-radius: 4px;
-          margin-top: 15px;
-        }
-        .highlights {
-          background-color: #f8f9fa;
-          border-left: 4px solid #4a6fa5;
-          padding: 15px;
-          margin: 20px 0;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>Subscription Confirmed!</h1>
-        </div>
-        <div class="content">
-          <h2>Hello ${userNickname},</h2>
-          <p>Thank you for subscribing to our <strong>${plan} Plan</strong>! Your subscription is now active.</p>
-          
-          <div class="highlights">
-            <h3>Your ${plan} Benefits:</h3>
-            <ul>
-              ${featuresHtml(plan)}
-            </ul>
-          </div>
-          
-          <p>You can manage your subscription at any time through your account settings.</p>
-          
-          <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
-          
-          <a href="${FRONTEND_URL}/account" class="button">Manage Your Account</a>
-          
-          <p>Best regards,<br>The ST Hopwood Team</p>
-        </div>
-        <div class="footer">
-          <p>&copy; ${new Date().getFullYear()} ST Hopwood. All rights reserved.</p>
-          <p>This email was sent to you because you subscribed to our service.</p>
-        </div>
-      </div>
-    </body>
-    </html>
-    `,
-    text: `Hello ${userNickname},
-    
-Thank you for subscribing to our ${plan} Plan! Your subscription is now active.
+  const userNickname = userData?.text?.match(/Nickname:([^|]+)/)?.[1]?.trim() || 'there';
 
-Your ${plan} Benefits:
+  const html = renderEmail({
+    title: `Welcome to ${plan}`,
+    preheader: `Your ${plan} plan is active — here’s what you can do now.`,
+    eyebrow: 'Subscription confirmed',
+    heading: `Your ${plan} plan is active`,
+    body: [
+      p(`Hi ${esc(userNickname)},`),
+      p(`Thanks for subscribing. Your <strong>${esc(plan)} plan</strong> is live and everything below is switched on right now.`),
+      panel(`<ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.6;color:${BRAND.text};" class="dm-text">${featuresHtml(plan)}</ul>`, { title: `What ${plan} includes` }),
+      p('You can change or cancel your plan at any time from your account — no email required.'),
+      p('Questions about billing, or something not working as you expected? Reply to this email and it comes straight to us.', { size: 14, muted: true, bottom: 6 }),
+    ],
+    cta: { label: 'Go to your account', href: `${FRONTEND_URL}/profile` },
+    footerReason: `You’re receiving this because you subscribed to ${BRAND.name}.`,
+  });
+
+  const text = `YOUR ${String(plan).toUpperCase()} PLAN IS ACTIVE
+
+Hi ${userNickname},
+
+Thanks for subscribing. Your ${plan} plan is live and everything below is switched on right now.
+
+WHAT ${String(plan).toUpperCase()} INCLUDES
 ${featuresText(plan)}
 
-You can manage your subscription at any time through your account settings.
+You can change or cancel your plan at any time from your account:
+${FRONTEND_URL}/profile
 
-If you have any questions or need assistance, please don't hesitate to contact our support team.
+Questions about billing, or something not working as you expected? Reply to this email and it comes straight to us.
 
-Best regards,
-The ST Hopwood Team
+Manage your email settings: ${FRONTEND_URL}/settings#notifications
 
-© ${new Date().getFullYear()} ST Hopwood. All rights reserved.
-This email was sent to you because you subscribed to our service.`
-  };
+© ${new Date().getFullYear()} ${BRAND.name}. All rights reserved.
+You're receiving this because you subscribed to ${BRAND.name}.`;
+
+  return { subject: `Your ${plan} plan is active`, html, text };
 };
 
 // Template for when a user updates their subscription plan
 const subscriptionUpdatedTemplate = (data) => {
   const { oldPlan, newPlan, userData } = data;
-  const userNickname = userData?.text?.match(/Nickname:([^|]+)/)?.[1]?.trim() || 'valued customer';
-  
-  return {
-    subject: `Your Subscription Has Been Updated to ${newPlan}`,
-    html: `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Subscription Update</title>
-      <style>
-        body { 
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          line-height: 1.6;
-          color: #333;
-          margin: 0;
-          padding: 0;
-        }
-        .container {
-          max-width: 600px;
-          margin: 0 auto;
-          padding: 20px;
-          background-color: #ffffff;
-        }
-        .header {
-          background-color: #5e8b7e;
-          padding: 20px;
-          text-align: center;
-          color: white;
-          border-radius: 5px 5px 0 0;
-        }
-        .content {
-          padding: 20px;
-          border: 1px solid #e9e9e9;
-          border-top: none;
-          border-radius: 0 0 5px 5px;
-        }
-        .footer {
-          margin-top: 20px;
-          text-align: center;
-          font-size: 12px;
-          color: #999;
-        }
-        .button {
-          display: inline-block;
-          padding: 10px 20px;
-          background-color: #5e8b7e;
-          color: white;
-          text-decoration: none;
-          border-radius: 4px;
-          margin-top: 15px;
-        }
-        .highlights {
-          background-color: #f8f9fa;
-          border-left: 4px solid #5e8b7e;
-          padding: 15px;
-          margin: 20px 0;
-        }
-        .comparison {
-          display: flex;
-          margin: 20px 0;
-          border: 1px solid #e9e9e9;
-          border-radius: 5px;
-          overflow: hidden;
-        }
-        .plan-column {
-          flex: 1;
-          padding: 15px;
-        }
-        .old-plan {
-          background-color: #f8f9fa;
-          border-right: 1px solid #e9e9e9;
-        }
-        .new-plan {
-          background-color: #f0f7f4;
-        }
-        .plan-header {
-          text-align: center;
-          font-weight: bold;
-          margin-bottom: 10px;
-          padding-bottom: 10px;
-          border-bottom: 1px solid #e9e9e9;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>Subscription Updated</h1>
-        </div>
-        <div class="content">
-          <h2>Hello ${userNickname},</h2>
-          <p>Your subscription has been successfully updated from <strong>${oldPlan}</strong> to <strong>${newPlan}</strong>!</p>
-          
-          <div class="comparison">
-            <div class="plan-column old-plan">
-              <div class="plan-header">${oldPlan} Plan (Previous)</div>
-              <ul>
-                ${featuresHtml(oldPlan)}
-              </ul>
-            </div>
-            <div class="plan-column new-plan">
-              <div class="plan-header">${newPlan} Plan (New)</div>
-              <ul>
-                ${featuresHtml(newPlan)}
-              </ul>
-            </div>
-          </div>
-          
-          <p>Your billing will be updated accordingly. You can manage your subscription at any time through your account settings.</p>
-          
-          <p>If you have any questions about your new plan or need assistance, please contact our support team.</p>
-          
-          <a href="${FRONTEND_URL}/account" class="button">Manage Your Account</a>
-          
-          <p>Best regards,<br>The ST Hopwood Team</p>
-        </div>
-        <div class="footer">
-          <p>&copy; ${new Date().getFullYear()} ST Hopwood. All rights reserved.</p>
-          <p>This email was sent to you because you updated your subscription plan.</p>
-        </div>
-      </div>
-    </body>
-    </html>
-    `,
-    text: `Hello ${userNickname},
+  const userNickname = userData?.text?.match(/Nickname:([^|]+)/)?.[1]?.trim() || 'there';
 
-Your subscription has been successfully updated from ${oldPlan} to ${newPlan}!
+  const html = renderEmail({
+    title: `Plan changed to ${newPlan}`,
+    preheader: `You’ve moved from ${oldPlan} to ${newPlan}.`,
+    eyebrow: 'Subscription updated',
+    heading: `You’re now on ${newPlan}`,
+    body: [
+      p(`Hi ${esc(userNickname)},`),
+      p(`Your plan change went through. You were on <strong>${esc(oldPlan)}</strong> and you’re now on <strong>${esc(newPlan)}</strong> — the new limits and features apply immediately.`),
+      panel(rows([['Previous plan', oldPlan], ['New plan', newPlan]]), { title: 'The change' }),
+      newPlan && getPlanFeatures(newPlan).length
+        ? panel(`<ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.6;color:${BRAND.text};" class="dm-text">${featuresHtml(newPlan)}</ul>`, { title: `What ${newPlan} includes` })
+        : '',
+      p(`If you didn’t expect this change, reply to this email immediately — we’ll sort it out.`, { size: 14, muted: true, bottom: 6 }),
+    ],
+    cta: { label: 'Review your plan', href: `${FRONTEND_URL}/profile` },
+    footerReason: 'You’re receiving this because your subscription changed.',
+  });
 
-Previous ${oldPlan} Plan:
-${featuresText(oldPlan)}
+  const text = `YOU'RE NOW ON ${String(newPlan).toUpperCase()}
 
-New ${newPlan} Plan:
+Hi ${userNickname},
+
+Your plan change went through. You were on ${oldPlan} and you're now on ${newPlan} — the new limits and features apply immediately.
+
+WHAT ${String(newPlan).toUpperCase()} INCLUDES
 ${featuresText(newPlan)}
 
-Your billing will be updated accordingly. You can manage your subscription at any time through your account settings.
+Review your plan: ${FRONTEND_URL}/profile
 
-If you have any questions about your new plan or need assistance, please contact our support team.
+If you didn't expect this change, reply to this email immediately — we'll sort it out.
 
-Best regards,
-The ST Hopwood Team
+Manage your email settings: ${FRONTEND_URL}/settings#notifications
 
-© ${new Date().getFullYear()} ST Hopwood. All rights reserved.
-This email was sent to you because you updated your subscription plan.`
-  };
+© ${new Date().getFullYear()} ${BRAND.name}. All rights reserved.
+You're receiving this because your subscription changed.`;
+
+  return { subject: `Your plan changed to ${newPlan}`, html, text };
 };
 
 // Template for when a user cancels their subscription
 const subscriptionCancelledTemplate = (data) => {
   const { plan, userData } = data;
-  const userNickname = userData?.text?.match(/Nickname:([^|]+)/)?.[1]?.trim() || 'valued customer';
-  
-  return {
-    subject: 'Your Subscription Has Been Cancelled',
-    html: `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Subscription Cancellation</title>
-      <style>
-        body { 
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          line-height: 1.6;
-          color: #333;
-          margin: 0;
-          padding: 0;
-        }
-        .container {
-          max-width: 600px;
-          margin: 0 auto;
-          padding: 20px;
-          background-color: #ffffff;
-        }
-        .header {
-          background-color: #7d8597;
-          padding: 20px;
-          text-align: center;
-          color: white;
-          border-radius: 5px 5px 0 0;
-        }
-        .content {
-          padding: 20px;
-          border: 1px solid #e9e9e9;
-          border-top: none;
-          border-radius: 0 0 5px 5px;
-        }
-        .footer {
-          margin-top: 20px;
-          text-align: center;
-          font-size: 12px;
-          color: #999;
-        }
-        .button {
-          display: inline-block;
-          padding: 10px 20px;
-          background-color: #7d8597;
-          color: white;
-          text-decoration: none;
-          border-radius: 4px;
-          margin-top: 15px;
-        }
-        .message-box {
-          background-color: #f8f9fa;
-          border-left: 4px solid #7d8597;
-          padding: 15px;
-          margin: 20px 0;
-        }
-        .resubscribe {
-          background-color: #f0f7f4;
-          border: 1px solid #d1e7dd;
-          border-radius: 5px;
-          padding: 15px;
-          margin: 20px 0;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>Subscription Cancelled</h1>
-        </div>
-        <div class="content">
-          <h2>Hello ${userNickname},</h2>
-          <p>Your ${plan} subscription has been cancelled and will end at the end of your current billing period. You'll keep ${plan} features until then.</p>
-          
-          <div class="message-box">
-            <h3>What This Means:</h3>
-            <ul>
-              <li>You will not be billed again after this billing period</li>
-              <li>Your ${plan} features stay active until the period ends, then switch to the Free plan</li>
-              <li>Your account data has been preserved</li>
-            </ul>
-          </div>
-          
-          <p>We're sorry to see you go! If you have a moment, we'd appreciate it if you could let us know why you decided to cancel so we can continue to improve our service.</p>
-          
-          <div class="resubscribe">
-            <h3>Changed Your Mind?</h3>
-            <p>You can resubscribe at any time to regain access to premium features.</p>
-            <a href="${FRONTEND_URL}/pricing" class="button">View Subscription Options</a>
-          </div>
-          
-          <p>If you have any questions or feedback, please don't hesitate to contact our support team.</p>
-          
-          <p>Best regards,<br>The ST Hopwood Team</p>
-        </div>
-        <div class="footer">
-          <p>&copy; ${new Date().getFullYear()} ST Hopwood. All rights reserved.</p>
-          <p>This email was sent to you because you cancelled your subscription.</p>
-        </div>
-      </div>
-    </body>
-    </html>
-    `,
-    text: `Hello ${userNickname},
+  const userNickname = userData?.text?.match(/Nickname:([^|]+)/)?.[1]?.trim() || 'there';
 
-Your ${plan} subscription has been cancelled and will end at the end of your current billing period. You'll keep ${plan} features until then.
+  const html = renderEmail({
+    title: 'Your subscription is cancelled',
+    preheader: `Your ${plan} plan has been cancelled — here’s what still works.`,
+    eyebrow: 'Subscription cancelled',
+    heading: 'Your subscription is cancelled',
+    body: [
+      p(`Hi ${esc(userNickname)},`),
+      p(`Your <strong>${esc(plan)}</strong> subscription is cancelled and you won’t be billed again.`),
+      panel(
+        rows([
+          ['Plan', `${plan} — cancelled`],
+          ['Billing', 'No further charges'],
+        ]),
+        { title: 'Where things stand' },
+      ),
+      p('Here’s what changes:'),
+      bullets([
+        'Anything you saved stays yours — nothing is deleted.',
+        'Plan features and limits end at the close of the period you already paid for.',
+        'Your account stays open on the free plan.',
+      ]),
+      p('You can resubscribe whenever you like, and everything you had will still be there.', { size: 14, muted: true, bottom: 6 }),
+    ],
+    cta: { label: 'View your account', href: `${FRONTEND_URL}/profile` },
+    footerReason: 'You’re receiving this because your subscription was cancelled.',
+  });
 
-What This Means:
-- You will not be billed again after this billing period
-- Your ${plan} features stay active until the period ends, then switch to the Free plan
-- Your account data has been preserved
+  const text = `YOUR SUBSCRIPTION IS CANCELLED
 
-We're sorry to see you go! If you have a moment, we'd appreciate it if you could let us know why you decided to cancel so we can continue to improve our service.
+Hi ${userNickname},
 
-Changed Your Mind?
-You can resubscribe at any time to regain access to premium features.
-Visit: ${FRONTEND_URL}/pricing
+Your ${plan} subscription is cancelled and you won't be billed again.
 
-If you have any questions or feedback, please don't hesitate to contact our support team.
+WHAT CHANGES
+- Anything you saved stays yours — nothing is deleted.
+- Plan features and limits end at the close of the period you already paid for.
+- Your account stays open on the free plan.
 
-Best regards,
-The ST Hopwood Team
+You can resubscribe whenever you like, and everything you had will still be there.
 
-© ${new Date().getFullYear()} ST Hopwood. All rights reserved.
-This email was sent to you because you cancelled your subscription.`
-  };
+View your account: ${FRONTEND_URL}/profile
+
+Manage your email settings: ${FRONTEND_URL}/settings#notifications
+
+© ${new Date().getFullYear()} ${BRAND.name}. All rights reserved.
+You're receiving this because your subscription was cancelled.`;
+
+  return { subject: 'Your subscription is cancelled', html, text };
 };
 
 // Template for new account registration (transactional — always sent)
@@ -660,74 +472,60 @@ const welcomeTemplate = (data) => {
   const { userNickname } = data;
   const name = userNickname || 'there';
 
-  return {
-    subject: 'Welcome to ST Hopwood! 🎉',
-    html: `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Welcome to ST Hopwood</title>
-      <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; }
-        .header { background-color: #4a6fa5; padding: 20px; text-align: center; color: white; border-radius: 5px 5px 0 0; }
-        .content { padding: 20px; border: 1px solid #e9e9e9; border-top: none; border-radius: 0 0 5px 5px; }
-        .footer { margin-top: 20px; text-align: center; font-size: 12px; color: #999; }
-        .button { display: inline-block; padding: 12px 24px; background-color: #4a6fa5; color: white; text-decoration: none; border-radius: 4px; margin-top: 15px; font-weight: bold; }
-        .highlights { background-color: #f8f9fa; border-left: 4px solid #4a6fa5; padding: 15px; margin: 20px 0; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header"><h1>Welcome aboard!</h1></div>
-        <div class="content">
-          <h2>Hello ${name},</h2>
-          <p>Thanks for creating your ST Hopwood account — we're glad to have you.</p>
+  const nextSteps = [
+    ['Talk to it', `Ask for anything in plain English at <a href="${FRONTEND_URL}/net" style="color:${BRAND.blue};">the chat</a> — it can answer, plan, and get things done.`],
+    ['Watch it work', `Connect the desktop addon and you can see every step it takes at <a href="${FRONTEND_URL}/simple" style="color:${BRAND.blue};">Control</a>, and stop it any time.`],
+    ['Keep what it learns', `Goals, plans and lessons are saved at <a href="${FRONTEND_URL}/plans" style="color:${BRAND.blue};">Goals</a>, so next time is one click.`],
+  ];
 
-          <div class="highlights">
-            <h3>What you can do next:</h3>
-            <ul>
-              <li>Explore the AI chat at <strong>/net</strong>, powered by AWS Bedrock</li>
-              <li>Manage your data, storage, and files from your profile</li>
-              <li>Upgrade to a paid plan for more automation and storage</li>
-            </ul>
-          </div>
+  const html = renderEmail({
+    title: 'Welcome aboard',
+    preheader: 'Your account is ready — here are the three things worth trying first.',
+    eyebrow: 'Welcome',
+    heading: 'Welcome aboard',
+    body: [
+      p(`Hi ${esc(name)},`),
+      p('Thanks for creating an account. Here are the three things worth trying first:'),
+      `
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 18px;">
+        ${nextSteps
+          .map(
+            ([title, body]) => `
+        <tr>
+          <td class="dm-text" style="padding:14px 0 0;font-size:14px;line-height:1.6;color:${BRAND.text};">
+            <strong>${esc(title)}</strong><br>
+            <span class="dm-muted" style="color:${BRAND.muted};">${body}</span>
+          </td>
+        </tr>`,
+          )
+          .join('')}
+      </table>`,
+      p('Questions or feedback? Just reply to this email — we read every message.', { size: 14, muted: true, bottom: 6 }),
+    ],
+    cta: { label: 'Open the chat', href: `${FRONTEND_URL}/net` },
+    footerReason: 'You’re receiving this because you created an ST Hopwood account.',
+  });
 
-          <p>Questions or feedback? Just reply to this email — we read every message.</p>
+  const text = `WELCOME ABOARD
 
-          <a href="${FRONTEND_URL}/net" class="button">Open AI Chat</a>
+Hi ${name},
 
-          <p>Best regards,<br>The ST Hopwood Team</p>
-        </div>
-        <div class="footer">
-          <p>&copy; ${new Date().getFullYear()} ST Hopwood. All rights reserved.</p>
-          <p>You received this email because you created an ST Hopwood account.</p>
-        </div>
-      </div>
-    </body>
-    </html>
-    `,
-    text: `Hello ${name},
+Thanks for creating an account. Here are the three things worth trying first:
 
-Thanks for creating your ST Hopwood account — we're glad to have you.
-
-What you can do next:
-- Explore the AI chat at /net, powered by AWS Bedrock
-- Manage your data, storage, and files from your profile
-- Upgrade to a paid plan for more automation and storage
+1. Talk to it — ask for anything in plain English at ${FRONTEND_URL}/net
+2. Watch it work — connect the desktop addon and see every step at ${FRONTEND_URL}/simple
+3. Keep what it learns — goals, plans and lessons live at ${FRONTEND_URL}/plans
 
 Questions or feedback? Just reply to this email — we read every message.
 
-Open AI Chat: ${FRONTEND_URL}/net
+Open the chat: ${FRONTEND_URL}/net
 
-Best regards,
-The ST Hopwood Team
+Manage your email settings: ${FRONTEND_URL}/settings#notifications
 
-© ${new Date().getFullYear()} ST Hopwood. All rights reserved.
-You received this email because you created an ST Hopwood account.`
-  };
+© ${new Date().getFullYear()} ${BRAND.name}. All rights reserved.
+You're receiving this because you created an ST Hopwood account.`;
+
+  return { subject: 'Welcome to ST Hopwood', html, text };
 };
 
 // Template for when an admin resolves a user's bug report
@@ -737,67 +535,46 @@ const bugReportResolvedTemplate = (data) => {
   const title = bugTitle || 'Your bug report';
   const resolution = resolutionText || 'Your report has been reviewed and resolved.';
 
-  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  })[c]);
+  const html = renderEmail({
+    title: 'Your bug report has been resolved',
+    preheader: `“${title}” — here’s what we did.`,
+    eyebrow: 'Bug report',
+    heading: 'Your bug report is resolved',
+    body: [
+      p(`Hi ${esc(name)},`),
+      p('Good news — a bug report you sent us has been fixed. Thank you for taking the time to write it up; that’s what makes these fast to track down.'),
+      panel(
+        `<p class="dm-text" style="margin:0 0 10px;font-size:14px;line-height:1.6;color:${BRAND.text};"><strong>Report</strong><br><span class="dm-muted" style="color:${BRAND.muted};">${esc(title)}</span></p>
+         <p class="dm-text" style="margin:0;font-size:14px;line-height:1.6;color:${BRAND.text};"><strong>What we did</strong><br><span class="dm-muted" style="color:${BRAND.muted};">${esc(resolution)}</span></p>`,
+      ),
+      p('If it still looks wrong on your side, reply to this email — re-opening it is quick.', { size: 14, muted: true, bottom: 6 }),
+    ],
+    cta: { label: 'See your reports', href: `${FRONTEND_URL}/support` },
+    footerReason: 'You’re receiving this because a bug report you filed was resolved.',
+  });
 
-  return {
-    subject: 'Your bug report has been resolved',
-    html: `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Bug report resolved</title>
-      <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; }
-        .header { background-color: #4a6fa5; padding: 20px; text-align: center; color: white; border-radius: 5px 5px 0 0; }
-        .content { padding: 20px; border: 1px solid #e9e9e9; border-top: none; border-radius: 0 0 5px 5px; }
-        .footer { margin-top: 20px; text-align: center; font-size: 12px; color: #999; }
-        .resolution { background-color: #f8f9fa; border-left: 4px solid #4a6fa5; padding: 15px; margin: 20px 0; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header"><h1>Bug report resolved</h1></div>
-        <div class="content">
-          <h2>Hello ${name},</h2>
-          <p>Good news — a bug report you submitted has been reviewed and resolved.</p>
+  const text = `YOUR BUG REPORT IS RESOLVED
 
-          <div class="resolution">
-            <p><strong>Report:</strong> ${esc(title)}</p>
-            <p><strong>Resolution:</strong> ${esc(resolution)}</p>
-          </div>
+Hi ${name},
 
-          <p>Thanks for helping us improve. If anything still looks wrong, just reply to this email — we read every message.</p>
+Good news — a bug report you sent us has been fixed. Thank you for taking the time to write it up.
 
-          <p>Best regards,<br>The ST Hopwood Team</p>
-        </div>
-        <div class="footer">
-          <p>&copy; ${new Date().getFullYear()} ST Hopwood. All rights reserved.</p>
-          <p>You received this email because a bug report you filed was resolved.</p>
-        </div>
-      </div>
-    </body>
-    </html>
-    `,
-    text: `Hello ${name},
+REPORT
+${title}
 
-Good news — a bug report you submitted has been reviewed and resolved.
+WHAT WE DID
+${resolution}
 
-Report: ${title}
-Resolution: ${resolution}
+If it still looks wrong on your side, reply to this email — re-opening it is quick.
 
-Thanks for helping us improve. If anything still looks wrong, just reply to this email — we read every message.
+See your reports: ${FRONTEND_URL}/support
 
-Best regards,
-The ST Hopwood Team
+Manage your email settings: ${FRONTEND_URL}/settings#notifications
 
-© ${new Date().getFullYear()} ST Hopwood. All rights reserved.
-You received this email because a bug report you filed was resolved.`
-  };
+© ${new Date().getFullYear()} ${BRAND.name}. All rights reserved.
+You're receiving this because a bug report you filed was resolved.`;
+
+  return { subject: 'Your bug report has been resolved', html, text };
 };
 
 module.exports = {
@@ -806,5 +583,5 @@ module.exports = {
   subscriptionUpdatedTemplate,
   subscriptionCancelledTemplate,
   welcomeTemplate,
-  bugReportResolvedTemplate
+  bugReportResolvedTemplate,
 };

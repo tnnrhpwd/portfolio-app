@@ -38,9 +38,11 @@
  *          punched into holes
  *        - trim to content, cap the longest side, write PNG
  *
- * Usage:
- *   node scripts/rocket/extract-sprites.js                    # every sheet
+ * Usage (paths are derived from the folder holding the spec's `sheets.json`,
+ * so one extractor serves every pack — rocket, coliseum, …):
+ *   node scripts/rocket/extract-sprites.js                    # the rocket pack
  *   node scripts/rocket/extract-sprites.js --sheet ui-icons
+ *   node scripts/rocket/extract-sprites.js --spec scripts/coliseum/sheets.json
  *   node scripts/rocket/extract-sprites.js --no-preview
  *   node scripts/rocket/extract-sprites.js --dump-detected    # -> detected.json
  *   node scripts/rocket/extract-sprites.js --debug-mask       # mask PNGs
@@ -68,12 +70,33 @@ function loadSharp() {
 }
 const sharp = loadSharp();
 
-const SRC_DIR = path.join(ROOT, 'frontend', 'src', 'assets', 'rocket');
-const OUT_DIR = path.join(ROOT, 'frontend', 'public', 'rocket');
+/**
+ * Where a pack lives. A "pack" is named after the folder holding its
+ * `sheets.json`, and its three directories are derived from that name — so
+ * `--spec scripts/coliseum/sheets.json` writes sources from
+ * `frontend/src/assets/coliseum`, exports to `frontend/public/coliseum`, and
+ * drops review artefacts in `docs/images/coliseum/preview`. The defaults
+ * reproduce the original rocket layout, so the no-flag invocation is unchanged.
+ *
+ * These are `let` because `main()` re-points them from the CLI before any sheet
+ * is processed; every reader below calls them at use time, not at import time.
+ */
+let PACK = 'rocket';
+let SPEC_PATH = path.join(__dirname, 'sheets.json');
+let SRC_DIR = path.join(ROOT, 'frontend', 'src', 'assets', PACK);
+let OUT_DIR = path.join(ROOT, 'frontend', 'public', PACK);
 // Previews deliberately live OUTSIDE frontend/public: they are review artefacts
 // and must never ship to production with the game.
-const PREVIEW_DIR = path.join(ROOT, 'docs', 'images', 'rocket', 'preview');
-const SPEC_PATH = path.join(__dirname, 'sheets.json');
+let PREVIEW_DIR = path.join(ROOT, 'docs', 'images', PACK, 'preview');
+
+/** Point the pack paths at `specPath`; the CLI may override any directory. */
+function configurePaths(specPath, overrides = {}) {
+  SPEC_PATH = path.resolve(specPath);
+  PACK = path.basename(path.dirname(SPEC_PATH));
+  SRC_DIR = overrides.src ?? path.join(ROOT, 'frontend', 'src', 'assets', PACK);
+  OUT_DIR = overrides.out ?? path.join(ROOT, 'frontend', 'public', PACK);
+  PREVIEW_DIR = overrides.preview ?? path.join(ROOT, 'docs', 'images', PACK, 'preview');
+}
 
 /** Every file name handed out so far, across ALL sheets. */
 const usedFileNames = new Map();
@@ -852,6 +875,29 @@ async function processSheet(spec, defaults, args, detectedOut) {
     kept.push(leaf);
   }
 
+  // AI sheets add unrequested filler around the briefed items — the Stability
+  // models answer a "three helmets" brief with three big helmets PLUS a band of
+  // small bonus helms, gems and shields. `keepLargest` keeps the N biggest
+  // sprites and drops the rest. That is far more robust than hand-tuned exclude
+  // rects, which need re-tuning every time the model re-rolls the filler, and it
+  // rests on a reliable signal: the briefed items are drawn large, the filler
+  // small. Reading order (and therefore `names`) is preserved by filtering in
+  // place rather than by re-sorting.
+  //
+  // Skipped under --dump-detected: that dump exists to show you everything the
+  // detector found so you can name (or drop) it, and hiding 26 of 27 blobs makes
+  // it useless for exactly that job.
+  if (spec.keepLargest && !args.dumpDetected && kept.length > spec.keepLargest) {
+    const before = kept.length;
+    const keep = new Set(
+      [...kept].sort((a, b) => b.w * b.h - a.w * a.h).slice(0, spec.keepLargest),
+    );
+    kept.splice(0, kept.length, ...kept.filter((leaf) => keep.has(leaf)));
+    console.log(
+      `${C.dim}  · ${spec.id}: kept the ${spec.keepLargest} largest of ${before} sprite(s), dropped ${before - spec.keepLargest} filler${C.reset}`,
+    );
+  }
+
   // hand-placed regions for content the detector cannot judge by itself
   // (grey rating stars look exactly like caption glyphs, so they get erased)
   const manual = (spec.regions || []).map((r) => ({
@@ -1053,22 +1099,37 @@ async function main() {
     debugMask: false,
     dumpDetected: false,
     numbers: false,
+    spec: null,
+    src: null,
+    out: null,
+    previewDir: null,
   };
   const argv = process.argv.slice(2);
-  for (let i = 0; i < argv.length; i++) {
+  for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '--sheet') args.sheet = argv[++i];
+    else if (a === '--spec') args.spec = argv[++i];
+    else if (a === '--src') args.src = argv[++i];
+    else if (a === '--out') args.out = argv[++i];
+    else if (a === '--preview-dir') args.previewDir = argv[++i];
     else if (a === '--no-preview') args.preview = false;
     else if (a === '--debug-mask') args.debugMask = true;
     else if (a === '--dump-detected') args.dumpDetected = true;
     else if (a === '--numbers') args.numbers = true;
     else if (a === '--help' || a === '-h') {
       console.log(
-        'usage: node scripts/rocket/extract-sprites.js [--sheet <id>] [--no-preview] [--debug-mask] [--dump-detected] [--numbers]',
+        'usage: node scripts/<pack>/extract-sprites.js [--spec <path>] [--src <dir>] [--out <dir>] [--preview-dir <dir>] [--sheet <id>] [--no-preview] [--debug-mask] [--dump-detected] [--numbers]',
       );
       return;
     }
   }
+
+  // Re-point the pack directories before anything reads them.
+  configurePaths(args.spec ?? SPEC_PATH, {
+    src: args.src,
+    out: args.out,
+    preview: args.previewDir,
+  });
 
   if (!fs.existsSync(SPEC_PATH)) throw new Error(`missing spec: ${SPEC_PATH}`);
   const spec = JSON.parse(fs.readFileSync(SPEC_PATH, 'utf8'));
@@ -1080,14 +1141,15 @@ async function main() {
   const sheets = spec.sheets.filter((s) => !args.sheet || s.id === args.sheet);
   if (!sheets.length) throw new Error(`no sheet matches --sheet ${args.sheet}`);
 
-  console.log(`${C.cyan}Rocket sprite extraction${C.reset} ${C.dim}(${sheets.length} sheet(s))${C.reset}`);
+  console.log(`${C.cyan}${PACK} sprite extraction${C.reset} ${C.dim}(${sheets.length} sheet(s))${C.reset}`);
+  console.log(`${C.dim}  spec: ${path.relative(ROOT, SPEC_PATH)} -> ${path.relative(ROOT, OUT_DIR)}${C.reset}`);
 
   const detected = args.dumpDetected ? [] : null;
   const report = [];
   for (const s of sheets) report.push(await processSheet(s, defaults, args, detected));
 
   if (detected) {
-    const p = path.join(__dirname, 'detected.json');
+    const p = path.join(path.dirname(SPEC_PATH), 'detected.json');
     fs.writeFileSync(p, `${JSON.stringify(detected, null, 2)}\n`, 'utf8');
     console.log(`${C.dim}  detected: ${path.relative(ROOT, p)}${C.reset}`);
   }
@@ -1105,7 +1167,7 @@ async function main() {
     .map(({ box, ...rest }) => rest);
   const manifest = {
     generatedAt: new Date().toISOString(),
-    note: 'Generated by scripts/rocket/extract-sprites.js — do not edit by hand.',
+    note: `Generated by scripts/${PACK}/extract-sprites.js — do not edit by hand.`,
     counts: {
       assets: assets.length,
       sheets: new Set(assets.map((a) => a.sheet)).size,

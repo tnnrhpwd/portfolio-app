@@ -18,18 +18,14 @@ export class TeamScene extends BaseScene {
     this.render();
   }
 
-  protected onResize(): void {
-    this.render();
-  }
-
   private render(): void {
     this.clearScreen();
     this.applyBackground();
     this.menuBackground();
     this.header('TEAM');
 
-    if (this.compact) {
-      this.renderCompact();
+    if (this.portrait) {
+      this.renderPortrait();
       return;
     }
 
@@ -121,28 +117,47 @@ export class TeamScene extends BaseScene {
     }
   }
 
-  // ── Compact (portrait) fallback ──
-  private renderCompact(): void {
+  // ── Portrait: the three arena slots stack down the screen, then the full
+  // school becomes a 3-column grid (4 columns of 96px needed a 340px gutter). ──
+  private renderPortrait(): void {
     const x = this.cx;
-    addText(this, x, 76, this.gameState.teamName.toUpperCase(), { fontSize: '18px', color: '#e8b84b', fontStyle: 'bold' });
-    this.button(x, 108, 'RENAME TEAM', () => this.renameTeam(), { width: 160, height: 32, fontSize: 12 });
+    this.backButton('Main');
+    addText(this, x, 96, this.gameState.teamName.toUpperCase(), {
+      fontSize: '22px',
+      color: '#e8b84b',
+      fontStyle: 'bold',
+      align: 'center',
+      wordWrap: { width: this.w - 80 },
+    });
+    this.button(x, 148, 'RENAME TEAM', () => this.renameTeam(), { width: 200, height: 44, fontSize: 14 });
 
-    let y = 150;
-    const activeCount = Math.min(3, this.gameState.roster.length);
-    this.gameState.roster.forEach((f, i) => {
-      const active = i < activeCount;
-      addText(this, x, y, `${active ? '★ ' : ''}${f.name} — Lv ${f.level}`, {
-        fontSize: '13px',
-        color: active ? '#f2d98c' : undefined,
-      });
-      this.button(x - 110, y + 20, '◀', () => this.cycleSlot(i, -1), { width: 40, height: 30, fontSize: 16 });
-      this.button(x - 60, y + 20, '▶', () => this.cycleSlot(i, 1), { width: 40, height: 30, fontSize: 16 });
-      this.button(x + 20, y + 20, 'CUSTOMIZE', () => this.customizeFighter(i), { width: 80, height: 30, fontSize: 10 });
-      this.button(x + 115, y + 20, `ROW:${f.row}`, () => this.toggleRow(i), { width: 80, height: 30, fontSize: 11 });
-      y += 54;
+    const slotTop = 250;
+    const slotStep = 150;
+    for (let i = 0; i < 3; i += 1) {
+      this.renderSlot(this.gameState.roster[i] ?? null, i, x, slotTop + i * slotStep);
+    }
+
+    addText(this, x, 690, 'SCHOOL', { fontSize: '20px', color: '#e8b84b', fontStyle: 'bold' });
+    addText(this, x, 716, `${this.gameState.roster.length}/${MAX_ROSTER} fighters`, {
+      fontSize: '13px',
+      color: '#b8aa94',
     });
 
-    this.button(x, this.h - 40, 'BACK', () => this.scene.start('Main'), { width: 120, height: 40, fontSize: 15 });
+    const cell = 110;
+    const gap = 12;
+    const cols = 3;
+    const activeCount = Math.min(3, this.gameState.roster.length);
+    const gridW = cols * cell + (cols - 1) * gap;
+    const x0 = x - gridW / 2 + cell / 2;
+    const y0 = 760;
+    for (let i = 0; i < MAX_ROSTER; i += 1) {
+      const fighter = this.gameState.roster[i] ?? null;
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      this.renderSchoolCell(fighter, i, i >= activeCount, x0 + col * (cell + gap), y0 + row * (cell + gap), cell);
+    }
+
+    addText(this, x, 1216, `Gold: ${this.gameState.gold}`, { fontSize: '18px', color: '#f2d98c' });
   }
 
   // ── Actions ──

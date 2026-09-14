@@ -1436,4 +1436,495 @@ placeholders and a goal keeps the same picture across reloads and devices.
 
 ---
 
+### 13.14 New findings (fourteenth audit pass — the admin console, 2026-09-12)
+
+Surfaced while rebuilding `/admin/*` to the service-page standard (§5.7).
+
+- ✅ **`position: sticky` never worked anywhere on the site.** Every service-page toolbar
+  (`.sd-bar`, `.plans-bar`, and the new `.admin-head`) is declared `position: sticky`, but
+  `App.css` clamped the app root with `overflow-x: hidden` — and `hidden` on one axis
+  resolves the other to `auto`, so `.App` became a **scroll container that never scrolls**
+  (it has `min-height`, so it grows with its content). A sticky descendant then offsets
+  itself against that box instead of the viewport and never engages. Measured on `/simple`
+  before the fix: `.sd-bar` moved 55px → **-392px** while the window scrolled 447px.
+  `Fit.css` and `Plans.css` had each *noticed* this (Fit's comment refuses to be sticky
+  over it; Plans' comment avoids the same clamp on `.plans-page`) — but the root cause was
+  never fixed, so `/plans`' toolbar was sticky in name only. Fixed with
+  `overflow-x: clip` (after the `hidden` fallback, which old browsers still get); `clip`
+  does not create a scroll container. Both `.sd-bar` and `.admin-head` now hold at
+  `--nav-size` exactly, and an A/B of `scrollHeight` / landmark offsets across 10 pages is
+  byte-identical, so no page layout moved.
+- ✅ **The admin console is a service page now** (`pages/Admin/`): one flat surface, a
+  sticky head carrying the route's view name + a live readout + the view tabs, then dense
+  panels as planes of color. `Admin.css` was rewritten (2919 lines → ~1000, with the dead
+  `.admin-hero`/`.admin-orb`/`.admin-page` legacy and the hand-rolled visitor-map styles
+  gone). New `components/Admin/AdminPanel.jsx` (a panel) and `Admin/adminBarContext.js`
+  (`useAdminReadout`, so a view publishes its headline numbers into the toolbar).
+  `CollapsibleSection` now renders as a bare disclosure (a label + caret, no card) rather
+  than a bordered wrapper around already-colored panels, and is a real `<button>` with
+  `aria-expanded`/`aria-controls` instead of a `role="button"` div.
+- ✅ **Two `.admin-table` definitions were racing.** `pages/Admin/Admin.css` and
+  `components/Admin/ScrollableTable.css` (used by `/deepstorage`) both styled
+  `.admin-table`, `.admin-search` and `.table-scroll-container` globally, so whichever
+  stylesheet loaded last won. The admin console's copies are now scoped to
+  `.admin-surface`, which settles it without touching Deep Storage.
+- ✅ **Six transactional emails shared one hand-copied layout.** `services/emailTemplates.js`
+  repeated a `<style>` block, header and footer per template (810 lines). It is now one
+  `renderEmail()` builder (table-based shell, inline structural styles, solid-color
+  fallbacks under every gradient, `prefers-color-scheme` class overrides, a preheader) with
+  the six templates as content — 810 → ~560 lines. Two real defects fell out of the
+  rewrite: the password-reset request details (IP, device, browser) and the bug-report
+  title/resolution were interpolated **unescaped**, so an `&` or `<` in a user-agent string
+  corrupted the HTML — everything dynamic is now escaped. The footer also links
+  `/settings#notifications` (where the preferences actually live) and `/support`.
+- ⚠️ **Not verified against a real inbox.** The templates were rendered in Chrome (light and
+  dark) and inspected, not sent through Gmail/Outlook/Apple Mail. Table layout + inline
+  styles + solid fallbacks are the mitigations, but one real send per template is still the
+  only proof.
+- ⚠️ **The admin console's data states were not eyeballed.** The only browser session
+  available is the shared guest account, which is deliberately not an admin, so every admin
+  fetch 403s. Structure, the shell, all nine routes, the 320→1366px overflow sweep, light +
+  dark and the stickiness were verified; the populated tables, charts and forms were not.
+
+### 13.15 Special accounts get four admin views (2026-09-12)
+
+The `Special` tag (`PUT /admin/users/:id/special`, stored as `|Special:true`) used to
+grant one thing: unlimited API credits. It now also grants **read-only access to four
+admin views** — Dashboard, Visitor map, Reviews and Page rankings — so a helper can
+watch the funnel without being handed the write surfaces.
+
+- **The boundary is `backend/middleware/adminAccess.js`** (`requireAdmin` vs
+  `requireAdminOrSpecial`), and only three routes take the `OrSpecial` variant:
+  `GET /all/admin` (the map + reviews payload), `GET /admin/dashboard` and
+  `GET /analytics/page-rankings`. The users list, the purchase gate, the data explorer,
+  the home-title editor, the email tests, `POST /admin/agent-fix` and Deep Storage stay
+  admin-only. The per-handler checks in `adminController.getAdminDashboard`,
+  `pageViewsController.getPageRankings` and `getHashData.getAllData` were widened to match
+  — flipping only the route middleware would have 403'd inside the controller.
+- **The client mirrors it** (`frontend/src/constants/admin.js`): `SPECIAL_ADMIN_PATHS`
+  drives the tab row, the toolbar `<h1>` and a guard that bounces a Special account off
+  any other `/admin/*` view instead of showing panels that would 403. `isSpecial` is
+  attached to the login/register responses; there is no client-side fallback, so an
+  account flagged *after* signing in must sign in again.
+- ✅ **`GET /all/admin` was shipping every user's password hash.** It returns `item.text`
+  verbatim, and a user row carries `|Password:<bcrypt hash>` inline. No client reads it;
+  it is now `redactPassword()`-ed. Non-negotiable before widening access to the endpoint to
+  anyone but the owner.
+- ⚠️ **A Special account can still see what those four views show**: visitor IPs, cities,
+  reviewer emails, signup emails and MRR. That is inherent to the views the owner asked
+  for, but it is a lot for what is nominally a credits perk — worth a second look if the
+  tag is ever granted more widely.
+- ✅ **The purchase gate moved to `/admin/funnel-tester`.** It sat at the top of the
+  Dashboard, which is exactly the view a Special account *can* open, so it either had to
+  paint a 403 or be conditionally rendered. Moving it is the honest fix: it now lives on
+  an admin-only view with the rest of the money plumbing, and the toolbar readout carries
+  `Purchasing ON/PAUSED` there instead.
+- ✅ **`Hide my visits` → `Hide admin visits` + `Hide special visits`** on `/admin/map`.
+  The old toggle compared against *whoever was signed in*; the two new ones filter the
+  `ADMIN_USER_ID` account and the set of `|Special:true` accounts, independently. The
+  nickname/Special directory is now built from the `getAllData` payload the page already
+  loads, which also fixed a silent cap: the previous lookup asked `/admin/users` for
+  `limit: 200`, so any account past the first 200 had no nickname.
+- ✅ **Top countries (and the map's Location column) spell the country out.** ipinfo
+  returns `country: "CA"`, which is fine in a dump and useless in a report —
+  `frontend/src/utils/countryName.js` maps it via `Intl.DisplayNames`, passes anything
+  that isn't a bare two-letter code through untouched, and never invents a value.
+- ✅ **The sales funnel showed three identical rectangles.** Each bar's label sat *inside*
+  it with `min-width: 108px`, so a 0.3% step was padded to the same width as the 100%
+  step. It is now a `label | track | count` grid: the widths are true proportions (1.5%
+  floor so a small step is still a visible sliver), the conversion captions sit under the
+  bar they convert from, and the overall rate moved into the panel head.
+- ✅ **Two `VisitorMap` bugs found while polishing it**: the dark tile `invert()`
+  filter ran in light mode too (navy map on a light page — now scoped to `.dark-theme`),
+  and the popups/tooltips used `--bg-2`, a token that does not exist in `index.css`, so
+  they rendered with no background at all (now `--bg-1` + a real shadow).
+
+### 13.16 Making the Special tier actually reachable (2026-09-12)
+
+Trying to *use* §13.15 turned up three things, two of them real bugs and one of them the
+reason it looked broken in the browser.
+
+- ⚠️ **The dev backend was serving pre-change code.** The live `/login` response came back
+  without `isSpecial` even though `postData.js` adds it (and logs the key list), so the
+  Special plumbing added in §13.15 — the middleware, the three widened routes, the login
+  flag — was not in the running process at all. Symptom: a Special-bound account shows the
+  four tabs (client-side, from a stored flag) but every request behind them 403s. Any test
+  of this feature needs a **restarted** backend; nothing in the frontend can paper over it.
+- ✅ **`PUT /admin/users/:id/special` refreshed only one of the two caches.** The flag lives
+  *inside* the record's `text` blob (`|Special:true`), so every cache holding that record
+  answers with the old value until its TTL runs out. The handler dropped the credits cache
+  (`apiUsageTracker.refreshUserDataCache`) but not the auth one
+  (`authMiddleware.invalidateUserCache`, 5-minute TTL) — and it is the auth cache that
+  `isSpecialRequest` reads through `req.user.text`. Both directions were wrong: a freshly
+  tagged account was refused for up to five minutes, and a **revoked** account kept its
+  four views for up to five minutes. Now one call, `refreshAccessCaches(id, item)`, in
+  `middleware/adminAccess.js`, which is also where the invariant is documented. Covered by
+  three tests in `__tests__/unit/adminAccess.test.js`.
+- ✅ **A tag applied mid-session needed a re-login, and no longer does.** `isSpecial` rode
+  only on the login response, so an account flagged *after* it signed in had no way to
+  learn about it on the client. `/usage` already reports the live flag, so
+  `getUserUsage.fulfilled` now raises `state.user.isSpecial` (and `dataService.getUserUsage`
+  persists it), and `AdminLayout` asks the server that one question before deciding "not
+  Special" for a signed-in non-admin. It only ever *raises* the flag, from an explicit
+  `isSpecial: true` in a successful response — the server stays the authority.
+- 🐛 **The new gate had a bug the new tests caught.** Folding "is the check in flight?" into
+  the same flag that told the gate to wait meant the gate stopped waiting the moment the
+  request started, and bounced the account home before the answer arrived. The two are now
+  separate (`awaitingSpecialCheck` for the wait, `shouldAskForSpecial` for the request).
+  `frontend/src/pages/Admin/AdminLayout.test.jsx` pins all of it: 9 tabs for admin, exactly
+  4 for Special, `/admin/users` bounced, a mid-session tag let through, a failed check
+  settling the wait, and no check at all for a signed-out visitor.
+- ✅ **The hidden views really are hidden.** The console's tab row is built from
+  `allowedViews` (admin: all nine; Special: the four in `SPECIAL_ADMIN_PATHS`), verified in
+  the browser as 4 tabs — and the only `/admin/*` link rendered *inside* a view is the
+  Dashboard's referrer rows pointing at `/admin/map`, which a Special account may open.
+
+### 13.17 The four Special views on every screen size (2026-09-12)
+
+`/admin`, `/admin/map`, `/admin/reviews` and `/admin/rankings` are the views a helper
+actually opens, on whatever they have to hand. Measured at 320/360/390/414/480/640/768/
+1024/1440/1920/2560 in both themes: no page-level horizontal overflow anywhere, and the
+sticky head — the one thing that costs height on *every* scroll — went from **192px to
+115px** at 320px wide.
+
+- ✅ **The head was a quarter of a phone screen.** At 320px it was 192px of a 720px
+  viewport, permanently, because: the readout chips wrapped onto 2–3 rows, the
+  "↗ View site" button took a full row of its own (the ≤768px rule makes
+  `.admin-bar-actions` 100% wide), and "Signed in as …" ran the full width. Now the chips
+  are a single horizontally-scrolling row, the link returns to its natural width and drops
+  the label below 420px (the logo above it already goes home, and `aria-label` carries the
+  name once `display: none` takes the text out of the accessible tree), and
+  "Signed in as" is the first thing to go on the narrowest screens. Chips also moved from
+  `--text-color-accent` to `--plane-muted` (§13.16's contrast work).
+- ✅ **The KPI readout was one card per row on a phone.** `minmax(min(170px, 100%), 1fr)`
+  against ~255px of content width gives one column, so six numbers cost ~700px of scroll.
+  A phone floor of 120px gives two, and the portrait-kpi rule had to be scoped to
+  `(min-width: 641px)` — it sits *later* in the file, so unscoped it silently outranked the
+  phone block and put the single column back.
+- ✅ **The two wide tables stop being tables below 640px.** Six and seven columns don't fit,
+  and the failure was worse than cramped: the reviews Content column was 74px, so 120
+  characters wrapped into a ~20-line block and **one row was taller than the screen**.
+  Each row is now a labelled block — `thead` hidden, `td` a `9ch | 1fr` grid, the field name
+  from `::before`. The labels live in `Admin.css` in column order and must be kept in step
+  with `Reviews.jsx` / `VisitorMapPage.jsx`, which is why both carry a pointer comment.
+  Zebra stripes moved to the *even* rows: on a block this tall, an odd-row tint reads as a
+  divider between reviews. `admin-table--stacked` is opt-in so the admin-only tables
+  (`/admin/users`, `/admin/bugs`, `/admin/data`) keep scrolling sideways until someone
+  gives them the same treatment.
+- ✅ **The map's date inputs were unreachable at 320px.** `.date-filter` was a wrapping flex
+  row; the second `input[type=date]` is wider than the panel, and `.admin-panel`'s own
+  `overflow: hidden` *clipped* it — the field could not be tapped. It is a
+  `label | control` grid below 640px now, with `min-width: 0` on the controls.
+- ✅ **`/admin/rankings` lost its visit counts at 320px.** `.stat-row` is
+  `space-between` with a `nowrap` count; a long path pushed the count past the panel edge
+  and the panel clipped it. `.stat-row > span { min-width: 0; overflow-wrap: anywhere }`.
+  Same class of bug as the date input: anything that can't shrink will be clipped rather
+  than reported when its container hides overflow.
+- ✅ **`11.390175819396973 MB stored`.** `formatBytes` divided straight through in both
+  copies (`backend/constants/pricing.js`, `frontend/src/constants/pricing.js`). Now one
+  decimal and no trailing `.0` — `11.4 MB`. It was noise in a KPI card at any width and
+  overflowed a phone's card outright. ⚠️ The dashboard's figure comes from the **server**, so
+  this needs a backend restart to appear. `frontend-test-suite` 1341 ✅, backend 664 ✅.
+- ⚠️ **Not verified visually at the end of this pass.** The shared browser surface collapsed
+  to 1×19px mid-session, so the final checks are geometric (panel-relative overflow scans,
+  `::before` label order, cell widths, row heights, head heights, column counts) plus the
+  contrast measurements from §13.16 — not eyeballed screenshots. Worth a look on a real
+  phone.
+
+---
+
+### 13.18 The addon follows the colour scheme, and is a service workspace now (2026-09-13)
+
+The website gained a site-wide colour scheme (`e594343`); the addon had none — three
+hardcoded dark palettes (`#0d1117` GitHub-dark in the dashboard, Catppuccin Mocha in the
+calibration window, a fixed cyan marker in the eye overlay). Both halves of that gap are
+closed in one pass: the addon now follows the scheme, and its dashboard is rebuilt as the
+**service workspace** the UI standard (§5.7) asks for rather than a sidebar + hero card
+layout.
+
+**The scheme, in one stored value.** `settings.json` → `webapp` gains `colorScheme`
+(`ocean` … `custom`), `colorMode` (`system` | `light` | `dark`) and `customColors`
+(`{accent, primary}` — the CSS token names, deliberately not the visitor's
+Primary/Secondary words). That is the same block the site's chat panel already reads and
+writes its own settings through, so the two surfaces have **one** value to agree on
+instead of two:
+
+- `renderer/appearance/appearance.js` — the scheme list (a **mirror** of
+  `frontend/src/utils/scheme.js`, and `appearance.test.js` asserts the two still agree on
+  ids, labels, hues *and order*, so drift fails the addon's test run), plus the resolve /
+  apply / query-string helpers. Pure and headless-requirable.
+- `renderer/appearance/appearance.css` — the derivation, ported from `index.css`:
+  two identity hues → `--scheme-*`, accents re-pinned per mode (0.52 light / 0.76 dark),
+  backdrops with pinned lightness, `neutral` chroma off in **both** mode blocks, custom
+  capped rather than replaced. The addon's own surface tokens (`--bg`, `--panel`,
+  `--text`…) now live here too, per mode.
+- `main.js` reads the appearance when it opens a window and puts it on the window's
+  **URL**, so every window paints correctly on its FIRST frame instead of flashing the
+  wrong mode while a fetch to the local server is in flight; the window's
+  `backgroundColor` follows the mode as well.
+- The dashboard's **Settings → Appearance** panel is the picker (built from the shared
+  list, so it cannot offer a scheme the stylesheet has no rule for), applied on change and
+  written back read-modify-write — `PUT /api/settings` **replaces** the whole `webapp`
+  block, so posting a delta would wipe the user's chat settings, models and agents.
+- `frontend/src/utils/schemeSync.js` is the site's half: on an explicit pick it hands the
+  scheme to the addon. Not on load — pushing from `initScheme()` would probe the addon on
+  every page view for everyone who has not installed it, and would overwrite an addon-side
+  choice. The **mode** is deliberately not pushed (the site's light/dark is how *this*
+  device is being looked at; the addon has its own "follow Windows"), and failure is
+  silent because the addon is optional. The custom pair crosses a vocabulary boundary here
+  and nowhere else: the site's `primary` (dominant) is the addon's `accent`.
+- The **eye overlay is deliberately outside the mode axis**: it floats over the *desktop*,
+  not over the addon's surfaces, so a HUD that went light with the mode would vanish
+  against a white page. It keeps a fixed dark shell and only its gaze marker follows the
+  scheme.
+
+**The dashboard is a service workspace.** Glass over a room, ported token-for-token from
+the site's `.service-room` (two layers at two speeds, `--room-mix` as a *mix* rather than
+an alpha so the neutral page never shows through as grey, and radial gradients instead of
+`filter: blur()` — a gradient falling to transparent *is* a blur). The sidebar is gone:
+the view tabs are a scrolling row of pills inside **one floating glass head** that carries
+the surface's name, its live state, a four-chip readout and the one action
+(`Open Web App ↗`, on the scheme's ramp). The head is deliberately **not sticky** (§5.7's
+console trade: sticky would claim ~150px of every screen and force an opaque base). The
+Status view's four same-shaped panels are a dense `auto-fit` grid (1 col ≤420px, 2 at
+768, 3 at 1024, 4 at 1600); data-heavy views stay single-column, because a 320px column of
+console output is worse than a taller screen. Rows are separated by a **tone**
+(`--glass-edge`), controls stay **solid** (never glass), `button.primary`/`.danger` keep
+their semantic green/red — an alarm that follows the decor is not an alarm — and the
+scheme owns the chrome: head action, tabs, focus, input edges, the room. Added
+`prefers-reduced-motion` (room + pulses + transitions) and `prefers-contrast: more` blocks;
+the gaze heatmap canvas resolves `--accent` to sRGB through a 1×1 probe at draw time,
+because a canvas cannot read a custom property and `oklch()` cannot go into `rgba()`.
+
+**Measured, not eyeballed** — 12 schemes × 2 modes × 12 text pairs, compositing the alpha
+stack before computing each ratio:
+
+- ✅ **0 failures (worst 4.6:1)** after three real fixes. (1) An ink printed on a wash of
+  *its own hue* loses ~1.5 stops — the accent chips measured 2.8–3.7:1 — so the accent
+  badges/tab label now use the site's `--plane-ink-*` recipe (`--accent-in-text`). (2) The
+  status chip washes dropped 15% → 10% (green was 4.15:1). (3) The light-mode
+  green/yellow/red inks darkened (4.43 / 4.28 / 4.54 → 5.82 / 5.85 / 4.65). Body text
+  15.2:1, muted-on-sunken 5.23:1.
+- ✅ **No page-level overflow and no silent `#content` scroll** at 320/360/420/640/768/
+  1024/1280/1600 in both modes; head 163px at ≤420 (three rows: title+state, chips, tabs)
+  and 91px from 768 up.
+- 🐛 **A wide button group overhung a narrow grid track** (`.actions` is `flex-shrink: 0`
+  by definition) and `#content` *scrolled* it sideways rather than reporting overflow —
+  the same "clips rather than complains" family as §13.13. Fixed with `flex-wrap: wrap` on
+  `.row`, verified by comparing every descendant's right edge against its pane.
+- 🐛 **Choosing Custom jumped the whole app to the default's hues.** Seeding must come from
+  the scheme being *replaced* (the site seeds it the same way), so `seedCustomFrom` exists
+  and is unit-tested; without it, picking Custom on Sakura flashed cyan.
+- ⚠️ **`settings.json` is a trap for external tooling.** Round-tripping it through
+  PowerShell (`ConvertFrom-Json | ConvertTo-Json | Set-Content -Encoding UTF8`) writes a
+  **BOM**; the addon server's `JSON.parse` then throws, falls back to `{}`, and the next
+  write it makes (`persistAuthToken`, which writes only `{cloudAuth}`) **wipes every other
+  key**. That happened here and cost a restore from a byte-exact backup. Use `node -e` +
+  `JSON.stringify` (no BOM), and back up first.
+- ⚠️ **Not opened as a real Electron app in this pass.** The dashboard was driven in
+  Chromium with the preload bridge stubbed (`window.simpleDashboard`), which exercises the
+  shell, the head, the tabs, the grid, all 12 views and the picker's write path (verified
+  against the running addon server on `127.0.0.1:3001` — the appearance really persisted to
+  `settings.json`, and the read-modify-write left `theme`/`agents`/`deviceId` intact). The
+  Electron-specific pieces — window `backgroundColor`, the overlay's transparency, calibrat-
+  ion's fullscreen geometry — are unverified by eye. Screenshots were also unavailable at
+  the end (the shared browser surface collapsed to 6px wide, §13.17's hazard), so the final
+  checks are geometric plus computed styles. Worth one real run of the addon.
+
+- ✅ **Released as v1.0.48** (build #48, tag `addon-v1.0.48` → `ec04268`), then **v1.0.49**
+  (build #49, `addon-v1.0.49`) for the follow-up that removed the dashboard's ☰ hamburger
+  menu. The hamburger and its dropdown were a fallback for the old left sidebar; once the
+  view tabs moved into the head they duplicated it exactly, so both went — along with their
+  CSS and the click-outside handler. **Because the tab row is now the only navigation, its
+  overflow had to stop being hidden**: it carries a thin themed scrollbar, which is what lets
+  a mouse user on a narrow window reach a tab that scrolled out of view. The row's id was
+  renamed `#sidebar` → `#view-tabs`, which is what it has actually been since the overhaul.
+  (The v1.0.48 attempt was blocked first, and the reason is worth keeping: `release.js`
+  runs its own preflight and **refuses unless `git status --porcelain` is empty** — at the
+  time, this shared working tree held **25 uncommitted files from other in-flight
+  sessions** (`pages/Simple/**` — Market, Net, Plans, DreamBoard, GoalDetail, SimplePage —
+  `components/SimpleAddon/*.css`, `frontend/src/index.css`, `Projects/Halfway/Halfway.js`,
+  `FRONTEND_UI_STANDARD.md`, `netlify.toml`) with nothing under `simple-addon/`. Committing
+  or stashing another session's work to get a build out was not this pass's call, so the
+  code was published first (`42c6345`) and the release waited; once that work landed, the
+  tree was clean and `node release.js` ran normally. **If it is ever blocked again, the
+  answer is to let the other work land — not to `git add -A`**, because the preflight exists
+  so a tagged build cannot be cut from a state nobody has committed.)
+- ⬜ **Still to confirm by eye: the packaged addon.** CI builds and publishes the release;
+  the running install picks it up on its next update check. Nobody has opened the built
+  v1.0.48 window in this pass (see the note above about the stubbed bridge).
+
+---
+
+### 13.19 A renderer dev preview, and the bug it caught on its first run (2026-09-13)
+
+Seeing a dashboard change used to mean launching Electron (`npm run dev`, which kills the
+installed copy) or building and publishing. `npm run addon` (from the repo root; `npm run
+preview` inside the package) now serves `renderer/` over loopback and opens a browser, with
+**live reload** on any edit under `renderer/`.
+
+- **Why a tool is needed rather than just opening the file.** Each page calls into the
+  preload bridge at module scope, so in a plain browser the *first* `window.simpleDashboard.…`
+  throws and every line after it in the page's script never runs — the page looks broken
+  rather than unstubbed. `scripts/dev-preview.js` injects a shim **ahead of the page's own
+  scripts** (that ordering is the whole point) and watches the tree with
+  `fs.watch({recursive:true})` + SSE for the reload. No dependency, no polling, no build.
+- **It is honest about what it is not.** Bridges are Proxies: `on*` returns an unsubscribe,
+  collection-returning calls resolve to `[]` (so lists render their empty state instead of
+  crashing on `.map`), everything else to `{}`. So IPC-backed panels are empty — device
+  lists, camera previews, gaze streams, Python status — while anything that goes over the
+  local HTTP server is **real**, because the addon's CORS allowlist accepts any loopback
+  origin. The tab title is prefixed `[dev]` and the console says which half is stubbed.
+  Nothing under `renderer/` references the shim; the packaged app still loads those files
+  straight from disk.
+- 🐛 **It found a real bug within minutes.** Against a `settings.json` with no appearance
+  keys — i.e. **a fresh install** — `loadAppearance()` assigned the stored value raw, so
+  `select.value = undefined` left both Appearance pickers **blank**: it read as "broken"
+  rather than "not set yet", and offered a change from an empty state. The stored value now
+  goes through the resolver (which supplies the defaults) and `wireAppearance()` paints the
+  state in force up front, so the pickers are populated even if the settings round-trip
+  never lands. Worth noting the shape of the miss: every test of that picker so far had run
+  against a `settings.json` that already *had* values, because the values were put there by
+  the same feature — the empty case only appeared when previewing against a clean store.
+- ⚠️ Not covered: the preview cannot exercise anything Electron-specific (window
+  `backgroundColor`, real transparency, fullscreen geometry), and its shim is not the real
+  bridge — a panel that looks right here can still fail on a preload method the real app
+  lacks. It shortens the loop for markup/CSS/DOM work; it does not replace one real run.
+
+---
+
+### 13.20 The head's dropper — the webapp's `HeaderDropper`, ported (2026-09-13)
+
+A ☰ at the right of the head opens a drawer containing **every view**, the app-level
+actions, and the mode toggle at its foot — the shape of the site's drawer (groups of
+links, theme last, pinned with `margin-top: auto`). This is what the user asked for
+directly, and it deliberately **reverses** §13.18's "no ☰ nav dropdown" decision: that
+removal was about the *page list* being duplicated, so the tab row stays AND the drawer
+now carries the same list. Both are legitimate: the tab row moves between views at a
+glance, the drawer is the only place that also reaches the actions.
+
+- 🔧 **The trap worth keeping: `#topbar` is a stacking context.** It carries
+  `z-index: 10`, so a descendant's `z-index` orders it only against its *siblings inside
+  the head* — a `position: fixed` drawer left outside the header would have painted over
+  the ☰ and hidden the ✕ that closes it, no matter what `z-index` the trigger was given.
+  The trigger, the scrim and the drawer are therefore **all descendants of `<header>`**
+  (which is what the webapp does too), ordered 70 / 50 / 60 inside that one context.
+  Verified by hit-testing the trigger's centre with the drawer fully open — it resolves to
+  the trigger, not the drawer.
+- 🔧 **The view list is generated from the tab row**, not written out again: page names,
+  order and the set of them live in one place, so a view added to the tabs appears in the
+  drawer for free. Each badge is a **mirror** kept in step by one `MutationObserver` per
+  badge (classes included, so `on`/`warn`/`err` arrive), rather than a snapshot that would
+  freeze at load time. `activateTab()` marks the current view in both lists.
+- **Material:** a pane is 84% (`--glass-a`) because it floats over the flat room, which has
+  nothing legible to show through it. The drawer floats over the *workspace*, so it keeps
+  more of itself (92%) and a scrim dims what is behind: content contributes ~4% of the
+  drawer's final colour. Measured with the compositing done explicitly against a
+  deliberately hostile backdrop — a bright pane behind the open drawer — the effective
+  surface is `#191c22` in dark and `#e9eaec` in light, matching the arithmetic.
+- **Verified in the dev preview (§13.19), not by reasoning:** 192 contrast measurements
+  (12 schemes × 2 modes × 8 pairs, `oklch`/`oklab` converted by hand because Chromium
+  returns the tokens in their authored spaces) — **0 failures, worst 4.50:1**, and that
+  worst case is the pre-existing `.tab-btn .badge` pair (`--muted` on `--glass-sunken`)
+  mirrored rather than "fixed", since changing it here would make the drawer's badges
+  disagree with the tabs'. Plus: open/close by trigger, scrim and Escape (focus returning
+  to the ☰ only if it was inside the drawer); `aria-expanded` driving the ☰→✕ morph from
+  one attribute; no horizontal overflow 320→1600px; the 17-row drawer scrolling at 560px
+  window height with the foot still reachable and the trigger still visible.
+- **Details that are easy to undo by accident:** the closed drawer is `inert` (declared in
+  the markup, not only toggled from script) — that is what keeps its buttons out of the tab
+  order without a hand-rolled focus trap. Each action **delegates** to the control that
+  already owns it (`#status-restart-server` et al.) rather than calling the IPC a second
+  time, so the disabled state and toast stay in one place, and an action whose result lives
+  on a tab takes you to that tab. The `::after` arrow uses `content: '→' / ''`: generated
+  content is otherwise announced, so every row would have been read as "Agent, right
+  arrow". Two `:focus-visible` rules were **removed** — `appearance.css` already defines the
+  addon's single focus ring, and restating it gave these controls a different offset.
+- **Mode toggle semantics match the site:** clicking it makes an *explicit* light/dark
+  choice and leaves `system` behind, which is why the label is read from `data-mode` (the
+  mode actually painted) rather than from `appearanceState.mode`, a value that may be
+  `system` and so is not something to invert. Verified both ways: the Settings `<select>`
+  follows, and the neighbouring `theme` key survives the read-modify-write.
+- ⚠️ Two caveats. The badge pair sits *exactly* at 4.50:1 (AA passes with no margin) —
+  inherited, not introduced. And all of this was verified in Chromium with the preload
+  stubbed: the drawer is pure DOM/CSS so it should transfer, but the built Electron window
+  has not been eyeballed.
+
+---
+
+### 13.21 Service-first pass: the tab row is gone, and the dashboard follows the UI standard (2026-09-13)
+
+The addon asked for two things at once — stop listing the views in the header (the drawer has
+them), and bring the dashboard onto [`FRONTEND_UI_STANDARD.md`](../guides/FRONTEND_UI_STANDARD.md)
+with §5.7's **service page** rules, which is the section that applies: this is a tool someone
+already opened, not a page being sold.
+
+**The head is the toolbar now, and one row of it.** The `<h1>` is the **open view's name**
+("Settings", "Recorder & Skills"), not the app's — the console's shape in §5.7, and the tab row
+was the thing that used to say where you were. The app's own name moved into the drawer's head,
+which also put a stop to the 60px of empty padding that had existed only to clear the ☰/✕.
+
+| | before | after |
+| --- | --- | --- |
+| Head, desktop | 93–103px (2 rows) | **58px** (1 row) |
+| Head, 320px | 175px | **130px** |
+| View switchers | tab row + drawer | **drawer only** |
+
+- 🔧 **`VIEWS` is now the single source** for the view list, because the list used to be
+  *generated from the tab row* — delete the row without replacing that and the drawer silently
+  loses its contents. It also feeds the head's `<h1>` and `setViewBadge()`, so the three can't
+  disagree.
+- **`setViewBadge(id, text, tone)` replaced** both the `MutationObserver` mirror and the six
+  direct `badge.textContent` / `badge.className` writes in the update code. With the tab row gone
+  there is no second copy to mirror, so the helper is simply the one place that writes one —
+  a wash, some state and less code. (An empty badge is hidden explicitly: a pill with padding and
+  no content is a 2px sliver, which is not a thing to rely on.)
+- **A trap this pass produced and then disproved:** for a few seconds the console showed
+  `Cannot set properties of null (setting 'textContent')` from the two badge writers, at three
+  *different* line numbers. Those were artefacts of the live-reload server reloading the page
+  **mid-edit** — the file was between my CSS edit and my JS edit, so the old writers ran against
+  markup that no longer had `#tab-badge-*`. Re-running both functions against the final file gave
+  zero errors. Don't chase a phantom that moves line numbers between reloads.
+- **Rows are tonal blocks, not hairlines.** Every `.row` carries `--glass-row` and the
+  `border-bottom` is gone (the token the standard names for exactly this). Uniform, **not**
+  alternating stripes, and the reason is in the CSS: a `.panel` here holds one to five *setting*
+  rows, and alternation would leave the first row unstyled and depend on whether the pane happens
+  to open with a heading or a hint.
+- **Neutral-grey outlines removed from every container** — list items, the skill summary, the NL
+  result, the console, the progress track, both dialogs, the toast and the `pre` blocks. They are
+  fills on a pane now. **Coloured** edges were left alone: the standard's own `.foo-error` recipe
+  draws one, so an alarm keeps its signal-coloured edge, and controls (buttons, inputs, badges)
+  keep their borders because they are objects.
+- **Copy:** the Appearance panel's two-line lead paragraph became one hint line
+  ("Shared with the web app — one value, both surfaces.") — §5.7 bans a paragraph above a control.
+- **Measured, 96 cells** (12 schemes × 2 modes × 4 pairs) on the pane over the room and the row
+  over that: **0 failures, worst 4.56:1** (`--text` on a row, cyberpunk/dark). The tonal row costs
+  a little headroom against the pane (4.72 vs 14.71 in ocean/dark) because a 4% text wash lifts
+  the background toward the text — it passes everywhere, with the thinnest margin in the scheme
+  whose room is brightest.
+- ⚠️ **Two ways I got that sweep wrong first, both worth avoiding.** (1) I bounded the room by
+  compositing `--scheme-accent` at **full strength** and reported a bogus 3.8:1 failure; the halo
+  is `color-mix(… var(--room-halo))`, i.e. the accent at **10–12% alpha**, so the bound was ~8×
+  too bright. Read the mix percentage out of the token (`--room-mix`, `--room-halo`, `--glass-a`)
+  and composite with it. (2) I hoisted `--glass` and `--glass-row` **out** of the scheme×mode
+  loop and "found" light mode failing at 1.22:1 — they are mode-dependent, so they have to be
+  re-read per mode. Both errors were in the measuring code, not the page, and both would have
+  sent me chasing a real-looking regression that did not exist.
+- **Verified:** all 12 views driven through the drawer (panel shown, `<h1>` matched its label,
+  drawer closed, exactly one row marked current, exactly one panel visible); no horizontal
+  overflow 320→1600px; Esc / scrim / trigger still close, focus still returns only if it was
+  inside. The `#view-tabs` thin scrollbar that §13.18 added for narrow windows is gone with the
+  row — the ☰ is always visible, so no view is ever unreachable now.
+- ⚠️ **A deliberate, stated deviation:** §3's `calc(var(--nav-size) * N)` unit is part of the
+  *website shell* (it tracks the site's header and font scale). The addon is an Electron window
+  with its own palette and scale, so it is not adopted here; what is adopted is the principle —
+  one scale, tokens for every colour, and the contrast/tap-target/focus bar. The addon's own
+  tokens (`--bg`, `--glass-*`, `--scheme-*`, `--room-*`) are the equivalent, and the scheme
+  tokens are already mirrored from the site by `appearance.js` with a test asserting they agree.
+- **No test run for this change:** it touches `renderer/dashboard.html` only, and no test file in
+  the repo reads it (checked). Running the 38-script `test:unit` chain for a markup/CSS pass would
+  be exactly the sweep the repo's instructions forbid.
+
+---
+
 **Companion doc:** [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md) — threat model, trust boundaries, and the permissions matrix.

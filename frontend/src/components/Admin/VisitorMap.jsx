@@ -1,13 +1,16 @@
 import React, { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import countryName from "../../utils/countryName.js";
 import "./VisitorMap.css";
 
 /**
- * Interactive Leaflet map plotting real visitor coordinates on
- * OpenStreetMap tiles (no API key or billing required).
- * The map is dark-styled via CSS (see VisitorMap.css).
- * Replaces the old static SVG + hardcoded-coordinate approach.
+ * Interactive Leaflet map plotting real visitor coordinates on OpenStreetMap
+ * tiles (no API key or billing required).
+ *
+ * Styling lives in `VisitorMap.css`, which owns Leaflet's own DOM (panes,
+ * controls, popups); the container's size and radius belong to
+ * `pages/Admin/Admin.css`, like every other admin surface.
  */
 const VisitorMap = ({ locations }) => {
   const containerRef = useRef(null);
@@ -56,6 +59,7 @@ const VisitorMap = ({ locations }) => {
     );
 
     points.forEach((loc) => {
+      const country = countryName(loc.country);
       const marker = L.circleMarker([loc.lat, loc.lon], {
         radius: 7,
         color: "#2e7d32",
@@ -69,14 +73,14 @@ const VisitorMap = ({ locations }) => {
           `<strong>IP:</strong> ${loc.ip || "Unknown"}`,
           `<strong>City:</strong> ${loc.city || "Unknown"}`,
           `<strong>Region:</strong> ${loc.region || "Unknown"}`,
-          `<strong>Country:</strong> ${loc.country || "Unknown"}`,
+          `<strong>Country:</strong> ${country || "Unknown"}`,
           `<strong>Browser:</strong> ${loc.browser || "Unknown"}`,
           `<strong>OS:</strong> ${loc.os || "Unknown"}`,
         ].join("<br/>")
       );
 
       marker.bindTooltip(
-        [loc.city, loc.country].filter(Boolean).join(", ") || "Unknown",
+        [loc.city, country].filter(Boolean).join(", ") || "Unknown",
         { direction: "top", offset: L.point(0, -8) }
       );
 

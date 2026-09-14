@@ -106,6 +106,25 @@ Which is why a **closing CTA band is built from the `--bg-*` corners and inked w
 (§"Full-bleed bands"): its fill follows the theme's ink — light in light mode, deep in dark — instead
 of being bright in both. `SimpleCtaBand` and /about's contact band are the two reference cases.
 
+**Anything that sits on the `--bg-*` corners follows the rule end to end** — and `/login` and
+`/register` are the case worth knowing, because their page root *is* that gradient and they are
+usually a visitor's first, cold load of the site. Their card, its edges and their primary button are
+all derived from `--text-color` through page-local `--login-ink` / `--register-ink` tokens: a
+**solid, tinted `--bg-1` plane** (a translucent film over a *moving* gradient takes on whatever hue
+the animation is showing — pink in light mode, maroon in dark — so the form surface changed colour
+as you sat on it), a hairline that is a **tone of the ink** rather than a neutral grey, and an
+**ink-filled** primary pill.
+
+That ink pill is a deliberate, documented exception to §6's "primary actions are gradient-filled":
+the gradient is bright in *both* themes, so on a page that flips it is the one element that never
+follows — the ink pill inverts with everything around it instead. Don't "fix" it back to a gradient.
+
+**Watch the global `input:invalid` on a form.** `index.css` paints every invalid input with
+`border-color: var(--red0)`, and a `required` field is invalid while it is *empty* — so a sign-in form
+can greet a first-time visitor with red-ringed boxes and read as broken before they have typed
+anything. Pages that track their own attempt state (`/login`) opt out with
+`.foo-input:invalid { border-color: var(--border-nav); }` and keep the red for a real failure.
+
 ### Key tokens
 
 | Token | Purpose |

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { getThemeColors } from './theme';
+import { getThemeColors, VIEW_HEIGHT, VIEW_WIDTH } from './theme';
 import { BootScene } from './scenes/BootScene';
 import { CreationScene } from './scenes/CreationScene';
 import { TutorialScene } from './scenes/TutorialScene';
@@ -27,17 +27,19 @@ export function createGameConfig(parent: HTMLElement): Phaser.Types.Core.GameCon
   return {
     type: Phaser.AUTO,
     parent,
-    width: GAME_WIDTH,
-    height: GAME_HEIGHT,
+    width: VIEW_WIDTH,
+    height: VIEW_HEIGHT,
     backgroundColor: getThemeColors().bg,
     scale: {
-      // RESIZE makes the canvas fill its container exactly, so the game's
-      // aspect ratio follows the device (portrait, landscape, tablet, …) with
-      // no letterboxing. Scenes lay out from `scale.width`/`scale.height`.
-      mode: Phaser.Scale.RESIZE,
+      // FIT scales the whole fixed design box to the parent and CENTER_BOTH
+      // letterboxes the remainder, which the page paints. Because the box never
+      // changes while the game is alive, no scene needs a resize path: a scene
+      // lays itself out once in `create()` and is done. Rotating the device
+      // rebuilds the game in the other box (the React shell owns that).
+      mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
-      width: GAME_WIDTH,
-      height: GAME_HEIGHT,
+      width: VIEW_WIDTH,
+      height: VIEW_HEIGHT,
     },
     scene: [
       BootScene,

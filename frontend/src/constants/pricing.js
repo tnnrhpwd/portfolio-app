@@ -165,12 +165,16 @@ export function formatUsdCompact(amount) {
   return `$${Number.isInteger(n) ? n : n.toFixed(2)}`;
 }
 
-/** 104857600 → '100 MB'; 53687091200 → '50 GB'. */
+/** 104857600 → '100 MB'; 53687091200 → '50 GB'; 11945511 → '11.4 MB'.
+ *  One decimal, no trailing `.0` — kept in step with the backend copy in
+ *  `backend/constants/pricing.js`, since the admin dashboard shows the
+ *  server-formatted value and the plan cards show this one. */
 export function formatBytes(bytes) {
   if (!bytes) return '0 B';
-  if (bytes >= GB) return `${bytes / GB} GB`;
-  if (bytes >= MB) return `${bytes / MB} MB`;
-  if (bytes >= 1024) return `${bytes / 1024} KB`;
+  const round1 = (n) => Number(n.toFixed(1));
+  if (bytes >= GB) return `${round1(bytes / GB)} GB`;
+  if (bytes >= MB) return `${round1(bytes / MB)} MB`;
+  if (bytes >= 1024) return `${round1(bytes / 1024)} KB`;
   return `${bytes} B`;
 }
 

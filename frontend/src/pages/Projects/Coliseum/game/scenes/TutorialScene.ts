@@ -37,50 +37,51 @@ export class TutorialScene extends BaseScene {
     this.render();
   }
 
-  protected onResize(): void {
-    this.render();
-  }
-
   private render(): void {
     this.clearScreen();
     this.applyBackground();
     const step = STEPS[this.step];
-    const compact = this.compact;
+    const portrait = this.portrait;
 
     this.header('TUTORIAL');
     announce(`${step.title}. ${step.body}`);
-    addText(this, this.cx, 130, `${this.step + 1} / ${STEPS.length}`, {
+    addText(this, this.cx, portrait ? 190 : 130, `${this.step + 1} / ${STEPS.length}`, {
       fontSize: '16px',
       color: '#b8aa94',
     });
-    addText(this, this.cx, compact ? 210 : 230, step.title, {
-      fontSize: '30px',
+    addText(this, this.cx, portrait ? 330 : 230, step.title, {
+      fontSize: portrait ? '34px' : '30px',
       color: '#e8b84b',
       fontStyle: 'bold',
+      align: 'center',
+      wordWrap: { width: this.w - 60 },
     });
-    addText(this, this.cx, compact ? 300 : 320, step.body, {
+    addText(this, this.cx, portrait ? 460 : 320, step.body, {
       fontSize: '20px',
-      wordWrap: { width: Math.max(260, this.w - 60) },
+      align: 'center',
+      wordWrap: { width: Math.max(260, this.w - (portrait ? 100 : 60)) },
     });
 
-    const bottom = this.h - 80;
+    // The tall box stacks the three controls — at 720px a BACK/SKIP/NEXT row
+    // would collide, and stacking also puts every action within thumb reach.
+    const bottom = this.h - (portrait ? 130 : 80);
     const isLast = this.step === STEPS.length - 1;
-    const backY = compact ? bottom - 120 : bottom;
-    const skipY = compact ? bottom - 60 : bottom;
+    const backY = portrait ? bottom - 160 : bottom;
+    const skipY = portrait ? bottom - 80 : bottom;
     const nextY = bottom;
     if (this.step > 0) {
-      this.button(compact ? this.cx : this.cx - 180, backY, 'BACK', () => {
+      this.button(this.cx, backY, 'BACK', () => {
         this.step -= 1;
         this.render();
-      }, { width: 150, height: 52, fontSize: 20 });
+      }, { width: portrait ? 260 : 150, height: 52, fontSize: 20 });
     }
-    this.button(compact ? this.cx : this.cx, skipY, 'SKIP', () => this.finish(), {
-      width: 100,
+    this.button(this.cx, skipY, 'SKIP', () => this.finish(), {
+      width: portrait ? 260 : 100,
       height: 44,
       fontSize: 16,
     });
-    this.button(compact ? this.cx : this.cx + 180, nextY, isLast ? 'START' : 'NEXT', () => this.next(), {
-      width: 150,
+    this.button(this.cx, nextY, isLast ? 'START' : 'NEXT', () => this.next(), {
+      width: portrait ? 260 : 150,
       height: 52,
       fontSize: 20,
     });

@@ -36,6 +36,8 @@ function hexPoints(r: number): { x: number; y: number }[] {
 /** Training + skill tree: allocate attributes on the left, unlock techniques from the shared skill list on the right. */
 export class SkillScene extends BaseScene {
   private fighterIndex = 0;
+  /** Which skill-tree column the tall box is showing (it shows one at a time). */
+  private skillColumn = 0;
 
   constructor() {
     super('Skill');
@@ -43,10 +45,7 @@ export class SkillScene extends BaseScene {
 
   create(): void {
     this.fighterIndex = 0;
-    this.render();
-  }
-
-  protected onResize(): void {
+    this.skillColumn = 0;
     this.render();
   }
 
@@ -61,8 +60,8 @@ export class SkillScene extends BaseScene {
     const fighter = roster[this.fighterIndex];
     if (!fighter) return;
 
-    if (this.compact) {
-      this.renderCompact(fighter);
+    if (this.portrait) {
+      this.renderPortrait(fighter);
       return;
     }
 
@@ -193,54 +192,70 @@ export class SkillScene extends BaseScene {
     return `${node.label} — ${rank}/${node.maxRank}\n${cost}\n${node.blurb}`;
   }
 
-  // ── Compact (portrait) fallback ──
-  private renderCompact(f: Fighter): void {
+  // ── Portrait: attributes, then ONE skill column at a time. All 29 nodes plus
+  // six attribute rows is ~1500px of content, which cannot fit a 1280px box, so
+  // the tall box pages between columns instead of scrolling.
+  private renderPortrait(f: Fighter): void {
     const x = this.cx;
-    addText(this, x, 76, f.name, { fontSize: '18px', color: '#f2d98c', fontStyle: 'bold' });
-    this.button(x - 70, 76, '◀', () => this.shiftFighter(-1), { width: 40, height: 40, fontSize: 20 });
-    this.button(x + 70, 76, '▶', () => this.shiftFighter(1), { width: 40, height: 40, fontSize: 20 });
+    this.backButton('Main');
 
-    let y = 120;
-    addText(this, x, y, `Attribute points: ${f.attributePoints}`, { fontSize: '14px', color: '#f2d98c' });
-    y += 26;
+    addText(this, x, 96, f.name, { fontSize: '20px', color: '#f2d98c', fontStyle: 'bold' });
+    this.button(x - 150, 96, '◀', () => this.shiftFighter(-1), { width: 48, height: 48, fontSize: 20 });
+    this.button(x + 150, 96, '▶', () => this.shiftFighter(1), { width: 48, height: 48, fontSize: 20 });
+
+    addText(this, x, 152, `Attribute points: ${f.attributePoints}`, { fontSize: '16px', color: '#f2d98c' });
+    let y = 190;
     ATTRIBUTE_KEYS.forEach((key) => {
       const btn = this.button(x, y, `${ATTRIBUTE_DEFS[key].label}: ${f.attributes[key]}  +`, () => this.spendAttribute(key), {
-        width: 260,
-        height: 30,
-        fontSize: 12,
+        width: 320,
+        height: 46,
+        fontSize: 15,
       });
       if (f.attributePoints <= 0 || f.attributes[key] >= STAT_CAPS[key]) btn.setEnabled(false);
-      y += 34;
+      y += 54;
     });
-    this.button(x, y, 'RESET ATTRIBUTES', () => this.resetAttributePoints(), { width: 200, height: 32, fontSize: 13 });
-    y += 40;
+    this.button(x, y + 10, 'RESET ATTRIBUTES', () => this.resetAttributePoints(), { width: 260, height: 46, fontSize: 14 });
 
-    addText(this, x, y, `Skill points: ${f.skillPoints}`, { fontSize: '14px', color: '#f2d98c' });
-    y += 26;
-    SKILL_TREES.forEach((col) => {
-      addText(this, x, y, col.label, { fontSize: '12px', color: '#e8b84b', fontStyle: 'bold' });
-      y += 22;
-      col.skills.forEach((skillId) => {
-        const node = getSkill(skillId);
-        if (!node) return;
-        const rank = f.skills[skillId] ?? 0;
-        const locked = !isSkillUnlocked(f, skillId);
-        const label = locked
-          ? `${node.label} (LOCK ${skillUnlockRemaining(f, skillId)})`
-          : `${node.label} ${rank}/${node.maxRank}  +`;
-        const btn = this.button(x, y, label, () => this.spendSkill(skillId), {
-          width: 280,
-          height: 30,
-          fontSize: 12,
-        });
-        if (f.skillPoints <= 0 || rank >= node.maxRank || locked) btn.setEnabled(false);
-        y += 34;
+    // ── Skill tree: one column, chosen with the arrows ──
+    const colTop = y + 84;
+    addText(this, x, colTop - 34, `Skill points: ${f.skillPoints}`, { fontSize: '16px', color: '#f2d98c' });
+    this.skillColumn = Math.max(0, Math.min(this.skillColumn, SKILL_TREES.length - 1));
+    const column = SKILL_TREES[this.skillColumn];
+    this.button(x - 170, colTop, '◀', () => this.shiftColumn(-1), { width: 48, height: 44, fontSize: 18 });
+    addText(this, x, colTop, `${column.label}  ${this.skillColumn + 1}/${SKILL_TREES.length}`, {
+      fontSize: '16px',
+      color: '#e8b84b',
+      fontStyle: 'bold',
+    });
+    this.button(x + 170, colTop, '▶', () => this.shiftColumn(1), { width: 48, height: 44, fontSize: 18 });
+
+    let sy = colTop + 50;
+    column.skills.forEach((skillId) => {
+      const node = getSkill(skillId);
+      if (!node) return;
+      const rank = f.skills[skillId] ?? 0;
+      const locked = !isSkillUnlocked(f, skillId);
+      const label = locked
+        ? `${node.label} (LOCK ${skillUnlockRemaining(f, skillId)})`
+        : `${node.label} ${rank}/${node.maxRank}  +`;
+      const btn = this.button(x, sy, label, () => this.spendSkill(skillId), {
+        width: 380,
+        height: 50,
+        fontSize: 15,
       });
+      if (f.skillPoints <= 0 || rank >= node.maxRank || locked) btn.setEnabled(false);
+      sy += 58;
     });
-    this.button(x, y, 'RESET SKILLS', () => this.resetSkillPoints(), { width: 200, height: 32, fontSize: 13 });
 
-    this.button(x - 70, this.h - 40, 'INV', () => this.scene.start('Inventory'), { width: 120, height: 40, fontSize: 15 });
-    this.button(x + 70, this.h - 40, 'BACK', () => this.scene.start('Main'), { width: 120, height: 40, fontSize: 15 });
+    this.button(x, this.h - 130, 'RESET SKILLS', () => this.resetSkillPoints(), { width: 260, height: 46, fontSize: 14 });
+    this.button(x - 100, this.h - 56, 'INV', () => this.scene.start('Inventory'), { width: 170, height: 52, fontSize: 15 });
+    this.button(x + 100, this.h - 56, 'BACK', () => this.scene.start('Main'), { width: 170, height: 52, fontSize: 15 });
+  }
+
+  private shiftColumn(delta: number): void {
+    const n = SKILL_TREES.length;
+    this.skillColumn = (this.skillColumn + delta + n) % n;
+    this.render();
   }
 
   private shiftFighter(delta: number): void {

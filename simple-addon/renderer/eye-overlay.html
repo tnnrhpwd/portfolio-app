@@ -3,6 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <title>Eye Overlay</title>
+  <!-- Appearance first, for the marker's hues. ⚠️ This window is deliberately NOT
+       mode-aware the way the dashboard and calibration screens are: it is transparent
+       and floats over whatever is on the DESKTOP, so a light HUD would vanish against a
+       white page and a dark one against a black one. The HUD keeps a fixed dark shell
+       (`--hud-*` in appearance.css) and only the gaze marker follows the scheme, which
+       is the part that should look like the rest of the product. -->
+  <link rel="stylesheet" href="appearance/appearance.css">
+  <script src="appearance/appearance.js"></script>
+  <script>window.SimpleAppearance.bootstrap();</script>
   <style>
     html, body {
       margin: 0;
@@ -17,7 +26,10 @@
       user-select: none;
     }
 
-    /* The gaze dot — animated to smooth over inter-frame jumps */
+    /* The gaze dot — animated to smooth over inter-frame jumps.
+       Its colour is the scheme's accent, so the marker matches the app the user is
+       running it from. It has to stay legible over ARBITRARY desktop content, which is
+       why the halo is a wide soft gradient rather than a crisp ring. */
     .gaze-dot {
       position: absolute;
       left: 0; top: 0;
@@ -27,12 +39,12 @@
       margin-top: -14px;
       border-radius: 50%;
       background: radial-gradient(circle at 50% 50%,
-        rgba(80, 220, 255, 0.95) 0%,
-        rgba(80, 220, 255, 0.55) 35%,
-        rgba(80, 220, 255, 0.0) 75%);
+        color-mix(in srgb, var(--scheme-accent) 95%, transparent) 0%,
+        color-mix(in srgb, var(--scheme-accent) 55%, transparent) 35%,
+        transparent 75%);
       box-shadow:
-        0 0 12px rgba(80, 220, 255, 0.65),
-        0 0 26px rgba(80, 220, 255, 0.35);
+        0 0 12px color-mix(in srgb, var(--scheme-accent) 65%, transparent),
+        0 0 26px color-mix(in srgb, var(--scheme-accent) 35%, transparent);
       transition: transform 60ms linear, opacity 200ms ease;
       will-change: transform, opacity;
       transform: translate3d(-200px, -200px, 0);
@@ -41,7 +53,8 @@
     .gaze-dot.visible { opacity: 1; }
     .gaze-dot.blink { opacity: 0.15; }
 
-    /* Tiny inner pip for precise center */
+    /* Tiny inner pip for precise center. The one fixed white here on purpose: it is a
+       crosshair over unknown content, not a themed surface. */
     .gaze-dot::after {
       content: '';
       position: absolute;
@@ -50,12 +63,15 @@
       height: 6px;
       margin-left: -3px;
       margin-top: -3px;
+      /* The crosshair pip is the one deliberately FIXED colour here: it sits over unknown
+         desktop content and must not be a themed surface (see the file header). */
       background: #fff;
       border-radius: 50%;
       box-shadow: 0 0 6px rgba(255, 255, 255, 0.9);
     }
 
-    /* Brief flash when an implicit-calibration sample fires */
+    /* Brief flash when an implicit-calibration sample fires — a success signal, so it
+       wears the semantic green rather than a scheme hue. */
     .train-flash {
       position: absolute;
       left: 0; top: 0;
@@ -64,8 +80,8 @@
       margin-left: -30px;
       margin-top: -30px;
       border-radius: 50%;
-      border: 2px solid rgba(120, 255, 160, 0.85);
-      box-shadow: 0 0 20px rgba(120, 255, 160, 0.6);
+      border: 2px solid color-mix(in srgb, var(--green) 85%, transparent);
+      box-shadow: 0 0 20px color-mix(in srgb, var(--green) 60%, transparent);
       animation: train-pulse 700ms ease-out forwards;
       pointer-events: none;
     }
@@ -74,33 +90,35 @@
       100% { transform: scale(1.6); opacity: 0; }
     }
 
-    /* HUD — shows live status in a corner. Subtle, semi-transparent. */
+    /* HUD — shows live status in a corner. Subtle, semi-transparent, and DELIBERATELY
+       dark in both modes: it is a readout laid over the desktop, not a surface belonging
+       to the app (see the note at the top of this file). */
     .hud {
       position: absolute;
       left: 16px;
       bottom: 16px;
       padding: 8px 12px;
-      background: rgba(10, 10, 18, 0.55);
-      color: #cfe9ff;
+      background: var(--hud-bg);
+      color: var(--hud-text);
       font-size: 11px;
       line-height: 1.4;
       border-radius: 8px;
-      border: 1px solid rgba(80, 220, 255, 0.25);
+      border: 1px solid var(--hud-border);
       backdrop-filter: blur(6px);
       pointer-events: none;
       letter-spacing: 0.02em;
     }
     .hud .label { opacity: 0.65; margin-right: 4px; }
-    .hud .num { color: #ffffff; font-variant-numeric: tabular-nums; }
-    .hud .ok { color: #a3f5b6; }
-    .hud .warn { color: #ffd07a; }
-    .hud .err { color: #ff8c8c; }
+    .hud .num { color: #ffffff; font-variant-numeric: tabular-nums; } /* on the HUD's fixed dark shell */
+    .hud .ok { color: var(--green); }
+    .hud .warn { color: var(--yellow); }
+    .hud .err { color: var(--red); }
     .hud .hint {
       margin-top: 6px;
       padding-top: 6px;
-      border-top: 1px solid rgba(80, 220, 255, 0.18);
+      border-top: 1px solid var(--hud-divider);
       max-width: 320px;
-      color: #cfe9ff;
+      color: var(--hud-text);
     }
     /* Twin progress bars: cursor-still + gaze-still */
     .bar-row { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
@@ -108,17 +126,17 @@
     .bar-row .bar-track {
       flex: 1;
       height: 4px;
-      background: rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.12); /* a track on the fixed dark HUD — not a themed surface */
       border-radius: 2px;
       overflow: hidden;
     }
     .bar-row .bar-fill {
       height: 100%;
       width: 0%;
-      background: linear-gradient(90deg, #50dcff, #a3f5b6);
+      background: linear-gradient(90deg, var(--scheme-accent), var(--green));
       transition: width 80ms linear;
     }
-    .bar-row .bar-fill.full { background: linear-gradient(90deg, #a3f5b6, #ffffff); }
+    .bar-row .bar-fill.full { background: linear-gradient(90deg, var(--green), var(--scheme-accent)); }
     /* Cursor-target halo: shown when training is gated only by gaze sanity */
     .cursor-halo {
       position: absolute;
@@ -128,7 +146,7 @@
       margin-left: -25px;
       margin-top: -25px;
       border-radius: 50%;
-      border: 2px dashed rgba(255, 208, 122, 0.7);
+      border: 2px dashed color-mix(in srgb, var(--yellow) 70%, transparent);
       transition: transform 60ms linear, opacity 200ms ease;
       pointer-events: none;
       opacity: 0;

@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import HeaderDropper from './../HeaderDropper/HeaderDropper.jsx';
 import HeaderLogo from '../../../src/assets/Checkmark512.png';
-import { setDarkMode, setLightMode, setSystemColorMode } from '../../utils/theme.js';
+import { initTheme, setDarkMode, setLightMode, watchSystemTheme } from '../../utils/theme.js';
+import { initScheme } from '../../utils/scheme.js';
 import './Header.css';
 
 /**
@@ -18,27 +19,22 @@ function Header({ center }) {
   const [colTheme, setColTheme] = useState(null);
 
   useEffect(() => {
-    const theme = localStorage.getItem('theme');
-    if (theme === 'light-theme') {
-      setLightMode();
-      setColTheme('light-theme');
-    } else if (theme === 'dark-theme') {
-      setDarkMode();
-      setColTheme('dark-theme');
-    } else {
-      setSystemColorMode();
-      setColTheme(window.matchMedia("(prefers-color-scheme: dark)").matches ? 'dark-theme' : 'light-theme');
-    }
+    // The scheme is painted before the mode is decided, because the two are
+    // independent axes: colour is WHICH hues, mode is how light the surface under
+    // them is. Applying it here means every page gets it, not just the one with the
+    // picker on it.
+    initScheme();
+    setColTheme(initTheme().applied);
+    // `system` is the only preference that can change without the visitor doing
+    // anything, so this subscribes as well as applies. An explicit light or dark
+    // is a decision, and the watcher will not overrule it.
+    return watchSystemTheme(setColTheme);
   }, []);
 
   function handleThemeToggle() {
-    if (colTheme === 'light-theme') {
-      setDarkMode();
-      setColTheme('dark-theme');
-    } else if (colTheme === 'dark-theme') {
-      setLightMode();
-      setColTheme('light-theme');
-    }
+    // Clicking the logo is a manual choice, so it makes an EXPLICIT light/dark and
+    // leaves `system` behind — rather than resolving the OS and persisting that.
+    setColTheme(colTheme === 'dark-theme' ? setLightMode() : setDarkMode());
   }
 
   return (

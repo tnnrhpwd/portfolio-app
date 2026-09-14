@@ -1,8 +1,18 @@
 /* ── SimpleDashboard — the dense Control workspace ──────────────────────────
-   A service page (FRONTEND_UI_STANDARD.md §5.7): one flat surface, a sticky
-   toolbar carrying name + live state + primary action, then a dense panel grid
-   ordered by how often you touch it. No bands, no gradient behind the data, no
-   scroll reveals — scrolling is the cost we're minimising. */
+   A service page (FRONTEND_UI_STANDARD.md §5.7): the ambient room for a ground,
+   a sticky toolbar carrying name + live state + primary action, then a dense
+   panel grid ordered by how often you touch it. No bands, no scroll reveals —
+   scrolling is the cost we're minimising.
+
+   MATERIAL: the panels are PANES OF GLASS resting on the room (`.service-room`,
+   which the page shell wears) — a translucent page-colour fill, a generous
+   radius and a soft shadow. They are deliberately NOT the old colour planes:
+   that material gave every panel its own hue and rotated it by position, so a
+   grid of eight equally-loud blocks said nothing about which one mattered.
+   Colour here is reserved for SIGNAL (§5.7): a status, the one action, the data.
+
+   The scheme supplies the hues (`--fg-blue` / `--fg-mint` are aliased to it by
+   `SimplePage.css`); the status colours below are deliberately outside it. */
 
 .sd {
   /* Status colors come from the shared tokens, theme-aware: --green2 is legible
@@ -31,7 +41,14 @@
   flex-wrap: wrap;
   gap: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.25);
   padding: calc(var(--nav-size) * 0.18) 0;
-  background: var(--bg-page);      /* opaque — no glassmorphism (§8) */
+  /* OPAQUE, and that is the one place this page differs from `/admin`: the
+     toolbar is STICKY and content scrolls beneath it, so a translucent pane
+     would let the panels' text run under this one's labels. It takes the glass
+     LAND (`--glass-land`, the same fill a pane is made of) rather than a
+     transparency, so it still reads as the same material — and in the dark
+     theme the land is lifted off the page, which is what makes the bar read as
+     the workspace's FRAME rather than as one more panel. */
+  background: var(--glass-land);
 }
 /* The one piece of brand on the page: an accent rule under the toolbar. */
 .sd-bar::after {
@@ -68,18 +85,27 @@
 
 /* One row of live state, never a 2×2 stat grid. */
 .sd-readout { display: flex; flex-wrap: wrap; gap: calc(var(--nav-size) * 0.1); }
+/* A chip is a READOUT, so it is a solid `--bg-1` object rather than a tint: a
+   control or a readout has to stay legible on whatever it lands on, and the
+   alternative — a wash of the panel's hue — no longer exists now that a panel
+   has no hue of its own. */
 .sd-chip {
   font-size: var(--font-size-xs);
   line-height: 1.6;
-  color: var(--text-color-accent);
-  background: color-mix(in srgb, var(--fg-blue) 8%, transparent);
+  color: var(--plane-muted);
+  background: var(--bg-1);
   border-radius: 999px;
   padding: 1px 9px;
   white-space: nowrap;
 }
 .sd-chip strong { color: var(--text-color); font-weight: var(--font-weight-semibold); }
-.sd-chip--run { color: var(--sd-ok); background: color-mix(in srgb, currentColor 16%, transparent); }
-.sd-chip--danger { color: var(--sd-bad); background: color-mix(in srgb, currentColor 16%, transparent); }
+.sd-chip--run { --badge-tone: var(--sd-ok); }
+.sd-chip--danger { --badge-tone: var(--sd-bad); }
+.sd-chip--run,
+.sd-chip--danger {
+  color: color-mix(in srgb, var(--badge-tone) var(--plane-ink-fallback), var(--text-color));
+  color: oklch(from var(--badge-tone) var(--plane-ink-l) c h);
+}
 
 .sd-bar-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: calc(var(--nav-size) * 0.12); }
 
@@ -94,9 +120,18 @@
   font-size: var(--font-size-small);
   line-height: var(--line-height-base);
 }
-/* Errors and CTAs are color planes too — no outline, just a stronger wash. */
-.sd-banner--err { background: color-mix(in srgb, var(--sd-bad) 14%, var(--bg-1)); color: var(--sd-bad); cursor: pointer; }
-.sd-banner--cta { background: color-mix(in srgb, var(--fg-blue) 13%, var(--bg-1)); }
+/* A banner is a pane, like a panel. The error's own colour is INK on top of its
+   wash, run through the `--plane-ink-*` pair so it stays legible in both themes
+   — the wash is a signal, so it keeps its own hue rather than taking the glass. */
+.sd-banner--err {
+  --badge-tone: var(--sd-bad);
+  background: color-mix(in srgb, var(--sd-bad) 14%, var(--glass-land));
+  box-shadow: var(--glass-shadow);
+  color: color-mix(in srgb, var(--badge-tone) var(--plane-ink-fallback), var(--text-color));
+  color: oklch(from var(--badge-tone) var(--plane-ink-l) c h);
+  cursor: pointer;
+}
+.sd-banner--cta { background: color-mix(in srgb, var(--scheme-primary) 12%, var(--glass-land)); box-shadow: var(--glass-shadow); }
 
 /* A row of panels. auto-fit gives 3 columns on a desktop, 2 on a tablet and 1
    on a phone with no media query. */
@@ -108,28 +143,24 @@
 }
 .sd-grid--three { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 
-/* Panels are PLANES OF COLOR, not cards: no border, no outline, no hairline, no
-   shadow. Each panel picks a hue and its head/footer are stronger washes of
-   that same hue, so the block stays one color family; neighbouring panels pick
-   different hues, and that difference IS the grouping. §5 "color beside
-   color". */
+/* Panels are PANES OF GLASS, not cards and no longer colour planes: the page
+   colour at 84% over the room, `--glass-radius` and `--glass-shadow`, with no
+   border, outline or hairline anywhere. Two panels side by side are told apart
+   by the ROOM showing through the gap between them (§5 "color beside color"
+   with the colour in the ground rather than in the block). */
 .sd-panel {
-  --sd-hue: var(--fg-blue);
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: color-mix(in srgb, var(--sd-hue) 7%, var(--bg-1));
-  border-radius: var(--border-radius-lg);
+  background: var(--glass);
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow);
   overflow: hidden;
   transition: background 0.15s ease;
 }
-.sd-panel:nth-child(3n + 2) { --sd-hue: var(--fg-mint); }
-.sd-panel:nth-child(3n + 3) { --sd-hue: var(--fg-pink); }
-.sd-panel:hover { background: color-mix(in srgb, var(--sd-hue) 12%, var(--bg-1)); }
-/* A wash over a dark surface reads muddy, so dark mode gets a stronger dose to
-   keep each panel recognisably its own color. */
-.dark-theme .sd-panel { background: color-mix(in srgb, var(--sd-hue) 14%, var(--bg-1)); }
-.dark-theme .sd-panel:hover { background: color-mix(in srgb, var(--sd-hue) 19%, var(--bg-1)); }
+/* Hover is one step MORE OPAQUE — the pane comes forward — never a different
+   colour. */
+.sd-panel:hover { background: var(--glass-hover); }
 
 .sd-panel-head {
   display: flex;
@@ -137,7 +168,10 @@
   justify-content: space-between;
   gap: calc(var(--nav-size) * 0.15);
   padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.28);
-  background: color-mix(in srgb, var(--sd-hue) 12%, transparent);
+  /* A head is a tone change on its own pane, mixed from the TEXT colour rather
+     than from a hue: a hue here would be decoration, and on this material
+     colour is reserved for signal. */
+  background: var(--glass-sheen);
 }
 .sd-panel-title { margin: 0; font-size: var(--font-size-small); font-weight: var(--font-weight-semibold); }
 .sd-panel-body { padding: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.28); flex: 1 1 auto; }
@@ -152,7 +186,9 @@
   gap: calc(var(--nav-size) * 0.15);
   flex-wrap: wrap;
   padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.28);
-  background: color-mix(in srgb, var(--sd-hue) 6%, transparent);
+  /* The foot is a NESTED block, so it is a flat sunken tint of the text colour —
+     never a second pane (glass on glass). */
+  background: var(--glass-sunken);
 }
 
 /* The hand-off at the foot of the page: two links, one line. Not a CTA band. */
@@ -176,13 +212,22 @@
   border-radius: 999px;
   padding: 2px 10px;
 }
-.sd-badge--run { color: var(--sd-ok); background: color-mix(in srgb, currentColor 16%, transparent); }
+.sd-badge--run {
+  --badge-tone: var(--sd-ok);
+  background: var(--bg-1);
+  color: color-mix(in srgb, var(--badge-tone) var(--plane-ink-fallback), var(--text-color));
+  color: oklch(from var(--badge-tone) var(--plane-ink-l) c h);
+}
 
 .sd-hint { margin: 0; font-size: var(--font-size-small); line-height: var(--line-height-base); color: var(--text-color-accent); }
 .sd-hint a { color: var(--fg-blue); }
-/* Muted text has to survive sitting on a tinted panel, so inside one it leans on
-   the page's own text color rather than the grey accent. */
-.sd-panel .sd-hint { color: color-mix(in srgb, var(--text-color) 78%, transparent); }
+/* Muted text has to survive sitting on a saturated plane — see `--plane-muted`
+   in index.css, which is `--text-color-accent` nudged toward the body text. */
+.sd-panel .sd-hint,
+.sd-panel .sd-label,
+.sd-panel .sd-stats dt,
+.sd-panel .sd-list-sub { color: var(--plane-muted); }
+.sd-panel .sd-hint a { color: color-mix(in srgb, var(--fg-blue) var(--plane-ink-fallback), var(--text-color)); color: oklch(from var(--fg-blue) var(--plane-ink-l) c h); }
 
 .sd-stats { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: calc(var(--nav-size) * 0.2); }
 .sd-stats > div { margin: 0; }
@@ -192,8 +237,9 @@
 
 .sd-label { font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-color-accent); }
 .sd-chat-row { display: flex; gap: calc(var(--nav-size) * 0.15); }
-/* An input is a plane of color sitting on the panel's plane: a solid --bg-1 fill
-   and an edge mixed from the panel's own hue — never a grey hairline (§5). */
+/* An input is a SOLID object sitting on the pane: a `--bg-1` fill and an edge
+   mixed from the scheme's accent — never a grey hairline, and never a translucent
+   control (a see-through button over data loses its edge, §5.7). */
 .sd-input {
   flex: 1 1 auto;
   min-width: 0;
@@ -201,7 +247,7 @@
   font-size: var(--font-size-base);
   color: var(--text-color);
   background: var(--bg-1);
-  border: 1px solid color-mix(in srgb, var(--sd-hue) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--scheme-accent) 30%, transparent);
   border-radius: var(--border-radius);
   padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.24);
 }
@@ -210,7 +256,7 @@
   margin: 0;
   font-size: var(--font-size-small);
   line-height: var(--line-height-base);
-  background: color-mix(in srgb, var(--fg-mint) 14%, transparent);
+  background: var(--glass-sunken);
   border-radius: var(--border-radius);
   padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.24);
 }
@@ -227,19 +273,27 @@
   padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.2);
   border-radius: var(--border-radius);
 }
-.sd-list-item:nth-child(odd) { background: color-mix(in srgb, var(--sd-hue) 7%, transparent); }
+.sd-list-item:nth-child(odd) { background: var(--glass-row); }
 .sd-list-main { display: flex; flex-direction: column; min-width: 0; }
 .sd-list-name { font-size: var(--font-size-small); font-weight: var(--font-weight-semibold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sd-list-sub { font-size: var(--font-size-xs); color: var(--text-color-accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sd-list-actions { flex-shrink: 0; display: inline-flex; gap: calc(var(--nav-size) * 0.12); }
 
-/* Status colors are tokens + currentColor, so one rule covers both themes. */
-.sd-status-pill { flex-shrink: 0; font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); border-radius: 999px; padding: 2px 9px; }
-.sd-status-pill--active { color: var(--sd-ok); background: color-mix(in srgb, currentColor 15%, transparent); }
-.sd-status-pill--paused { color: var(--sd-warn); background: color-mix(in srgb, currentColor 15%, transparent); }
-.sd-status-pill--blocked { color: var(--sd-warn); background: color-mix(in srgb, currentColor 15%, transparent); }
-.sd-status-pill--done { color: var(--text-color-accent); background: var(--bg-accent); }
-.sd-status-pill--failed { color: var(--sd-bad); background: color-mix(in srgb, currentColor 15%, transparent); }
+/* Status pills wear the status hue as INK on a `--bg-1` chip, so a pill is
+   readable on any plane it lands on (the admin console's §6 badge rule). */
+.sd-status-pill { flex-shrink: 0; font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); border-radius: 999px; padding: 2px 9px; background: var(--bg-1); }
+.sd-status-pill--active { --badge-tone: var(--sd-ok); }
+.sd-status-pill--paused { --badge-tone: var(--sd-warn); }
+.sd-status-pill--blocked { --badge-tone: var(--sd-warn); }
+.sd-status-pill--failed { --badge-tone: var(--sd-bad); }
+.sd-status-pill--done { color: var(--plane-muted); }
+.sd-status-pill--active,
+.sd-status-pill--paused,
+.sd-status-pill--blocked,
+.sd-status-pill--failed {
+  color: color-mix(in srgb, var(--badge-tone) var(--plane-ink-fallback), var(--text-color));
+  color: oklch(from var(--badge-tone) var(--plane-ink-l) c h);
+}
 
 .sd-btn {
   font-family: inherit;
@@ -251,7 +305,9 @@
   cursor: pointer;
   border: 1px solid transparent;
   color: var(--text-color-inv);
-  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  /* The page's ONE action colour: a gradient inside the scheme's emphasis hue,
+     re-pinned so the label (`--text-color-inv`) stays AA on both stops. */
+  background: var(--action);
   text-decoration: none;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   display: inline-flex;
@@ -260,14 +316,14 @@
 }
 .sd-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); color: var(--text-color-inv); }
 .sd-btn:disabled { opacity: 0.5; cursor: default; transform: none; box-shadow: none; }
-/* A secondary button is a plane of --bg-1 so it stands off the panel's color
+/* A secondary button is a solid `--bg-1` object so it stands off the pane
    rather than blending into it. */
 .sd-btn--muted {
   background: var(--bg-1);
   color: var(--text-color);
   border-color: transparent;
 }
-.sd-btn--muted:hover { background: color-mix(in srgb, var(--sd-hue, var(--fg-blue)) 20%, var(--bg-1)); box-shadow: none; color: var(--text-color); }
+.sd-btn--muted:hover { background: var(--glass-btn-hover); box-shadow: none; color: var(--text-color); }
 .sd-btn--danger { background: linear-gradient(45deg, var(--sd-bad), var(--sd-warn)); }
 .sd-btn--sm { padding: calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.28); font-size: var(--font-size-xs); }
 
@@ -285,8 +341,8 @@
   font-family: inherit;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  color: var(--text-color-accent);
-  background: color-mix(in srgb, var(--text-color) 8%, transparent);
+  color: var(--plane-muted);
+  background: var(--bg-1);
   border: 1px solid transparent;
   border-radius: 999px;
   padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.28);
@@ -300,19 +356,16 @@
   background: currentColor;
   opacity: 0.35;
 }
-.sd-toggle.is-on {
-  color: var(--sd-ok);
-  background: color-mix(in srgb, currentColor 16%, transparent);
+.sd-toggle.is-on { --badge-tone: var(--sd-ok); }
+.sd-toggle--danger { --badge-tone: var(--sd-bad); }
+.sd-toggle.is-on,
+.sd-toggle--danger.is-on {
+  color: color-mix(in srgb, var(--badge-tone) var(--plane-ink-fallback), var(--text-color));
+  color: oklch(from var(--badge-tone) var(--plane-ink-l) c h);
+  background: color-mix(in srgb, var(--badge-tone) 22%, var(--bg-1));
 }
 .sd-toggle.is-on .sd-toggle-dot { opacity: 1; }
-.sd-toggle--danger {
-  background: color-mix(in srgb, var(--sd-bad) 16%, transparent);
-  color: var(--text-color);
-}
-.sd-toggle--danger.is-on {
-  color: var(--sd-bad);
-  background: color-mix(in srgb, currentColor 18%, transparent);
-}
+.sd-toggle--danger { color: color-mix(in srgb, var(--badge-tone) var(--plane-ink-fallback), var(--text-color)); color: oklch(from var(--badge-tone) var(--plane-ink-l) c h); }
 
 /* Pending approvals */
 .sd-approvals {
@@ -326,22 +379,22 @@
   align-items: center;
   justify-content: space-between;
   gap: calc(var(--nav-size) * 0.2);
-  background: color-mix(in srgb, var(--fg-orange) 16%, transparent);
+  background: color-mix(in srgb, var(--fg-orange) var(--plane-raise), transparent);
   border-radius: var(--border-radius);
   padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.24);
 }
 .sd-approval-name { font-size: var(--font-size-small); font-weight: var(--font-weight-semibold); }
 .sd-approval-actions { display: flex; gap: calc(var(--nav-size) * 0.12); }
 
-/* NL macro compiler — separated from the instruction above by a hue step, not a
-   line (§5 "color beside color"). */
+/* NL macro compiler — separated from the instruction above by a nested tint, not
+   by a line (§5 "color beside color"). */
 .sd-nl {
   display: flex;
   flex-direction: column;
   gap: calc(var(--nav-size) * 0.15);
   margin: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * -0.28) 0;
   padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.28) 0;
-  background: color-mix(in srgb, var(--sd-hue) 6%, transparent);
+  background: var(--glass-row);
 }
 
 /* Perception readout */
@@ -351,7 +404,7 @@
   line-height: var(--line-height-base);
   color: var(--text-color);
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  background: color-mix(in srgb, var(--text-color) 8%, transparent);
+  background: var(--bg-1);
   border-radius: var(--border-radius);
   padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.24);
   white-space: pre-wrap;
@@ -366,8 +419,9 @@
 .sd-advanced {
   width: 100%;
   margin-top: calc(var(--nav-size) * 0.1);
-  border-radius: var(--border-radius-lg);
-  background: color-mix(in srgb, var(--text-color) 6%, var(--bg-1));
+  border-radius: var(--glass-radius);
+  background: var(--glass);
+  box-shadow: var(--glass-shadow);
   overflow: hidden;
 }
 
@@ -391,7 +445,7 @@
   transition: transform 0.2s ease;
 }
 .sd-advanced[open] .sd-advanced-summary::after { transform: rotate(180deg); }
-.sd-advanced-summary:hover { background: color-mix(in srgb, var(--text-color) 6%, transparent); }
+.sd-advanced-summary:hover { background: var(--glass-sunken); }
 .sd-advanced-summary:focus-visible {
   outline: var(--focus-outline);
   outline-offset: calc(var(--focus-outline-offset) * -1);

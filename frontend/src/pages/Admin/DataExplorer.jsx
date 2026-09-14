@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import dataService from "../../features/data/dataService.js";
+import AdminPanel from "../../components/Admin/AdminPanel.jsx";
+import { useAdminReadout } from "./adminBarContext";
 import { fmt, formatTimestamp } from "./adminShared";
 
 function DataExplorer() {
@@ -29,23 +31,40 @@ function DataExplorer() {
 
   const ts = formatTimestamp;
 
-  return (
-    <section className="admin-section-tile">
-      <h2>Data Explorer</h2>
+  useAdminReadout(
+    rawPagination.total > 0
+      ? [
+          { label: 'Records', value: fmt(rawPagination.total) },
+          { label: 'Page', value: `${rawPagination.page}/${rawPagination.totalPages}` },
+        ]
+      : null
+  );
 
-      <div className="section-toolbar">
-        <select className="type-select" value={rawType} onChange={(e) => { setRawType(e.target.value); }}>
-          <option value="">All Types</option>
-          <option value="user">Users</option>
-          <option value="visitor">Visitors</option>
-          <option value="bug">Bug Reports</option>
-          <option value="review">Reviews</option>
-          <option value="other">Other</option>
-        </select>
-        <button className="btn-sm" onClick={() => fetchRawData(1)} disabled={rawLoading}>
-          {rawLoading ? 'Loading…' : 'Load'}
-        </button>
-      </div>
+  return (
+    <AdminPanel
+      title="Raw records"
+      hint="Every row in the Simple table, unfiltered. Pick a type and load a page."
+      tools={
+        <>
+          <select
+            className="type-select"
+            value={rawType}
+            onChange={(e) => { setRawType(e.target.value); }}
+            aria-label="Record type"
+          >
+            <option value="">All Types</option>
+            <option value="user">Users</option>
+            <option value="visitor">Visitors</option>
+            <option value="bug">Bug Reports</option>
+            <option value="review">Reviews</option>
+            <option value="other">Other</option>
+          </select>
+          <button className="btn-sm" onClick={() => fetchRawData(1)} disabled={rawLoading}>
+            {rawLoading ? 'Loading…' : 'Load'}
+          </button>
+        </>
+      }
+    >
       {rawLoading && <div className="admin-loading">Loading data...</div>}
       {!rawLoading && rawData.length > 0 && (
         <>
@@ -75,9 +94,9 @@ function DataExplorer() {
         </>
       )}
       {!rawLoading && rawData.length === 0 && rawPagination.total === 0 && (
-        <p className="admin-no-data">Click "Load" to browse data</p>
+        <p className="admin-no-data">Pick a type and load a page to browse data</p>
       )}
-    </section>
+    </AdminPanel>
   );
 }
 

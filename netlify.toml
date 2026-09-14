@@ -50,7 +50,10 @@ X-Frame-Options = "DENY"
 X-Content-Type-Options = "nosniff"
 X-XSS-Protection = "1; mode=block"
 Referrer-Policy = "strict-origin-when-cross-origin"
-Permissions-Policy = "camera=(), microphone=(self), geolocation=(), payment=()"
+# `geolocation=(self)` — the empty allowlist `geolocation=()` disables the API for
+# the page itself, so /halfway's "Use my location" failed instantly with code 1
+# and the browser never showed a permission popup. Matches microphone=(self).
+Permissions-Policy = "camera=(), microphone=(self), geolocation=(self), payment=()"
 Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
 Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://mern-plan-web-service.onrender.com https://*.stripe.com https://api.github.com https://localhost:3444 https://localhost:3001 https://127.0.0.1:3444 https://127.0.0.1:3001; frame-src https://*.stripe.com;"
 

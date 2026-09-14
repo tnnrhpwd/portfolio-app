@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { getState, syncCloud } from '../state/store';
 import { getSettings } from '../settings';
 import { setMuted } from '../audio/sfx';
-import { ensureTextures, loadArenaRaster, loadMapRaster, waitForArtTextures } from '../assets/textures';
+import { ensureTextures, loadArenaRaster, loadArmorRasterTextures, loadChromeTextures, loadMapRaster, loadWeaponRasterIcons, waitForArtTextures } from '../assets/textures';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -18,7 +18,10 @@ export class BootScene extends Phaser.Scene {
     const artReady = waitForArtTextures(this);
     const mapReady = loadMapRaster(this);
     const arenaReady = loadArenaRaster(this);
-    void Promise.all([artReady, mapReady, arenaReady, syncCloud()]).finally(() => {
+    const chromeReady = loadChromeTextures(this);
+    const weaponIconsReady = loadWeaponRasterIcons(this);
+    const armorReady = loadArmorRasterTextures(this);
+    void Promise.all([artReady, mapReady, arenaReady, chromeReady, weaponIconsReady, armorReady, syncCloud()]).finally(() => {
       this.scene.start(getState().tutorialSeen ? 'Main' : 'Creation');
     });
   }

@@ -24,11 +24,34 @@
   --text-primary: #e8e8f0;
   --text-secondary: #a0a0c0;
   --text-muted: #6e6e9e;
-  --accent: #6c63ff;
-  --accent-hover: #5a52e0;
-  --accent-light: rgba(108, 99, 255, 0.15);
-  --user-bubble: #6c63ff;
-  --user-bubble-text: #ffffff;
+  /* ── The brand roles come from the SITE's colour scheme ───────────────
+   * These were a hardcoded indigo (#6c63ff) that no scheme contains, so the chat
+   * kept its own colour while every other surface followed the picker.
+   *
+   * The HUE now comes from `--scheme-accent` / `--scheme-primary`; the LIGHTNESS
+   * is re-pinned per CHAT theme, not per site mode — the chat's light/dark is its
+   * own setting and can disagree with the site's (see the light block below),
+   * and an accent tuned for a white surface is ~3:1 on a near-black one, and the
+   * other way round.
+   *
+   *   --accent        the interaction hue — buttons, borders, links, badges, the
+   *                   send action. `--fg-blue`'s role elsewhere.
+   *   --user-bubble   the EMPHASIS hue, so a bubble is the one thing on screen
+   *                   that reads as "yours".
+   *   --accent-text   the ink for an accent-FILLED control. `--bg-primary` is the
+   *                   surface this accent was tuned against, so it is the one
+   *                   colour guaranteed to read on it — the trick
+   *                   `--text-color-inv` plays for the site's action gradient.
+   *
+   * The ten NAMED chat themes below are untouched on purpose: they carry the same
+   * names and identity hues as the site schemes, and picking one is an explicit
+   * override of the surfaces AND the accent. */
+  --accent: oklch(from var(--scheme-accent) 0.78 c h);
+  --accent-hover: color-mix(in srgb, var(--accent) 80%, var(--text-primary));
+  --accent-light: color-mix(in srgb, var(--accent) 15%, transparent);
+  --accent-text: var(--bg-primary);
+  --user-bubble: oklch(from var(--scheme-primary) 0.78 c h);
+  --user-bubble-text: var(--bg-primary);
   --assistant-bubble: #1e1e3a;
   --assistant-bubble-text: #e8e8f0;
   --success: #4ade80;
@@ -58,11 +81,16 @@
   --text-primary: #1a1a2e;
   --text-secondary: #5a5a7a;
   --text-muted: #8e8ea0;
-  --accent: #6c63ff;
-  --accent-hover: #5a52e0;
-  --accent-light: rgba(108, 99, 255, 0.1);
-  --user-bubble: #6c63ff;
-  --user-bubble-text: #ffffff;
+  /* The same scheme hues as the blocks above, re-pinned for a LIGHT surface:
+     a deep accent takes white ink and reads as text on white, where the dark
+     theme's bright one would be ~3:1 either way. The site's mode is irrelevant
+     here — this block's surface is what the accent has to sit on. */
+  --accent: oklch(from var(--scheme-accent) 0.5 c h);
+  --accent-hover: color-mix(in srgb, var(--accent) 80%, var(--text-primary));
+  --accent-light: color-mix(in srgb, var(--accent) 10%, transparent);
+  --accent-text: var(--bg-primary);
+  --user-bubble: oklch(from var(--scheme-primary) 0.5 c h);
+  --user-bubble-text: var(--bg-primary);
   --assistant-bubble: #f0f0f8;
   --assistant-bubble-text: #1a1a2e;
   --success: #22c55e;
@@ -89,11 +117,14 @@
   --text-primary: #e8e8f0;
   --text-secondary: #a0a0c0;
   --text-muted: #6e6e9e;
-  --accent: #6c63ff;
-  --accent-hover: #5a52e0;
-  --accent-light: rgba(108, 99, 255, 0.15);
-  --user-bubble: #6c63ff;
-  --user-bubble-text: #ffffff;
+  /* The site's colour scheme, exactly as the base block above — see the long
+     note there for why these are not hexes any more. */
+  --accent: oklch(from var(--scheme-accent) 0.78 c h);
+  --accent-hover: color-mix(in srgb, var(--accent) 80%, var(--text-primary));
+  --accent-light: color-mix(in srgb, var(--accent) 15%, transparent);
+  --accent-text: var(--bg-primary);
+  --user-bubble: oklch(from var(--scheme-primary) 0.78 c h);
+  --user-bubble-text: var(--bg-primary);
   --assistant-bubble: #1e1e3a;
   --assistant-bubble-text: #e8e8f0;
   --success: #4ade80;

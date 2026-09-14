@@ -604,7 +604,7 @@ APP_EMAIL=you@example.com APP_PASSWORD='••••' node generate-and-save.js 
 | `400 Unsupported aspect ratio` | The ratio isn't in the model's `aspectRatios` list — call `/image/models` first. |
 | `400 Unsupported image model` | Pass a valid `model` id from `/image/models`. |
 | `401 Not authorized` | Missing/expired JWT. Re-login and pass `Authorization: Bearer <token>`. |
-| "The provided model identifier is invalid" | Model not active in the region. Stability generators need **us-west-2**, not us-east-1. |
+| "The provided model identifier is invalid" | Two different causes, and the region is only one. (a) The **Stability** generators need **us-west-2**, not us-east-1. (b) A model listed in `IMAGE_MODELS` may not be **invocable at all** — as of 2026-09 `gemini-2.5-flash-image` rejects every id variant (`gemini-2.5-flash-image`, `google.gemini-2.5-flash-image`, `…-v1:0`) in BOTH `us-west-2` and `us-east-1`, so the registry entry advertises something the account cannot call. Verify with `backend/scripts/list-bedrock-models.js <region>` before assuming it is a region problem. |
 | First call hangs / access error | New-region first invoke triggers an AWS account-verification gate (~2h). |
 | Terminal "returns" after only one image | The script is still running in the background. Confirm with `Get-Process node` and re-list the art directory before assuming it failed. |
 
@@ -644,6 +644,10 @@ background covered in separated cartoon drawings, the extractor handles it.
 > 3. `node scripts/rocket/extract-sprites.js --sheet <id> --numbers --dump-detected`
 > 4. Read the numbered overlay, write the `names` array in reading order (or a
 >    `gridNames` table for a regular grid), then re-run until the counts line up.
+>    If a poster has several equally-sized variants you want to *choose* between, or
+>    an item the detector cannot isolate, measure those boxes in
+>    **`/uimapper`** and paste them as `regions` — see
+>    "Mapping `regions` with the UIMapper" below.
 > 5. Review `docs/images/rocket/preview/index.html` (names) and
 >    `qa-<sheet>.png` (halo/hole check). Fix the **spec**, never the script.
 >
@@ -827,16 +831,154 @@ version, because knowing *why* is what lets you debug a new sheet:
 - **`regions`** — hand-placed crops for anything the detector cannot judge.
 - Rects are **fractions of the sheet** unless `"unit": "px"` is set.
 
-### CLI
+### Mapping `regions` with the UIMapper (`/uimapper`)
+
+The detector is good at finding items that are already separated by white space. It
+**cannot** judge *which* of a poster's many variants you want, and it cannot split two
+drawings that physically touch. That is what `regions` is for — and the tool for
+authoring them already ships in this app.
+
+**`https://sthopwood.com/uimapper`** (route `/uimapper`) is a visual spec editor:
+
+| Control | What it does |
+| --- | --- |
+| **Upload** an image | Loads any screenshot or poster as the drawing surface |
+| **Drag** on the image | Draws a box; boxes can be moved/resized by their handles |
+| Name field (per box) | Sets the region name — this becomes the **texture key** |
+| **Auto map (AI)** | Asks the backend to propose boxes + names (requires a signed-in user; server-paid Bedrock vision) |
+| **Load map** | Loads a saved map JSON — this tool's export, or a sprite-extractor `regions` array — so boxes can be **renamed and nudged instead of redrawn** |
+| **Download JSON** / **Copy JSON** | Exports the spec |
+
+Its export is *almost* the extractor's format already — it emits **both** pixel and
+normalized coordinates, and `regions` wants normalized:
+
+```jsonc
+// ui-map.json — what UIMapper downloads
+{
+  "source": "coliseum-ui-panel.png",
+  "width": 1344,
+  "height": 768,
+  "regions": [
+    { "name": "ui-panel", "x": 359, "y": 116, "w": 83, "h": 64,
+      "nx": 0.2670, "ny": 0.1515, "nw": 0.0614, "nh": 0.0833 }
+  ]
+}
+
+// scripts/coliseum/sheets.json — the same box, renamed fields
+"regions": [
+  { "name": "ui-panel", "x": 0.2670, "y": 0.1515, "w": 0.0614, "h": 0.0833 }
+]
+```
+
+**The conversion is just `x→nx, y→ny, w→nw, h→nh`.** Paste a UIMapper export into
+the browser console to do it mechanically:
+
+```js
+const map = JSON.parse(uiMapperJson);
+console.log(JSON.stringify(
+  map.regions.map((r) => ({ name: r.name, x: r.nx, y: r.ny, w: r.nw, h: r.nh })),
+  null, 2,
+));
+```
+
+Prefer the **normalized** form: it survives re-generating the sheet at a different
+size or ratio. If you would rather keep pixels, add `"unit": "px"` to each rect —
+but that is only safe when the image you uploaded is exactly the file the extractor
+reads, since percentages are resolved against the real image.
+
+Two more things the same boxes give you:
+
+- **`exclude`** takes the same rectangle shape (it ignores `name`), so a box drawn
+  over a banner, badge or demo grid pastes straight into `exclude`.
+- **`regionPad`** — set it to `2` on a sheet that uses `regions`. Hand-placed crops
+  are authored precisely, so the default `pad: 12` would only pull in whatever sits
+  on the other side of the gutter.
+
+**Round trip:** upload → draw → **Copy JSON** → convert → paste into the pack's
+`sheets.json` → re-run the extractor → check `docs/images/<pack>/preview/index.html`
+and `<sheet>-regions.png` to confirm every box landed where you meant. **Only ever
+edit the spec, never the script.**
+
+**Coming back the other way — the agent→human handoff.** A map can be produced by an
+agent (or recovered from an earlier session) and then *reviewed by hand*:
+
+1. The agent writes a map JSON — the same shape this tool exports.
+2. Open `/uimapper`, **upload the poster**, then **Load map** and pick that file.
+3. Every box appears, already named and coloured. **Rename them in the table**,
+   drag the ones that are off, delete the ones you do not want.
+4. **Download JSON** → paste back into `sheets.json` (the `x→nx` conversion above).
+
+`Load map` resolves the `x/y/w/h` ambiguity the same way the extractor does — pixel
+rects when a rect says `"unit": "px"` or any value exceeds 1, fractions otherwise —
+so a hand-written map and a tool export are both accepted without a flag. If the map
+was measured against a differently-**shaped** image than the one you uploaded, it says
+so rather than silently placing boxes in the wrong spots.
+
+**Seeding a map from the detector** — so you are *renaming* rather than drawing. The
+detector already knows where the items are; it just cannot know what they are called:
 
 ```bash
-node scripts/rocket/extract-sprites.js                    # every sheet
+# 1. ask the extractor what it found (a staging --out keeps this out of frontend/public)
+node scripts/rocket/extract-sprites.js --spec scripts/coliseum/sheets.json \
+  --sheet ui-panel --out docs/images/coliseum/staging --no-preview --dump-detected
+
+# 2. turn those boxes into a loadable map, written beside the source image
+node scripts/coliseum/detected-to-map.js --sheet ui-panel
+```
+
+That writes `frontend/src/assets/coliseum/coliseum-ui-panel.map.json` — 27 boxes for
+the panel poster, each named `ui-panel-N`. Upload the poster, **Load map**, rename the
+handful you want, delete the rest, download, paste back as `regions`.
+
+> `--dump-detected` deliberately **ignores `keepLargest`**. The dump exists to show you
+everything the detector saw so you can choose between the variants; trimming it to
+the exported count would hide exactly the options you are trying to pick between.
+> (Verified on the panel poster: 27 boxes load and land tight on each plaque.)
+
+> Names become texture keys and must be unique **across the whole pack** — every
+> sheet exports into one flat folder, so a clash between two sheets would overwrite
+> silently. The extractor suffixes the loser and warns rather than losing a file.
+
+> **Worked example — the Coliseum chrome.** `coliseum-ui-panel.png` is a poster of
+> ~30 red/gold Roman plaques. Auto-detection found 27 separate blobs and `keepLargest`
+> picked an arbitrary one (a shield-shaped plaque, 194×237). Drawing three boxes in
+> UIMapper instead — a wide horizontal panel, a framed medallion, a banner — gives
+> exactly those three, named, in one pass. This is the case `regions` exists for.
+
+### CLI
+
+**Sheets are grouped into a _pack_**, named after the folder holding its
+`sheets.json`. The extractor derives all three of its directories from that name, so
+one script serves every pack:
+
+| Spec | Sources read from | PNGs exported to | Review artefacts |
+| --- | --- | --- | --- |
+| `scripts/rocket/sheets.json` (default) | `frontend/src/assets/rocket` | `frontend/public/rocket` | `docs/images/rocket/preview` |
+| `scripts/coliseum/sheets.json` | `frontend/src/assets/coliseum` | `frontend/public/coliseum` | `docs/images/coliseum/preview` |
+
+```bash
+# the rocket pack (no flags — unchanged default behaviour)
+node scripts/rocket/extract-sprites.js
 node scripts/rocket/extract-sprites.js --sheet effects    # one sheet
 node scripts/rocket/extract-sprites.js --numbers          # overlay labels are #index
-node scripts/rocket/extract-sprites.js --dump-detected    # -> scripts/rocket/detected.json
+node scripts/rocket/extract-sprites.js --dump-detected    # -> scripts/<pack>/detected.json
 node scripts/rocket/extract-sprites.js --debug-mask       # foreground mask PNGs
+
+# another pack: point at its spec, or override any directory explicitly
+node scripts/rocket/extract-sprites.js --spec scripts/coliseum/sheets.json
+node scripts/rocket/extract-sprites.js --spec scripts/coliseum/sheets.json --src <dir> --out <dir> --preview-dir <dir>
+
 node scripts/rocket/qa-composite.js [--sheet <id>]        # sprites on magenta
 ```
+
+**Sheet option worth knowing: `keepLargest: N`.** AI sheets tend to add unrequested
+filler beneath the briefed items (bonus small helms, gems, shields). `keepLargest`
+keeps the N biggest sprites and drops the rest, filtering **in place** so reading
+order — and therefore `names` — survives. It is the right tool when the briefed items
+are reliably the largest and the naming is positional. It is the **wrong** tool when
+the sheet is a poster of equally-sized variants (an area ranking then picks
+arbitrarily) or when the subject is thin and wide (a divider rule has a small area, so
+it loses to any blob) — use `regions` for those.
 
 Verification behaviour worth knowing: the run **prunes stale PNGs** (renaming an
 asset cannot leave an orphan behind) and **enforces names unique across all
@@ -854,7 +996,8 @@ with a `debris-panel.png` would silently overwrite each other.
      column/row profiles are the reliable way, not eyeballing);
    - irregular → `names` in the numbered-overlay order;
    - add `exclude` for baked-in text/badges you do not want, and `regions` for
-     anything the detector misjudges.
+     anything the detector misjudges — **measure `regions` (and any `exclude` boxes)
+     in `/uimapper`** rather than by eye; see "Mapping `regions` with the UIMapper".
 5. Re-run, then review `docs/images/rocket/preview/index.html` and
    `qa-<sheet>.png`. **Only ever edit the spec** — the script's defaults are
    tuned for white-background sheets and should not need changing per sheet.

@@ -47,10 +47,6 @@ export class CreationScene extends BaseScene {
     this.render();
   }
 
-  protected onResize(): void {
-    this.render();
-  }
-
   private loadFighter(index: number): void {
     this.fighterIndex = index;
     const fighter = this.gameState.roster[index];
@@ -104,34 +100,37 @@ export class CreationScene extends BaseScene {
 
   // ── Step 1: gender select ──
   private renderGender(): void {
-    const compact = this.compact;
-    this.renderPreview(compact ? this.cx : this.w * 0.32, compact ? 210 : this.h * 0.38, compact ? 0.95 : 1.3);
+    if (this.portrait) {
+      this.renderGenderPortrait();
+      return;
+    }
+    this.renderPreview(this.w * 0.32, this.h * 0.38, 1.3);
 
-    const x = compact ? this.cx : this.w * 0.66;
-    const y0 = compact ? 330 : 240;
-    const gap = compact ? 66 : 86;
-    addText(this, x, compact ? y0 - 40 : 170, 'MALES START WITH MORE STRENGTH.', {
-      fontSize: compact ? '14px' : '16px',
+    const x = this.w * 0.66;
+    const y0 = 240;
+    const gap = 86;
+    addText(this, x, 170, 'MALES START WITH MORE STRENGTH.', {
+      fontSize: '16px',
       color: '#b8aa94',
-      wordWrap: { width: compact ? 300 : 320 },
+      wordWrap: { width: 320 },
     });
     const male = this.button(x, y0, this.gender === 'male' ? '\u2713 MALE (+STR)' : 'MALE (+STR)', () => {
       this.gender = 'male';
       announce(`Male. +${GENDER_STRENGTH_BONUS} Strength.`);
       this.render();
-    }, { width: compact ? 260 : 300, height: 54, fontSize: 18, fill: this.gender === 'male' ? 0xa52a34 : 0x8c1f28 });
+    }, { width: 300, height: 54, fontSize: 18, fill: this.gender === 'male' ? 0xa52a34 : 0x8c1f28 });
     void male;
 
     addText(this, x, y0 + gap - 34, 'FEMALES START WITH MORE CHARISMA.', {
-      fontSize: compact ? '14px' : '16px',
+      fontSize: '16px',
       color: '#b8aa94',
-      wordWrap: { width: compact ? 300 : 320 },
+      wordWrap: { width: 320 },
     });
     this.button(x, y0 + gap, this.gender === 'female' ? '\u2713 FEMALE (+CHA)' : 'FEMALE (+CHA)', () => {
       this.gender = 'female';
       announce(`Female. +${GENDER_CHARISMA_BONUS} Charisma.`);
       this.render();
-    }, { width: compact ? 260 : 300, height: 54, fontSize: 18, fill: this.gender === 'female' ? 0xa52a34 : 0x8c1f28 });
+    }, { width: 300, height: 54, fontSize: 18, fill: this.gender === 'female' ? 0xa52a34 : 0x8c1f28 });
 
     this.button(this.w - 110, this.h - 56, 'DONE', () => {
       this.step = 'customize';
@@ -139,47 +138,75 @@ export class CreationScene extends BaseScene {
     }, { width: 150, height: 52, fontSize: 18 });
   }
 
+  // ── Step 1 (tall box): the preview keeps the upper third and the gender
+  // options stack below it, with DONE in a comfortable band at the bottom. ──
+  private renderGenderPortrait(): void {
+    this.renderPreview(this.cx, 250, 1.3);
+
+    addText(this, this.cx, 480, 'MALES START WITH MORE STRENGTH.', {
+      fontSize: '16px',
+      color: '#b8aa94',
+      wordWrap: { width: this.w - 200 },
+    });
+    this.button(this.cx, 540, this.gender === 'male' ? '\u2713 MALE (+STR)' : 'MALE (+STR)', () => {
+      this.gender = 'male';
+      announce(`Male. +${GENDER_STRENGTH_BONUS} Strength.`);
+      this.render();
+    }, { width: 360, height: 56, fontSize: 18, fill: this.gender === 'male' ? 0xa52a34 : 0x8c1f28 });
+
+    addText(this, this.cx, 660, 'FEMALES START WITH MORE CHARISMA.', {
+      fontSize: '16px',
+      color: '#b8aa94',
+      wordWrap: { width: this.w - 200 },
+    });
+    this.button(this.cx, 720, this.gender === 'female' ? '\u2713 FEMALE (+CHA)' : 'FEMALE (+CHA)', () => {
+      this.gender = 'female';
+      announce(`Female. +${GENDER_CHARISMA_BONUS} Charisma.`);
+      this.render();
+    }, { width: 360, height: 56, fontSize: 18, fill: this.gender === 'female' ? 0xa52a34 : 0x8c1f28 });
+
+    this.button(this.cx, this.h - 72, 'DONE', () => {
+      this.step = 'customize';
+      this.render();
+    }, { width: 240, height: 56, fontSize: 18 });
+  }
+
   // ── Step 2: appearance + names ──
   private renderCustomize(): void {
-    const compact = this.compact;
-    const px = compact ? this.cx : this.w * 0.26;
-    const py = compact ? 230 : this.h * 0.44;
-    this.renderPreview(px, py, compact ? 0.8 : 1.3);
+    if (this.portrait) {
+      this.renderCustomizePortrait();
+      return;
+    }
+    const px = this.w * 0.26;
+    const py = this.h * 0.44;
+    this.renderPreview(px, py, 1.3);
 
     if (this.gameState.roster.length > 1) {
-      const arrowX = compact ? 90 : 130;
+      const arrowX = 130;
       this.button(px - arrowX, py, '\u25C0', () => this.cycleFighter(-1), { width: 46, height: 46, fontSize: 20 });
       this.button(px + arrowX, py, '\u25B6', () => this.cycleFighter(1), { width: 46, height: 46, fontSize: 20 });
-      addText(this, px, py - (compact ? 110 : 150), `${this.fighterIndex + 1} / ${this.gameState.roster.length}`, {
+      addText(this, px, py - 150, `${this.fighterIndex + 1} / ${this.gameState.roster.length}`, {
         fontSize: '14px',
         color: '#b8aa94',
       });
     }
 
-    const cx = compact ? this.cx : this.w * 0.66;
-    const y0 = compact ? 380 : 150;
-    const gap = compact ? 46 : 54;
+    const cx = this.w * 0.66;
+    const y0 = 150;
+    const gap = 54;
 
     this.button(cx, y0, `TEAM: ${this.teamName}`, () => this.promptTeamName(), {
-      width: compact ? 300 : 360,
+      width: 360,
       height: 44,
       fontSize: 15,
     });
     this.button(cx, y0 + gap, `NAME: ${this.fighterName}`, () => this.promptFighterName(), {
-      width: compact ? 300 : 360,
+      width: 360,
       height: 44,
       fontSize: 15,
     });
 
-    const rows: { label: string; value: string }[] = [
-      { label: 'SKIN', value: SKIN_LABELS[SKIN_TONES.indexOf(this.appearance.skin)] },
-      { label: 'HEAD', value: HAIR_STYLE_LABELS[HAIR_STYLES.indexOf(this.appearance.hairStyle)] },
-      { label: 'HAIR', value: HAIR_COLOR_LABELS[HAIR_COLORS.indexOf(this.appearance.hairColor)] },
-      {
-        label: 'CLOTH',
-        value: ROBE_LABELS[ROBE_OPTIONS.findIndex((r) => r.robe === this.appearance.robe)],
-      },
-    ];
+    const rows = this.optionRows();
     rows.forEach((row, i) => {
       const y = y0 + gap * 2 + i * gap;
       this.optionRow(cx, y, row.label, row.value, () => this.cycleOption(i, -1), () => this.cycleOption(i, 1));
@@ -190,13 +217,66 @@ export class CreationScene extends BaseScene {
       this.render();
     }, { width: 150, height: 44, fontSize: 15 });
 
-    if (compact) {
-      this.button(this.cx - 90, this.h - 48, 'BACK', () => this.backFromCustomize(), { width: 140, height: 44, fontSize: 15 });
-      this.button(this.cx + 90, this.h - 48, 'DONE', () => this.finish(), { width: 140, height: 44, fontSize: 15 });
-    } else {
-      this.button(this.w * 0.66 - 110, this.h - 56, 'BACK', () => this.backFromCustomize(), { width: 150, height: 52, fontSize: 18 });
-      this.button(this.w * 0.66 + 110, this.h - 56, 'DONE', () => this.finish(), { width: 150, height: 52, fontSize: 18 });
+    this.button(this.w * 0.66 - 110, this.h - 56, 'BACK', () => this.backFromCustomize(), { width: 150, height: 52, fontSize: 18 });
+    this.button(this.w * 0.66 + 110, this.h - 56, 'DONE', () => this.finish(), { width: 150, height: 52, fontSize: 18 });
+  }
+
+  // ── Step 2 (tall box): the preview keeps the top third — the roster arrows move
+  // out to the frame edges so they clear the sprite — then the names, option rows
+  // and actions stack below it, ending in a 56px action band at the bottom. ──
+  private renderCustomizePortrait(): void {
+    const previewY = 260;
+    this.renderPreview(this.cx, previewY, 1.2);
+
+    if (this.gameState.roster.length > 1) {
+      const edge = 56;
+      this.button(edge, previewY, '\u25C0', () => this.cycleFighter(-1), { width: 56, height: 56, fontSize: 20 });
+      this.button(this.w - edge, previewY, '\u25B6', () => this.cycleFighter(1), { width: 56, height: 56, fontSize: 20 });
+      addText(this, this.cx, 116, `${this.fighterIndex + 1} / ${this.gameState.roster.length}`, {
+        fontSize: '14px',
+        color: '#b8aa94',
+      });
     }
+
+    const teamY = 470;
+    const gap = 76;
+    this.button(this.cx, teamY, `TEAM: ${this.teamName}`, () => this.promptTeamName(), {
+      width: 440,
+      height: 56,
+      fontSize: 17,
+    });
+    this.button(this.cx, teamY + gap, `NAME: ${this.fighterName}`, () => this.promptFighterName(), {
+      width: 440,
+      height: 56,
+      fontSize: 17,
+    });
+
+    const rows = this.optionRows();
+    const rowTop = 640;
+    const rowGap = 84;
+    rows.forEach((row, i) => {
+      this.optionRow(this.cx, rowTop + i * rowGap, row.label, row.value, () => this.cycleOption(i, -1), () => this.cycleOption(i, 1));
+    });
+
+    this.button(this.cx, rowTop + rows.length * rowGap + 24, 'RANDOM', () => {
+      this.randomize();
+      this.render();
+    }, { width: 220, height: 56, fontSize: 17 });
+
+    this.button(this.cx - 130, this.h - 72, 'BACK', () => this.backFromCustomize(), { width: 200, height: 56, fontSize: 18 });
+    this.button(this.cx + 130, this.h - 72, 'DONE', () => this.finish(), { width: 200, height: 56, fontSize: 18 });
+  }
+
+  private optionRows(): { label: string; value: string }[] {
+    return [
+      { label: 'SKIN', value: SKIN_LABELS[SKIN_TONES.indexOf(this.appearance.skin)] },
+      { label: 'HEAD', value: HAIR_STYLE_LABELS[HAIR_STYLES.indexOf(this.appearance.hairStyle)] },
+      { label: 'HAIR', value: HAIR_COLOR_LABELS[HAIR_COLORS.indexOf(this.appearance.hairColor)] },
+      {
+        label: 'CLOTH',
+        value: ROBE_LABELS[ROBE_OPTIONS.findIndex((r) => r.robe === this.appearance.robe)],
+      },
+    ];
   }
 
   private backFromCustomize(): void {

@@ -16,7 +16,7 @@ const { normalizePlanName, isPaidTier, PLAN_IDS, MONTHLY_PRICES, formatBytes } =
 const { calculateItemSize } = require('../utils/storageTracker');
 const { isS3Backed, inlineBytesOf } = require('../utils/inlineFileGuard');
 const { estimateS3StorageCost, estimateDynamoStorageCost } = require('../constants/costs');
-const { isSpecialUser, refreshUserDataCache } = require('../utils/apiUsageTracker');
+const { isSpecialUser } = require('../utils/apiUsageTracker');
 const { createMemoryItem } = require('../services/memoryService');
 const { runGoalAgent } = require('../services/goalAgentService');
 const { logger } = require('../utils/logger');
@@ -36,7 +36,9 @@ let dashboardCache = { data: null, timestamp: 0 };
 const CACHE_TTL = 2 * 60 * 1000; // 2 minutes
 
 // ── Helpers ──
-const isAdmin = (req) => req.user && req.user.id === process.env.ADMIN_USER_ID;
+// `isAdmin` is the single-admin-account check; ``adminAccess`` owns both it and
+// the Special variant, so this file can't drift from the route middleware.
+const { isAdminRequest: isAdmin, isAdminOrSpecialRequest, refreshAccessCaches } = require('../middleware/adminAccess');
 
 /** Full paginated scan of the Simple table. */
 async function fullScan() {
@@ -98,7 +100,11 @@ function categorise(item) {
 // ═══════════════════════════════════════════════════════════════
 
 const getAdminDashboard = asyncHandler(async (req, res) => {
-    if (!isAdmin(req)) {
+    // Read-only aggregate: the admin account plus accounts flagged Special,
+    // who get this view (and Visitor map / Reviews / Page rankings) and nothing
+    // else — see middleware/adminAccess.js. The write surfaces (purchase gate,
+    // home title, the users list, the data explorer, bug tools) stay `isAdmin`.
+    if (!isAdminOrSpecialRequest(req)) {
         res.status(403);
         throw new Error('Access denied. Admin privileges required.');
     }
@@ -544,10 +550,11 @@ const updateUserSpecial = asyncHandler(async (req, res) => {
 
     await dynamodb.send(new PutCommand({ TableName: 'Simple', Item: updatedItem }));
 
-    // Invalidate the API usage tracker's cached copy so the new Special
-    // status takes effect on the user's very next request instead of
-    // waiting out its cache window.
-    refreshUserDataCache(id, updatedItem);
+    // Drop every cached copy of this record so the new flag takes effect on the
+    // user's very next request — both for credits and for the four admin views
+    // `requireAdminOrSpecial` guards (a stale copy there would keep denying a
+    // freshly tagged account, or keep serving a revoked one, for five minutes).
+    refreshAccessCaches(id, updatedItem);
 
     // Invalidate the admin dashboard cache since it aggregates user records.
     dashboardCache = { data: null, timestamp: 0 };

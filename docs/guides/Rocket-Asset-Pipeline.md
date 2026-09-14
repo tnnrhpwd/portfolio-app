@@ -120,6 +120,10 @@ sheet exports into one flat folder.
     can separate them; `exclude` drops the fusion and eight regions re-take the pairs.
   Regions use `regionPad` (2px) rather than `pad` (12px): they are authored precisely,
   so a wide pad would only pull in whatever sits on the other side of the gutter.
+  Author them in the app's **`/uimapper`** tool rather than by hand — it exports the
+  same `{name,x,y,w,h}` shape, both in pixels and normalized. See
+  `docs/guides/STATIC_ASSETS_AND_IMAGE_GENERATION.md` → "Mapping `regions` with the
+  UIMapper".
 - **Corners and rectangles are fractions of the sheet** unless `"unit": "px"` is set.
 
 ## Sizing and weight

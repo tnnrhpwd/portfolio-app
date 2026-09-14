@@ -55,10 +55,6 @@ export class InventoryScene extends BaseScene {
     this.render();
   }
 
-  protected onResize(): void {
-    this.render();
-  }
-
   private render(): void {
     this.clearScreen();
     this.applyBackground();
@@ -73,8 +69,8 @@ export class InventoryScene extends BaseScene {
     const fighter = roster[this.fighterIndex];
     if (!fighter) return;
 
-    if (this.compact) {
-      this.renderCompact(fighter);
+    if (this.portrait) {
+      this.renderPortrait(fighter);
       return;
     }
 
@@ -224,18 +220,10 @@ export class InventoryScene extends BaseScene {
   private makeCell(item: Equipment, x: number, y: number, size: number): Phaser.GameObjects.Container {
     const rect = this.add.rectangle(0, 0, size, size, 0x8c1f28).setStrokeStyle(2, 0xe8b84b);
     const objs: Phaser.GameObjects.GameObject[] = [rect];
-    const icon = addEquipmentIcon(this, 0, -size * 0.18, item, size * 0.42);
+    // No name label: it was eating the space the art needs, and the hover tooltip
+    // already names the item, so the art fills the tile.
+    const icon = addEquipmentIcon(this, 0, 0, item, size * 0.94);
     if (icon) objs.push(icon);
-    const label = this.add
-      .text(0, size * 0.16, item.name, {
-        fontFamily: 'Arial, sans-serif',
-        fontSize: '10px',
-        color: '#f2d98c',
-        wordWrap: { width: size - 10 },
-        align: 'center',
-      })
-      .setOrigin(0.5);
-    objs.push(label);
     const container = this.add.container(x, y, objs);
     container.setSize(size, size);
     container.setInteractive({ draggable: true, useHandCursor: true });
@@ -276,24 +264,48 @@ export class InventoryScene extends BaseScene {
     this.add.rectangle(x, y, size, size, 0x2a241d).setStrokeStyle(2, 0x6a6258);
   }
 
-  // ── Compact (portrait) fallback ──
-  private renderCompact(f: Fighter): void {
+  // ── Portrait: a paged list. The wide layout's fighter panel and 24-cell grid
+  // cannot both fit a 720×1280 box, and an unbounded list would run off the
+  // bottom of it, so the tall box pages through the stock instead.
+  private renderPortrait(f: Fighter): void {
     const x = this.cx;
-    addText(this, x, 76, f.name.toUpperCase(), { fontSize: '20px', color: '#f2d98c', fontStyle: 'bold' });
-    this.button(x - 70, 76, '◀', () => this.shiftFighter(-1), { width: 40, height: 40, fontSize: 20 });
-    this.button(x + 70, 76, '▶', () => this.shiftFighter(1), { width: 40, height: 40, fontSize: 20 });
+    const pageSize = 8;
 
-    let y = 126;
-    addText(this, x, y, `INVENTORY (${this.gameState.inventory.length})`, { fontSize: '16px', color: '#f2d98c' });
-    y += 30;
-    this.gameState.inventory.forEach((item) => {
-      addText(this, x, y, item.name, { fontSize: '13px' });
-      this.button(x, y + 20, 'EQUIP', () => this.equip(item), { width: 90, height: 30, fontSize: 12 });
-      y += 48;
+    addText(this, x, 96, f.name.toUpperCase(), { fontSize: '20px', color: '#f2d98c', fontStyle: 'bold' });
+    this.button(x - 150, 96, '◀', () => this.shiftFighter(-1), { width: 48, height: 48, fontSize: 20 });
+    this.button(x + 150, 96, '▶', () => this.shiftFighter(1), { width: 48, height: 48, fontSize: 20 });
+
+    const inv = this.gameState.inventory;
+    const totalPages = Math.max(1, Math.ceil(inv.length / pageSize));
+    this.inventoryPage = Math.min(this.inventoryPage, totalPages - 1);
+    const items = inv.slice(this.inventoryPage * pageSize, this.inventoryPage * pageSize + pageSize);
+
+    addText(this, x, 156, `INVENTORY (${inv.length})`, { fontSize: '17px', color: '#f2d98c' });
+    if (inv.length === 0) {
+      addText(this, x, 230, 'Nothing in storage.', { fontSize: '15px', color: '#b8aa94' });
+    }
+
+    let y = 214;
+    items.forEach((item) => {
+      this.add
+        .rectangle(x, y, 660, 60, this.theme.panel, 1)
+        .setStrokeStyle(1, this.theme.panelStroke, 0.6);
+      addText(this, x - 310, y, item.name, { fontSize: '16px', wordWrap: { width: 430 } }).setOrigin(0, 0.5);
+      this.button(x + 258, y, 'EQUIP', () => this.equip(item), { width: 130, height: 46, fontSize: 14 });
+      y += 70;
     });
 
-    this.button(x - 70, this.h - 40, 'SKILL', () => this.scene.start('Skill'), { width: 120, height: 40, fontSize: 15 });
-    this.button(x + 70, this.h - 40, 'DONE', () => this.scene.start('Main'), { width: 120, height: 40, fontSize: 15 });
+    if (totalPages > 1) {
+      const pageY = 214 + pageSize * 70 + 12;
+      const prev = this.button(x - 90, pageY, '\u25C0', () => this.changeInventoryPage(-1), { width: 56, height: 44, fontSize: 18 });
+      addText(this, x, pageY, `PAGE ${this.inventoryPage + 1}/${totalPages}`, { fontSize: '14px', color: '#f2d98c' });
+      const next = this.button(x + 90, pageY, '\u25B6', () => this.changeInventoryPage(1), { width: 56, height: 44, fontSize: 18 });
+      if (this.inventoryPage <= 0) prev.setEnabled(false);
+      if (this.inventoryPage >= totalPages - 1) next.setEnabled(false);
+    }
+
+    this.button(x - 100, this.h - 56, 'SKILL', () => this.scene.start('Skill'), { width: 170, height: 52, fontSize: 15 });
+    this.button(x + 100, this.h - 56, 'DONE', () => this.scene.start('Main'), { width: 170, height: 52, fontSize: 15 });
   }
 
   // ── Actions & helpers ──

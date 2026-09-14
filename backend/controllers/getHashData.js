@@ -8,6 +8,8 @@ const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 const { fetchRawUserRecord } = require('../utils/dynamoUser');
 const { parseBugReportItem } = require('../utils/bugReportFields');
+const { redactPassword } = require('../utils/sanitizeUserText');
+const { isAdminOrSpecialRequest } = require('../middleware/adminAccess');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -566,8 +568,10 @@ const getPaymentMethods = asyncHandler(async (req, res, next) => {
 const getAllData = async (req, res) => {
     try {
         logger.debug('getAllData called. req.body:', req.body, 'req.user:', req.user);
-        // Check if the user is an admin
-        if (req.user && req.user.id === process.env.ADMIN_USER_ID) {
+        // Admin, or an account flagged Special — the Visitor map and Reviews
+        // views render from this payload, and those are two of the four views a
+        // Special account may open (middleware/adminAccess.js).
+        if (isAdminOrSpecialRequest(req)) {
             // logger.debug('Fetching all data from DynamoDB...');
 
             // A single Scan page is capped at ~1MB by DynamoDB, so once the table
@@ -589,7 +593,13 @@ const getAllData = async (req, res) => {
 
             res.status(200).json(items.map(item => ({
                 id: item.id,
-                text: item.text,
+                // Password hashes are stripped before this ever leaves the
+                // server: user rows carry `|Password:<bcrypt hash>` inline in
+                // their free-text field, and this endpoint returned it verbatim
+                // to the browser until 2026-09-12. No client reads it, and the
+                // Visitor map / Reviews / Bug views only ever look at visitor,
+                // review and bug rows.
+                text: redactPassword(item.text),
                 files: item.files ? item.files.map(f => f.filename).join(', ') : "",
                 createdAt: item.createdAt,
                 updatedAt: item.updatedAt

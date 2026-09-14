@@ -300,13 +300,36 @@ function iconSvg(inner: string): string {
 }
 
 export const ARMOR_OVERLAYS: Record<string, string> = {};
+/**
+ * Per-slot fit for the armour icon canvas.
+ *
+ * The pieces are drawn at very different sizes on the body (a torso spans 60 units, an arm
+ * guard only 20) and none of them is centred on the origin, so one uniform scale left most
+ * of the icon box empty and the icon read as tiny inside a cell. `s` is the largest scale
+ * that still fits the piece in the 120x120 canvas and `cy` moves the piece's own centre
+ * onto the canvas centre. Both come from the drawing extents in `armorPiece` plus 1 unit of
+ * stroke on each side; `legs` is 62 wide and so caps its own scale.
+ */
+const ARMOR_ICON_FIT: Record<string, { s: number; cy: number }> = {
+  head: { s: 3.1, cy: -9 },
+  torso: { s: 1.9, cy: -18 },
+  leftArm: { s: 2.3, cy: 1 },
+  rightArm: { s: 2.3, cy: 1 },
+  legs: { s: 1.85, cy: 1 },
+};
+
+function armorIconGroup(slot: string, piece: string): string {
+  const fit = ARMOR_ICON_FIT[slot] ?? { s: 1.85, cy: 0 };
+  return `<g transform="translate(60,${60 - fit.cy * fit.s}) scale(${fit.s})">${piece}</g>`;
+}
+
 export const ARMOR_ICONS: Record<string, string> = {};
 for (const slot of Object.keys(ARMOR_POS)) {
   const [px, py] = ARMOR_POS[slot];
   METAL_GROUPS.forEach((m, g) => {
     const piece = armorPiece(slot, m.base, m.shade);
     ARMOR_OVERLAYS[`${slot}-${g}`] = fullSvg(`<g transform="translate(${px},${py})">${piece}</g>`);
-    ARMOR_ICONS[`${slot}-${g}`] = iconSvg(`<g transform="translate(60,60) scale(1.15)">${piece}</g>`);
+    ARMOR_ICONS[`${slot}-${g}`] = iconSvg(armorIconGroup(slot, piece));
   });
 }
 
@@ -366,12 +389,22 @@ function shieldMarkup(kind: string): string {
   }
 }
 
+/** Largest scale that fits each shield in the 120x120 icon canvas (extents + stroke). */
+const SHIELD_ICON_FIT: Record<string, number> = {
+  buckler: 3.7,
+  round: 2.3,
+  tower: 2.15,
+  net: 2.35,
+};
+
 const SHIELD_KIND_LIST = ['buckler', 'round', 'tower', 'net'];
 export const SHIELD_OVERLAYS: Record<string, string> = {};
 export const SHIELD_ICONS: Record<string, string> = {};
 for (const kind of SHIELD_KIND_LIST) {
   SHIELD_OVERLAYS[kind] = fullSvg(`<g transform="translate(44,100)">${shieldMarkup(kind)}</g>`);
-  SHIELD_ICONS[kind] = iconSvg(`<g transform="translate(60,60) scale(1.4)">${shieldMarkup(kind)}</g>`);
+  SHIELD_ICONS[kind] = iconSvg(
+    `<g transform="translate(60,60) scale(${SHIELD_ICON_FIT[kind] ?? 2})">${shieldMarkup(kind)}</g>`,
+  );
 }
 
 // ── Damage / wound overlays (one per body zone) ──

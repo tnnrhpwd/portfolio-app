@@ -5,7 +5,16 @@ import { logout, resetDataSlice, getUserSubscription, getUserUsage, getUserStora
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
-import { setDarkMode, setLightMode, setSystemColorMode } from '../../utils/theme.js';
+import { getThemePreference, setDarkMode, setLightMode, setSystemColorMode } from '../../utils/theme.js';
+import {
+  SCHEMES,
+  CUSTOM_SCHEME,
+  initScheme,
+  setScheme,
+  getCustomColors,
+  setCustomColors,
+} from '../../utils/scheme.js';
+import { syncSchemeToAddon } from '../../utils/schemeSync.js';
 import { isTokenValid } from '../../utils/tokenUtils.js';
 import { toast } from 'react-toastify';
 import {
@@ -65,6 +74,13 @@ function Profile() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [currentColorMode, setCurrentColorMode] = useState('system');
+  // A separate axis from the mode above, and read synchronously so the control
+  // shows the truth on the first paint rather than a frame later.
+  const [colorScheme, setColorScheme] = useState(() => initScheme());
+  // The Custom pair, held in state because the two pickers are controlled. Read
+  // AFTER `initScheme()` above, which is what lets the seed it may hand back be
+  // the scheme actually in force.
+  const [customColors, setCustomColorsState] = useState(() => getCustomColors());
   const [subscriptionLoaded, setSubscriptionLoaded] = useState(false);
   const [userSubscription, setUserSubscription] = useState(null);
   const { purchasesEnabled, message: gateMessage } = usePurchaseGate();
@@ -83,14 +99,10 @@ function Profile() {
   } = useSelector((state) => state.data);
 
   useEffect(() => {
-    const body = document.body;
-    if (body.classList.contains('dark-theme')) {
-      setCurrentColorMode('dark');
-    } else if (body.classList.contains('light-theme')) {
-      setCurrentColorMode('light');
-    } else {
-      setCurrentColorMode('system');
-    }
+    // The PREFERENCE, not the resolved class. With `system` stored the body still
+    // carries a concrete light/dark class, so reading the class would report the
+    // OUTCOME instead of the choice and this control could never show "System".
+    setCurrentColorMode(getThemePreference());
 
     if (!user) {
       navigate('/login');
@@ -211,6 +223,29 @@ function Profile() {
     } else if (value === 'system') {
       setSystemColorMode();
     }
+  };
+
+  const handleSchemeChange = (event) => {
+    const next = setScheme(event.target.value);
+    setColorScheme(next);
+    // Re-read, because arriving at Custom for the first time is exactly when the
+    // pickers are handed a new pair to show.
+    const custom = getCustomColors();
+    setCustomColorsState(custom);
+    // Hand the choice to the desktop addon, which is a different origin and so cannot
+    // read this one's localStorage. Fire-and-forget: it is optional and usually absent,
+    // and a picker must never wait on a local process (`utils/schemeSync.js`).
+    syncSchemeToAddon({ scheme: next, custom });
+  };
+
+  const handleCustomColor = (role, value) => {
+    const next = role === 'primary'
+      ? setCustomColors(value, customColors.secondary)
+      : setCustomColors(customColors.primary, value);
+    setCustomColorsState(next);
+    // The site's pair is `{ primary, secondary }`; `schemeSync` translates it into the
+    // addon's token names. Only meaningful while Custom is the scheme in force.
+    syncSchemeToAddon({ scheme: CUSTOM_SCHEME, custom: next });
   };
 
   const currentPlan = userSubscription?.subscriptionPlan || 'Free';
@@ -545,6 +580,63 @@ function Profile() {
                           <option value="system">💻 System</option>
                         </select>
                       </div>
+
+                      {/* Deliberately beside Theme mode: they are the same kind of choice,
+                          and they are independent. Mode is how LIGHT the surface is;
+                          scheme is WHICH hues sit on it — every scheme has both a light
+                          and a dark version, so neither locks the other.
+                          No swatches, on purpose: the page repaints the moment this
+                          changes, so the backdrop behind this control is the preview. */}
+                      <div className="planit-profile-setting-item">
+                        <label className="planit-profile-setting-label" htmlFor="planit-profile-scheme">Color scheme</label>
+                        <select
+                          id="planit-profile-scheme"
+                          value={colorScheme}
+                          onChange={handleSchemeChange}
+                          className="planit-profile-setting-select"
+                        >
+                          {SCHEMES.map((s) => (
+                            <option key={s.id} value={s.id}>{s.label}</option>
+                          ))}
+                          <option value={CUSTOM_SCHEME}>🎨 Custom</option>
+                        </select>
+                      </div>
+
+                      {/* The pickers exist only while Custom is the chosen scheme, so
+                          the grid never carries two controls that do nothing on any
+                          other setting. Choosing Custom with nothing stored SEEDS the
+                          pair from the scheme being replaced (see `setScheme`), so they
+                          open on the colours already on screen.
+
+                          ⚠️ The labels are the visitor's words, not the tokens':
+                          "Primary" is `--scheme-accent` (the dominant hue — links,
+                          interaction, the room) and "Secondary" is `--scheme-primary`
+                          (the partner hue). That mapping is made once, in
+                          `utils/scheme.js`, and must not be remade here. */}
+                      {colorScheme === CUSTOM_SCHEME && (
+                        <>
+                          <div className="planit-profile-setting-item">
+                            <label className="planit-profile-setting-label" htmlFor="planit-profile-scheme-primary">Primary color</label>
+                            <input
+                              type="color"
+                              id="planit-profile-scheme-primary"
+                              className="planit-profile-setting-color"
+                              value={customColors.primary}
+                              onChange={(e) => handleCustomColor('primary', e.target.value)}
+                            />
+                          </div>
+                          <div className="planit-profile-setting-item">
+                            <label className="planit-profile-setting-label" htmlFor="planit-profile-scheme-secondary">Secondary color</label>
+                            <input
+                              type="color"
+                              id="planit-profile-scheme-secondary"
+                              className="planit-profile-setting-color"
+                              value={customColors.secondary}
+                              onChange={(e) => handleCustomColor('secondary', e.target.value)}
+                            />
+                          </div>
+                        </>
+                      )}
 
                       <div className="planit-profile-setting-item">
                         <label className="planit-profile-setting-label" htmlFor="planit-profile-subscription-plan">Subscription plan</label>

@@ -12,6 +12,31 @@
   background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
   background-size: 400% 400%;
   animation: projectsGradientShift 12s ease infinite;
+
+  /* ── Re-point the raw brand hues at the colour scheme ────────────────────
+   * The page ROOT wears the animated backdrop here, so the aliases belong on it
+   * rather than on a band (the way `Home.css` does it). Six aliases and no rule
+   * below is touched — the same trick `Profile.css` and `Admin.css` use.
+   *
+   * Pairing as everywhere else: `--fg-mint` only ever appears OPPOSITE
+   * `--fg-blue` in a ramp (`.projects-meta-link`, the status dot), so it takes
+   * `primary`. Mapping both to the accent would flatten every ramp on this page
+   * to a flat fill.
+   *
+   * ⚠️ `--fg-orange` is deliberately NOT aliased, here or on the other three pages
+   * given the scheme. Orange is the ALERT hue — the one colour that must not
+   * follow the decor — and `Support.css` uses it for a notice callout's border.
+   * The `--bg-*` orange IS aliased: that one only ever appears in the hero's
+   * decorative four-stop backdrop. */
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
+  /* The BACKDROP tokens, not `--scheme-*-bg`: these four stops are a full-bleed
+     field, and the tint tokens carry the page's lightness, which makes a pale hue
+     too light for a dark page. See the note in `index.css`. */
+  --bg-orange: var(--scheme-backdrop-a);
+  --bg-pink: var(--scheme-backdrop-b);
+  --bg-blue: var(--scheme-backdrop-a);
+  --bg-mint: var(--scheme-backdrop-b);
 }
 .light-theme .projects { animation-duration: 15s; }
 .dark-theme .projects { animation-duration: 10s; }
@@ -277,7 +302,11 @@
   border-radius: 999px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.projects-meta-link:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+/* ⚠️ `color` must be NAMED here. The global `a:hover { color: var(--fg-mint) }` is
+   (0,1,1) and outranks a plain class at (0,1,0) — this is an <a> — so unnamed the
+   label turns the scheme's PRIMARY, an end of the gradient beneath it, and the
+   text disappears on hover instead of dimming. */
+.projects-meta-link:hover { color: var(--text-color-inv); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 
 /* The page's closing CTA is the shared `SimpleCtaBand` component (Chat /
    Control / Goals + the addon download + the price note), styled in

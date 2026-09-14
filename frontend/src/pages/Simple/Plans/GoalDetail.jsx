@@ -363,7 +363,7 @@ function GoalDetail() {
     return (
       <>
         <Header center={<SimpleNav compact />} />
-        <div className="goal-detail-page">
+        <div className="goal-detail-page service-room">
           <div className="goal-detail-shell">
             <button
               className="goal-detail-login"
@@ -387,7 +387,7 @@ function GoalDetail() {
   return (
     <>
       <Header center={<SimpleNav compact running={running} goalName={data?.title || ''} />} />
-      <div className="goal-detail-page">
+      <div className="goal-detail-page service-room">
         <div className="goal-detail-shell">
 
           {loading ? (

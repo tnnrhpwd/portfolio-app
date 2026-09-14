@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import dataService from "../../features/data/dataService.js";
-import { fmt } from "./adminShared";
+import AdminPanel from "../../components/Admin/AdminPanel.jsx";
+import KpiTile from "../../components/Admin/KpiTile.jsx";
+import { useAdminReadout } from "./adminBarContext";
+import { fmt, sharePct } from "./adminShared";
 import { toast } from "react-toastify";
 
 // Lookback windows for the ranking report.
@@ -58,95 +61,95 @@ function PageRankings() {
   const top = pages.slice(0, 10);
   const worst = pages.slice(-10).reverse(); // least-visited first
 
+  useAdminReadout(
+    rankings
+      ? [
+          { label: 'Views', value: fmt(rankings.totalViews) },
+          { label: 'Pages', value: fmt(pages.length) },
+          { label: 'Window', value: `${rankings.days}d` },
+        ]
+      : null
+  );
+
   return (
-    <section className="admin-section-tile">
-      <h2>Page Rankings</h2>
-      <p className="admin-help-text">
-        Most and least visited pages, ranked by the page-view beacon fired on every
-        route change. Only pages with at least one recorded visit appear here.
-      </p>
+    <>
+      <AdminPanel
+        title="Page views"
+        hint="Ranked by the page-view beacon fired on every route change. Only pages with at least one recorded visit appear."
+        tools={
+          <>
+            <select
+              className="type-select"
+              value={days}
+              onChange={(e) => setDays(Number(e.target.value))}
+              aria-label="Lookback window"
+            >
+              {DAY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <button
+              className="btn-sm"
+              onClick={() => fetchRankings(days, true)}
+              disabled={loading}
+            >
+              ↻ Refresh
+            </button>
+          </>
+        }
+      >
+        {loading && <div className="admin-loading">Loading page rankings…</div>}
 
-      <div className="section-toolbar">
-        <select
-          className="type-select"
-          value={days}
-          onChange={(e) => setDays(Number(e.target.value))}
-          aria-label="Lookback window"
-        >
-          {DAY_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <button
-          className="btn-sm btn-retry"
-          onClick={() => fetchRankings(days, true)}
-          disabled={loading}
-        >
-          ↻ Refresh
-        </button>
-      </div>
+        {error && (
+          <div className="admin-error">
+            <span>{error}</span>
+            <button className="btn-sm btn-retry" onClick={() => fetchRankings(days)}>
+              ↻ Retry
+            </button>
+          </div>
+        )}
 
-      {loading && <div className="admin-loading">Loading page rankings…</div>}
-
-      {error && (
-        <div className="admin-error">
-          <span>{error}</span>
-          <button className="btn-sm btn-retry" onClick={() => fetchRankings(days)}>
-            ↻ Retry
-          </button>
-        </div>
-      )}
+        {!loading && !error && rankings && (
+          <div className="kpi-grid">
+            <KpiTile label="Total Page Views" value={fmt(rankings.totalViews)} sub={`last ${rankings.days} days`} />
+            <KpiTile label="Pages With Visits" value={fmt(pages.length)} sub="distinct paths" />
+          </div>
+        )}
+      </AdminPanel>
 
       {!loading && !error && rankings && (
-        <>
-          <div className="kpi-grid">
-            <div className="kpi-card">
-              <span className="kpi-label">Total Page Views</span>
-              <span className="kpi-value">{fmt(rankings.totalViews)}</span>
-              <span className="kpi-sub">last {rankings.days} days</span>
+        <div className="admin-grid admin-grid--two">
+          <AdminPanel title="🔝 Most visited">
+            <div className="stat-rows">
+              {top.map((p, i) => (
+                <div key={p.path} className="stat-row">
+                  <span>
+                    <span className="muted">{i + 1}. </span>
+                    {p.path}
+                  </span>
+                  <strong>{fmt(p.visits)}</strong>
+                </div>
+              ))}
+              {top.length === 0 && <div className="stat-row muted">No visits recorded yet</div>}
             </div>
-            <div className="kpi-card">
-              <span className="kpi-label">Pages With Visits</span>
-              <span className="kpi-value">{fmt(pages.length)}</span>
-              <span className="kpi-sub">distinct paths</span>
-            </div>
-          </div>
+          </AdminPanel>
 
-          <div className="traffic-grid">
-            <div className="traffic-card">
-              <h4>🔝 Most visited</h4>
-              <div className="stat-rows">
-                {top.map((p, i) => (
-                  <div key={p.path} className="stat-row">
-                    <span>
-                      <span className="muted">{i + 1}. </span>
-                      {p.path}
-                    </span>
-                    <strong>{fmt(p.visits)}</strong>
-                  </div>
-                ))}
-                {top.length === 0 && <div className="stat-row muted">No visits recorded yet</div>}
-              </div>
+          <AdminPanel title="📉 Least visited">
+            <div className="stat-rows">
+              {worst.map((p) => (
+                <div key={p.path} className="stat-row">
+                  <span>{p.path}</span>
+                  <strong>{fmt(p.visits)}</strong>
+                </div>
+              ))}
+              {worst.length === 0 && <div className="stat-row muted">No visits recorded yet</div>}
             </div>
-
-            <div className="traffic-card">
-              <h4>📉 Least visited</h4>
-              <div className="stat-rows">
-                {worst.map((p) => (
-                  <div key={p.path} className="stat-row">
-                    <span>{p.path}</span>
-                    <strong>{fmt(p.visits)}</strong>
-                  </div>
-                ))}
-                {worst.length === 0 && <div className="stat-row muted">No visits recorded yet</div>}
-              </div>
-            </div>
-          </div>
-        </>
+          </AdminPanel>
+        </div>
       )}
-    </section>
+    </>
   );
 }
 

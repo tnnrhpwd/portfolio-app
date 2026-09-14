@@ -1,44 +1,105 @@
+/* ── CollapsibleSection — a folded-away group of panels ─────────────────────
+   FRONTEND_UI_STANDARD.md §5.7: "fold the rest away — power-user plumbing goes
+   in a `<details>`, so the first screen is the job and not the config."
+
+   The header used to be a whisper: 10px uppercase accent text sitting on the
+   page background. Too quiet to find — a folded group that is hard to *see* is a
+   group nobody opens. It is now a full-width surface carrying the label at
+   reading size, with the caret on the far right where a disclosure caret belongs
+   and the tone deepening on hover.
+
+   It stays deliberately quieter than the panels below it — a single neutral
+   raised tint rather than each panel's own accent — so the header reads as the
+   *group* rather than as another block in the grid. It is SOLID, because it is a
+   control: a disclosure toggle that you could see the page through would lose
+   the edge that makes it look pressable (Admin.css, material notes). */
+
 .collapsible-section {
-  margin: calc(var(--nav-size) * 0.45) 0;
-  border: 1px solid var(--border-nav);
-  border-radius: var(--border-radius-xl, 16px);
-  background-color: var(--bg-1);
-  overflow: hidden;
-  box-shadow: var(--shadow-md);
-}
-
-.collapsible-header {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.24);
+  min-width: 0;
+}
+
+/* The heading element only carries the outline; the button carries the look. */
+.collapsible-heading { margin: 0; }
+
+.collapsible-toggle {
+  display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.4);
-  cursor: pointer;
-  background-color: transparent;
-  transition: background-color 0.18s ease;
-}
-
-.collapsible-header:hover {
-  background-color: var(--bg-mint);
-}
-
-.collapsible-header h3 {
-  margin: 0;
-  font-size: var(--font-size-base);
+  justify-content: space-between;
+  gap: calc(var(--nav-size) * 0.2);
+  width: 100%;
+  min-height: 0;                    /* undo the global button min-height:44px */
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.28);
+  border: 0;
+  border-radius: var(--admin-radius-inner, 14px);
+  /* Solid, a shade off the glass it sits on — a control, not a surface. Quiet on
+     purpose: it is a group label, and a loud bar above quiet panels is the thing
+     that made the old build read as a spreadsheet with a highlighter. */
+  background: color-mix(in srgb, var(--bg-1) 93%, var(--text-color));
+  color: var(--text-color);
+  font-family: inherit;
+  font-size: var(--font-size-small);
   font-weight: var(--font-weight-semibold);
-  color: var(--text-color-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
 }
 
-.collapse-icon {
-  font-size: var(--font-size-xs);
-  transition: transform 0.2s ease;
+/* The LABEL was never the problem. `color` is claimed correctly below at (0,3,0)
+   — but `background` was left undeclared, so on hover the GLOBAL
+   `button:hover:not(:disabled)` in index.css (0,2,1) beat this control's own base
+   rule (0,1,0) and repainted the whole strip with the site's gradient. The label
+   then sat on top of it in `--text-color`: near-white on bright cyan, about
+   1.2:1 — the one thing on this page you could not read.
+
+   Naming `background` here is the entire fix. `--admin-btn-hover` is the admin
+   surface's "one step off the control's own fill" token, so this hover now agrees
+   with every other button in the console. (`filter: brightness()` is gone: it was
+   brightening whatever the global rule had painted, which is how a contrast bug
+   got worse in the dark theme rather than better.) */
+.collapsible-toggle:hover:not(:disabled) {
+  background: var(--admin-btn-hover, color-mix(in srgb, var(--bg-1) 90%, var(--text-color)));
+  color: var(--text-color);
+  transform: none;
+  box-shadow: none;
+}
+.collapsible-toggle:focus-visible {
+  outline: var(--focus-outline, 2px solid var(--fg-blue));
+  outline-offset: 3px;
 }
 
-.collapse-icon.collapsed {
-  transform: rotate(180deg);
+/* The label owns the available width so a long title can't squeeze the caret. */
+.collapsible-title { min-width: 0; }
+
+.collapsible-caret {
+  flex-shrink: 0;
+  font-size: var(--font-size-small);
+  line-height: 1;
+  color: var(--plane-muted);
+  transition: transform 0.25s ease, color 0.15s ease;
+}
+.collapsible-caret.is-collapsed { transform: rotate(-90deg); }
+/* The hover cues on the caret, not on the label — so the text never has to move
+   toward or away from the background to say "this is interactive". */
+.collapsible-toggle:hover:not(:disabled) .collapsible-caret {
+  color: var(--admin-accent, var(--fg-blue));
 }
 
-.collapsible-content {
-  padding: calc(var(--nav-size) * 0.4);
-  border-top: 1px solid var(--border-nav);
+.collapsible-content { min-width: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .collapsible-toggle { transition: none; }
+  .collapsible-caret { transition: none; }
+}
+
+/* High contrast flattens this control to a plain neutral a step away from the
+   page, the same call `.admin-panel` makes, so a folded group can't be the one
+   tinted thing left. The hover rule above still wins over this one — it is a
+   class more specific — which is correct: a hovered control should look hovered. */
+@media (prefers-contrast: more) {
+  .collapsible-toggle { background: var(--bg-accent); }
 }

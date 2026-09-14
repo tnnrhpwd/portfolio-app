@@ -1,10 +1,10 @@
 /* ===========================================================================
    Dream board — the 🌟 view of /plans
    ---------------------------------------------------------------------------
-   A service page view, so it follows the same rules as the rest of /plans
-   (FRONTEND_UI_STANDARD.md §5.7): planes of colour instead of bordered cards,
-   no scroll reveals, labels instead of sentences, and no animated background
-   behind the data.
+   A service page VIEW, so it follows the rest of /plans (FRONTEND_UI_STANDARD.md
+   §5.7): panes of glass instead of bordered cards, no scroll reveals, labels
+   instead of sentences, no animated background of its own — it sits on the room
+   `.plans-page` already wears, so this file adds no ground.
 
    The one place this view is "more visual" than its siblings is deliberate: a
    dream board IS imagery, so the tile leads with a cover and puts its copy
@@ -12,7 +12,10 @@
    wildly, and every legibility trick for that (a scrim, a drop shadow, an
    inverted token) behaves differently in light and dark mode. Letting the
    picture and the words be separate planes sidesteps all of it.
-   =========================================================================== */
+
+   A tile used to be a colour PLANE with its own hue (`--dream-hue`), which is
+   what put a rainbow behind a wall of photographs and competed with the artwork.
+   It is a neutral pane now, and the cover is the only colour on it. */
 
 .dream {
   /* Full-width: a board needs the whole grid, unlike the goals list. */
@@ -56,17 +59,17 @@
 /* ── Tile ─────────────────────────────────────────────────────────────────── */
 
 .dream-tile {
-  --dream-hue: var(--fg-blue);
   display: flex;
   flex-direction: column;
-  border-radius: var(--border-radius-lg);
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow);
   overflow: hidden;
-  background: color-mix(in srgb, var(--dream-hue) 8%, var(--bg-1));
+  background: var(--glass);
   transition: transform 0.2s ease, background 0.2s ease;
 }
 .dream-tile:hover {
   transform: translateY(-2px);
-  background: color-mix(in srgb, var(--dream-hue) 14%, var(--bg-1));
+  background: var(--glass-hover);
 }
 
 /* The cover is one big button: clicking the picture opens the dream. */
@@ -80,12 +83,13 @@
   border-radius: 0;
   overflow: hidden;
   cursor: pointer;
-  /* Sits behind the image; also the plane a picture lands on while it loads. */
-  background: linear-gradient(135deg, var(--dream-hue), color-mix(in srgb, var(--dream-hue) 30%, var(--bg-1)));
+  /* Sits behind the image; also the plane a picture lands on while it loads —
+     neutral, so a slow cover is a quiet gap rather than a coloured flash. */
+  background: var(--glass-sunken-strong);
 }
 /* index.css gives every `button:hover:not(:disabled)` the site gradient (§6). */
 .dream-tile-media:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--dream-hue), color-mix(in srgb, var(--dream-hue) 30%, var(--bg-1)));
+  background: var(--glass-sunken-strong);
 }
 .dream-tile-media img {
   position: absolute;
@@ -98,7 +102,7 @@
 .dream-tile-nocover {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, var(--dream-hue), color-mix(in srgb, var(--dream-hue) 30%, var(--bg-1)));
+  background: var(--glass-sunken-strong);
 }
 
 /* An achieved dream reads as evidence, not as work — quieter, and marked. */
@@ -149,7 +153,7 @@
   font-size: var(--font-size-small);
   font-style: italic;
   line-height: var(--line-height-relaxed);
-  color: var(--text-color-accent);
+  color: var(--plane-muted);
   overflow-wrap: anywhere;
 }
 
@@ -163,10 +167,10 @@
 .dream-tile-time {
   margin-left: auto;
   font-size: var(--font-size-xs);
-  color: var(--text-color-accent);
+  color: var(--plane-muted);
 }
 
-/* Footer is a deeper wash of the tile's own hue — the shared panel recipe. */
+/* Footer is a nested sunken tint of the pane — the shared panel recipe. */
 .dream-tile-foot {
   display: flex;
   align-items: center;
@@ -174,7 +178,7 @@
   gap: calc(var(--nav-size) * 0.15);
   margin-top: calc(var(--nav-size) * 0.2);
   padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.28);
-  background: color-mix(in srgb, var(--dream-hue) 13%, transparent);
+  background: var(--glass-sunken);
 }
 .dream-tile-tools { display: flex; gap: calc(var(--nav-size) * 0.06); }
 
@@ -210,7 +214,7 @@
   aspect-ratio: 4 / 3;
   border-radius: var(--border-radius);
   overflow: hidden;
-  background: linear-gradient(135deg, var(--dream-hue), color-mix(in srgb, var(--dream-hue) 30%, var(--bg-1)));
+  background: var(--glass-sunken-strong);
 }
 .dream-cover-preview img {
   position: absolute;
@@ -276,8 +280,8 @@
   flex-direction: column;
   gap: calc(var(--nav-size) * 0.16);
   padding: calc(var(--nav-size) * 0.2);
-  border-radius: var(--border-radius);
-  background: color-mix(in srgb, var(--fg-blue) 8%, transparent);
+  border-radius: var(--glass-radius-inner);
+  background: var(--glass-sunken);
 }
 /* A hidden file input, driven by the labelled button above it. Kept out of the
    layout rather than `display: none` on the *button*, so the control still
@@ -330,4 +334,5 @@
   .dream-cover-choice { opacity: 1; }
   .dream-cover-choice.is-active { box-shadow: 0 0 0 3px var(--text-color); }
   .dream-tile-badge { border: 1px solid var(--text-color); }
+  .dream-tile-media { background: var(--bg-accent); }
 }

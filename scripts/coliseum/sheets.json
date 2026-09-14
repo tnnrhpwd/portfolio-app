@@ -1,0 +1,966 @@
+{
+  "$comment": "Source spec for scripts/rocket/extract-sprites.js. Run with --spec scripts/coliseum/sheets.json: the pack name comes from this folder, so sources are read from frontend/src/assets/coliseum, PNGs export to frontend/public/coliseum, and review artefacts land in docs/images/coliseum/preview. Names are the texture keys the game asks for: armor is `${slot}-${group}` (group 0 = bronze, 1 = iron/steel, 2 = gold — see `armorGroup` in art.ts) and weapons/shields use their kind. RECIPE (learned 2026-09-12): the Stability models ignore long itemised briefs — asking for 28 pieces across 7 slots produced duplicate helmets, a fedora and a bucket, and a 9-weapon brief produced fantasy gems and staves. Asking for THREE pieces of ONE category produces exactly that, plus bonus filler rows below. So: one small single-category brief per sheet, then `exclude` the filler band. Prefer reading-order `names` (not `gridNames`) because the filler makes the layout irregular.",
+  "defaults": {
+    "pad": 12,
+    "minSize": 26,
+    "maxDim": 160,
+    "$comment": "Icons are drawn at ~40px in the shop/inventory grids, so 160px is generous. Palette quantisation is what keeps a soft-shaded cartoon set in the low single-digit MB.",
+    "png": {
+      "compressionLevel": 9,
+      "palette": true,
+      "quality": 92,
+      "effort": 8,
+      "dither": 0.6
+    }
+  },
+  "sheets": [
+    {
+      "id": "armor-head",
+      "title": "Helmets: bronze, iron, gold",
+      "file": "coliseum-armor-head.png",
+      "options": {},
+      "keepLargest": 3,
+      "exclude": [
+        {
+          "x": 0,
+          "y": 0.56,
+          "w": 1,
+          "h": 0.44,
+          "$comment": "Bonus filler rows the model adds below the three heroes (small helms, gems, shields). They are not named, so they must never become assets."
+        },
+        {
+          "x": 0.25,
+          "y": 0.25,
+          "w": 0.11,
+          "h": 0.25,
+          "$comment": "Loose gem the model drops into the gutter between helmets 1 and 2."
+        },
+        {
+          "x": 0.62,
+          "y": 0.25,
+          "w": 0.11,
+          "h": 0.25,
+          "$comment": "Same, between helmets 2 and 3."
+        }
+      ],
+      "names": [
+        "head-0",
+        "head-1",
+        "head-2"
+      ]
+    },
+    {
+      "id": "armor-torso",
+      "title": "Breastplates: bronze, iron, gold",
+      "file": "coliseum-armor-torso.png",
+      "options": {},
+      "keepLargest": 3,
+      "exclude": [
+        {
+          "x": 0,
+          "y": 0.56,
+          "w": 1,
+          "h": 0.44
+        }
+      ],
+      "names": [
+        "torso-0",
+        "torso-1",
+        "torso-2"
+      ]
+    },
+    {
+      "id": "armor-legs",
+      "title": "Greaves: bronze, iron, gold",
+      "file": "coliseum-armor-legs.png",
+      "options": {},
+      "keepLargest": 3,
+      "exclude": [
+        {
+          "x": 0,
+          "y": 0.56,
+          "w": 1,
+          "h": 0.44
+        }
+      ],
+      "names": [
+        "legs-0",
+        "legs-1",
+        "legs-2"
+      ]
+    },
+    {
+      "id": "armor-arms",
+      "title": "Arm guards: bronze, iron, gold",
+      "file": "coliseum-armor-arms.png",
+      "options": {},
+      "keepLargest": 3,
+      "exclude": [
+        {
+          "x": 0,
+          "y": 0.56,
+          "w": 1,
+          "h": 0.44
+        }
+      ],
+      "$comment": "One set of guards serves BOTH arms: a guard icon reads identically on the left and right, and the game maps leftArm/rightArm icons to these. Only the on-body overlays are handed.",
+      "names": [
+        "arms-0",
+        "arms-1",
+        "arms-2"
+      ]
+    },
+    {
+      "id": "weapons-a",
+      "title": "Weapons: gladius, axe, mace, spear, dagger",
+      "file": "coliseum-weapons-a.png",
+      "options": {},
+      "keepLargest": 5,
+      "exclude": [
+        {
+          "x": 0,
+          "y": 0.56,
+          "w": 1,
+          "h": 0.44
+        }
+      ],
+      "names": [
+        "gladius",
+        "axe",
+        "mace",
+        "spear",
+        "dagger"
+      ]
+    },
+    {
+      "id": "weapons-b",
+      "title": "Weapons: trident, greatsword, maul, halberd",
+      "file": "coliseum-weapons-b.png",
+      "options": {},
+      "keepLargest": 4,
+      "exclude": [
+        {
+          "x": 0,
+          "y": 0.56,
+          "w": 1,
+          "h": 0.44
+        }
+      ],
+      "names": [
+        "trident",
+        "greatsword",
+        "maul",
+        "halberd"
+      ]
+    },
+    {
+      "id": "shields",
+      "title": "Shields: buckler, round, tower, net",
+      "file": "coliseum-shields.png",
+      "options": {},
+      "keepLargest": 4,
+      "exclude": [
+        {
+          "x": 0,
+          "y": 0.56,
+          "w": 1,
+          "h": 0.44
+        }
+      ],
+      "names": [
+        "buckler",
+        "round",
+        "tower",
+        "net"
+      ]
+    },
+    {
+      "id": "ui-panel",
+      "title": "UI: ornate menu panel (9-slice)",
+      "file": "coliseum-ui-panel.png",
+      "options": {
+        "maxDim": 512
+      },
+      "$comment": "UI chrome is generated ONE SUBJECT PER IMAGE. A single-subject brief is the shape the Stability models actually obey — an itemised multi-item brief is not. `keepLargest: 1` makes the naming deterministic (one image, one subject) instead of depending on the model's layout order, which does not follow the brief.",
+      "regions": [
+        {
+          "name": "chrome-shield-1",
+          "x": 0.0149,
+          "y": 0.0378,
+          "w": 0.1622,
+          "h": 0.3307
+        },
+        {
+          "name": "chrome-lens-1",
+          "x": 0.2054,
+          "y": 0.043,
+          "w": 0.1146,
+          "h": 0.1419
+        },
+        {
+          "name": "chrome-square-1",
+          "x": 0.2009,
+          "y": 0.194,
+          "w": 0.125,
+          "h": 0.1732
+        },
+        {
+          "name": "chrome-bar-1",
+          "x": 0.3445,
+          "y": 0.0586,
+          "w": 0.1466,
+          "h": 0.1224
+        },
+        {
+          "name": "chrome-lens-2",
+          "x": 0.3594,
+          "y": 0.1927,
+          "w": 0.1161,
+          "h": 0.1706
+        },
+        {
+          "name": "chrome-shield-2",
+          "x": 0.5171,
+          "y": 0.0378,
+          "w": 0.1235,
+          "h": 0.3281
+        },
+        {
+          "name": "chrome-tall-1",
+          "x": 0.6719,
+          "y": 0.0456,
+          "w": 0.122,
+          "h": 0.3125
+        },
+        {
+          "name": "chrome-bar-2",
+          "x": 0.8214,
+          "y": 0.0625,
+          "w": 0.1577,
+          "h": 0.1393
+        },
+        {
+          "name": "chrome-panel-1",
+          "x": 0.8289,
+          "y": 0.2292,
+          "w": 0.1436,
+          "h": 0.1419
+        },
+        {
+          "name": "chrome-square-2",
+          "x": 0.0126,
+          "y": 0.3854,
+          "w": 0.1689,
+          "h": 0.1992
+        },
+        {
+          "name": "chrome-octagon-1",
+          "x": 0.1979,
+          "y": 0.3841,
+          "w": 0.1302,
+          "h": 0.1966
+        },
+        {
+          "name": "chrome-medallion-1",
+          "x": 0.3579,
+          "y": 0.3828,
+          "w": 0.1198,
+          "h": 0.2005
+        },
+        {
+          "name": "chrome-medallion-2",
+          "x": 0.5067,
+          "y": 0.3828,
+          "w": 0.1406,
+          "h": 0.1979
+        },
+        {
+          "name": "chrome-medallion-3",
+          "x": 0.6704,
+          "y": 0.388,
+          "w": 0.1265,
+          "h": 0.1862
+        },
+        {
+          "name": "chrome-lens-3",
+          "x": 0.8185,
+          "y": 0.3906,
+          "w": 0.1674,
+          "h": 0.1901
+        },
+        {
+          "name": "chrome-panel-2",
+          "x": 0.0104,
+          "y": 0.5964,
+          "w": 0.1726,
+          "h": 0.2435
+        },
+        {
+          "name": "chrome-octagon-2",
+          "x": 0.1979,
+          "y": 0.6042,
+          "w": 0.1347,
+          "h": 0.2279
+        },
+        {
+          "name": "chrome-medallion-4",
+          "x": 0.3467,
+          "y": 0.6042,
+          "w": 0.1384,
+          "h": 0.2266
+        },
+        {
+          "name": "chrome-medallion-5",
+          "x": 0.5126,
+          "y": 0.599,
+          "w": 0.1317,
+          "h": 0.2344
+        },
+        {
+          "name": "chrome-medallion-6",
+          "x": 0.6652,
+          "y": 0.6042,
+          "w": 0.1332,
+          "h": 0.2279
+        },
+        {
+          "name": "chrome-square-3",
+          "x": 0.8185,
+          "y": 0.5872,
+          "w": 0.1615,
+          "h": 0.2539
+        },
+        {
+          "name": "chrome-bar-3",
+          "x": 0.0112,
+          "y": 0.8438,
+          "w": 0.1719,
+          "h": 0.1172
+        },
+        {
+          "name": "chrome-bar-4",
+          "x": 0.1935,
+          "y": 0.8451,
+          "w": 0.1376,
+          "h": 0.1159
+        },
+        {
+          "name": "chrome-bar-5",
+          "x": 0.3438,
+          "y": 0.8411,
+          "w": 0.1458,
+          "h": 0.1211
+        },
+        {
+          "name": "chrome-bar-6",
+          "x": 0.506,
+          "y": 0.8438,
+          "w": 0.1421,
+          "h": 0.1159
+        },
+        {
+          "name": "chrome-bar-7",
+          "x": 0.657,
+          "y": 0.8438,
+          "w": 0.1421,
+          "h": 0.1172
+        },
+        {
+          "name": "chrome-bar-8",
+          "x": 0.8185,
+          "y": 0.8424,
+          "w": 0.1607,
+          "h": 0.1198
+        }
+      ],
+      "exclude": [
+        {
+          "$comment": "Whole-sheet exclude: `exclude` filters only AUTO-detected leaves, never hand-placed `regions`, so this says \"export exactly the named regions below and nothing else\".",
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "id": "ui-ribbon",
+      "title": "UI: winged ribbon banner (section header)",
+      "file": "coliseum-ui-ribbon.png",
+      "options": {
+        "maxDim": 512
+      },
+      "keepLargest": 1,
+      "names": [
+        "ui-ribbon"
+      ]
+    },
+    {
+      "id": "ui-button",
+      "title": "UI: button plaque (9-slice)",
+      "file": "coliseum-ui-button.png",
+      "options": {
+        "maxDim": 512
+      },
+      "keepLargest": 1,
+      "names": [
+        "ui-button"
+      ]
+    },
+    {
+      "id": "ui-corner",
+      "title": "UI: gold corner flourish",
+      "file": "coliseum-ui-corner.png",
+      "options": {
+        "maxDim": 256
+      },
+      "keepLargest": 1,
+      "names": [
+        "ui-corner"
+      ]
+    },
+    {
+      "id": "ui-coins",
+      "title": "UI: gold coin stack",
+      "file": "coliseum-ui-coins.png",
+      "options": {
+        "maxDim": 256
+      },
+      "keepLargest": 1,
+      "names": [
+        "ui-coins"
+      ]
+    },
+    {
+      "id": "ui-divider",
+      "title": "UI: gold divider rule",
+      "file": "coliseum-ui-divider.png",
+      "options": {
+        "maxDim": 512
+      },
+      "keepLargest": 1,
+      "names": [
+        "ui-divider"
+      ]
+    },
+    {
+      "id": "ui-button-plate",
+      "title": "UI: button plaque, taken from the flat-plate poster",
+      "file": "coliseum-ui-button-flat.png",
+      "options": {
+        "maxDim": 512
+      },
+      "$comment": "A single-subject brief for a FLAT plate still produced a poster of ~24 plaques — the Stability models will not draw just one. So this takes the cleanest plaque as a hand-placed region. It is the best button candidate available: a wide plaque whose gold rivets sit only near the ends, i.e. inside the nine-slice caps. NOTE the box must not overlap a neighbour — the crop is trimmed to content, so an overlapping box would export the union.",
+      "regions": [
+        {
+          "name": "ui-button-plate",
+          "x": 0.0313,
+          "y": 0.0313,
+          "w": 0.1786,
+          "h": 0.1198
+        }
+      ],
+      "exclude": [
+        {
+          "$comment": "Whole-sheet exclude: `exclude` filters only AUTO-detected leaves, never hand-placed `regions`, so this says \"export exactly the named region and nothing else\".",
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "id": "weapons-1",
+      "title": "Weapons: short sword, battle axe, spiked mace",
+      "file": "coliseum-weapons-1.png",
+      "options": {},
+      "keepLargest": 3,
+      "exclude": [
+        {
+          "$comment": "Bonus filler rows the model adds below the briefed items.",
+          "x": 0,
+          "y": 0.56,
+          "w": 1,
+          "h": 0.44
+        }
+      ],
+      "$comment": "THREE items per sheet, one category. The earlier weapons-a/weapons-b sheets asked for 4-5 items in one brief and the model answered with the wrong weapons AND the wrong order — the box named `gladius` held a cross-mace, `mace` held an axe. Small briefs are the shape it follows. Names here are provisional: run --dump-detected + detected-to-map.js and rename them in /uimapper.",
+      "names": [
+        "gladius",
+        "axe",
+        "mace"
+      ]
+    },
+    {
+      "id": "weapons-2",
+      "title": "Weapons: spear, dagger, trident",
+      "file": "coliseum-weapons-2.png",
+      "options": {},
+      "$comment": "No `exclude` and no `keepLargest`: auto-detection MERGES neighbouring items on this sheet (one leaf spans x626..1155), so regions are chosen by hand from --dump-detected output.",
+      "regions": [
+        {
+          "name": "spear-barbed",
+          "x": 0.0253,
+          "y": 0.0573,
+          "w": 0.0789,
+          "h": 0.8789
+        },
+        {
+          "name": "pike-gem",
+          "x": 0.1376,
+          "y": 0.0586,
+          "w": 0.0714,
+          "h": 0.8789
+        },
+        {
+          "name": "spear-wide-gem",
+          "x": 0.2455,
+          "y": 0.0586,
+          "w": 0.0893,
+          "h": 0.8776
+        },
+        {
+          "name": "short-spear",
+          "x": 0.372,
+          "y": 0.0586,
+          "w": 0.0603,
+          "h": 0.4727
+        },
+        {
+          "name": "crystal-shard",
+          "x": 0.3698,
+          "y": 0.7526,
+          "w": 0.0588,
+          "h": 0.181
+        },
+        {
+          "name": "spear-winged",
+          "x": 0.474,
+          "y": 0.0599,
+          "w": 0.0915,
+          "h": 0.8776
+        },
+        {
+          "name": "spearhead-float",
+          "x": 0.6124,
+          "y": 0.0599,
+          "w": 0.0491,
+          "h": 0.1836
+        },
+        {
+          "name": "axe-crescent",
+          "x": 0.5685,
+          "y": 0.3151,
+          "w": 0.1376,
+          "h": 0.6211
+        },
+        {
+          "name": "mace-gem",
+          "x": 0.7158,
+          "y": 0.0651,
+          "w": 0.0603,
+          "h": 0.487
+        },
+        {
+          "name": "dagger-gold",
+          "x": 0.808,
+          "y": 0.2344,
+          "w": 0.0454,
+          "h": 0.2956
+        },
+        {
+          "name": "scythe-blade",
+          "x": 0.753,
+          "y": 0.6862,
+          "w": 0.09,
+          "h": 0.2513
+        },
+        {
+          "name": "trident",
+          "x": 0.875,
+          "y": 0.0573,
+          "w": 0.1109,
+          "h": 0.8789
+        }
+      ],
+      "exclude": [
+        {
+          "$comment": "Whole-sheet exclude: `exclude` filters only AUTO-detected leaves, never hand-placed `regions`, so this says \"export exactly the named regions below and nothing else\".",
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "id": "weapons-3",
+      "title": "Weapons: greatsword, war maul, halberd",
+      "file": "coliseum-weapons-3.png",
+      "options": {},
+      "$comment": "The model answered this brief with a clean, evenly spaced grid of hammers/maces/axes/polearms in ONE consistent style — by far the best weapon sheet. Auto-detection gets every item in rows 1-2 and missed row 3 only because of a stray `exclude`; do not re-add one.",
+      "regions": [
+        {
+          "name": "shield-round",
+          "x": 0.0179,
+          "y": 0.0508,
+          "w": 0.0952,
+          "h": 0.2318
+        },
+        {
+          "name": "axe-small",
+          "x": 0.1362,
+          "y": 0.043,
+          "w": 0.0662,
+          "h": 0.237
+        },
+        {
+          "name": "axe-double-1",
+          "x": 0.2143,
+          "y": 0.0469,
+          "w": 0.0982,
+          "h": 0.2344
+        },
+        {
+          "name": "axe-bearded",
+          "x": 0.3296,
+          "y": 0.0378,
+          "w": 0.0826,
+          "h": 0.2435
+        },
+        {
+          "name": "spear-crystal-1",
+          "x": 0.4323,
+          "y": 0.0456,
+          "w": 0.0528,
+          "h": 0.2344
+        },
+        {
+          "name": "hammer-wide",
+          "x": 0.5126,
+          "y": 0.0482,
+          "w": 0.0685,
+          "h": 0.2318
+        },
+        {
+          "name": "mace-crystal-1",
+          "x": 0.6064,
+          "y": 0.0456,
+          "w": 0.0491,
+          "h": 0.237
+        },
+        {
+          "name": "mace-diamond-1",
+          "x": 0.6853,
+          "y": 0.0547,
+          "w": 0.058,
+          "h": 0.2279
+        },
+        {
+          "name": "axe-war",
+          "x": 0.756,
+          "y": 0.0469,
+          "w": 0.1071,
+          "h": 0.2344
+        },
+        {
+          "name": "hammer-bar",
+          "x": 0.8988,
+          "y": 0.0534,
+          "w": 0.0863,
+          "h": 0.2279
+        },
+        {
+          "name": "mace-flanged",
+          "x": 0.0171,
+          "y": 0.3464,
+          "w": 0.0945,
+          "h": 0.2448
+        },
+        {
+          "name": "spear-gem",
+          "x": 0.1384,
+          "y": 0.3372,
+          "w": 0.058,
+          "h": 0.1497
+        },
+        {
+          "name": "axe-double-2",
+          "x": 0.218,
+          "y": 0.3385,
+          "w": 0.096,
+          "h": 0.2513
+        },
+        {
+          "name": "mace-crystal-2",
+          "x": 0.3378,
+          "y": 0.3359,
+          "w": 0.0632,
+          "h": 0.2539
+        },
+        {
+          "name": "axe-curved",
+          "x": 0.4256,
+          "y": 0.3477,
+          "w": 0.0714,
+          "h": 0.2422
+        },
+        {
+          "name": "mace-crystal-3",
+          "x": 0.5201,
+          "y": 0.3346,
+          "w": 0.0528,
+          "h": 0.1445
+        },
+        {
+          "name": "mace-diamond-2",
+          "x": 0.5945,
+          "y": 0.3346,
+          "w": 0.0744,
+          "h": 0.1523
+        },
+        {
+          "name": "axe-crystal",
+          "x": 0.6935,
+          "y": 0.3372,
+          "w": 0.0744,
+          "h": 0.2539
+        },
+        {
+          "name": "hammer-gem",
+          "x": 0.7842,
+          "y": 0.349,
+          "w": 0.0945,
+          "h": 0.1406
+        },
+        {
+          "name": "maul-1",
+          "x": 0.904,
+          "y": 0.3607,
+          "w": 0.0707,
+          "h": 0.2253
+        },
+        {
+          "name": "spear-crystal-2",
+          "x": 0.0365,
+          "y": 0.6523,
+          "w": 0.0551,
+          "h": 0.2526
+        },
+        {
+          "name": "spear-1",
+          "x": 0.1347,
+          "y": 0.6497,
+          "w": 0.0588,
+          "h": 0.1628
+        },
+        {
+          "name": "mace-diamond-3",
+          "x": 0.2344,
+          "y": 0.638,
+          "w": 0.0729,
+          "h": 0.2669
+        },
+        {
+          "name": "mace-leaf",
+          "x": 0.3512,
+          "y": 0.6497,
+          "w": 0.061,
+          "h": 0.151
+        },
+        {
+          "name": "mace-orb",
+          "x": 0.4621,
+          "y": 0.6471,
+          "w": 0.0796,
+          "h": 0.2591
+        },
+        {
+          "name": "axe-double-3",
+          "x": 0.5818,
+          "y": 0.6523,
+          "w": 0.1004,
+          "h": 0.2526
+        },
+        {
+          "name": "maul-2",
+          "x": 0.7388,
+          "y": 0.6901,
+          "w": 0.1339,
+          "h": 0.2148
+        },
+        {
+          "name": "mace-diamond-4",
+          "x": 0.9063,
+          "y": 0.6471,
+          "w": 0.0766,
+          "h": 0.2591
+        }
+      ],
+      "exclude": [
+        {
+          "$comment": "Whole-sheet exclude: `exclude` filters only AUTO-detected leaves, never hand-placed `regions`, so this says \"export exactly the named regions below and nothing else\".",
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "id": "swords-1",
+      "title": "Swords: Roman gladius",
+      "file": "coliseum-swords-1.png",
+      "options": {},
+      "names": [
+        "sword-1"
+      ]
+    },
+    {
+      "id": "swords-2",
+      "title": "Swords: two-handed long swords",
+      "file": "coliseum-swords-2.png",
+      "options": {},
+      "regions": [
+        {
+          "name": "sword-gladius",
+          "x": 0.0871,
+          "y": 0.0286,
+          "w": 0.0833,
+          "h": 0.4453
+        },
+        {
+          "name": "sword-greatsword",
+          "x": 0.8415,
+          "y": 0.0313,
+          "w": 0.0476,
+          "h": 0.4414
+        }
+      ],
+      "exclude": [
+        {
+          "$comment": "Whole-sheet exclude: `exclude` filters only AUTO-detected leaves, never hand-placed `regions`, so this says \"export exactly the named regions below and nothing else\".",
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "id": "armor-helmet",
+      "title": "Helmets (AI poster, 9 cols)",
+      "file": "coliseum-armor-helmet.png",
+      "options": {},
+      "regions": [
+        {
+          "name": "head-0",
+          "x": 0.3385,
+          "y": 0.0052,
+          "w": 0.1019,
+          "h": 0.2656
+        },
+        {
+          "name": "head-1",
+          "x": 0.4501,
+          "y": 0.3047,
+          "w": 0.0975,
+          "h": 0.2096
+        },
+        {
+          "name": "head-2",
+          "x": 0.6711,
+          "y": 0.2747,
+          "w": 0.0997,
+          "h": 0.2383
+        }
+      ],
+      "exclude": [
+        {
+          "$comment": "Whole-sheet exclude: `exclude` filters only AUTO-detected leaves, never hand-placed `regions`, so this says \"export exactly the named regions below and nothing else\".",
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "id": "armor-cuirass",
+      "title": "Cuirasses (AI poster, 10 cols)",
+      "file": "coliseum-armor-cuirass.png",
+      "options": {},
+      "regions": [
+        {
+          "name": "torso-0",
+          "x": 0.0938,
+          "y": 0,
+          "w": 0.0818,
+          "h": 0.1654
+        },
+        {
+          "name": "torso-1",
+          "x": 0.1987,
+          "y": 0.1615,
+          "w": 0.0789,
+          "h": 0.1615
+        },
+        {
+          "name": "torso-2",
+          "x": 0.3021,
+          "y": 0.5156,
+          "w": 0.0818,
+          "h": 0.1758
+        }
+      ],
+      "exclude": [
+        {
+          "$comment": "Whole-sheet exclude: `exclude` filters only AUTO-detected leaves, never hand-placed `regions`, so this says \"export exactly the named regions below and nothing else\".",
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    },
+    {
+      "id": "armor-greaves",
+      "title": "Greaves (AI poster - greaves are the BOTTOM rows, the top rows are helmets)",
+      "file": "coliseum-armor-greaves.png",
+      "options": {},
+      "regions": [
+        {
+          "name": "legs-0",
+          "x": 0.1012,
+          "y": 0.7148,
+          "w": 0.0856,
+          "h": 0.2513
+        },
+        {
+          "name": "legs-1",
+          "x": 0.4182,
+          "y": 0.7135,
+          "w": 0.0804,
+          "h": 0.2539
+        },
+        {
+          "name": "legs-2",
+          "x": 0.8103,
+          "y": 0.7161,
+          "w": 0.0863,
+          "h": 0.25
+        }
+      ],
+      "exclude": [
+        {
+          "$comment": "Whole-sheet exclude: `exclude` filters only AUTO-detected leaves, never hand-placed `regions`, so this says \"export exactly the named regions below and nothing else\".",
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1
+        }
+      ]
+    }
+  ]
+}

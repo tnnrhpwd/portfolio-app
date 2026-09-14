@@ -1,15 +1,31 @@
 /* ── Simple · Control — page shell (FRONTEND_UI_STANDARD.md §5.7) ──────────
-   A service page: one flat surface, no bands, no gradient behind the data.
-   The dashboard owns its own toolbar and panel grid; this file is the surface
-   it sits on plus the signed-out gate. */
+   A service page: one surface, no bands, and the page's ground is the ambient
+   "room" (`.service-room` — the class on the root element below), not a flat
+   colour of its own. The dashboard owns its own toolbar and panel grid; this
+   file is the surface it sits on plus the signed-out gate. */
 
 .simple-surface {
   display: flex;
   justify-content: center;
   min-height: 100vh;
   padding: calc(var(--nav-size) * 1.15) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
-  background: var(--bg-page);
   color: var(--text-color);
+  /* NO background here, deliberately: the room's layers are `position: fixed`
+     with `z-index: -1`, so an opaque fill on this box would cover them. The
+     room paints `--bg-page` itself. */
+
+  /* ── The colour scheme ─────────────────────────────────────────────────
+   * Two aliases, no rule below touched. Both families this page paints with are
+   * the INTERACTION ones (`--fg-blue` is the link/focus accent, `--fg-mint` is
+   * the emphasis hue the loop/CTA ramps are built from), so they map onto the
+   * visitor's two scheme roles.
+   *
+   * ⚠️ `--fg-orange` is deliberately NOT aliased. It is the ALERT hue here as
+   * everywhere else (`--sd-warn`, the approval wash) and an alarm that changes
+   * colour with the decor is not an alarm (§2.1). Same reasoning for the status
+   * reds/greens: colour means something on this page. */
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
 }
 /* Every child of the surface is the page container (the dashboard or the
    gate), so neither has to know how wide the page is allowed to be. */
@@ -46,7 +62,7 @@
   max-width: 62ch;
   font-size: var(--font-size-small);
   line-height: var(--line-height-relaxed);
-  color: var(--text-color-accent);
+  color: var(--plane-muted);
 }
 
 /* The shared gate is built for a full-page centered state; here it is the last
@@ -54,8 +70,8 @@
    tiles above it. */
 .simple-intro .login-gate { flex: 0 0 auto; padding: 0; }
 
-/* The three rooms, as borderless tiles on a band. Grouping comes from
-   whitespace and tone, not from a box — borders are for controls only (§5). */
+/* The three rooms, as panes of glass. Grouping comes from the layering and from
+   whitespace, not from a box — borders are for controls only (§5). */
 .simple-journey-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -65,18 +81,25 @@
   list-style: none;
 }
 
+/* A tile is a PANE, like every other block on a service page: a translucent
+   page-colour fill, a generous radius and a soft shadow, so it rests ON the room
+   instead of sitting in it as a pastel wash. Hover is one step more opaque — a
+   tone change, not a different colour. */
 .simple-journey-card {
   display: flex;
   flex-direction: column;
   gap: calc(var(--nav-size) * 0.14);
   height: 100%;
   padding: calc(var(--nav-size) * 0.3);
-  border-radius: var(--border-radius-xl);
-  background: color-mix(in srgb, var(--fg-blue) 7%, transparent);
+  border-radius: var(--glass-radius);
+  background: var(--glass);
+  box-shadow: var(--glass-shadow);
   transition: background 0.2s ease, transform 0.2s ease;
 }
-.simple-journey-card:hover { background: color-mix(in srgb, var(--fg-blue) 12%, transparent); transform: translateY(-2px); }
-.simple-journey-card.is-current { background: color-mix(in srgb, var(--fg-mint) 16%, transparent); }
+.simple-journey-card:hover { background: var(--glass-hover); transform: translateY(-2px); }
+/* "You are here" is a SIGNAL, so it is the one tile allowed a hue — the scheme's
+   emphasis hue, as a whisper over the glass. */
+.simple-journey-card.is-current { background: color-mix(in srgb, var(--scheme-primary) 15%, var(--glass)); }
 
 .simple-journey-icon { font-size: calc(var(--nav-size) * 0.5); line-height: 1; }
 
@@ -91,7 +114,9 @@
   margin: 0;
   font-size: var(--font-size-small);
   line-height: var(--line-height-relaxed);
-  color: var(--text-color-accent);
+  /* `--plane-muted`, not `--text-color-accent`: muted text inside a pane needs
+     the lift the accent is not calibrated for (index.css, §5.7). */
+  color: var(--plane-muted);
 }
 
 .simple-journey-link,
@@ -103,7 +128,7 @@
 }
 .simple-journey-link { color: var(--fg-blue); text-decoration: none; align-self: flex-start; }
 .simple-journey-link:hover { text-decoration: underline; }
-.simple-journey-current { color: var(--text-color-accent); }
+.simple-journey-current { color: var(--plane-muted); }
 
 /* No scroll reveal and no stagger here: service-page content is present the
    moment it paints, so nothing arrives late (FRONTEND_UI_STANDARD.md §5.7). */

@@ -7,6 +7,17 @@ export { ADMIN_USER_ID } from '../../constants/admin';
 export const fmt = (n) => Number(n).toLocaleString();
 export const pct = (n) => `${n}%`;
 
+/**
+ * A row's share of its list, as a CSS width for `.admin-share` (Admin.css).
+ *
+ * The 2% floor matters: a genuine-but-small share (1 of 200) rounding to 0%
+ * would render as an empty track, which reads as "no data" rather than as a
+ * small number. Callers pass the largest value in the list as `whole`, so the
+ * top row is always full width and the rest are relative to it.
+ */
+export const sharePct = (value, whole) =>
+  `${Math.max(2, Math.round((Number(value) / Math.max(Number(whole), 1)) * 100))}%`;
+
 export const formatTimestamp = (v) => {
   try {
     return new Date(v).toLocaleString();

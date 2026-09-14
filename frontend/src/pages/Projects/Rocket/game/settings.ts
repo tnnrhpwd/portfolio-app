@@ -10,6 +10,8 @@ const STORAGE_KEY = 'rocket.settings.v1';
 
 export interface GameSettings {
   muted: boolean;
+  /** Play the music tracks. `muted` is the master switch for everything. */
+  music: boolean;
   reducedMotion: boolean;
   /** Draw the parallax backdrop. Off is cheaper on low-end phones. */
   parallax: boolean;
@@ -25,7 +27,7 @@ function prefersReducedMotion(): boolean {
 }
 
 export function defaultSettings(): GameSettings {
-  return { muted: false, reducedMotion: prefersReducedMotion(), parallax: true };
+  return { muted: false, music: true, reducedMotion: prefersReducedMotion(), parallax: true };
 }
 
 let cached: GameSettings | null = null;
@@ -40,6 +42,7 @@ export function loadSettings(): GameSettings {
     const parsed = JSON.parse(raw) as Partial<GameSettings>;
     cached = {
       muted: typeof parsed.muted === 'boolean' ? parsed.muted : fallback.muted,
+      music: typeof parsed.music === 'boolean' ? parsed.music : fallback.music,
       reducedMotion:
         typeof parsed.reducedMotion === 'boolean' ? parsed.reducedMotion : fallback.reducedMotion,
       parallax: typeof parsed.parallax === 'boolean' ? parsed.parallax : fallback.parallax,

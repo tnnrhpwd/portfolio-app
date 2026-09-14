@@ -1,19 +1,25 @@
-/* Goal Detail — single-goal view with live LLM agent progress */
+/* Goal Detail — single-goal view with live LLM agent progress.
+
+   A service page (FRONTEND_UI_STANDARD.md §5.7), and it wears the SAME room as
+   its parent `/plans` — it used to carry its own four-stop animated gradient,
+   which made one goal look like a different product from the list it came from.
+   The blocks are panes of glass on that room now, and the borders are gone. */
 
 .goal-detail-page {
   min-height: 100vh;
   min-height: 100svh;
-  background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
-  background-size: 400% 400%;
-  animation: plans-gradient 18s ease infinite;
+  /* NO background and no gradient animation: `.service-room` (worn by this
+     element — see GoalDetail.jsx) paints the page with two `position: fixed`
+     layers at `z-index: -1`, and an opaque fill here would cover both. */
   padding: var(--nav-size) var(--spacing-xs) var(--spacing-md);
   color: var(--text-color);
-}
 
-@keyframes plans-gradient {
-  0%   { background-position:   0%  50%; }
-  50%  { background-position: 100% 100%; }
-  100% { background-position:   0%  50%; }
+  /* ── The colour scheme ─────────────────────────────────────────────────
+   * The same two aliases `/plans` makes: interaction hue and emphasis hue follow
+   * the visitor's choice; the status hues (`--fg-orange`, `--fg-pink`, `--red0`)
+   * are signals and stay put (§2.1). */
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
 }
 
 .goal-detail-shell {
@@ -32,15 +38,20 @@
 }
 .goal-detail-breadcrumb a:hover { text-decoration: underline; }
 
+/* The loading and "not found" states are the whole page in those moments, so
+   they are a pane rather than two lines floating on the room. */
 .goal-detail-loading,
 .goal-detail-empty {
   text-align: center;
   padding: var(--spacing-md);
-  opacity: 0.75;
+  background: var(--glass);
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow);
 }
+.goal-detail-empty-hint,
+.goal-detail-loading { color: var(--plane-muted); }
 .goal-detail-empty-hint {
   font-size: var(--font-size-small);
-  opacity: 0.75;
   margin: var(--spacing-xs) 0;
   overflow-wrap: anywhere;
 }
@@ -48,7 +59,7 @@
   display: block;
   margin: var(--spacing-md) auto;
   background: var(--bg-1);
-  border: 1px solid var(--border-nav);
+  border: 1px solid color-mix(in srgb, var(--scheme-accent) 30%, transparent);
   color: var(--text-color);
   padding: var(--spacing-sm) var(--spacing-md);
   border-radius: var(--border-radius-lg);
@@ -58,10 +69,10 @@
 
 /* Hero */
 .goal-detail-hero {
-  background: var(--bg-1);
-  border: 1px solid var(--border-nav);
-  border-radius: var(--border-radius-xl);
-  box-shadow: var(--shadow-lg);
+  background: var(--glass);
+  border: 1px solid transparent;
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow);
   padding: var(--spacing-sm);
   display: flex;
   flex-direction: column;
@@ -89,9 +100,20 @@
   text-transform: capitalize;
   flex-shrink: 0;
 }
-.goal-detail-status.status-active    { background: rgba(var(--fg-mint-rgb,0,193,193), 0.16); color: var(--fg-mint); }
-.goal-detail-status.status-completed { background: var(--grey3-transp); color: var(--text-color); }
-.goal-detail-status.status-paused    { background: rgba(var(--fg-orange-rgb,255,165,0), 0.16); color: var(--fg-orange); }
+/* Status and priority wear their hue as INK on a `--bg-1` chip — the same pattern
+   the rest of the workspace uses. The old washes were built from
+   `rgba(var(--fg-*-rgb), …)`, tokens that only existed as a fallback, and they
+   left the hue as bare text on a light pane, which is unreadable for mint. */
+.goal-detail-status.status-active    { --badge-tone: var(--fg-mint); }
+.goal-detail-status.status-completed { --badge-tone: var(--text-color-accent); }
+.goal-detail-status.status-paused    { --badge-tone: var(--fg-orange); }
+.goal-detail-status.status-active,
+.goal-detail-status.status-completed,
+.goal-detail-status.status-paused {
+  background: var(--bg-1);
+  color: color-mix(in srgb, var(--badge-tone) var(--plane-ink-fallback), var(--text-color));
+  color: oklch(from var(--badge-tone) var(--plane-ink-l) c h);
+}
 
 .goal-detail-desc {
   margin: 0;
@@ -114,9 +136,16 @@
   background: var(--grey3-transp);
   text-transform: capitalize;
 }
-.goal-detail-badge.priority-low    { background: rgba(var(--fg-mint-rgb,0,193,193), 0.15); color: var(--fg-mint); }
-.goal-detail-badge.priority-medium { background: rgba(var(--fg-blue-rgb,56,56,255), 0.15); color: var(--fg-blue); }
-.goal-detail-badge.priority-high   { background: rgba(var(--fg-pink-rgb,255,55,155), 0.15); color: var(--fg-pink); }
+.goal-detail-badge.priority-low    { --badge-tone: var(--fg-mint); }
+.goal-detail-badge.priority-medium { --badge-tone: var(--fg-blue); }
+.goal-detail-badge.priority-high   { --badge-tone: var(--fg-pink); }
+.goal-detail-badge.priority-low,
+.goal-detail-badge.priority-medium,
+.goal-detail-badge.priority-high {
+  background: var(--bg-1);
+  color: color-mix(in srgb, var(--badge-tone) var(--plane-ink-fallback), var(--text-color));
+  color: oklch(from var(--badge-tone) var(--plane-ink-l) c h);
+}
 
 .goal-detail-actions { display: flex; gap: var(--spacing-xs); margin-top: calc(var(--nav-size) * 0.15); }
 .goal-detail-btn {
@@ -130,13 +159,15 @@
 }
 .goal-detail-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
 .goal-detail-btn:disabled { opacity: 0.6; cursor: progress; transform: none; }
-.goal-detail-btn--start { background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint)); color: #fff; }
-.goal-detail-btn--stop  { background: var(--fg-pink); color: #fff; }
+.goal-detail-btn--start { background: var(--action); color: var(--text-color-inv); }
+.goal-detail-btn--stop  { background: var(--fg-pink); color: var(--text-color-inv); }
 
 /* Summary + result */
 .goal-detail-summary {
-  background: rgba(var(--fg-mint-rgb,0,193,193), 0.08);
-  border: 1px solid rgba(var(--fg-mint-rgb,0,193,193), 0.3);
+  /* A summary is a nested block inside the hero pane, so it is a flat sunken tint
+     with no border — it used to be a mint-washed bordered box. */
+  background: var(--glass-sunken);
+  border: 1px solid transparent;
   border-radius: var(--border-radius-lg);
   padding: var(--spacing-sm);
 }
@@ -149,7 +180,7 @@
 .goal-detail-result {
   margin: var(--spacing-xs) 0 0;
   padding: var(--spacing-xs);
-  background: var(--bg-page-transp);
+  background: var(--glass-sunken);
   border-radius: var(--border-radius-md);
   font-size: var(--font-size-small);
   line-height: 1.5;
@@ -168,10 +199,10 @@
 
 /* Feed */
 .goal-detail-feed-section {
-  background: var(--bg-1);
-  border: 1px solid var(--border-nav);
-  border-radius: var(--border-radius-xl);
-  box-shadow: var(--shadow-lg);
+  background: var(--glass);
+  border: 1px solid transparent;
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow);
   padding: var(--spacing-sm);
 }
 .goal-detail-feed-title {
@@ -192,18 +223,16 @@
   padding-right: calc(var(--nav-size) * 0.1);
 }
 
+/* A step's KIND is written in its icon and its label, so the left rule does not
+   need a hue per kind — four hues for four kinds is the "a different colour every
+   200px" failure (§5.7). Only a genuine problem keeps one. */
 .goal-detail-step {
-  border-left: 3px solid var(--border-nav);
+  border-left: 3px solid var(--glass-sunken-strong);
   padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.3);
-  background: var(--bg-page-transp);
+  background: var(--glass-sunken);
   border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0;
 }
-.goal-detail-step.step-plan        { border-left-color: var(--fg-blue); }
-.goal-detail-step.step-thought     { border-left-color: var(--fg-mint); }
-.goal-detail-step.step-tool        { border-left-color: var(--fg-orange); }
-.goal-detail-step.step-tool-result { border-left-color: var(--fg-mint); }
-.goal-detail-step.step-result      { border-left-color: var(--fg-blue); }
-.goal-detail-step.step-error       { border-left-color: var(--fg-pink); }
+.goal-detail-step.step-error       { border-left-color: var(--red0); }
 
 .goal-detail-step-head {
   display: flex;
@@ -226,7 +255,7 @@
 .goal-detail-step-args {
   margin: calc(var(--nav-size) * 0.12) 0 0;
   padding: calc(var(--nav-size) * 0.15);
-  background: var(--bg-page-transp);
+  background: var(--glass-sunken-strong);
   border-radius: var(--border-radius-sm);
   font-size: var(--font-size-xs);
   max-height: 140px;
@@ -247,9 +276,11 @@
   flex-direction: column;
   gap: var(--spacing-xs);
 }
+/* Past runs. A run sits inside the feed pane, so it is a nested tint, not a
+   second pane. */
 .goal-detail-history-run {
-  background: var(--bg-1);
-  border: 1px solid var(--border-nav);
+  background: var(--glass-sunken);
+  border: 1px solid transparent;
   border-radius: var(--border-radius-lg);
   padding: var(--spacing-xs) var(--spacing-sm);
 }
@@ -275,7 +306,7 @@
 .goal-detail-history-run .goal-detail-feed {
   margin-top: var(--spacing-xs);
   padding-top: var(--spacing-xs);
-  border-top: 1px dashed var(--border-nav);
+  border-top: 1px solid color-mix(in srgb, var(--text-color) 14%, transparent);
 }
 
 /* Linked plans & actions (goal → plan → action lineage) */
@@ -291,8 +322,8 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
-  background: var(--bg-1);
-  border: 1px solid var(--border-nav);
+  background: var(--glass-sunken);
+  border: 1px solid transparent;
   border-radius: var(--border-radius-lg);
   padding: var(--spacing-xs) var(--spacing-sm);
   font-size: var(--font-size-small);
@@ -316,7 +347,7 @@
 }
 .goal-detail-link-form select {
   background: var(--bg-1);
-  border: 1px solid var(--border-nav);
+  border: 1px solid color-mix(in srgb, var(--scheme-accent) 30%, transparent);
   color: var(--text-color);
   border-radius: var(--border-radius-sm);
   padding: 8px;
@@ -326,7 +357,7 @@
   flex: 1;
   min-width: 0;
   background: var(--bg-1);
-  border: 1px solid var(--border-nav);
+  border: 1px solid color-mix(in srgb, var(--scheme-accent) 30%, transparent);
   color: var(--text-color);
   border-radius: var(--border-radius-sm);
   padding: 8px;
@@ -334,7 +365,7 @@
 }
 .goal-detail-link-form button {
   background: var(--bg-1);
-  border: 1px solid var(--border-nav);
+  border: 1px solid color-mix(in srgb, var(--scheme-accent) 30%, transparent);
   color: var(--text-color);
   border-radius: var(--border-radius-sm);
   padding: 8px 14px;
@@ -400,9 +431,9 @@
 }
 .goal-detail-handoff-link {
   padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.36);
-  border: 1px solid var(--border-nav);
+  border: 1px solid color-mix(in srgb, var(--scheme-accent) 30%, transparent);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--fg-blue) 8%, transparent);
+  background: var(--bg-1);
   color: var(--text-color);
   font-size: var(--font-size-small);
   font-weight: var(--font-weight-semibold);
@@ -412,7 +443,7 @@
 .goal-detail-handoff-link:hover {
   transform: translateY(-1px);
   border-color: var(--fg-blue);
-  background: var(--bg-accent);
+  background: var(--glass-btn-hover);
 }
 
 /* Scope textarea (was inline-styled with a hardcoded fallback colour) */
@@ -426,9 +457,9 @@
 .goal-detail-textarea {
   width: 100%;
   padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.3);
-  border: 1px solid var(--border-nav);
+  border: 1px solid color-mix(in srgb, var(--scheme-accent) 30%, transparent);
   border-radius: var(--border-radius);
-  background: var(--bg-page);
+  background: var(--bg-1);
   color: var(--text-color);
   font-family: inherit;
   font-size: var(--font-size-small);
@@ -444,7 +475,7 @@
   display: inline-flex;
   align-items: center;
   background: var(--bg-1);
-  border: 1px solid var(--border-nav);
+  border: 1px solid transparent;
   color: var(--text-color);
   text-decoration: none;
 }

@@ -1,0 +1,119 @@
+/*
+ * Additions for the two-person quiz flows (CoupleQuizPage.jsx). Everything
+ * else — the gradient shell, cards, scale options, buttons, trait bars — is
+ * inherited from QuizPage.css, which this file is always loaded alongside.
+ */
+
+/* ── Name entry ─────────────────────────────────────────────────── */
+.quiz-duo-names {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: calc(var(--nav-size) * 0.3);
+  margin-top: calc(var(--nav-size) * 0.2);
+}
+.quiz-duo-field { display: flex; flex-direction: column; gap: 6px; }
+.quiz-duo-field > span {
+  font-size: calc(var(--nav-size) * 0.22);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+.quiz-duo-input {
+  width: 100%;
+  font-family: inherit;
+  font-size: calc(var(--nav-size) * 0.3);
+  color: var(--text-color);
+  background: #ffffff0d;
+  border: 2px solid #ffffff26;
+  border-radius: 8px;
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.25);
+}
+.quiz-duo-input:focus { outline: none; border-color: var(--quiz-accent, var(--fg-blue)); }
+
+/* ── Handoff between partners ───────────────────────────────────── */
+.quiz-duo-handoff { text-align: center; }
+.quiz-duo-handoff-icon { font-size: calc(var(--nav-size) * 0.9); line-height: 1; margin-bottom: calc(var(--nav-size) * 0.2); }
+.quiz-duo-handoff h2 { margin-top: 0; }
+
+/* ── Guided prompts (36 questions) ──────────────────────────────── */
+.quiz-duo-prompt { font-size: calc(var(--nav-size) * 0.44); line-height: 1.35; }
+
+.quiz-duo-set { margin-top: calc(var(--nav-size) * 0.35); }
+.quiz-duo-set h3 { font-size: calc(var(--nav-size) * 0.32); margin: 0; }
+.quiz-duo-questions { margin: calc(var(--nav-size) * 0.15) 0 0; padding-left: calc(var(--nav-size) * 0.45); }
+.quiz-duo-questions li {
+  font-size: calc(var(--nav-size) * 0.26);
+  line-height: 1.6;
+  color: var(--text-color);
+  margin-bottom: calc(var(--nav-size) * 0.12);
+}
+
+/* ── Private closeness rating ───────────────────────────────────── */
+.quiz-duo-rating {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: calc(var(--nav-size) * 0.12);
+  margin: calc(var(--nav-size) * 0.3) 0 calc(var(--nav-size) * 0.2);
+}
+.quiz-duo-rating-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: calc(var(--nav-size) * 0.18) 4px;
+  border-radius: 8px;
+  border: 2px solid #ffffff26;
+  background: #ffffff0d;
+  color: var(--text-color);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.quiz-duo-rating-btn:hover:not(:disabled) { background: #ffffff1f; border-color: var(--quiz-accent, var(--fg-blue)); color: var(--text-color); }
+.quiz-duo-rating-btn.selected { border-color: var(--quiz-accent, var(--fg-blue)); background: color-mix(in srgb, var(--quiz-accent, var(--scheme-accent)) 16%, transparent); color: var(--text-color); }
+.quiz-duo-rating-btn .num { font-size: calc(var(--nav-size) * 0.4); font-weight: 700; line-height: 1; }
+.quiz-duo-rating-btn .lbl {
+  font-size: calc(var(--nav-size) * 0.17);
+  line-height: 1.25;
+  text-align: center;
+  color: var(--text-color-accent);
+}
+
+/* ── Where you differ ───────────────────────────────────────────── */
+.quiz-duo-gaps { margin: calc(var(--nav-size) * 0.3) 0; }
+.quiz-duo-gap {
+  background: #ffffff0d;
+  border-radius: 10px;
+  padding: calc(var(--nav-size) * 0.3);
+  margin-bottom: calc(var(--nav-size) * 0.2);
+}
+.quiz-duo-gap .q { font-weight: 700; font-size: calc(var(--nav-size) * 0.28); margin: 0 0 calc(var(--nav-size) * 0.2); line-height: 1.4; }
+.quiz-duo-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: calc(var(--nav-size) * 0.2); }
+.quiz-duo-pair .who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: calc(var(--nav-size) * 0.26);
+  padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.2);
+  border-radius: 8px;
+  background: #ffffff0d;
+}
+.quiz-duo-pair .who strong {
+  font-size: calc(var(--nav-size) * 0.2);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+.quiz-duo-gap .prompt {
+  font-size: calc(var(--nav-size) * 0.24);
+  line-height: 1.6;
+  color: var(--text-color-accent);
+  margin: calc(var(--nav-size) * 0.2) 0 0;
+}
+
+@media (max-width: 768px) {
+  .quiz-duo-rating { grid-template-columns: repeat(4, 1fr); }
+  .quiz-duo-rating-btn .lbl { display: none; }
+  .quiz-duo-prompt { font-size: calc(var(--nav-size) * 0.36); }
+}

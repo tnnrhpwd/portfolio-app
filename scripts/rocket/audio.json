@@ -1,0 +1,377 @@
+{
+  "$comment": [
+    "Rocket audio spec — the SOURCE of the game's music and sound effects.",
+    "",
+    "Read by `scripts/rocket/generate-audio.js`, which RENDERS these patterns to",
+    "WAV files in `frontend/public/rocket/audio/` plus a `manifest.json` the game",
+    "reads at runtime. Deterministic, offline, no accounts and no per-second cost.",
+    "",
+    "Why patterns rather than prompts: this game's art is flat retro cartoon, so a",
+    "chiptune score fits it better than generic AI music, and nothing here depends",
+    "on a paid subscription. Each item also carries a `prompt` describing the intent",
+    "in words — that is what an AI provider (ElevenLabs, Suno, ...) would be given if",
+    "one is ever wired up, and it documents what the track is meant to feel like.",
+    "",
+    "Pattern notation, one string per bar:",
+    "  note      C4 D#3 Eb2 F#5   (letters, optional #/b, octave)",
+    "  rest      .",
+    "  hold      -            extends the previous note by one step",
+    "  drum hit  x",
+    "Steps default to 16 per bar (4 beats x 4 sixteenths). A track's phrase cycles",
+    "until `bars` are filled, so a 2-bar phrase repeated 4x is written once.",
+    "",
+    "Cost/size knob: `output.sampleRate`. 22050 Hz mono ~= 44 KB per second of audio",
+    "(so the whole set is ~2 MB, comparable to the sprite set). 44100 doubles it and",
+    "crisps up the hats."
+  ],
+
+  "output": {
+    "dir": "frontend/public/rocket/audio",
+    "format": "wav",
+    "sampleRate": 22050,
+    "channels": 1,
+    "peak": 0.89
+  },
+
+  "defaults": {
+    "tempo": 120,
+    "bars": 8,
+    "beatsPerBar": 4,
+    "stepsPerBeat": 4
+  },
+
+  "instruments": {
+    "pad": {
+      "wave": "saw",
+      "detune": 7,
+      "gain": 0.15,
+      "attackMs": 260,
+      "decayMs": 380,
+      "sustain": 0.72,
+      "releaseMs": 520,
+      "filterHz": 1150
+    },
+    "bass": {
+      "wave": "square",
+      "gain": 0.32,
+      "attackMs": 3,
+      "decayMs": 130,
+      "sustain": 0.55,
+      "releaseMs": 80,
+      "filterHz": 760
+    },
+    "lead": {
+      "wave": "square",
+      "gain": 0.2,
+      "attackMs": 6,
+      "decayMs": 170,
+      "sustain": 0.5,
+      "releaseMs": 130,
+      "filterHz": 3400,
+      "echo": { "timeMs": 214, "feedback": 0.3, "mix": 0.26 }
+    },
+    "pluck": {
+      "wave": "triangle",
+      "gain": 0.26,
+      "attackMs": 1,
+      "decayMs": 230,
+      "sustain": 0.1,
+      "releaseMs": 120,
+      "filterHz": 2800
+    },
+    "bell": {
+      "wave": "sine",
+      "gain": 0.19,
+      "attackMs": 2,
+      "decayMs": 720,
+      "sustain": 0.12,
+      "releaseMs": 420,
+      "filterHz": 4800,
+      "echo": { "timeMs": 320, "feedback": 0.24, "mix": 0.2 }
+    },
+    "kick": { "drum": "kick", "gain": 0.85 },
+    "snare": { "drum": "snare", "gain": 0.45 },
+    "hat": { "drum": "hat", "gain": 0.2 }
+  },
+
+  "music": [
+    {
+      "slug": "menu-drift",
+      "title": "Menu — drifting",
+      "usedBy": "MenuScene",
+      "loop": true,
+      "tempo": 96,
+      "bars": 8,
+      "prompt": "Calm, curious retro space title theme. Warm analogue pads under a gentle pulse, slow 96 BPM, hopeful mood, sparse melody, seamless loop.",
+      "tracks": [
+        {
+          "instrument": "pad",
+          "phrase": [
+            "A3 - - - - - - - - - - - - - - -",
+            "A3 - - - - - - - - - - - - - - -",
+            "F3 - - - - - - - - - - - - - - -",
+            "F3 - - - - - - - - - - - - - - -",
+            "C4 - - - - - - - - - - - - - - -",
+            "C4 - - - - - - - - - - - - - - -",
+            "G3 - - - - - - - - - - - - - - -",
+            "G3 - - - - - - - - - - - - - - -"
+          ]
+        },
+        {
+          "instrument": "bass",
+          "phrase": [
+            "A2 . . . A2 . . . A2 . . . A2 . . .",
+            "A2 . . . A2 . . . E2 . . . E2 . . .",
+            "F2 . . . F2 . . . F2 . . . F2 . . .",
+            "F2 . . . F2 . . . C3 . . . C3 . . .",
+            "C3 . . . C3 . . . C3 . . . C3 . . .",
+            "C3 . . . C3 . . . G2 . . . G2 . . .",
+            "G2 . . . G2 . . . G2 . . . G2 . . .",
+            "G2 . . . G2 . . . D3 . . . D3 . . ."
+          ]
+        },
+        {
+          "instrument": "bell",
+          "phrase": [
+            "E4 . . . . . . . . . . . A4 . . .",
+            "C5 . . . . . . . . . . . . . . .",
+            ". . . . A4 . . . . . . . . . . .",
+            "F4 . . . . . . . C5 . . . . . . .",
+            ". . . . E4 . . . . . . . G4 . . .",
+            "A4 . . . . . . . . . . . E4 . . .",
+            ". . . . D4 . . . . . . . . . . .",
+            "G4 . . . . . . . B4 . . . D5 . . ."
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "arena-pulse",
+      "title": "Arena — pulse",
+      "usedBy": "PlayScene",
+      "loop": true,
+      "tempo": 140,
+      "bars": 8,
+      "prompt": "Driving 8-bit space shooter battle loop, 140 BPM. Arpeggiated bass, punchy drums, heroic lead trading with a counter-melody. Energetic but never chaotic, seamless loop.",
+      "tracks": [
+        {
+          "instrument": "bass",
+          "phrase": [
+            "A2 . A2 . A2 . A2 . A2 . A2 . A3 . A2 .",
+            "F2 . F2 . F2 . F2 . F2 . F2 . F3 . F2 .",
+            "C3 . C3 . C3 . C3 . C3 . C3 . C4 . C3 .",
+            "G2 . G2 . G2 . G2 . G2 . G2 . G3 . G2 ."
+          ]
+        },
+        {
+          "instrument": "lead",
+          "phrase": [
+            "A4 . . . C5 . . . E5 . . . . . . .",
+            "F5 . . . E5 . . . C5 . . . A4 . . .",
+            "C5 . . . E5 . . . G5 . . . . . . .",
+            "F5 . . . E5 . . . D5 . . . B4 . . .",
+            "A4 . . . C5 . . . E5 . . . . . . .",
+            "A5 . . . G5 . . . E5 . . . C5 . . .",
+            "D5 . . . F5 . . . E5 - - - - - - -",
+            "E5 - - - - - - - - - - - - - - -"
+          ]
+        },
+        {
+          "instrument": "pad",
+          "phrase": [
+            "A3 - - - - - - - - - - - - - - -",
+            "F3 - - - - - - - - - - - - - - -",
+            "C4 - - - - - - - - - - - - - - -",
+            "G3 - - - - - - - - - - - - - - -"
+          ]
+        },
+        {
+          "instrument": "kick",
+          "phrase": ["x...x...x...x...", "x...x...x...x...", "x...x...x...x...", "x...x...x...x.x."]
+        },
+        {
+          "instrument": "snare",
+          "phrase": ["....x.......x...", "....x.......x...", "....x.......x...", "....x.......x.x."]
+        },
+        {
+          "instrument": "hat",
+          "phrase": ["..x...x...x...x.", "..x...x...x.x.x."]
+        }
+      ]
+    },
+    {
+      "slug": "boss-alarm",
+      "title": "Boss — alarm",
+      "usedBy": "PlayScene (boss waves)",
+      "loop": true,
+      "tempo": 150,
+      "bars": 8,
+      "prompt": "Dark space shooter boss loop, 150 BPM. Ominous low stabs, urgent pulsing bass, fast percussion, dissonant alarm motif. Threatening and relentless, seamless loop.",
+      "tracks": [
+        {
+          "instrument": "bass",
+          "phrase": [
+            "D2 . D2 . D2 . D2 . D2 . D2 . D2 . D2 .",
+            "D2 . D2 . D#2 . D#2 . D2 . D2 . A2 . A2 .",
+            "D2 . D2 . D2 . D2 . D2 . D2 . D2 . D2 .",
+            "C2 . C2 . C2 . C2 . D2 . D2 . D2 . D2 ."
+          ]
+        },
+        {
+          "instrument": "lead",
+          "phrase": [
+            "D5 . . . . . D#5 . D5 . . . . . . .",
+            "F5 . . . E5 . . . D5 . . . A4 . . .",
+            "D5 . . . . . D#5 . A5 . . . . . . .",
+            "G5 . . . F5 . . . E5 - - - - - - -",
+            "D5 . . . . . D#5 . D5 . . . . . . .",
+            "A5 . . . G#5 . . . A5 . . . . . . .",
+            "D#5 . . . D5 . . . C5 . . . A4 . . .",
+            "D5 - - - - - - - - - - - - - - -"
+          ]
+        },
+        {
+          "instrument": "pad",
+          "phrase": [
+            "D3 - - - - - - - - - - - - - - -",
+            "D3 - - - - - - - - - - - - - - -",
+            "C3 - - - - - - - - - - - - - - -",
+            "A2 - - - - - - - - - - - - - - -"
+          ]
+        },
+        {
+          "instrument": "kick",
+          "phrase": ["x..x..x.x..x..x.", "x..x..x.x..x..x.", "x..x..x.x..x..x.", "x..x..x.x..x.x.x"]
+        },
+        {
+          "instrument": "snare",
+          "phrase": ["....x...x...x...", "....x...x...x...", "....x...x...x.x.", "....x...x...x.x."]
+        },
+        {
+          "instrument": "hat",
+          "phrase": ["x.x.x.x.x.x.x.x.", "x.x.x.x.x.x.x.x.", "x.x.x.x.x.x.x.x.", "x.x.x.xxx.x.x.xx"]
+        }
+      ]
+    },
+    {
+      "slug": "shop-spend",
+      "title": "Shop — spend",
+      "usedBy": "ShopScene",
+      "loop": true,
+      "tempo": 112,
+      "bars": 8,
+      "prompt": "Upbeat interlude for a between-levels upgrade shop. Bouncy synth bass, playful marimba and chiptune plucks, light percussion, cheerful and rewarding. Seamless loop.",
+      "tracks": [
+        {
+          "instrument": "bass",
+          "phrase": [
+            "C3 . G2 . C3 . E3 . F2 . A2 . C3 . . .",
+            "C3 . G2 . C3 . E3 . G2 . B2 . D3 . . ."
+          ]
+        },
+        {
+          "instrument": "pluck",
+          "phrase": [
+            "E5 . G5 . C6 . G5 . E5 . . . G5 . . .",
+            "F5 . A5 . C6 . A5 . G5 . . . E5 . . .",
+            "D5 . F5 . A5 . F5 . E5 . . . C5 . . .",
+            "E5 . G5 . C6 . E6 . G5 - - - - - - -"
+          ]
+        },
+        {
+          "instrument": "bell",
+          "phrase": [
+            ". . . . . . . . C6 . . . . . . .",
+            ". . . . . . . . . . . . G5 . . .",
+            ". . . . . . . . A5 . . . . . . .",
+            ". . . . . . . . . . . . C6 . . ."
+          ]
+        },
+        {
+          "instrument": "hat",
+          "phrase": ["..x...x...x...x.", "..x...x...x.x.x."]
+        }
+      ]
+    },
+    {
+      "slug": "run-over",
+      "title": "Run over — sting",
+      "usedBy": "GameOverScene",
+      "loop": false,
+      "tempo": 84,
+      "bars": 4,
+      "prompt": "Short instrumental defeat sting: descending pad, melancholy chiptune melody, soft pulse underneath, resolving to a warm quiet chord. Rueful, not harsh.",
+      "tracks": [
+        {
+          "instrument": "pad",
+          "phrase": [
+            "D3 - - - - - - - - - - - - - - -",
+            "C3 - - - - - - - - - - - - - - -",
+            "A#2 - - - - - - - - - - - - - - -",
+            "A2 - - - - - - - - - - - - - - -"
+          ]
+        },
+        {
+          "instrument": "bell",
+          "phrase": [
+            "D5 . . . . . . . C5 . . . . . . .",
+            "A#4 . . . . . . . A4 . . . . . . .",
+            "F4 . . . . . . . E4 . . . . . . .",
+            "D4 - - - - - - - - - - - - - - -"
+          ]
+        },
+        {
+          "instrument": "bass",
+          "phrase": [
+            "D2 . . . . . . . D2 . . . . . . .",
+            "C2 . . . . . . . C2 . . . . . . .",
+            "A#1 . . . . . . . A#1 . . . . . . .",
+            "A1 - - - - - - - - - - - - - - -"
+          ]
+        }
+      ]
+    }
+  ],
+
+  "sfx": [
+    {
+      "slug": "wave-clear",
+      "title": "Wave clear fanfare",
+      "usedBy": "PlayScene (wave-clear sting; falls back to the synthesised blip if missing)",
+      "render": "arpeggio",
+      "notes": ["C5", "E5", "G5", "C6"],
+      "noteMs": 105,
+      "wave": "square",
+      "gain": 0.34,
+      "releaseMs": 620,
+      "echo": { "timeMs": 150, "feedback": 0.3, "mix": 0.3 },
+      "durationMs": 1500,
+      "prompt": "Triumphant 8-bit arcade fanfare: rising three-note synth horn with a bright chime at the peak, dry and punchy."
+    },
+    {
+      "slug": "boss-explosion",
+      "title": "Boss explosion",
+      "usedBy": "PlayScene (reserved — the synthesised explosion is still used today)",
+      "render": "noiseBurst",
+      "durationMs": 1700,
+      "sweepHz": [1100, 55],
+      "decay": 2.4,
+      "gain": 0.7,
+      "rumbleHz": 48,
+      "prompt": "Huge cartoon space explosion: deep sub-bass thump, layered debris cracks, metallic shrapnel tail, arcade impact."
+    },
+    {
+      "slug": "coin-chime",
+      "title": "Coin chime",
+      "usedBy": "PlayScene (reserved)",
+      "render": "arpeggio",
+      "notes": ["E6", "B6"],
+      "noteMs": 62,
+      "wave": "sine",
+      "gain": 0.3,
+      "releaseMs": 240,
+      "durationMs": 420,
+      "prompt": "Tiny bright retro coin pickup: two quick ascending bell tones, clean and dry, no reverb tail."
+    }
+  ]
+}

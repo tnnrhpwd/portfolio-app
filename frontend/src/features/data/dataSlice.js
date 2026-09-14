@@ -298,6 +298,20 @@ export const dataSlice = createSlice({
         state.userUsageIsSuccess = true;
         state.userUsage = action.payload;
         console.log('🔧 Redux state.userUsage after update:', state.userUsage);
+
+        // `/usage` is the one cheap endpoint that reports the live Special flag,
+        // and it is the only way this session can learn about a tag an admin
+        // applied *after* it signed in (the flag otherwise rides on the login
+        // response, which is in the past by then). Raise it on the cached user so
+        // the dropper's Admin link and the console's four allowed views appear
+        // without a re-login.
+        //
+        // Cosmetic only — `backend/middleware/adminAccess.js` decides real
+        // access — so it only ever *raises* the flag, and only from an explicit
+        // `isSpecial: true` in a successful response.
+        if (action.payload?.isSpecial === true && state.user && state.user.isSpecial !== true) {
+          state.user = { ...state.user, isSpecial: true };
+        }
       })
       .addCase(getUserUsage.rejected, (state, action) => {
         state.userUsageIsLoading = false;

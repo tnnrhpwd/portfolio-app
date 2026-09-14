@@ -17,8 +17,9 @@ import './SimplePage.css';
  *   /plans  Goals   — the durable record of your intent
  *
  * **This is a service page, not a landing page** — FRONTEND_UI_STANDARD.md §5.7.
- * Service pages are workspaces, not stories: one flat surface, no bands, no
- * gradient behind the data, and nothing to scroll past to reach the tool.
+ * Service pages are workspaces, not stories: one surface, no bands, and the
+ * page's ground is the shared ambient room (`.service-room`) with the panels as
+ * glass resting on it — never a story to scroll past to reach the tool.
  * Signed in, `SimpleDashboard` owns the whole workspace (it holds the addon
  * state); signed out, this is a gate — the one case that gets a little
  * explanation, because there is nothing else on the page yet.
@@ -60,7 +61,7 @@ function SimplePage() {
       />
       <Header center={<SimpleNav compact />} />
 
-      <div className="simple-surface">
+      <div className="simple-surface service-room">
         {user ? (
           <SimpleDashboard />
         ) : (

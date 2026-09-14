@@ -23,7 +23,8 @@
     "secret:seed": "node backend/scripts/seed-secrets.js",
     "secret:list": "node backend/scripts/list-secret.js",
     "bootstrap": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap.ps1",
-    "deepseek": "npx --yes @deepseek-ai/dsh web"
+    "deepseek": "npx --yes @deepseek-ai/dsh web",
+    "addon": "node simple-addon/scripts/dev-preview.js"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.14.9",

@@ -1,2919 +1,2405 @@
-/* ═══════════════════════════════════════════
-   Layout
-   ═══════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Admin console — a SERVICE PAGE, rebuilt as AMBIENT GLASS (2026-09-13)
+   ═══════════════════════════════════════════════════════════════════════════
 
-.admin-container {
-    min-height: 100vh;
-    background: var(--bg-page);
-    display: flex;
-    flex-direction: column;
-    position: relative;
+   Still a service page, and still the same discipline: a tool rather than a
+   pitch, one surface, a head carrying the room's name + live state + actions,
+   then dense panels ordered by how often they get touched. No bands, no scroll
+   reveals. (The head is NOT sticky — see `.admin-head` — and the room drifts
+   behind the data, which is ambience the data never has to compete with.)
+
+   What changed is the MATERIAL. The previous pass made every panel a fully
+   saturated color plane (`oklch(from hue var(--plane-l) c h)`) with no shadow
+   and no border, and rotated the hue by `nth-child(3n)`. The result was a stack
+   of highlighter slabs in which color carried no information — when everything
+   is colored, nothing is emphasized — and the brand survived as one 2px
+   hairline. This pass keeps the structure and replaces the surface:
+
+     · The page is an AMBIENT MESH GRADIENT — the four `--bg-*` corners as soft
+       radial pools — so the brand lives in the room, not in the blocks.
+     · Panels are TRANSLUCENT GLASS over it: ~82% surface, a gradient hairline
+       edge, a specular top highlight, a soft layered shadow, and a whisper of
+       grain. Depth comes from layering, the way `/profile` gets it (Profile.css),
+       with NO `backdrop-filter` anywhere — it is a repaint cost on every scroll
+       and it is banned by §8.
+     · The head is the NAVIGATION LAYER, which is where glass actually belongs
+       (Apple's HIG: glass is "most effective for the navigation layer"): a
+       floating rounded glass bar, and the only thing on the page that sticks.
+     · COLOR IS RESERVED FOR SIGNAL. A panel is neutral by default and a hue
+       appears only when it means something (`hue="ok"|"bad"|…`, a status chip,
+       the primary action, the data itself). The decorative hue rotation is gone.
+
+   Two rules borrowed from glass design that are easy to get wrong:
+   - DON'T put glass on glass. Anything nested *inside* a panel is a flat
+     `--admin-sunken` tint, never a second glass surface.
+   - DON'T glass a control. Buttons, inputs and chips stay SOLID: they must read
+     as objects you can push, and a translucent control over data loses its edge.
+
+   Motion (see §17) only ever means "state changed" or "you are pointing at
+   this". The ambient gradient does NOT move — it sits behind tables and numbers,
+   and a drifting background under data is exactly what §5.7 forbids. */
+
+.admin-surface {
+  /* Status maps onto the two hues rather than adding a third: healthy IS the
+     console's own colour, and warn/bad share the alert hue, separated by how
+     much of it is used (an ink chip versus a solid fill) rather than by colour.
+     State that leans on one hue plus intensity plus a word is also the version
+     that survives colour-blindness. */
+  --admin-ok: var(--tone-accent);
+  --admin-warn: var(--tone-alert);
+  --admin-bad: var(--tone-alert);
+
+  /* Repointing the site's interactive hue at the accent collapses about twenty
+     separate `var(--fg-blue)` rules below — every focus ring, link, input edge,
+     inline button, the loading ring — onto the palette without touching a single
+     one of them. It is redefined for this subtree only, so the rest of the site
+     keeps its blue. */
+  --fg-blue: var(--tone-accent);
+
+  /* The primary action: a gradient WITHIN one hue, from a light step to a deep
+     one, in the HIGHLIGHT hue. An action is the one thing on the page you are
+     meant to press, so it wears the colour that means "here", not the room's
+     cyan and certainly not the alarm's amber.
+
+     The two stops are tokens rather than "the accent mixed toward white", because
+     this button's label is `--text-color-inv` — white in the light theme and
+     near-black in the dark one — and the LIGHTER stop is what has to carry it.
+     Measured: 6.4 / 9.9 in the light theme, 9.2 / 6.6 in the dark. (Sitting at
+     the panel accent's own lightness instead measured 3.2:1, which is how this
+     got its own levels.) */
+  --tone-l-action-hi: 0.50;
+  --tone-l-action-lo: 0.40;
+  --admin-action: linear-gradient(
+    135deg,
+    oklch(from var(--scheme-primary) var(--tone-l-action-hi) c h),
+    oklch(from var(--scheme-primary) var(--tone-l-action-lo) c h)
+  );
+
+  /* The accent a panel carries. Defaults to the console's own colour, so every
+     pane is in the scheme and a state tone is the thing that stands out. */
+  --admin-accent: var(--tone-accent);
+
+  /* ── The material ────────────────────────────────────────────────────────
+     Alpha, not opacity: a translucent *color* composites against the ambient
+     gradient behind it, which is the entire effect. 82% is the most transparent
+     a panel can be while body text still holds AA over the brightest pool of
+     the light-theme mesh (§18 has the measurement note). */
+  /* `--admin-land` is the LEVEL the glass sits at, and it is the PAGE colour —
+     the same thing `/profile` paints its cards with (`--bg-page` at 84%).
+
+     ⚠️ This used to be `var(--bg-1)`, with the comment "the page is already
+     near-white, so the surface itself is the land". But `--bg-1` is NOT the page.
+     It is `--input-bg-accessible` — deliberately WHITER than the page (`#ffffff`
+     at 95% against `#F4F7FD`) so a form field stands off whatever it sits on.
+     Building the glass out of it made every panel and every row of every table
+     lighter than every card on `/profile`, and that is the whole of the note "on
+     /profile the tables and components are darker than on /admin": not a
+     `/profile` that is too dark, but an INPUT token doing a SURFACE's job.
+     Controls keep `--bg-1` — a field or a button genuinely wants the accessible
+     input background. Only the land moves.
+
+     In the dark theme it is lifted toward white (see below): a pane that is
+     merely *lighter than black* still reads as a hole in the page rather than as
+     a pane resting on it, and that is the difference between "dark dashboard"
+     and "dark glass". */
+  --admin-land: var(--bg-page);
+  /* `/profile`'s surface is `--bg-page` at 84% — see the note on `--admin-land`
+     above, which is now where that number comes from. ONE value for every raised
+     thing on the console, so a panel, a tile and the bar cannot drift into three
+     slightly different glasses. The old 80/90 pair is gone; `--admin-glass-raised`
+     survives as a NAME (the bar uses it) and is no longer a different material. */
+  --admin-glass-a: 84%;
+  --admin-glass-raised-a: 84%;
+  --admin-glass: color-mix(in srgb, var(--admin-land) var(--admin-glass-a), transparent);
+  --admin-glass-raised: color-mix(in srgb, var(--admin-land) var(--admin-glass-raised-a), transparent);
+  /* There is no ambient DOSE any more. The room draws its two hues straight from
+     the theme's background tokens (see `.admin-surface::before`), and an ALPHA is
+     the wrong knob for it: below 100% what shows through is the neutral page,
+     which is precisely what a tint is.
+
+     `--admin-room-mix` is the knob that works. It mixes the hue toward the page
+     colour, so the room keeps being a colour and simply loses saturation.
+
+     ⚠️ This was pulled down to 68% when the note was "too colorful"; it is back
+     up near `/profile` now that the note is "make the components more like
+     /profile". The two notes disagree because THIS is the token that decides how
+     much colour the components carry: the panes are ~80% glass over the room, so a
+     paler room reads through them as plain white. The room is not decoration — it
+     is what the glass is tinted BY.
+
+     Still short of `/profile`'s 100%: that backdrop is a marketing surface with
+     almost nothing to read on it, and this page is mostly numbers. 90 keeps the
+     room unmistakably the scheme while leaving the panes legible.
+
+     The ALERT hue is still absent, deliberately: a colour used as wallpaper
+     cannot mean "look at me". */
+  --admin-room-mix: 90%;
+  /* The halo layer, one step looser than the room and moving at its own rate, so
+     the two read as depth rather than as one flat wash. Barely there now: the room
+     already supplies the colour, and a second saturated layer on top of a first is
+     exactly how a page ends up too loud. */
+  --admin-halo-a: 10%;
+  --admin-halo-b: 10%;
+  /* Anything nested inside a panel — never a second glass surface. */
+  --admin-sunken: color-mix(in srgb, var(--text-color) 6%, transparent);
+  --admin-sunken-strong: color-mix(in srgb, var(--text-color) 11%, transparent);
+  /* Row tints. Neutral on purpose: a zebra stripe is structure, not meaning. */
+  --admin-tint: color-mix(in srgb, var(--text-color) 4%, transparent);
+  --admin-tint-strong: color-mix(in srgb, var(--text-color) 7.5%, transparent);
+  /* The selected tab. This one IS a signal — "you are here" — so it keeps the
+     brand hue, as an opaque tint rather than the saturated plane it used to be. */
+  --admin-selected: color-mix(in srgb, var(--fg-blue) 16%, var(--bg-1));
+  /* The active tab runs the two brand hues across itself. It is the only control
+     on the page that marks a PLACE rather than an action, and a place can afford
+     to be the brand. Opaque, like `--admin-selected`: a tinted control needs an
+     edge. */
+  --admin-selected-hi: color-mix(in srgb, var(--scheme-primary) 18%, var(--bg-1));
+  /* A control's hover, opaque so a button never goes see-through on hover. */
+  --admin-btn-hover: color-mix(in srgb, var(--bg-1) 90%, var(--text-color));
+  /* The pointer spotlight's light. Neutral-ish: this is a highlight, not a hue
+     doing work, so it must not be mistaken for one of the signal colors. */
+  --admin-light: color-mix(in srgb, var(--fg-blue) 14%, transparent);
+
+  /* The gradient hairline. Light is assumed to come from the top-left, so the
+     edge is bright there and falls away opposite — this is what stops a 1px
+     border from reading as a drawn rectangle. */
+  --admin-edge-hi: color-mix(in srgb, var(--white0) 70%, transparent);
+  --admin-edge-lo: color-mix(in srgb, var(--text-color) 18%, transparent);
+  /* The specular top edge. Glass-UI research is unusually unanimous about this
+     one: a single inset highlight along the top is what makes a surface read as
+     glass rather than as tinted film. */
+  --admin-spec: color-mix(in srgb, var(--white0) 62%, transparent);
+  /* A panel head is a tone change, not a line and not a second hue. */
+  --admin-sheen: color-mix(in srgb, var(--text-color) 6.5%, transparent);
+  --admin-shadow: var(--shadow-md);
+
+  /* The whole recipe in one place, so the bar, the panels and the KPI tiles
+     cannot drift apart into three slightly different glasses. Three layers,
+     bottom-first: the gradient hairline painted into the (transparent) border
+     box, the glass fill clipped to the padding box, and the grain over both. */
+  /* `/profile`'s surface, verbatim: one translucent page-colour fill and nothing
+     else. The grain and the gradient edge-tint went with the wash — there is no
+     gradient left for the grain to dither, and `/profile`'s own note is "soft,
+     translucent, no hard borders". */
+  --admin-glass-panel: linear-gradient(var(--admin-glass), var(--admin-glass));
+  /* The same recipe with the element's OWN accent laid over the glass. This is
+     what gives a panel a temperature.
+
+     It is an extra background LAYER rather than a hue mixed into the fill, and
+     that distinction is the whole point: with `--admin-accent: transparent` the
+     layer renders fully transparent, so a neutral element is byte-identical to
+     the panel above. Mixing a hue into the fill instead would quietly change
+     the opacity of every neutral panel too, because `color-mix` with
+     `transparent` scales alpha.
+
+     Because custom properties substitute at the point of USE, `var(--admin-accent)`
+     here resolves against whichever element consumes the token — so one shared
+     definition paints a different colour on every panel.
+
+     The accent enters as a RAMP, not a fill: strongest in the top-left and gone
+     by the far corner, so a panel has a direction and a light source. With
+     `--admin-accent: transparent` both stops are transparent and the whole layer
+     disappears, which is what keeps a toneless element byte-identical to the one
+     above it. */
+  --admin-glass-panel-washed: var(--admin-glass-panel);
+  /* How much of the accent goes into that wash, at its STRONGEST corner. This is
+     the top of a ramp, not a flat tint: the wash falls away diagonally, so the
+     number here is a ceiling and the panel's far corner is plain glass.
+
+     Raised alongside the room, and the two do different jobs: the ROOM decides the
+     colour BEHIND a pane, the WASH decides the colour IN it. Between them a wall
+     of panels reads as a scheme rather than as grey — which was the whole note. */
+  --admin-wash: 22%;
+  /* How much of a hue a proportion bar carries. Stronger than the wash, because
+     a bar is data and data is meant to be read. */
+  --admin-share-dose: 26%;
+
+  /* ── The palette ─────────────────────────────────────────────────────────
+
+     Grey, white and black carry every surface, every word and every rule. Three
+     hues do the rest, and each has exactly one job:
+
+       accent    (cyan)  the console itself — interaction, data, navigation,
+                         and "nominal"
+       highlight (pink)  what you should look at or PRESS — the primary action,
+                         the headline figure, the brand rule
+       alert     (amber) what has gone wrong
+
+     Cyan is the room; pink is the hand pointing at something; amber is the
+     alarm. Keeping pink and amber apart is the point: if the thing you press and
+     the thing that is broken were the same colour, neither would mean anything.
+     Amber is deliberately absent most of the time — a colour that only shows up
+     when it matters is the only kind that can.
+
+     All three are pinned to ONE lightness and one chroma, so they are the same
+     colour at three angles rather than three colours that happen to share a
+     page. That pin is what makes them read as a scheme — and it also means they
+     land on text at the same contrast, so none is the cheap one.
+
+     One hue, one job, and deliberately no hue per data family. Traffic,
+     sign-ups and revenue are told apart by their panel's title and by the shape
+     of their bars; spending a hue on each is exactly how a console ends up a
+     different colour every 200px. What replaces those hues is INTENSITY — the
+     funnel is one hue in three weights, which is a truer chart anyway, because
+     the length was already the encoding and colour was only repeating it.
+
+     WHICH hues the accent and the primary ARE is not decided here. That is
+     decided once for the whole site, in "THE SCHEME" in `index.css`, and read in
+     as `--scheme-accent` / `--scheme-primary` below. This block only decides what
+     the console DOES with them — the shared lightness that harmonises them, the
+     roles they play, the ramp. Re-pointing the site's colours is a change in one
+     place, and it is deliberately not this one. */
+  --tone-l: 0.58;
+  --tone-l-soft: 0.72;
+  --tone-l-deep: 0.45;
+  --tone-c: 0.125;
+  /* ⚠️ `c` — the INPUT's chroma — rather than `var(--tone-c)`, on every token that
+     comes from a scheme. Re-pinning the chroma is what harmonises the tones, but it
+     also means a scheme with NO chroma (the `neutral` one) would be handed 0.125
+     anyway, and a grey handed chroma is not a grey: a neutral has no hue, so the
+     angle falls back to 0 and the whole console would turn PINK. Taking the chroma
+     from the scheme keeps the harmonisation for every coloured scheme — they are
+     all authored at exactly this chroma — and lets a grey stay grey.
+     The ALERT keeps the fixed `var(--tone-c)`: it is the theme's orange in every
+     scheme, and an alarm that goes grey with the decor is not an alarm. */
+  --tone-accent: var(--scheme-accent);
+  --tone-accent: oklch(from var(--scheme-accent) var(--tone-l) c h);
+  --tone-accent-soft: oklch(from var(--scheme-accent) var(--tone-l-soft) c h);
+  --tone-accent-deep: oklch(from var(--scheme-accent) var(--tone-l-deep) c h);
+  --tone-alert: var(--scheme-alert);
+  --tone-alert: oklch(from var(--scheme-alert) var(--tone-l) var(--tone-c) h);
+  --tone-highlight: var(--scheme-primary);
+  --tone-highlight: oklch(from var(--scheme-primary) var(--tone-l) c h);
+  /* The title's ink, and deliberately NOT a `--tone-*`. Those are UI accents
+     tuned to sit next to glass at a shared lightness; a HEADING needs its own,
+     and in the light theme that means darker than the accent so the h1 still
+     reads as a heading rather than as a hint. The marketing pages fill their
+     big headings with a gradient; this is that device, at a lightness chosen so
+     the trick costs no legibility. */
+  --tone-l-ink: 0.47;
+  --admin-ink-a: var(--scheme-accent);
+  --admin-ink-a: oklch(from var(--scheme-accent) var(--tone-l-ink) c h);
+  --admin-ink-b: var(--scheme-primary);
+  --admin-ink-b: oklch(from var(--scheme-primary) var(--tone-l-ink) c h);
+  /* The head sits a step more opaque than the panels. Not because anything scrolls
+     under it — nothing does — but because it is the console's FRAME rather than one
+     of its panes, and a frame should not dissolve into the room the way a panel
+     deliberately does. */
+  --admin-glass-bar: linear-gradient(var(--admin-glass-raised), var(--admin-glass-raised));
+
+  /* Concentric radii: an inner block's radius is its parent's minus the gap, so
+     the curves stay parallel (Apple calls this concentricity). */
+  /* `/profile`'s radii and shadow, so a panel and a card have the same corner and
+     the same lift. */
+  --admin-radius: var(--border-radius-2xl);
+  --admin-radius-inner: var(--border-radius);
+
+  /* A whisper of grain, baked into the SVG at 6%: fractalNoise, desaturated,
+     tiled. It kills the banding an 8-bit gradient shows across a wide panel and
+     gives the surface a physical grain instead of a flat wash. */
+  --admin-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: calc(var(--nav-size) * 1.15) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
+  color: var(--text-color);
+  /* NO background of its own — the room lives on `::before`, below. An element
+     cannot paint a layer behind its own background, and the room has to sit
+     behind every pane. The page colour is not lost with it: `body`/`html` in
+     index.css already paint `--bg-page`. */
+}
+/* ── The room ─────────────────────────────────────────────────────────────
+   The brand and nothing else: the accent running into the highlight, at FULL
+   STRENGTH, as the page's own background. Two hues, so a wall of grey glass never
+   reads as a monochrome.
+
+   Colour that is not data, not state and not interactive has no business here —
+   and the ALERT hue especially must never be wallpaper, or it stops being able to
+   mean "look at me". Nor does a panel's own wash show up as a second light
+   source: the room belongs to the page, not to the panes.
+
+   It SWEEPS. This is the marketing pages' device, and it is what was actually
+   missing here: what makes them feel alive is not that a gradient exists, it is
+   that the colour TRAVELS across it — a gradient several times the size of the
+   window, with `background-position` walking from corner to corner. Same four
+   stops, same four positions, in this console's two hues instead of four.
+
+   ⚠️ This repaints, and the first version of this file deliberately refused to.
+   Animating `background-position` re-rasterises the gradient every frame, where a
+   `transform` on a promoted layer is free — which is why the room used to drift by
+   `transform` instead. That was reversed on request, and the reason it was wrong
+   is worth keeping: a drift gentle enough to look calm is also too gentle to
+   notice, so it bought no calm and cost the effect. The repaint is a real cost,
+   accepted knowingly and bounded by keeping it to ONE layer at the very back —
+   four stops, `pointer-events: none`, nothing compositing over it, and never in
+   front of content. If it ever needs to be cheaper, the fix is a promoted layer,
+   not fewer stops.
+
+   `z-index: -1` puts it behind all content while staying in the ROOT stacking
+   context, and that is why `.admin-surface` must never gain `isolation` or a
+   `z-index` of its own: either one would trap `.admin-modal-overlay`'s 200 inside
+   this subtree, dropping the modal UNDER the site header. */
+.admin-surface::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--bg-page);
+  /* Full OPACITY, drawn from the theme's own BACKGROUND tokens — the family
+     `/profile` builds its backdrop from — and then pulled back toward the page by
+     `--admin-room-mix`.
+
+     Opacity would be the wrong knob: below 100% what shows through is the neutral
+     page, and a neutral page showing through is just a tint of grey. MIXING the
+     hue is the right one, because the room stays a real colour and simply carries
+     less saturation.
+
+     `--bg-*` rather than the vivid `--fg-*` accents, because it is the family the
+     theme already ships a pale version of in light and a deep one in dark — so the
+     room is a pastel wash in one theme and a saturated one in the other with no
+     media query doing the work. That is also why `/profile` reads as it does.
+
+     Four stops alternating the two hues, so the ramp crosses both twice in a pass.
+
+     The page's TEXT CONTRAST is not carried by these colours — the glass above
+     them carries it — but this is why `--admin-glass-a` is as high as it is. Do
+     not bring the glass down to "match" a quieter room: less room showing through
+     is simply better for the numbers, and the glass is what the numbers sit on. */
+  background-image: linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--scheme-accent-bg) var(--admin-room-mix), var(--bg-page)),
+    color-mix(in srgb, var(--scheme-primary-bg) var(--admin-room-mix), var(--bg-page)),
+    color-mix(in srgb, var(--scheme-accent-bg) var(--admin-room-mix), var(--bg-page)),
+    color-mix(in srgb, var(--scheme-primary-bg) var(--admin-room-mix), var(--bg-page))
+  );
+  /* Three times the window in each direction. The image has to be WIDER than the
+     box or `background-position` has nowhere to walk — at the default 100% size
+     this animation would do nothing at all. */
+  background-size: 300% 300%;
+  background-repeat: no-repeat;
+  animation: adminRoomSweep 26s ease-in-out infinite;
+}
+/* ── The halo: the second, looser layer of the room ─────────────────────────
+   Two soft colour pools floating at their OWN rate over the sweeping room, which
+   is how the marketing pages' decorative circles work behind their heroes. Two
+   layers at two speeds is what reads as depth; one layer is just a wallpaper.
+
+   NO `filter: blur()`, on purpose. A blur on a full-viewport layer that transforms
+   every frame is the single genuinely expensive thing this file could do, and a
+   radial gradient falling to transparent IS a blur — the blur would buy nothing
+   and cost a full-surface re-raster per frame. `transform` only, so this is a
+   second composited layer that never repaints.
+
+   It translates and scales but never ROTATES. A rotation would need the box to be
+   sqrt(2) larger than the viewport to avoid exposing a corner at 45°, and the
+   pools would then have to be re-derived in the larger box's units; translate plus
+   scale stays inside the slack at every point of the cycle. */
+.admin-surface::after {
+  content: '';
+  position: fixed;
+  inset: -12%;
+  z-index: -1;
+  pointer-events: none;
+  will-change: transform;
+  background-image:
+    radial-gradient(34vw 30vh at 22% 68%, color-mix(in srgb, var(--tone-accent) var(--admin-halo-a), transparent), transparent 70%),
+    radial-gradient(30vw 26vh at 78% 18%, color-mix(in srgb, var(--tone-highlight) var(--admin-halo-b), transparent), transparent 72%);
+  animation: adminHaloFloat 30s ease-in-out infinite;
+}
+.dark-theme .admin-surface {
+  /* Lift the land off the page, so a panel reads as a raised pane. 93/7 is
+     deliberately modest — enough to separate, not so much that the console stops
+     being dark.
+
+     The BASE is the page colour, not `--bg-1` (see the note on `--admin-land`
+     above). In this theme `--bg-1` is the dark input background, `#2d2d2e`, which
+     is around four times the page's lightness (`--grey5`, `#151516`) — so a pane
+     built from it glowed instead of resting. */
+  --admin-land: color-mix(in srgb, var(--bg-page) 93%, var(--white0));
+  --admin-glass-a: 84%;
+  --admin-glass-raised-a: 84%;
+  /* Both follow the light theme up, for the same reason: the components are read
+     THROUGH the glass, so the room's saturation and the panel wash are what make
+     them look like the scheme rather than like white boxes. */
+  --admin-room-mix: 86%;
+  --admin-halo-a: 12%;
+  --admin-halo-b: 12%;
+  --admin-wash: 26%;
+  --admin-share-dose: 38%;
+  /* Same recipe, lifted: on a dark pane the hues need more light behind them to
+     read as the same two colours rather than as two dark smudges. */
+  --tone-l: 0.76;
+  --tone-l-soft: 0.88;
+  --tone-l-deep: 0.62;
+  /* Brighter than the accent, not dimmer: on a near-black bar a heading has to
+     come UP to be a heading. */
+  --tone-l-ink: 0.85;
+  /* Lifted, not lowered: on a dark pane the action's label is near-black. */
+  --tone-l-action-hi: 0.82;
+  --tone-l-action-lo: 0.72;
+  --tone-c: 0.13;
+  /* In the dark theme the EDGE carries more of the load than the fill does: when
+     a land is this dark the specular highlight and a brighter hairline are what
+     make the pane's boundary legible, more than the tone of the glass. */
+  --admin-spec: color-mix(in srgb, var(--white0) 13%, transparent);
+  --admin-sheen: color-mix(in srgb, var(--white0) 6%, transparent);
+  --admin-edge-hi: color-mix(in srgb, var(--white0) 22%, transparent);
+  --admin-edge-lo: color-mix(in srgb, var(--white0) 4%, transparent);
+  --admin-sunken: color-mix(in srgb, var(--white0) 6%, transparent);
+  --admin-sunken-strong: color-mix(in srgb, var(--white0) 10%, transparent);
+  --admin-tint: color-mix(in srgb, var(--white0) 4%, transparent);
+  --admin-tint-strong: color-mix(in srgb, var(--white0) 7%, transparent);
+  --admin-selected: color-mix(in srgb, var(--fg-blue) 30%, var(--bg-1));
+  --admin-selected-hi: color-mix(in srgb, var(--scheme-primary) 30%, var(--bg-1));
+  --admin-btn-hover: color-mix(in srgb, var(--bg-1) 88%, var(--white0));
+  --admin-light: color-mix(in srgb, var(--white0) 11%, transparent);
+  --admin-shadow: var(--shadow-md);
 }
 
-.admin-section-tile {
-    font-family: 'CutiveMono-Regular', monospace;
-    margin: calc(var(--nav-size) * 2) auto calc(var(--nav-size) * 1) auto;
-    width: 92%;
-    max-width: 1300px;
-    color: var(--text-color);
-    position: relative;
-    z-index: 2;
+/* The one container the surface owns, so no view has to know how wide the
+   console is allowed to be. Wider than a marketing page: this is dense data. */
+.admin-shell {
+  /* Kept positioned: a containing block for anything a view needs to place, and it
+     leaves the console's painting order exactly where it was. */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1440px;
+  min-width: 0;
 }
 
-.admin-section-tile h2 {
-    margin-bottom: calc(var(--nav-size) * 0.5);
-    font-size: var(--font-size-large);
-    font-weight: bold;
-    color: var(--text-color);
-    border-bottom: 2px solid var(--border-nav);
-    padding-bottom: calc(var(--nav-size) * 0.15);
+/* ── 1. The head — the console's frame ───────────────────────────────────── */
+
+/* It holds BOTH the bar and the tab row: one block, so nothing has to measure
+   anything else.
+
+   It does NOT stick, and that is a deliberate reversal. It was pinned so the view
+   switcher stayed reachable, which is a real argument on a console whose views are
+   long tables — but the cost was ~160px of viewport permanently spoken for (the bar
+   plus the 48px site nav above it), and a pane that had to stay legible over text
+   scrolling beneath it, which forced an opaque base. Scrolling back to the top to
+   change view is the trade, and it is the trade that was chosen.
+
+   With nothing scrolling under it, the head goes back to being ordinary glass: no
+   opaque base, and it lets the room through like every panel does. */
+.admin-head {
+  position: relative;              /* containing block for the rule below */
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.1);
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.26) calc(var(--nav-size) * 0.16);
+  border: 1px solid transparent;
+  border-radius: var(--admin-radius);
+  /* The bar is where the brand gets stated, so it carries the same cyan→pink ramp
+     as the rule along its lower edge — as a whisper, and clipped to the PADDING
+     box so it cannot paint over the gradient hairline that makes the edge read
+     as glass. */
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tone-accent) 11%, transparent), transparent 56%, color-mix(in srgb, var(--tone-highlight) 11%, transparent)) padding-box,
+    var(--admin-glass-bar);
+  /* No specular inset: it is the one thing that made the bar read as a pane of
+     glass rather than as a surface, and `/profile` has no equivalent. */
+  box-shadow: var(--admin-shadow);
+}
+/* The one piece of brand on the page: an accent rule inside the bar's lower
+   edge, inset by the bar's own radius so the curve stays clean. */
+.admin-head::after {
+  content: '';
+  position: absolute;
+  left: calc(var(--admin-radius) * 0.7);
+  right: calc(var(--admin-radius) * 0.7);
+  bottom: 2px;
+  height: 2px;
+  border-radius: 999px;
+/* The page's signature line, and the one place both brand hues meet: the room's
+   cyan running into the highlight. It is a rule, not a fill, so two hues on it
+   read as a gradient rather than as two themes. */
+  background: linear-gradient(90deg, var(--tone-accent), var(--tone-highlight) 58%, transparent 88%);
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+/* A light running the length of that line. It is a SEPARATE element from the rule
+   because both want to own `background-position`, and one element cannot run two
+   animations on the same property — the second silently replaces the first. */
+.admin-head::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--admin-radius) * 0.7);
+  right: calc(var(--admin-radius) * 0.7);
+  bottom: 2px;
+  height: 2px;
+  border-radius: 999px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--white0) 80%, transparent) 50%, transparent) no-repeat;
+  background-size: 30% 100%;
+  animation: adminRuleSweep 7.5s ease-in-out infinite;
 }
 
-/* ═══════════════════════════════════════════
-   Admin sub-page layout (sidebar-free nav)
-   ═══════════════════════════════════════════ */
-
-.admin-page {
-    width: 92%;
-    max-width: 1300px;
-    margin: calc(var(--nav-size) * 1.6) auto calc(var(--nav-size) * 1) auto;
-    position: relative;
-    z-index: 2;
+.admin-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.25);
+  min-width: 0;
 }
 
-.admin-nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: calc(var(--nav-size) * 0.15);
-    margin-bottom: calc(var(--nav-size) * 0.4);
+/* The <h1> is the room's name — two words at most. No eyebrow, no subtitle. */
+.admin-bar-title {
+  margin: 0;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+  line-height: 1;
+  /* The one place the console borrows the marketing pages' most recognisable
+     device: a heading FILLED with a gradient that slowly runs through it.
+
+     It is safe here and nowhere else on this page, and that is a rule rather than
+     an accident. This is the only text on /admin whose job is to be a title
+     instead of being read as data, and it is large and bold enough that a
+     gradient costs no legibility. Measured against the bar at its MOST tinted
+     end, where the ink has least to work with: 5.2–6.4:1 in the light theme and
+     5.5–6.5:1 in the dark — past AA for body text, let alone the 3:1 a heading
+     needs. Every number, label, row and hint on the page stays a solid ink. */
+  background: linear-gradient(100deg, var(--admin-ink-a), var(--admin-ink-b) 46%, var(--admin-ink-a));
+  background-size: 240% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: adminInkShift 9s ease-in-out infinite;
+  /* Gradient ink carries an OUTLINE, and that is a standing rule on this page
+     rather than a flourish. The outline has to read against the GRADIENT, not
+     against the page: the ink is what the eye is on, and the thing it can dissolve
+     into is the bar behind it, which sweeps through the same two hues the title is
+     made of — a cyan "Dash" can end up on a cyan bar.
+
+     So the outline takes `--text-color-inv`, the token that already means "the
+     other side of whatever this sits on": white in the light theme, near-black in
+     the dark. That puts it maximally far from the ink in BOTH themes by
+     construction, which is what "high contrast to the gradient" needs, instead of
+     a mid grey that is a compromise in both.
+
+     Deliberately NOT `paint-order: stroke fill`, for all that it is the prettier
+     option: it draws the stroke behind the fill, which keeps the gradient at full
+     extent but pushes the outline OUTWARD, onto the bar — where a colour chosen to
+     be the bar's opposite can vanish into it. Letting the stroke straddle the glyph
+     edge puts half of it over the gradient, and that is the half that has to show.
+
+     Any gradient text added to this page later carries one too. */
+  -webkit-text-stroke: 0.003em var(--text-color-inv);
 }
 
-.admin-nav-link {
-    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.25);
-    border: 1px solid var(--border-nav);
-    border-radius: 999px;
-    background: var(--bg-1);
-    color: var(--text-color);
-    text-decoration: none;
-    font-size: var(--font-size-xs);
-    font-family: 'CutiveMono-Regular', monospace;
-    white-space: nowrap;
-    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+.admin-bar-status {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.12);
+  font-size: var(--font-size-small);
+  /* NOT `--text-color-accent`. That token is measured against the plain page
+     background; on the glass bar in the dark theme it lands at 4.03:1 over the
+     ambient teal pool, under AA. `--plane-muted` is the token that exists for a
+     tinted surface, and it measures 7.2:1 here (the same trap as §13.13). */
+  color: var(--plane-muted);
+  white-space: nowrap;
+}
+.admin-bar-status__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--admin-ok);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--admin-ok) 55%, transparent);
 }
 
-.admin-nav-link:hover {
-    background: var(--bg-mint);
+/* One row of live state, never a 2×2 stat grid. */
+.admin-bar-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-chip {
+  font-size: var(--font-size-xs);
+  line-height: 1.7;
+  color: var(--plane-muted);
+  /* A readout chip is a label, not a control, so it can be a recessed tint
+     rather than a solid pill — that is what keeps the bar from looking like a
+     row of buttons. */
+  background: var(--admin-sunken);
+  border-radius: 999px;
+  padding: 0 9px;
+  white-space: nowrap;
+}
+.admin-chip strong {
+  color: var(--text-color);
+  font-weight: var(--font-weight-semibold);
+}
+/* Same tone-as-text rule as the table badges (§6). */
+.admin-chip--ok,
+.admin-chip--warn,
+.admin-chip--bad { color: color-mix(in srgb, var(--badge-tone, var(--fg-blue)) var(--plane-ink-fallback), var(--text-color)); color: oklch(from var(--badge-tone, var(--fg-blue)) var(--plane-ink-l) c h); }
+.admin-chip--ok { --badge-tone: var(--admin-ok); }
+.admin-chip--warn { --badge-tone: var(--admin-warn); }
+.admin-chip--bad { --badge-tone: var(--admin-bad); }
+
+.admin-bar-actions {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.12);
 }
 
-.admin-nav-link--active {
-    background: var(--fg-blue);
-    color: #fff;
-    border-color: var(--fg-blue);
+/* ── 2. The view switcher — a tab row, not a second header ───────────────── */
+
+.admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.1);
+  min-width: 0;
+}
+.admin-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.1);
+  padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.24);
+  border-radius: 999px;
+  font-size: var(--font-size-small);
+  line-height: 1.5;
+  font-weight: var(--font-weight-medium);
+  /* `--plane-muted`, not `--text-color-accent` — these labels sit on the glass
+     bar. See the note on `.admin-bar-status`. */
+  color: var(--plane-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.admin-tab:hover {
+  background: var(--admin-sunken);
+  color: var(--text-color);
+}
+.admin-tab__icon { font-size: var(--font-size-xs); }
+/* The active tab IS a signal — "you are here" — so it keeps the brand hue, as
+   an OPAQUE tint with a soft shadow. Opaque because a translucent control has
+   no edge (see the material note at the top); a tint rather than the old
+   saturated plane because the bar already carries the brand rule below it and
+   two loud blues in 60px is one too many. */
+.admin-tab.is-active {
+  background: linear-gradient(120deg, var(--admin-selected), var(--admin-selected-hi));
+  box-shadow: var(--shadow-sm);
+  color: var(--text-color);
+  font-weight: var(--font-weight-semibold);
 }
 
-/* The sub-pages render their own `.admin-section-tile`; drop the old
-   centered layout so they flow inside `.admin-page` instead. */
-.admin-page .admin-section-tile {
-    margin: 0;
-    width: 100%;
-    max-width: none;
+/* ── 3. The view itself: a stack of panels, grouped into rows ────────────── */
+
+.admin-main {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.34);
+  padding-top: calc(var(--nav-size) * 0.34);
+  min-width: 0;
 }
 
+/* A row of panels. auto-fit gives 3 columns on a desktop, 2 on a tablet and 1
+   on a phone with no media query. `min()` inside minmax() keeps a 320px phone
+   from overflowing (a bare px there is a hard track MINIMUM — §13.13). */
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: calc(var(--nav-size) * 0.34);
+  align-items: start;
+  min-width: 0;
+}
+.admin-grid--two { grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); }
 
-/* ═══════════════════════════════════════════
-   Loading / Error / Empty states
-   ═══════════════════════════════════════════ */
+/* Panels are GLASS, and every one of them wears the console's accent by
+   default. What was deleted is the old `nth-child(3n)` hue rotation — a panel
+   that is blue because it is third in the DOM says nothing. A panel's hue comes
+   from what it is ABOUT, never from where it happens to sit. */
+.admin-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  /* `/profile`'s card surface, not a material of the console's own: one
+     translucent page-colour fill, no border, one shared shadow. See the note on
+     `--admin-glass-panel` above for what was removed and why. */
+  border: none;
+  border-radius: var(--admin-radius);
+  background: var(--admin-glass-panel);
+  box-shadow: var(--admin-shadow);
+  overflow: hidden;
+}
+/* A pinned hue shows as an ACCENT RULE along the top, never as a fill. With no
+   hue pinned the gradient is fully transparent and nothing renders — which is
+   why this needs no "is there a hue?" branch anywhere. */
+/* A pinned state shows as an ACCENT RULE along the top. Every panel already
+   wears the accent as a wash and a head glow, so the rule is what says "this one
+   is more than decoration" — a block with something to report. */
+.admin-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--admin-accent), transparent 70%);
+  pointer-events: none;
+  transform-origin: left center;
+  animation: adminRuleWipe 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  /* The rule is on EVERY panel now, at half strength; a tone lifts it to full.
+     Presence used to be the signal, but in a single-hue room that left every
+     unremarkable panel colourless — and a console where only exceptional things
+     have colour reads as grey interrupted by warnings. Panels are told apart by
+     HUE and INTENSITY now, which is the trade `warn`/`bad` already make: a
+     confident accent signature on every block, and the one pink or amber rule is
+     the block with something to report. */
+  opacity: 0.5;
+}
+.admin-panel.admin-tone--ok::before,
+.admin-panel.admin-tone--highlight::before,
+.admin-panel.admin-tone--warn::before,
+.admin-panel.admin-tone--bad::before { opacity: 1; }
+/* ── The tone vocabulary ──────────────────────────────────────────────────
 
-.admin-loading, .admin-error, .admin-no-data {
-    text-align: center;
-    font-size: var(--font-size-xs);
-    padding: calc(var(--nav-size) * 0.4);
-    margin: calc(var(--nav-size) * 0.2) 0;
-    border-radius: 6px;
-    background: var(--bg-1);
+   One definition of "what colour is this thing", consumed by both `.admin-panel`
+   and `.kpi-card` (and anything else that paints an accent).
+
+   Three hues, six names. `accent` is the console itself; `ok` is the same hue
+   saying "nominal"; `highlight` is the action/emphasis hue — the one a view uses
+   to point at something; `warn` and `bad` are the alert hue, told apart by how
+   much of it is used (a chip's ink versus a solid fill) rather than by a fourth
+   colour.
+
+   Panels and tiles default to the accent, so what a tone actually buys you is
+   contrast against everything else on the page.
+
+   The NEUTRAL default is declared exactly once, on `.admin-surface`, and reaches
+   every panel and tile by inheritance. Do not redeclare `--admin-accent` on a
+   toneable element: these classes are plain single-class selectors, so a default
+   further down the file wins on source order and the tone silently disappears. */
+.admin-tone--accent { --admin-accent: var(--tone-accent); }
+.admin-tone--ok { --admin-accent: var(--tone-accent); }
+.admin-tone--highlight { --admin-accent: var(--tone-highlight); }
+.admin-tone--warn { --admin-accent: var(--tone-alert); }
+.admin-tone--bad { --admin-accent: var(--tone-alert); }
+
+/* The head is a FLAT neutral band, the same tone change a table's `thead` uses —
+   so a panel head and a table head read as the same object, which is the point.
+
+   It carried two gradients until it was flattened: a 19% accent wash falling away
+   to the right, and a vertical sheen. The accent one is what made a title bar look
+   like the header of a gradient table.
+
+   A tone is still legible without them: every panel wears the accent rule in
+   `::before`, and a real tone lifts that rule to full strength. */
+.admin-panel-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.22);
+  padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.28);
+  /* TRANSPARENT — a `/profile` card header is a row of type inside the card's own
+     padding, with no band behind it. The band was the last thing making a panel's
+     top read as a table header rather than as a title. */
+  background: transparent;
+}
+.admin-panel-heading { min-width: 0; flex: 1 1 auto; }
+/* The panel's own title is the only heading the view needs. */
+.admin-panel-title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+.admin-panel-hint {
+  margin: calc(var(--nav-size) * 0.03) 0 0;
+  max-width: 96ch;
+  font-size: var(--font-size-small);
+  line-height: 1.45;
+  color: var(--plane-muted);
+}
+.admin-panel-tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.12);
+  min-width: 0;
+}
+.admin-panel-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: calc(var(--nav-size) * 0.3);
+}
+.admin-panel-body > * + * { margin-top: calc(var(--nav-size) * 0.22); }
+
+/* ── 4. Tables ───────────────────────────────────────────────────────────── */
+
+/* Scoped to `.admin-surface` on purpose: `components/Admin/ScrollableTable.css`
+   styles the same class names for /deepstorage, and both stylesheets are global.
+   `ScrollableTable` is the other owner of `.admin-table`, so each side states its
+   own look at its own scope instead of racing on load order. */
+
+/* Rows are separated by alternating tints, never a hairline under each row. */
+.admin-surface .table-scroll-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: var(--border-radius);
 }
 
-.admin-loading { color: var(--fg-blue); }
-.admin-error   {
-    color: var(--red0);
-    border: 1px solid var(--red0);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: calc(var(--nav-size) * 0.2);
-}
-.admin-no-data { color: var(--text-color-accent); font-style: italic; }
-
-.admin-help-text {
-    font-size: var(--font-size-xs);
-    color: var(--text-color-accent);
-    margin: 0 0 calc(var(--nav-size) * 0.3) 0;
-    line-height: 1.5;
+.admin-surface .admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-small);
+  color: var(--text-color);
 }
 
-.btn-retry {
-    border-color: var(--red0);
-    background: var(--red0);
+/* `/profile` has no banded header: a card's title sits on the card, and rows are
+   separated by a hairline. The head is transparent and states itself with the same
+   rule the body uses. */
+.admin-surface .admin-table thead {
+  background: transparent;
+  border-bottom: 1px solid var(--border-nav);
+}
+.admin-surface .admin-table th {
+  position: relative;
+  text-align: left;
+  padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--plane-muted);
+  white-space: nowrap;
+}
+.admin-surface .admin-table td {
+  padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.2);
+  line-height: var(--line-height-base);
+  vertical-align: top;
+  color: var(--text-color);
+  /* Figures that change between renders should not make the column breathe. */
+  font-variant-numeric: tabular-nums;
+}
+/* ⚠️ Was alternating tints, under the note "rows are separated by alternating
+   tints, never a hairline under each row". It is now the opposite, because the
+   zebra was the loudest remaining difference between a console table and a
+   `/profile` list: hairlines, no tint, and `/profile`'s brand-tinted hover. A rule
+   on every row also beats a stripe on the 7- and 8-column tables the console has. */
+.admin-surface .admin-table tbody tr {
+  border-bottom: 1px solid var(--border-nav);
+}
+.admin-surface .admin-table tbody tr:last-child { border-bottom: none; }
+.admin-surface .admin-table tbody tr:hover,
+.admin-surface .admin-table tr:focus-within {
+  background-color: color-mix(in srgb, var(--fg-blue) 12%, transparent);
+}
+.admin-surface .admin-table-no-data {
+  padding: calc(var(--nav-size) * 0.4);
+  text-align: center;
+  color: var(--plane-muted);
+  font-style: italic;
 }
 
-/* ═══════════════════════════════════════════
-   Purchase Gate (instant kill switch)
-   ═══════════════════════════════════════════ */
-
-.purchase-gate-card {
-    background: var(--bg-1);
-    border: 1px solid var(--border-nav);
-    border-radius: 8px;
-    padding: calc(var(--nav-size) * 0.4);
-    margin-bottom: calc(var(--nav-size) * 0.5);
-}
-
-.purchase-gate-card--paused {
-    border-color: var(--red0, #e53e3e);
-    background: rgba(229, 62, 62, 0.08);
-}
-
-.purchase-gate-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: calc(var(--nav-size) * 0.4);
-    flex-wrap: wrap;
-}
-
-.purchase-gate-header h3 {
-    margin: 0 0 4px 0;
-    font-size: var(--font-size-base);
-}
-
-.purchase-gate-header .admin-help-text {
-    margin: 0;
-    max-width: 520px;
-}
-
-.purchase-gate-switch {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    user-select: none;
-    white-space: nowrap;
-}
-
-.purchase-gate-switch input {
-    display: none;
-}
-
-.purchase-gate-slider {
-    position: relative;
-    width: 46px;
-    height: 24px;
-    border-radius: 999px;
-    background: var(--red0, #e53e3e);
-    transition: background 0.2s ease;
-    flex-shrink: 0;
-}
-
-.purchase-gate-slider::before {
-    content: "";
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: #fff;
-    transition: transform 0.2s ease;
-}
-
-.purchase-gate-switch input:checked + .purchase-gate-slider {
-    background: #22c55e;
-}
-
-.purchase-gate-switch input:checked + .purchase-gate-slider::before {
-    transform: translateX(22px);
-}
-
-.purchase-gate-switch input:disabled + .purchase-gate-slider {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.purchase-gate-switch-label {
-    font-size: var(--font-size-xs);
-    font-weight: bold;
-}
-
-.purchase-gate-message-row {
-    margin-top: calc(var(--nav-size) * 0.3);
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.purchase-gate-message-row label {
-    font-size: var(--font-size-xs);
-    color: var(--text-color-accent);
-}
-
-.purchase-gate-message-row textarea {
-    width: 100%;
-    resize: vertical;
-    font-family: inherit;
-    font-size: var(--font-size-xs);
-    padding: 8px;
-    border-radius: 6px;
-    border: 1px solid var(--border-nav);
-    background: var(--bg-page);
-    color: var(--text-color);
-}
-
-/* ═══════════════════════════════════════════
-   KPI Cards
-   ═══════════════════════════════════════════ */
-
-.kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: calc(var(--nav-size) * 0.25);
-    margin-bottom: calc(var(--nav-size) * 0.5);
-}
-
-.kpi-card {
-    background: var(--bg-1);
-    border: 1px solid var(--border-nav);
-    border-radius: 8px;
-    padding: calc(var(--nav-size) * 0.3);
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.kpi-card.kpi-revenue {
-    border-left: 3px solid #22c55e;
-}
-
-.kpi-label {
-    font-size: var(--font-size-xs);
-    color: var(--text-color-accent);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.kpi-value {
-    font-size: var(--font-size-large);
-    font-weight: bold;
-    color: var(--text-color);
-    line-height: 1.1;
-}
-
-.kpi-sub {
-    font-size: var(--font-size-xs);
-    color: var(--text-color-accent);
-}
-
-/* ═══════════════════════════════════════════
-   Collapsible Sections (override component CSS)
-   ═══════════════════════════════════════════ */
-
-.collapsible-section {
-    margin: calc(var(--nav-size) * 0.35) 0;
-    border-radius: 8px;
-    background: var(--bg-1);
-    overflow: hidden;
-    border: 1px solid var(--border-nav);
-}
-
-.collapsible-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.35);
-    cursor: pointer;
-    background: var(--bg-2);
-    color: var(--text-color);
-    transition: background-color 0.15s ease;
-}
-
-.collapsible-header:hover {
-    background: var(--bg-mint);
-}
-
-.collapsible-header h3 {
-    margin: 0;
-    font-size: var(--font-size-small);
-    font-weight: bold;
-}
-
-.collapse-icon {
-    font-size: var(--font-size-xs);
-    transition: transform 0.2s ease;
-}
-
-.collapse-icon.collapsed {
-    transform: rotate(180deg);
-}
-
-.collapsible-content {
-    padding: calc(var(--nav-size) * 0.35);
-    background: var(--bg-1);
-}
-
-/* ═══════════════════════════════════════════
-   Sales Funnel
-   ═══════════════════════════════════════════ */
-
-.funnel-container {
-    max-width: 600px;
-    margin: 0 auto;
-}
-
-.funnel-stage {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.2);
-    margin: calc(var(--nav-size) * 0.1) 0;
-}
-
-.funnel-bar {
-    background: var(--fg-blue);
-    color: #fff;
-    padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.25);
-    border-radius: 4px;
-    font-size: var(--font-size-xs);
-    font-weight: bold;
-    min-width: 110px;
-    flex-shrink: 0;
-    text-align: center;
-    box-sizing: border-box;
-}
-
-.funnel-bar-mid {
-    background: var(--fg-pink);
-}
-
-.funnel-bar-end {
-    background: #22c55e;
-}
-
-.funnel-bar-label {
-    white-space: nowrap;
-}
-
-.funnel-count {
-    font-size: var(--font-size-xs);
-    font-weight: bold;
-    color: var(--text-color);
-    min-width: 60px;
-}
-
-.funnel-arrow {
-    text-align: center;
-    color: var(--text-color-accent);
-    font-size: var(--font-size-xs);
-    padding: calc(var(--nav-size) * 0.05) 0;
-}
-
-.funnel-summary {
-    text-align: center;
-    margin-top: calc(var(--nav-size) * 0.2);
-    padding: calc(var(--nav-size) * 0.2);
-    background: var(--bg-2);
-    border-radius: 6px;
-    font-size: var(--font-size-xs);
-    color: var(--text-color);
-}
-
-/* ═══════════════════════════════════════════
-   Revenue & Membership
-   ═══════════════════════════════════════════ */
-
-.revenue-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: calc(var(--nav-size) * 0.3);
-}
-
-.revenue-card {
-    background: var(--bg-2);
-    border-radius: 8px;
-    padding: calc(var(--nav-size) * 0.3);
-}
-
-.revenue-card h4 {
-    margin: 0 0 calc(var(--nav-size) * 0.2) 0;
-    font-size: var(--font-size-xs);
-    color: var(--text-color);
-    border-bottom: 1px solid var(--border-nav);
-    padding-bottom: calc(var(--nav-size) * 0.1);
-}
-
+/* The dashboard's small readout tables: same idiom, tighter. */
 .mini-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--font-size-xs);
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-small);
 }
-
 .mini-table th {
-    text-align: left;
-    padding: calc(var(--nav-size) * 0.15);
-    color: var(--text-color-accent);
-    font-weight: 600;
-    border-bottom: 1px solid var(--border-nav);
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    font-size: var(--font-size-xs);
+  text-align: left;
+  padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.12);
+  border-bottom: 1px solid var(--border-nav);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--plane-muted);
 }
-
 .mini-table td {
-    padding: calc(var(--nav-size) * 0.15);
-    border-bottom: 1px solid var(--border-nav);
-    color: var(--text-color);
-    line-height: var(--line-height-base);
+  padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.12);
+  color: var(--text-color);
+  line-height: var(--line-height-base);
+  font-variant-numeric: tabular-nums;
 }
-
+.mini-table tbody tr {
+  border-bottom: 1px solid var(--border-nav);
+}
+.mini-table tbody tr:last-child { border-bottom: none; }
 .mini-table-total td {
-    border-top: 2px solid var(--text-color);
-    font-weight: bold;
+  font-weight: var(--font-weight-bold);
+  background-color: var(--admin-sunken-strong);
 }
+.plan-name { text-transform: capitalize; }
+.mono { font-family: 'CutiveMono-Regular', ui-monospace, monospace; font-size: 0.94em; }
+.muted { color: var(--plane-muted); }
 
-.plan-name {
-    text-transform: capitalize;
-}
+/* ── 5. Toolbars, inputs, buttons, pagination ────────────────────────────── */
 
-.recent-signups-list {
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.1);
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.signup-row {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.18);
-    padding: calc(var(--nav-size) * 0.12) 0;
-    border-bottom: 1px solid var(--border-nav);
-    font-size: var(--font-size-xs);
-}
-
-.signup-name {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--text-color);
-}
-
-.signup-date {
-    color: var(--text-color-accent);
-    font-size: var(--font-size-xs);
-    white-space: nowrap;
-}
-
-/* Plan badges */
-.plan-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    text-transform: capitalize;
-    white-space: nowrap;
-}
-
-.plan-badge.plan-free   { background: var(--bg-1); color: var(--text-color-accent); border: 1px solid var(--border-nav); }
-.plan-badge.plan-pro    { background: rgba(59, 130, 246, 0.15); color: var(--fg-blue); border: 1px solid var(--fg-blue); }
-.plan-badge.plan-simple { background: rgba(168, 85, 247, 0.15); color: #a855f7; border: 1px solid #a855f7; }
-.plan-badge.plan-special {
-    background: rgba(245, 158, 11, 0.15);
-    color: #f59e0b;
-    border: 1px solid #f59e0b;
-}
-
-.plan-badge--clickable {
-    cursor: pointer;
-    user-select: none;
-    transition: transform 0.1s ease, box-shadow 0.15s ease;
-}
-
-.plan-badge--clickable:hover {
-    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35);
-}
-
-.plan-badge--clickable:active {
-    transform: scale(0.96);
-}
-
-/* ═══════════════════════════════════════════
-   Traffic Analytics
-   ═══════════════════════════════════════════ */
-
-.traffic-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: calc(var(--nav-size) * 0.25);
-}
-
-.traffic-card {
-    background: var(--bg-2);
-    border-radius: 8px;
-    padding: calc(var(--nav-size) * 0.25);
-}
-
-.traffic-card h4 {
-    margin: 0 0 calc(var(--nav-size) * 0.15) 0;
-    font-size: var(--font-size-xs);
-    color: var(--text-color);
-    border-bottom: 1px solid var(--border-nav);
-    padding-bottom: calc(var(--nav-size) * 0.08);
-}
-
-.stat-rows {
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.08);
-}
-
-.stat-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: calc(var(--nav-size) * 0.1) 0;
-    font-size: var(--font-size-xs);
-    color: var(--text-color);
-}
-
-.stat-row.muted {
-    color: var(--text-color-accent);
-    font-style: italic;
-}
-
-.stat-row--clickable {
-    cursor: pointer;
-    border-radius: calc(var(--nav-size) * 0.04);
-    padding-left: calc(var(--nav-size) * 0.06);
-    padding-right: calc(var(--nav-size) * 0.06);
-    transition: background-color 0.15s ease;
-}
-
-.stat-row--clickable:hover {
-    background-color: var(--background-color-accent, rgba(127, 127, 127, 0.12));
-}
-
-.stat-row--active {
-    background-color: var(--accent-color, rgba(80, 140, 255, 0.18));
-    font-weight: 600;
-}
-
-.visitor-list {
-    margin-top: calc(var(--nav-size) * 0.2);
-}
-
-.visitor-list h4 {
-    margin-bottom: calc(var(--nav-size) * 0.08);
-}
-
-/* ═══════════════════════════════════════════
-   Tables (compact admin tables)
-   ═══════════════════════════════════════════ */
-
-.admin-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--font-size-xs);
-    color: var(--text-color);
-}
-
-.admin-table.compact-table {
-    table-layout: auto;
-}
-
-.admin-table thead {
-    background: var(--bg-2);
-}
-
-.admin-table th {
-    text-align: left;
-    padding: calc(var(--nav-size) * 0.18);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    font-size: var(--font-size-xs);
-    color: var(--text-color-accent);
-    border-bottom: 2px solid var(--border-nav);
-    white-space: nowrap;
-}
-
-.admin-table td {
-    padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.18);
-    border-bottom: 1px solid var(--border-nav);
-    vertical-align: top;
-    word-break: break-word;
-    line-height: var(--line-height-base);
-}
-
-.admin-table tbody tr:hover {
-    background: var(--bg-2);
-}
-
-.mono {
-    font-family: 'CutiveMono-Regular', monospace;
-    font-size: var(--font-size-xs);
-}
-
-/* ═══════════════════════════════════════════
-   Table scroll container
-   ═══════════════════════════════════════════ */
-
-.table-scroll-container {
-    max-height: 70vh;
-    overflow-y: auto;
-    overflow-x: auto;
-    border: 1px solid var(--border-nav);
-    border-radius: 6px;
-}
-
-/* ═══════════════════════════════════════════
-   Section toolbar / Search
-   ═══════════════════════════════════════════ */
-
+/* In-panel toolbar: for controls that belong to the panel's body rather than
+   its head (e.g. a save row under a textarea). */
 .section-toolbar {
-    display: flex;
-    gap: calc(var(--nav-size) * 0.15);
-    margin-bottom: calc(var(--nav-size) * 0.2);
-    align-items: center;
-    flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.14);
+  min-width: 0;
 }
 
-.admin-search {
-    flex: 1;
-    min-width: 200px;
-    padding: calc(var(--nav-size) * 0.18);
-    border: 1px solid var(--border-nav);
-    border-radius: 6px;
-    background: var(--bg-page);
-    color: var(--text-color);
-    font-size: var(--font-size-small);
-    font-family: 'CutiveMono-Regular', monospace;
+/* The global `input` rule is 2px --border-nav with a 44px min-height; a dense
+   console needs a tighter, color-mix edge derived from the accent instead. */
+.admin-surface .admin-search,
+.admin-surface .type-select,
+.admin-surface .date-filter input,
+.admin-surface .date-filter select,
+.admin-surface .ht-input,
+.admin-surface .admin-modal-content textarea,
+.admin-surface .purchase-gate-message-row textarea {
+  font-family: inherit;
+  font-size: var(--font-size-small);
+  min-height: 0;
+  padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.2);
+  border-radius: var(--border-radius);
+  border: 1px solid color-mix(in srgb, var(--fg-blue) 30%, transparent);
+  background: var(--bg-1);
+  color: var(--text-color);
+}
+.admin-surface .admin-search {
+  flex: 1 1 220px;
+  min-width: 140px;
+}
+/* The placeholder keeps `--text-color-accent`: unlike the tabs and the status
+   line above, it sits inside an opaque `--bg-1` field, not directly on glass, so
+   it measures 5.5:1. A placeholder is also MEANT to read dimmer than a value,
+   and `--plane-muted` would blur that distinction. */
+.admin-surface .admin-search::placeholder { color: var(--text-color-accent); }
+.admin-surface .type-select { flex: 0 1 auto; cursor: pointer; }
+.admin-surface .admin-search:focus,
+.admin-surface .type-select:focus,
+.admin-surface .date-filter input:focus,
+.admin-surface .date-filter select:focus,
+.admin-surface .ht-input:focus,
+.admin-surface .admin-modal-content textarea:focus,
+.admin-surface .purchase-gate-message-row textarea:focus {
+  border-color: var(--fg-blue);
 }
 
-.admin-search:focus {
-    outline: none;
-    border-color: var(--fg-blue);
+/* Every admin button is a plane and zeroes the global 44px min-height, so the
+   rows stay dense (44px is right for a marketing CTA, wrong for a table).
+   On a saturated panel the right plane is the page's own surface: a solid
+   `--bg-1` reads unmistakably as a control, where a wash of the panel's hue
+   would read as part of the panel. Hover is where the hue arrives. */
+.btn-sm,
+.btn-refresh,
+.btn-inline,
+.btn-outline,
+.btn-reset,
+.btn-retry,
+.btn-close-report,
+.btn-agent-fix,
+.admin-btn,
+.pagination button,
+.admin-modal-actions button,
+.admin-modal-close {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.1);
+  min-height: 0;
+  padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.32);
+  border: 0;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  color: var(--text-color);
+  background: var(--bg-1);
+  transition: background 0.15s ease, transform 0.15s ease;
 }
-
-.type-select {
-    padding: calc(var(--nav-size) * 0.18);
-    border: 1px solid var(--border-nav);
-    border-radius: 6px;
-    background: var(--bg-page);
-    color: var(--text-color);
-    font-size: var(--font-size-small);
-    font-family: 'CutiveMono-Regular', monospace;
+/* Match the global selector's shape (`button:hover:not(:disabled)`) rather than
+   fighting it — the global rule is one class more specific (§6). */
+.btn-sm:hover:not(:disabled),
+.btn-inline:hover:not(:disabled),
+.btn-outline:hover:not(:disabled),
+.btn-reset:hover:not(:disabled),
+.btn-retry:hover:not(:disabled),
+.btn-close-report:hover:not(:disabled),
+.btn-agent-fix:hover:not(:disabled),
+.admin-btn:hover:not(:disabled),
+.pagination button:hover:not(:disabled),
+.admin-modal-actions button:hover:not(:disabled),
+.admin-modal-close:hover:not(:disabled) {
+  background: var(--admin-btn-hover);
+  transform: translateY(-1px);
 }
-
-.btn-sm {
-    padding: calc(var(--nav-size) * 0.15) calc(var(--nav-size) * 0.28);
-    border: 1px solid var(--fg-blue);
-    border-radius: 6px;
-    background: var(--fg-blue);
-    color: #fff;
-    font-size: var(--font-size-small);
-    font-weight: 600;
-    cursor: pointer;
-    font-family: 'CutiveMono-Regular', monospace;
-    white-space: nowrap;
+.btn-sm:disabled,
+.admin-btn:disabled,
+.pagination button:disabled,
+.admin-modal-actions button:disabled,
+.btn-agent-fix:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: color-mix(in srgb, var(--text-color) 8%, var(--bg-1));
 }
+.btn-sm:focus-visible,
+.admin-btn:focus-visible,
+.pagination button:focus-visible { outline: var(--focus-outline, 2px solid var(--fg-blue)); outline-offset: 2px; }
 
-.btn-sm:hover {
-    opacity: 0.85;
+/* The one gradient-filled action per view (§5.7): the view's headline button. */
+.btn-refresh,
+.admin-btn--primary {
+  color: var(--text-color-inv);
+  background: var(--admin-action);
 }
-
-.btn-sm:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+.btn-refresh:hover:not(:disabled),
+.admin-btn--primary:hover:not(:disabled) {
+  background: var(--admin-action);
+  /* The one control allowed to announce itself. The marketing pages give every
+     button a lift and a big shadow on hover; the console gives it to exactly the
+     one button per view whose whole job is to be pressed. */
+  box-shadow: var(--shadow-md), 0 0 26px -4px color-mix(in srgb, var(--tone-highlight) 60%, transparent);
 }
-
-/* ═══════════════════════════════════════════
-   Pagination
-   ═══════════════════════════════════════════ */
+/* Quiet actions (retry, reset, close, destructive) carry their own color — as
+   INK on a `--bg-1` chip, the same trade the badges make (§6), so "retry" never
+   shows up as a red slab sitting on a green panel. */
+.btn-retry { --badge-tone: var(--admin-bad); }
+.btn-reset { --badge-tone: var(--admin-bad); }
+.btn-close-report { --badge-tone: var(--admin-ok); }
+.btn-agent-fix { --badge-tone: var(--tone-accent); }
+.btn-retry,
+.btn-reset,
+.btn-close-report,
+.btn-agent-fix {
+  color: color-mix(in srgb, var(--badge-tone) var(--plane-ink-fallback), var(--text-color));
+  color: oklch(from var(--badge-tone) var(--plane-ink-l) c h);
+}
+.btn-retry:hover:not(:disabled),
+.btn-reset:hover:not(:disabled),
+.btn-close-report:hover:not(:disabled),
+.btn-agent-fix:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--badge-tone) 22%, var(--bg-1));
+}
+.btn-inline {
+  padding: 0 calc(var(--nav-size) * 0.16);
+  font-size: var(--font-size-xs);
+  background: transparent;
+  color: color-mix(in srgb, var(--fg-blue) var(--plane-ink-fallback), var(--text-color));
+  color: oklch(from var(--fg-blue) var(--plane-ink-l) c h);
+}
+.btn-inline:hover:not(:disabled) { background: var(--admin-sunken-strong); transform: none; }
 
 .pagination {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: calc(var(--nav-size) * 0.2);
-    padding: calc(var(--nav-size) * 0.2) 0;
-    font-size: var(--font-size-xs);
-    color: var(--text-color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.18);
+  font-size: var(--font-size-small);
+  color: var(--plane-muted);
+  padding-top: calc(var(--nav-size) * 0.16);
 }
-
-.pagination button {
-    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.22);
-    border: 1px solid var(--border-nav);
-    border-radius: 4px;
-    background: var(--bg-2);
-    color: var(--text-color);
-    cursor: pointer;
-    font-family: 'CutiveMono-Regular', monospace;
-    font-size: var(--font-size-xs);
-}
-
-.pagination button:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-
-.pagination button:not(:disabled):hover {
-    background: var(--bg-mint);
-}
-
-/* ═══════════════════════════════════════════
-   Badges & status
-   ═══════════════════════════════════════════ */
-
-.status-badge, .rating-badge, .category-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-weight: 500;
-    font-size: var(--font-size-xs);
-    white-space: nowrap;
-}
-
-.status-badge.status-open {
-    background: var(--bg-mint);
-    color: var(--text-color);
-    border: 1px solid var(--fg-mint);
-}
-
-.status-badge.status-closed {
-    background: var(--bg-1);
-    color: var(--text-color-accent);
-    border: 1px solid var(--border-nav);
-}
-
-.rating-badge {
-    background: rgba(251, 191, 36, 0.1);
-    color: var(--text-color);
-    border: 1px solid rgba(251, 191, 36, 0.3);
-}
-
-.category-badge {
-    background: var(--bg-pink);
-    color: var(--text-color);
-    border: 1px solid var(--fg-pink);
-}
-
-.type-badge {
-    display: inline-block;
-    padding: 1px 6px;
-    border-radius: 3px;
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    text-transform: capitalize;
-}
-
-.type-badge.type-user    { background: rgba(59, 130, 246, 0.15); color: var(--fg-blue); }
-.type-badge.type-visitor { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
-.type-badge.type-bug     { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
-.type-badge.type-review  { background: rgba(251, 191, 36, 0.15); color: #d97706; }
-.type-badge.type-other   { background: var(--bg-2); color: var(--text-color-accent); }
-
-/* ═══════════════════════════════════════════
-   Bug report actions & resolution
-   ═══════════════════════════════════════════ */
-
-.btn-close-report {
-    background: #22c55e;
-    color: #fff;
-    border: none;
-    padding: calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.15);
-    border-radius: 4px;
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.btn-close-report:hover {
-    background: #16a34a;
-}
-
-.report-resolution {
-    margin-top: calc(var(--nav-size) * 0.1);
-    padding: calc(var(--nav-size) * 0.1);
-    background: rgba(34, 197, 94, 0.08);
-    border-left: 3px solid #22c55e;
-    border-radius: 4px;
-    font-size: var(--font-size-xs);
-}
-
-.report-resolution small {
-    color: var(--text-color-accent);
-    font-size: var(--font-size-xs);
-}
-
-.muted {
-    color: var(--text-color-accent);
-    font-style: italic;
-}
-
-.bug-actions {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.12);
-    flex-wrap: wrap;
-}
-
-.btn-agent-fix {
-    background: var(--fg-blue);
-    color: #fff;
-    border: none;
-    padding: calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.15);
-    border-radius: 4px;
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-.btn-agent-fix:hover:not(:disabled) {
-    filter: brightness(1.1);
-}
-
-.btn-agent-fix:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-/* ── Autonomous agent run feed (bug reports) ── */
-.agent-run-feed {
-    margin-top: calc(var(--nav-size) * 0.12);
-    padding: calc(var(--nav-size) * 0.12);
-    background: var(--bg-2);
-    border-left: 3px solid var(--fg-blue);
-    border-radius: 4px;
-    font-size: var(--font-size-xs);
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.06);
-    max-width: 480px;
-}
-
-.agent-run-status {
-    font-weight: 700;
-    line-height: 1.3;
-}
-
-.agent-run-status--running { color: var(--fg-blue); }
-.agent-run-status--done    { color: #22c55e; }
-.agent-run-status--failed  { color: #ef4444; }
-
-.agent-step {
-    color: var(--text-color-accent);
-    line-height: 1.35;
-    white-space: pre-wrap;
-    word-break: break-word;
-}
-
-.agent-step--tool        { color: var(--text-color); }
-.agent-step--tool-result { color: var(--text-color-accent); font-size: 90%; }
-.agent-step--error       { color: #ef4444; }
-.agent-step--thought     { color: var(--text-color-accent); font-style: italic; }
-
-/* ═══════════════════════════════════════════
-   Date filter (map section)
-   ═══════════════════════════════════════════ */
-
-.date-filter {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.15);
-    flex-wrap: wrap;
-    margin-bottom: calc(var(--nav-size) * 0.2);
-    padding: calc(var(--nav-size) * 0.15);
-    background: var(--bg-2);
-    border-radius: 6px;
-}
-
-.date-filter label {
-    font-size: var(--font-size-xs);
-    color: var(--text-color);
-    font-weight: bold;
-}
-
-.date-filter input {
-    padding: calc(var(--nav-size) * 0.1);
-    font-size: var(--font-size-xs);
-    border: 1px solid var(--border-nav);
-    border-radius: 4px;
-    background: var(--bg-page);
-    color: var(--text-color);
-    font-family: 'CutiveMono-Regular', monospace;
-}
-
-.visit-counter {
-    font-size: var(--font-size-xs);
-    color: var(--text-color-accent);
-    font-weight: 600;
-    margin-left: auto;
-}
-
-/* ═══════════════════════════════════════════
-   Visitor Map (simplified styling)
-   ═══════════════════════════════════════════ */
-
-.visitor-map-container {
-    width: 100%;
-    height: 500px;
-    position: relative;
-    border-radius: 6px;
-    margin: calc(var(--nav-size) * 0.2) 0;
-    overflow: hidden;
-    background: var(--bg-2);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border: 1px solid var(--border-nav);
-}
-
-.map-controls {
-    position: absolute;
-    top: calc(var(--nav-size) * 0.15);
-    right: calc(var(--nav-size) * 0.15);
-    z-index: 10;
-    display: flex;
-    gap: calc(var(--nav-size) * 0.08);
-}
-
-.map-controls button {
-    background: var(--bg-1);
-    border: 1px solid var(--border-nav);
-    color: var(--text-color);
-    padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.18);
-    cursor: pointer;
-    border-radius: 4px;
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-}
-
-.map-controls button:hover:not(:disabled) {
-    background: var(--bg-mint);
-}
-
-.visitor-map {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    transition: transform 0.2s ease;
-    transform-origin: center;
-    cursor: grab;
-}
-
-.visitor-map:active {
-    cursor: grabbing;
-}
-
-.world-map-placeholder {
-    width: 100%;
-    height: 100%;
-    position: relative;
-    background-image: url('../../assets/world-map.svg');
-    background-size: contain;
-    background-position: center;
-    background-repeat: no-repeat;
-}
-
-.visitor-dot {
-    width: 12px;
-    height: 12px;
-    background: var(--fg-blue);
-    border-radius: 50%;
-    position: absolute;
-    transform: translate(-50%, -50%);
-    z-index: 5;
-    cursor: pointer;
-    border: 2px solid rgba(255,255,255,0.6);
-    transition: transform 0.15s ease;
-}
-
-.visitor-dot:hover {
-    transform: translate(-50%, -50%) scale(1.5);
-    z-index: 6;
-    background: var(--fg-pink);
-}
-
-.visitor-popup {
-    position: absolute;
-    background: var(--bg-1);
-    color: var(--text-color);
-    padding: calc(var(--nav-size) * 0.15);
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    transform: translate(-50%, -120%);
-    z-index: 10;
-    pointer-events: none;
-    white-space: nowrap;
-    font-size: var(--font-size-xs);
-    border: 1px solid var(--border-nav);
-}
-
-.visitor-popup::after {
-    content: '';
-    position: absolute;
-    bottom: -6px;
-    left: 50%;
-    transform: translateX(-50%);
-    border-width: 6px;
-    border-style: solid;
-    border-color: var(--bg-1) transparent transparent transparent;
-}
-
-/* ═══════════════════════════════════════════
-   Sales Funnel Tester
-   ═══════════════════════════════════════════ */
-
-.funnel-test-panel {
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.25);
-}
-
-.btn-reset {
-    background: #ef4444 !important;
-    border-color: #ef4444 !important;
-}
-
-.btn-outline {
-    background: transparent !important;
-    color: var(--fg-blue) !important;
-    border: 1px solid var(--fg-blue) !important;
-}
-
-.btn-outline:hover {
-    background: var(--fg-blue) !important;
-    color: #fff !important;
-}
-
-.btn-inline {
-    background: none;
-    border: none;
-    color: var(--fg-blue);
-    cursor: pointer;
-    font-size: var(--font-size-xs);
-    text-decoration: underline;
-    margin-left: calc(var(--nav-size) * 0.15);
-    font-family: 'CutiveMono-Regular', monospace;
-}
-
-/* Credentials box */
-.test-creds-box {
-    background: var(--bg-2);
-    border-radius: 8px;
-    padding: calc(var(--nav-size) * 0.25);
-    border: 1px solid var(--border-nav);
-}
-
-.test-creds-box h4 {
-    margin: 0 0 calc(var(--nav-size) * 0.15) 0;
-    font-size: var(--font-size-xs);
-    display: flex;
-    align-items: center;
-}
-
-.creds-grid {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.2);
-    align-items: center;
-    font-size: var(--font-size-xs);
-}
-
-.creds-label {
-    color: var(--text-color-accent);
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: var(--font-size-xs);
-}
-
-.creds-grid code {
-    font-family: 'CutiveMono-Regular', monospace;
-    background: var(--bg-page);
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: var(--font-size-xs);
-    user-select: all;
-    color: var(--text-color);
-}
-
-/* Stripe state */
-.test-stripe-state {
-    background: var(--bg-2);
-    border-radius: 8px;
-    padding: calc(var(--nav-size) * 0.25);
-    border: 1px solid var(--border-nav);
-}
-
-.test-stripe-state h4 {
-    margin: 0 0 calc(var(--nav-size) * 0.15) 0;
-    font-size: var(--font-size-xs);
-}
-
-/* Funnel timeline */
-.funnel-timeline {
-    background: var(--bg-2);
-    border-radius: 8px;
-    padding: calc(var(--nav-size) * 0.25);
-    border: 1px solid var(--border-nav);
-}
-
-.funnel-timeline h4 {
-    margin: 0 0 calc(var(--nav-size) * 0.15) 0;
-    font-size: var(--font-size-xs);
-}
-
-.timeline-list {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    position: relative;
-}
-
-.timeline-step {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.12);
-    padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.15);
-    border-radius: 4px;
-    font-size: var(--font-size-xs);
-    color: var(--text-color);
-}
-
-.timeline-step:hover {
-    background: var(--bg-page);
-}
-
-.timeline-step.response-step {
-    padding-left: calc(var(--nav-size) * 0.4);
-    font-size: var(--font-size-xs);
-    color: var(--text-color-accent);
-}
-
-.timeline-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--fg-blue);
-    flex-shrink: 0;
-}
-
-.response-step .timeline-dot {
-    width: 6px;
-    height: 6px;
-    background: var(--text-color-accent);
-}
-
-.timeline-name {
-    flex: 1;
-    text-transform: capitalize;
-}
-
-.timeline-elapsed {
-    font-family: 'CutiveMono-Regular', monospace;
-    font-weight: 600;
-    color: var(--fg-blue);
-    white-space: nowrap;
-}
-
-/* Captured emails */
-.captured-emails {
-    background: var(--bg-2);
-    border-radius: 8px;
-    padding: calc(var(--nav-size) * 0.25);
-    border: 1px solid var(--border-nav);
-}
-
-.captured-emails h4 {
-    margin: 0 0 calc(var(--nav-size) * 0.15) 0;
-    font-size: var(--font-size-xs);
-}
-
-.email-card {
-    background: var(--bg-2);
-    border-radius: 6px;
-    padding: calc(var(--nav-size) * 0.15);
-    border: 1px solid var(--border-nav);
-    margin-bottom: calc(var(--nav-size) * 0.1);
-}
-
-.email-card-header {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.12);
-    margin-bottom: calc(var(--nav-size) * 0.08);
-}
-
-.email-card-body {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.12);
-    font-size: var(--font-size-xs);
-    color: var(--text-color-accent);
-}
-
-/* ═══════════════════════════════════════════
-   Footer actions
-   ═══════════════════════════════════════════ */
 
 .admin-footer-actions {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.2);
-    margin-top: calc(var(--nav-size) * 0.3);
-    padding-top: calc(var(--nav-size) * 0.2);
-    border-top: 1px solid var(--border-nav);
-}
-
-.btn-refresh {
-    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.25);
-    border: 1px solid var(--border-nav);
-    border-radius: 6px;
-    background: var(--bg-2);
-    color: var(--text-color);
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    cursor: pointer;
-    font-family: 'CutiveMono-Regular', monospace;
-}
-
-.btn-refresh:hover {
-    background: var(--bg-mint);
-}
-
-/* ═══════════════════════════════════════════
-   Modal
-   ═══════════════════════════════════════════ */
-
-.admin-modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-}
-
-.admin-modal {
-    background: var(--bg-page);
-    border-radius: 8px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
-    border: 1px solid var(--border-nav);
-    width: 90%;
-    max-width: 550px;
-    max-height: 80vh;
-    overflow-y: auto;
-}
-
-.admin-modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: calc(var(--nav-size) * 0.3);
-    border-bottom: 1px solid var(--border-nav);
-    background: var(--bg-2);
-    border-radius: 8px 8px 0 0;
-}
-
-.admin-modal-header h3 {
-    margin: 0;
-    font-size: var(--font-size-small);
-    color: var(--text-color);
-}
-
-.admin-modal-close {
-    background: none;
-    border: none;
-    color: var(--text-color);
-    font-size: var(--font-size-small);
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
-}
-
-.admin-modal-close:hover {
-    background: var(--bg-1);
-}
-
-.admin-modal-content {
-    padding: calc(var(--nav-size) * 0.3);
-}
-
-.admin-modal-content label {
-    display: block;
-    font-weight: bold;
-    color: var(--text-color);
-    margin-bottom: calc(var(--nav-size) * 0.1);
-    font-size: var(--font-size-small);
-}
-
-.admin-modal-content textarea {
-    width: 100%;
-    padding: calc(var(--nav-size) * 0.15);
-    border: 1px solid var(--border-nav);
-    border-radius: 6px;
-    background: var(--bg-1);
-    color: var(--text-color);
-    font-family: 'CutiveMono-Regular', monospace;
-    font-size: var(--font-size-small);
-    line-height: var(--line-height-base);
-    resize: vertical;
-    box-sizing: border-box;
-}
-
-.admin-modal-content textarea:focus {
-    outline: none;
-    border-color: var(--fg-blue);
-}
-
-.admin-char-count {
-    display: block;
-    text-align: right;
-    color: var(--text-color-accent);
-    font-size: var(--font-size-xs);
-    margin-top: 4px;
-}
-
-.admin-modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: calc(var(--nav-size) * 0.15);
-    padding: calc(var(--nav-size) * 0.3);
-    border-top: 1px solid var(--border-nav);
-}
-
-.admin-modal-cancel,
-.admin-modal-confirm {
-    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.25);
-    border-radius: 6px;
-    border: none;
-    font-family: 'CutiveMono-Regular', monospace;
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.admin-modal-cancel {
-    background: var(--bg-2);
-    color: var(--text-color);
-    border: 1px solid var(--border-nav);
-}
-
-.admin-modal-cancel:hover {
-    background: var(--bg-1);
-}
-
-.admin-modal-confirm {
-    background: var(--fg-blue);
-    color: #fff;
-}
-
-.admin-modal-confirm:hover:not(:disabled) {
-    opacity: 0.85;
-}
-
-.admin-modal-confirm:disabled {
-    background: var(--bg-2);
-    color: var(--text-color-accent);
-    cursor: not-allowed;
-}
-
-/* ═══════════════════════════════════════════
-   Responsive
-   ═══════════════════════════════════════════ */
-
-@media (max-width: 768px) {
-    .admin-section-tile {
-        width: 96%;
-        margin: calc(var(--nav-size) * 1.5) auto calc(var(--nav-size) * 0.5) auto;
-    }
-
-    .admin-page {
-        width: 96%;
-    }
-
-    .admin-nav {
-        gap: 6px;
-    }
-
-    .kpi-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .revenue-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .traffic-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .section-toolbar {
-        flex-direction: column;
-    }
-
-    .admin-search {
-        min-width: unset;
-        width: 100%;
-    }
-}
-
-@media (orientation: portrait) {
-    .visitor-map-container {
-        height: 350px;
-    }
-}
-
-/* Respect reduced-motion preference */
-@media (prefers-reduced-motion: reduce) {
-    * {
-        transition: none !important;
-    }
-}
-
-/* Focus states for accessibility */
-.admin-table tr:focus-within {
-    outline: 2px solid var(--fg-blue);
-    outline-offset: -2px;
-}
-
-.collapsible-header:focus-visible {
-    outline: 2px solid var(--fg-blue);
-    outline-offset: -2px;
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   ── V2 REDESIGN · modern glass console ─────────────────────────────
-   These rules override the originals above (equal specificity, later
-   source order wins) and add full multi-device responsiveness.
-   ═══════════════════════════════════════════════════════════════════ */
-
-.admin-container {
-    --admin-card: linear-gradient(180deg, var(--bg-1, #ffffff), var(--bg-page-transp, rgba(255, 255, 255, 0.9)));
-    --admin-surface: var(--bg-page-transp, rgba(255, 255, 255, 0.9));
-    --admin-line: var(--border-nav, rgba(122, 122, 125, 0.45));
-    --admin-r: var(--border-radius-lg, 12px);
-    --admin-r-xl: var(--border-radius-xl, 16px);
-    --admin-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.15));
-    --admin-shadow-sm: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.15));
-}
-
-/* Animated ambient gradient — matches the recently refreshed pages */
-.admin-container {
-    background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
-    background-size: 400% 400%;
-    animation: adminGradientShift 22s ease infinite;
-    overflow-x: hidden;
-}
-
-@keyframes adminGradientShift {
-    0%   { background-position: 0% 50%; }
-    50%  { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-
-/* Floating ambient orbs */
-.admin-ambient {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    overflow: hidden;
-}
-
-.admin-orb {
-    position: absolute;
-    border-radius: 50%;
-    background: radial-gradient(circle, var(--white1-transp) 0%, transparent 70%);
-    filter: blur(4px);
-    animation: adminOrbFloat 10s ease-in-out infinite;
-}
-
-.admin-orb--1 { width: calc(var(--nav-size) * 4.2); height: calc(var(--nav-size) * 4.2); top: 5%; left: -6%; }
-.admin-orb--2 { width: calc(var(--nav-size) * 3.1); height: calc(var(--nav-size) * 3.1); top: 30%; right: -5%; animation-delay: -3s; }
-.admin-orb--3 { width: calc(var(--nav-size) * 5.2); height: calc(var(--nav-size) * 5.2); bottom: 3%; left: 42%; animation-delay: -6s; }
-
-@keyframes adminOrbFloat {
-    0%, 100% { transform: translateY(0) scale(1); }
-    50%      { transform: translateY(-26px) scale(1.06); }
-}
-
-/* ── Page shell ─────────────────────────────────────────────── */
-.admin-page {
-    width: min(92%, 1320px);
-    margin: calc(var(--nav-size) * 1.2) auto calc(var(--nav-size) * 2.5) auto;
-    position: relative;
-    z-index: 2;
-}
-
-/* ── Hero ───────────────────────────────────────────────────── */
-.admin-hero {
-    text-align: center;
-    margin-bottom: calc(var(--nav-size) * 0.9);
-    padding: calc(var(--nav-size) * 0.5) var(--spacing-md);
-}
-
-.admin-hero__eyebrow {
-    font-size: var(--font-size-small);
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--text-color-accent);
-    margin: 0 0 var(--spacing-xs) 0;
-    font-weight: var(--font-weight-semibold);
-}
-
-.admin-hero__title {
-    margin: 0;
-    font-size: var(--font-size-display);
-    font-weight: var(--font-weight-bold);
-    color: var(--text-color-strong);
-    line-height: var(--line-height-tight);
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.08);
-}
-
-.admin-hero__subtitle {
-    margin: var(--spacing-sm) auto 0 auto;
-    font-size: var(--font-size-base);
-    color: var(--text-color-accent);
-    max-width: 560px;
-    line-height: var(--line-height-relaxed);
-}
-
-/* ── Sticky glass nav ───────────────────────────────────────── */
-.admin-nav {
-    position: sticky;
-    top: calc(var(--nav-size) * 0.5);
-    z-index: 30;
-    display: flex;
-    flex-wrap: nowrap;
-    gap: calc(var(--nav-size) * 0.12);
-    margin-bottom: calc(var(--nav-size) * 0.7);
-    padding: calc(var(--nav-size) * 0.18);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    background: var(--admin-surface);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--admin-line);
-    border-radius: 999px;
-    box-shadow: var(--admin-shadow-sm);
-}
-
-.admin-nav::-webkit-scrollbar { height: 4px; }
-.admin-nav::-webkit-scrollbar-thumb { background: var(--bg-accent); border-radius: 999px; }
-
-.admin-nav-link {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.12);
-    padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.3);
-    border: 1px solid transparent;
-    border-radius: 999px;
-    background: transparent;
-    color: var(--text-color);
-    text-decoration: none;
-    font-size: var(--font-size-xs);
-    font-family: 'CutiveMono-Regular', monospace;
-    white-space: nowrap;
-    transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
-}
-
-.admin-nav-link__icon { font-size: var(--font-size-small); line-height: 1; }
-
-.admin-nav-link:hover {
-    background: var(--bg-mint);
-    transform: translateY(-1px);
-}
-
-.admin-nav-link--active {
-    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
-    color: var(--text-color-inv, #ffffff);
-    border-color: transparent;
-    box-shadow: var(--admin-shadow-sm);
-}
-
-/* ── Section tiles & headings ───────────────────────────────── */
-.admin-page .admin-section-tile {
-    margin: 0 0 calc(var(--nav-size) * 0.7) 0;
-    width: 100%;
-    max-width: none;
-    animation: adminFadeUp 0.45s ease both;
-}
-
-@keyframes adminFadeUp {
-    from { opacity: 0; transform: translateY(14px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-
-.admin-section-tile h2 {
-    margin-bottom: calc(var(--nav-size) * 0.55);
-    font-size: var(--font-size-heading);
-    font-weight: var(--font-weight-bold);
-    color: var(--text-color-strong);
-    padding-bottom: var(--spacing-sm);
-    border-bottom: 2px solid var(--admin-line);
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-}
-
-.admin-section-tile h2::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    bottom: -2px;
-    width: 90px;
-    height: 3px;
-    border-radius: 999px;
-    background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint));
-}
-
-/* ── Loading / error / empty states ─────────────────────────── */
-.admin-loading {
-    color: var(--fg-blue);
-    text-align: center;
-    font-size: var(--font-size-small);
-    padding: calc(var(--nav-size) * 0.5);
-    margin: calc(var(--nav-size) * 0.3) 0;
-    border-radius: var(--admin-r);
-    background: var(--admin-surface);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--admin-line);
-}
-
-.admin-error {
-    color: var(--red0);
-    border: 1px solid var(--red0);
-    background: rgba(220, 0, 0, 0.08);
-    border-radius: var(--admin-r);
-    padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: calc(var(--nav-size) * 0.2);
-    font-size: var(--font-size-small);
-    margin: calc(var(--nav-size) * 0.2) 0;
-}
-
-.admin-no-data {
-    color: var(--text-color-accent);
-    font-style: italic;
-    font-size: var(--font-size-small);
-}
-
-.admin-help-text {
-    font-size: var(--font-size-small);
-    color: var(--text-color-accent);
-    margin: 0 0 calc(var(--nav-size) * 0.35) 0;
-    line-height: var(--line-height-relaxed);
-}
-
-/* ── Purchase gate card ─────────────────────────────────────── */
-.purchase-gate-card {
-    background: var(--admin-card);
-    border: 1px solid var(--admin-line);
-    border-radius: var(--admin-r-xl);
-    box-shadow: var(--admin-shadow-sm);
-    padding: calc(var(--nav-size) * 0.45);
-    margin-bottom: calc(var(--nav-size) * 0.6);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-}
-
-.purchase-gate-card--paused {
-    border-color: var(--red0, #e53e3e);
-    background: linear-gradient(180deg, rgba(229, 62, 62, 0.14), var(--bg-page-transp));
-    box-shadow: 0 0 0 1px rgba(229, 62, 62, 0.25), var(--admin-shadow);
-}
-
-.purchase-gate-card h3 {
-    margin: 0 0 4px 0;
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-color-strong);
-}
-
-/* ── KPI cards ──────────────────────────────────────────────── */
-.kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: calc(var(--nav-size) * 0.3);
-    margin-bottom: calc(var(--nav-size) * 0.7);
-}
-
-.kpi-card {
-    position: relative;
-    overflow: hidden;
-    background: var(--admin-card);
-    border: 1px solid var(--admin-line);
-    border-radius: var(--admin-r-xl);
-    box-shadow: var(--admin-shadow-sm);
-    padding: calc(var(--nav-size) * 0.4);
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.08);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.kpi-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint));
-}
-
-.kpi-card:nth-child(2)::before { background: linear-gradient(90deg, #22c55e, #86efac); }
-.kpi-card:nth-child(3)::before { background: linear-gradient(90deg, var(--fg-orange), var(--fg-pink)); }
-.kpi-card:nth-child(4)::before { background: linear-gradient(90deg, #ef4444, #fca5a5); }
-.kpi-card:nth-child(5)::before { background: linear-gradient(90deg, #f59e0b, #fde68a); }
-
-.kpi-card:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--admin-shadow);
-}
-
-.kpi-card.kpi-revenue { border-left: 1px solid var(--admin-line); }
-
-.kpi-label {
-    font-size: var(--font-size-xs);
-    color: var(--text-color-accent);
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    font-weight: var(--font-weight-semibold);
-}
-
-.kpi-value {
-    font-size: var(--font-size-heading);
-    font-weight: var(--font-weight-bold);
-    color: var(--text-color-strong);
-    line-height: 1.1;
-    font-variant-numeric: tabular-nums;
-}
-
-.kpi-sub { font-size: var(--font-size-xs); color: var(--text-color-accent); }
-
-/* ── Collapsible sections ───────────────────────────────────── */
-.collapsible-section {
-    margin: calc(var(--nav-size) * 0.45) 0;
-    border-radius: var(--admin-r-xl);
-    background: var(--admin-card);
-    overflow: hidden;
-    border: 1px solid var(--admin-line);
-    box-shadow: var(--admin-shadow-sm);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-}
-
-.collapsible-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.4);
-    cursor: pointer;
-    background: transparent;
-    color: var(--text-color);
-    transition: background-color 0.18s ease;
-}
-
-.collapsible-header:hover { background: var(--bg-mint); }
-
-.collapsible-header h3 {
-    margin: 0;
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-color-strong);
-}
-
-.collapse-icon {
-    display: grid;
-    place-items: center;
-    width: calc(var(--nav-size) * 0.55);
-    height: calc(var(--nav-size) * 0.55);
-    border-radius: 50%;
-    background: var(--bg-accent);
-    color: var(--text-color);
-    font-size: var(--font-size-xs);
-    transition: transform 0.2s ease, background 0.2s ease;
-    flex-shrink: 0;
-}
-
-.collapse-icon.collapsed { transform: rotate(180deg); }
-
-.collapsible-content {
-    padding: calc(var(--nav-size) * 0.45);
-    border-top: 1px solid var(--admin-line);
-    background: var(--admin-surface);
-}
-
-/* ── Sales funnel ───────────────────────────────────────────── */
-.funnel-container { max-width: 640px; margin: 0 auto; }
-
-.funnel-stage {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.25);
-    margin: calc(var(--nav-size) * 0.15) 0;
-}
-
-.funnel-bar {
-    background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint));
-    color: var(--text-color-inv, #ffffff);
-    padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.3);
-    border-radius: 999px;
-    font-size: var(--font-size-xs);
-    font-weight: bold;
-    min-width: 130px;
-    flex-shrink: 0;
-    text-align: center;
-    box-sizing: border-box;
-    box-shadow: var(--admin-shadow-sm);
-}
-
-.funnel-bar-mid { background: linear-gradient(90deg, var(--fg-pink), var(--fg-orange)); }
-.funnel-bar-end { background: linear-gradient(90deg, #22c55e, #86efac); }
-
-.funnel-count {
-    font-size: var(--font-size-small);
-    font-weight: bold;
-    color: var(--text-color-strong);
-    min-width: 70px;
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-}
-
-.funnel-arrow {
-    text-align: center;
-    color: var(--text-color-accent);
-    font-size: var(--font-size-xs);
-    padding: calc(var(--nav-size) * 0.08) 0;
-}
-
-.funnel-summary {
-    text-align: center;
-    margin-top: calc(var(--nav-size) * 0.3);
-    padding: calc(var(--nav-size) * 0.25);
-    background: var(--admin-surface);
-    border: 1px solid var(--admin-line);
-    border-radius: var(--admin-r);
-    font-size: var(--font-size-small);
-    color: var(--text-color);
-}
-
-/* ── Revenue & traffic cards ────────────────────────────────── */
-.revenue-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: calc(var(--nav-size) * 0.35);
-}
-
-.revenue-card,
-.traffic-card {
-    background: var(--admin-surface);
-    border: 1px solid var(--admin-line);
-    border-radius: var(--admin-r);
-    padding: calc(var(--nav-size) * 0.35);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    box-shadow: var(--admin-shadow-sm);
-}
-
-.revenue-card h4,
-.traffic-card h4 {
-    margin: 0 0 calc(var(--nav-size) * 0.2) 0;
-    font-size: var(--font-size-small);
-    color: var(--text-color-strong);
-    border-bottom: 1px solid var(--admin-line);
-    padding-bottom: calc(var(--nav-size) * 0.12);
-    font-weight: var(--font-weight-semibold);
-}
-
-.traffic-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: calc(var(--nav-size) * 0.3);
-}
-
-.stat-rows { display: flex; flex-direction: column; gap: calc(var(--nav-size) * 0.08); }
-
-.stat-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.1);
-    font-size: var(--font-size-xs);
-    color: var(--text-color);
-    border-radius: calc(var(--nav-size) * 0.05);
-}
-
-.stat-row strong { color: var(--text-color-strong); font-variant-numeric: tabular-nums; }
-
-.stat-row.muted { color: var(--text-color-accent); font-style: italic; }
-
-.stat-row--clickable {
-    cursor: pointer;
-    transition: background-color 0.15s ease;
-}
-
-.stat-row--clickable:hover { background-color: var(--bg-mint); }
-
-.stat-row--active {
-    background-color: rgba(80, 140, 255, 0.18);
-    font-weight: 600;
-}
-
-.mini-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-xs); }
-.mini-table th {
-    text-align: left;
-    padding: calc(var(--nav-size) * 0.15);
-    color: var(--text-color-accent);
-    font-weight: 600;
-    border-bottom: 1px solid var(--admin-line);
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-}
-.mini-table td {
-    padding: calc(var(--nav-size) * 0.15);
-    border-bottom: 1px solid var(--admin-line);
-    color: var(--text-color);
-}
-.mini-table-total td { border-top: 2px solid var(--text-color); font-weight: bold; }
-
-.recent-signups-list {
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.08);
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.signup-row {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.18);
-    padding: calc(var(--nav-size) * 0.14);
-    border: 1px solid transparent;
-    border-radius: var(--admin-r);
-    font-size: var(--font-size-xs);
-    background: var(--bg-1, rgba(255, 255, 255, 0.7));
-}
-
-.signup-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-color); }
-.signup-date { color: var(--text-color-accent); font-size: var(--font-size-xs); white-space: nowrap; }
-
-/* ── Tables ─────────────────────────────────────────────────── */
-.admin-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    font-size: var(--font-size-xs);
-    color: var(--text-color);
-}
-
-.admin-table thead { background: var(--bg-accent); }
-
-.admin-table th {
-    text-align: left;
-    padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.25);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    font-size: var(--font-size-xs);
-    color: var(--text-color-accent);
-    border-bottom: 2px solid var(--admin-line);
-    white-space: nowrap;
-    position: sticky;
-    top: 0;
-    background: var(--bg-accent);
-    z-index: 1;
-}
-
-.admin-table td {
-    padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.25);
-    border-bottom: 1px solid var(--admin-line);
-    vertical-align: top;
-    word-break: break-word;
-    line-height: var(--line-height-base);
-}
-
-.admin-table tbody tr:nth-child(even) { background: rgba(127, 127, 127, 0.07); }
-.admin-table tbody tr { transition: background-color 0.15s ease; }
-.admin-table tbody tr:hover { background: var(--bg-mint); }
-
-.table-scroll-container {
-    max-height: 72vh;
-    overflow: auto;
-    border: 1px solid var(--admin-line);
-    border-radius: var(--admin-r);
-    background: var(--admin-surface);
-    box-shadow: var(--admin-shadow-sm);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-}
-
-/* ── Toolbar / search / select ──────────────────────────────── */
-.section-toolbar {
-    display: flex;
-    gap: calc(var(--nav-size) * 0.18);
-    margin-bottom: calc(var(--nav-size) * 0.35);
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.admin-search,
-.type-select {
-    flex: 1;
-    min-width: 220px;
-    padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.3);
-    border: 1px solid var(--admin-line);
-    border-radius: 999px;
-    background: var(--admin-surface);
-    color: var(--text-color);
-    font-size: var(--font-size-small);
-    font-family: 'CutiveMono-Regular', monospace;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-}
-
-.admin-search:focus,
-.type-select:focus {
-    outline: none;
-    border-color: var(--fg-blue);
-    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.12);
-}
-
-.type-select { flex: 0 0 auto; min-width: 160px; }
-
-/* ── Buttons ────────────────────────────────────────────────── */
-.btn-sm {
-    padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.35);
-    border: none;
-    border-radius: 999px;
-    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
-    color: var(--text-color-inv, #ffffff);
-    font-size: var(--font-size-small);
-    font-weight: 600;
-    cursor: pointer;
-    font-family: 'CutiveMono-Regular', monospace;
-    white-space: nowrap;
-    min-height: 44px;
-    box-shadow: var(--admin-shadow-sm);
-    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
-}
-
-.btn-sm:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: var(--admin-shadow);
-    filter: brightness(1.05);
-}
-
-.btn-sm:disabled { opacity: 0.55; cursor: not-allowed; }
-
-.btn-retry {
-    background: linear-gradient(135deg, #ef4444, #b91c1c) !important;
-    border: none !important;
-}
-
-.btn-reset {
-    background: linear-gradient(135deg, #ef4444, #b91c1c) !important;
-    border: none !important;
-}
-
-.btn-outline {
-    background: transparent !important;
-    color: var(--fg-blue) !important;
-    border: 1px solid var(--fg-blue) !important;
-    box-shadow: none !important;
-}
-
-.btn-outline:hover:not(:disabled) {
-    background: var(--fg-blue) !important;
-    color: #ffffff !important;
-}
-
-.btn-inline {
-    background: none;
-    border: none;
-    color: var(--fg-blue);
-    cursor: pointer;
-    font-size: var(--font-size-xs);
-    text-decoration: underline;
-    margin-left: calc(var(--nav-size) * 0.15);
-    font-family: 'CutiveMono-Regular', monospace;
-    padding: 0;
-    min-height: 0;
-    box-shadow: none;
-}
-
-.btn-refresh {
-    padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.32);
-    border: 1px solid var(--admin-line);
-    border-radius: 999px;
-    background: var(--admin-surface);
-    color: var(--text-color);
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    cursor: pointer;
-    font-family: 'CutiveMono-Regular', monospace;
-    min-height: 44px;
-    transition: background 0.15s ease, transform 0.15s ease;
-}
-
-.btn-refresh:hover {
-    background: var(--bg-mint);
-    transform: translateY(-1px);
-}
-
-.btn-close-report {
-    background: linear-gradient(135deg, #22c55e, #16a34a);
-    color: #ffffff;
-    border: none;
-    padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.22);
-    border-radius: 999px;
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    cursor: pointer;
-    min-height: 36px;
-    transition: transform 0.15s ease, filter 0.15s ease;
-}
-
-.btn-close-report:hover { filter: brightness(1.08); transform: translateY(-1px); }
-
-.btn-agent-fix {
-    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
-    color: var(--text-color-inv, #ffffff);
-    border: none;
-    padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.22);
-    border-radius: 999px;
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-    min-height: 36px;
-    transition: transform 0.15s ease, filter 0.15s ease;
-}
-
-.btn-agent-fix:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
-.btn-agent-fix:disabled { opacity: 0.6; cursor: not-allowed; }
-
-/* ── Badges ─────────────────────────────────────────────────── */
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.18);
+  font-size: var(--font-size-small);
+  color: var(--plane-muted);
+}
+/* ── 6. Badges & status pills ────────────────────────────────────────────── */
+
+/* A pill carries a hue as TEXT. Two things follow from that:
+   - the fill is `--bg-1`, not a wash of the plane underneath, so the pill never
+     dissolves into a plane of its own hue and the hue keeps signalling;
+   - the hue itself is run through the `--plane-ink-*` pair (index.css): the raw
+     `--fg-blue` on a blue plane measured 2.9:1 light / 2.0:1 dark. Each variant
+     sets only `--badge-tone`; the ink rule below is written once. */
 .status-badge,
 .rating-badge,
 .category-badge,
-.type-badge {
-    display: inline-flex;
+.type-badge,
+.plan-badge,
+.user-badge {
+  display: inline-block;
+  padding: 1px 9px;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.8;
+  white-space: nowrap;
+  background: var(--bg-1);
+  color: color-mix(in srgb, var(--badge-tone, var(--fg-blue)) var(--plane-ink-fallback), var(--text-color));
+  color: oklch(from var(--badge-tone, var(--fg-blue)) var(--plane-ink-l) c h);
+}
+.status-badge.status-open { --badge-tone: var(--admin-warn); }
+.status-badge.status-closed { --badge-tone: var(--admin-ok); }
+/* Ratings and reviews are `people`, so they wear the people tone; a category is
+   just a label about the thing itself, so it wears `volume`. Neither borrows
+   orange any more — that was the collision that made the palette read as noise. */
+.rating-badge { --badge-tone: var(--tone-accent); }
+/* A category is a plain label, so it stays plain: an identical accent chip next
+   to the rating chip in the same row would say nothing twice. */
+.category-badge { color: var(--plane-muted); }
+.rating-badge, .category-badge, .status-badge { text-transform: capitalize; }
+
+.type-badge.type-user { --badge-tone: var(--tone-accent); }
+.type-badge.type-visitor { --badge-tone: var(--tone-accent); }
+.type-badge.type-bug { --badge-tone: var(--admin-bad); }
+.type-badge.type-review { --badge-tone: var(--tone-accent); }
+/* "other" has no hue to speak of — it is plain muted text on the same chip. */
+.type-badge.type-other { color: var(--plane-muted); }
+
+.plan-badge { text-transform: capitalize; }
+.plan-badge.plan-free { color: var(--plane-muted); }
+.plan-badge.plan-pro { --badge-tone: var(--tone-accent); }
+.plan-badge.plan-simple { --badge-tone: var(--tone-accent); }
+.plan-badge.plan-special { --badge-tone: var(--tone-highlight); }
+.plan-badge--clickable { cursor: pointer; user-select: none; transition: filter 0.15s ease; }
+.plan-badge--clickable:hover { filter: brightness(1.08); }
+.plan-badge--clickable:focus-visible { outline: var(--focus-outline, 2px solid var(--fg-blue)); outline-offset: 2px; }
+
+.user-badge--in { --badge-tone: var(--admin-ok); }
+.user-badge--out { color: var(--plane-muted); }
+
+/* ── 7. KPI readout ──────────────────────────────────────────────────────── */
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr));
+  gap: calc(var(--nav-size) * 0.22);
+  min-width: 0;
+}
+/* A KPI tile is a small pane of the same glass, wearing a tone from the same
+   vocabulary as the panels — see `KpiTile.jsx`. The strip is meant to be read as
+   an INDEX of the page beneath it: go to the pink tile, find the pink panel.
+
+   NOTE: no `--admin-accent` default here. It lives once, on `.admin-surface`, and
+   is inherited. Declaring it again on this element would be a same-specificity
+   conflict with `.admin-tone--*` and — this file being long — the later one
+   silently won: every tile rendered transparent while its panel was correct,
+   which is a bug that looks like "the tones just don't work on tiles". */
+.kpi-card {
+  position: relative;
+  /* The tile measures ITSELF, so a tile that happens to be wide can lay out
+     differently from one that is not — see the container query below. */
+  container-type: inline-size;
+  min-width: 0;
+  padding: calc(var(--nav-size) * 0.26) calc(var(--nav-size) * 0.3);
+  /* Same surface as a panel and as a `/profile` card. A tile used to wear the
+     washed recipe, which left the top row of the console as the one place still
+     carrying an accent ramp. */
+  border: none;
+  border-radius: var(--admin-radius-inner);
+  background: var(--admin-glass-panel);
+  box-shadow: var(--admin-shadow);
+  overflow: hidden;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+/* The tile's layout lives in a CHILD, not on the tile: a container query can only
+   style descendants of the container, so the box that changes layout has to sit
+   inside the box being measured. */
+.kpi-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+/* The tile's value gets no colour of its own. The strip used to colour revenue
+   green, which read as a state next to a palette that no longer has a green. */
+/* The accent rule on a TILE is the same rule a panel wears, at the same
+   half-strength default — the strip is an INDEX of the page beneath it, so every
+   tile states its hue and a tone states it louder. The value itself still gets
+   no colour: six readouts should look like one instrument. */
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--admin-accent), transparent 88%);
+  pointer-events: none;
+  transform-origin: left center;
+  animation: adminRuleWipe 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  opacity: 0.45;
+}
+.kpi-card.admin-tone--ok::before,
+.kpi-card.admin-tone--highlight::before,
+.kpi-card.admin-tone--warn::before,
+.kpi-card.admin-tone--bad::before { opacity: 1; }
+/* The spotlight: LIGHT that follows the pointer, not a hue doing work. Driven
+   entirely from `--mx`/`--my`, which `trackPointer` (KpiTile.jsx, where it
+   belongs — the spotlight is the tile's own business) writes straight onto the
+   element, so moving the mouse across a view never re-renders it. Gated on a
+   real hovering pointer so a touch drag cannot leave a highlight stranded. */
+.kpi-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    200px circle at var(--mx, 50%) var(--my, 0%),
+    var(--admin-light),
+    transparent 72%
+  );
+  transition: opacity 0.3s ease;
+}
+.kpi-card:hover { transform: translateY(-4px); box-shadow: 0 2px 5px rgba(0, 0, 0, 0.07), 0 18px 40px -16px rgba(0, 0, 0, 0.32), 0 0 26px -6px color-mix(in srgb, var(--admin-accent) 55%, transparent); }
+@media (hover: hover) and (pointer: fine) {
+  .kpi-card:hover::after { opacity: 1; }
+}
+/* A tile that happens to be WIDE — two metrics on a desktop, where `1fr` hands
+   each one half the page — should not be a sparse column with the number
+   stranded at the left margin. Past 300px it becomes an instrument row: label
+   and sub stacked on the left, the figure large and right-aligned against it.
+   The six-tile dashboard (`~180px` each) never reaches the breakpoint, so it
+   keeps the compact column layout without anything having to count columns. */
+@container (min-width: 300px) {
+  .kpi-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'label value'
+      'sub   value';
     align-items: center;
-    gap: 4px;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-weight: 600;
-    font-size: var(--font-size-xs);
-    white-space: nowrap;
-    border: 1px solid transparent;
+    column-gap: calc(var(--nav-size) * 0.3);
+  }
+  .kpi-label { grid-area: label; }
+  .kpi-sub { grid-area: sub; }
+  .kpi-value {
+    grid-area: value;
+    font-size: calc(var(--font-size-heading) * 1.3);
+    text-align: right;
+  }
 }
 
-.plan-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    text-transform: capitalize;
-    white-space: nowrap;
+.kpi-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--plane-muted);
+  /* A card can be 120px wide on a phone, so a value that is longer than
+     expected has to wrap rather than get clipped by the card edge. */
+  overflow-wrap: anywhere;
+}
+/* The number is the point of the tile, so it is the one thing here that gets
+   size and weight. `tabular-nums` stops a row of six figures from shifting
+   sideways as the values change. */
+.kpi-value {
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-color);
+}
+.kpi-sub { font-size: var(--font-size-xs); color: var(--plane-muted); }
+
+/* ── 8. Sales funnel ─────────────────────────────────────────────────────── */
+
+/* One grid *per stage*, all sharing the same fixed label column, so the rows
+   line up without the parent having to place every child. (A single grid with
+   `display: contents` on the stages looked tidier but mis-placed everything
+   after the arrow: an explicitly-columned item makes the following
+   auto-placed items continue past it, which scattered the labels into the
+   third column.) A fixed `11ch` label column, not `max-content` — with
+   `max-content` each stage would size its own column and nothing would align.
+   The label sat *inside* the bar before, which forced a 108px minimum on a
+   0.3% segment and made all three bars the same width. */
+.funnel-container {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.08);
+  min-width: 0;
+}
+.funnel-stage {
+  display: grid;
+  /* Both outer columns are fixed, so every stage's track starts and ends at the
+     same x — with `auto` for the count, a 3-digit row and a 6-digit row sized
+     their own columns and the bars drifted ~20px apart. */
+  grid-template-columns: 11ch minmax(0, 1fr) 9ch;
+  align-items: center;
+  column-gap: calc(var(--nav-size) * 0.22);
+  row-gap: 2px;
+  min-width: 0;
 }
 
-.plan-badge.plan-free   { background: var(--bg-1); color: var(--text-color-accent); border: 1px solid var(--admin-line); }
-.plan-badge.plan-pro    { background: rgba(59, 130, 246, 0.16); color: var(--fg-blue); border: 1px solid var(--fg-blue); }
-.plan-badge.plan-simple { background: rgba(168, 85, 247, 0.16); color: #a855f7; border: 1px solid #a855f7; }
-.plan-badge.plan-special {
-    background: rgba(245, 158, 11, 0.16);
-    color: #f59e0b;
-    border: 1px solid #f59e0b;
+.funnel-label {
+  font-size: var(--font-size-small);
+  color: var(--text-color);
+  white-space: nowrap;
 }
 
-.plan-badge--clickable {
-    cursor: pointer;
-    user-select: none;
-    transition: transform 0.12s ease, box-shadow 0.15s ease;
+.funnel-track {
+  height: calc(var(--nav-size) * 0.42);
+  border-radius: 999px;
+  background: var(--admin-sunken);
+  overflow: hidden;
+  min-width: 0;
+}
+/* The bars are the one place in the console that should shout, and they shout in
+   ONE hue at three weights: light for the wide top of the funnel, deep for the
+   narrow end. More visitors than sign-ups is already carried by the lengths, so
+   a second and third hue were only ever decorating the same fact. */
+.funnel-bar {
+  height: 100%;
+  min-width: 3px;
+  border-radius: 999px;
+  background: var(--tone-accent-soft);
+  transition: width 0.6s ease;
+}
+.funnel-bar-mid { background: var(--tone-accent); }
+.funnel-bar-end { background: var(--tone-accent-deep); }
+
+.funnel-count {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color);
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+/* The step rate sits under the bar it converts *from*, in the track column. */
+.funnel-arrow {
+  grid-column: 2;
+  font-size: var(--font-size-xs);
+  color: var(--plane-muted);
 }
 
-.plan-badge--clickable:hover { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35); }
-.plan-badge--clickable:active { transform: scale(0.96); }
+/* ── 9. Stat rows — the readout idiom shared by every panel ─────────────── */
 
-/* ── Pagination ─────────────────────────────────────────────── */
-.pagination {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: calc(var(--nav-size) * 0.25);
-    padding: calc(var(--nav-size) * 0.3) 0;
-    font-size: var(--font-size-xs);
-    color: var(--text-color-accent);
-    flex-wrap: wrap;
+.stat-rows { display: flex; flex-direction: column; }
+.stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--nav-size) * 0.2);
+  padding: calc(var(--nav-size) * 0.09) calc(var(--nav-size) * 0.12);
+  font-size: var(--font-size-small);
+  color: var(--text-color);
+  border-radius: var(--border-radius-sm);
+}
+/* Alternating tints, not a hairline under every row. `background-color`, never
+   the `background` shorthand — the shorthand would reset `background-image` and
+   silently erase the proportion bar on every odd row. */
+.stat-row { border-bottom: 1px solid var(--border-nav); }
+.stat-row:last-child { border-bottom: none; }
+.stat-row strong { font-weight: var(--font-weight-semibold); white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* The label half has to be allowed to shrink. A long path (or a referer, or a
+   country name) otherwise pushed the count — which is `nowrap` — past the
+   panel's edge, where `overflow: hidden` clipped it out of sight: on a 320px
+   screen `/admin/rankings` lost the visit count entirely. */
+.stat-row > span { min-width: 0; overflow-wrap: anywhere; }
+.stat-row.muted { color: var(--plane-muted); }
+.stat-row--clickable { cursor: pointer; }
+.stat-row--clickable:hover { background-color: color-mix(in srgb, var(--fg-blue) 12%, transparent); }
+.stat-row--active { background-color: var(--admin-selected); }
+
+/* ── Proportion bars ──────────────────────────────────────────────────────
+
+   A ranked list of counts reads as a CHART the moment each row carries its own
+   share of the whole, and it costs nothing structural: the bar is painted into
+   the row's `background-image` with `background-size` as its width, so it sits
+   behind the text with no pseudo-element, no z-index and no extra markup beyond
+   one custom property.
+
+     <div className="stat-row admin-share" style={{ '--share': '62%' }}>
+
+   The hue comes from `--row-tone`, falling back to the panel's own accent, so a
+   panel's bars match its accent rule and the subject key stays in one place.
+   `background-color` (the zebra) and `background-image` (this) are independent
+   layers, which is why every row tint above had to drop the `background`
+   shorthand — it would have reset this image on every odd row. */
+.admin-share {
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--row-tone, var(--admin-accent)) var(--admin-share-dose), transparent),
+    color-mix(in srgb, var(--row-tone, var(--admin-accent)) var(--admin-share-dose), transparent)
+  );
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: var(--share, 0%) 100%;
+  /* Bars GROW to a new value rather than jumping to it, so a refresh is visibly
+     a refresh. `background-size` only — the row's own tint is `background-color`,
+     and transitioning that would make the zebra ripple on every update. */
+  transition: background-size 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.pagination button {
-    padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.3);
-    border: 1px solid var(--admin-line);
-    border-radius: 999px;
-    background: var(--admin-surface);
-    color: var(--text-color);
-    cursor: pointer;
-    font-family: 'CutiveMono-Regular', monospace;
-    font-size: var(--font-size-xs);
-    min-height: 40px;
-    transition: background 0.15s ease, transform 0.15s ease;
+.recent-signups-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.signup-row {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.16);
+  padding: calc(var(--nav-size) * 0.09) calc(var(--nav-size) * 0.12);
+  font-size: var(--font-size-small);
+}
+.signup-row { border-bottom: 1px solid var(--border-nav); }
+.signup-row:last-child { border-bottom: none; }
+.signup-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-color);
+}
+.signup-date { color: var(--plane-muted); font-size: var(--font-size-xs); white-space: nowrap; }
+
+/* ── 10. Purchase gate (the one instant kill switch) ─────────────────────── */
+
+.purchase-gate-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.25);
 }
 
-.pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
-.pagination button:not(:disabled):hover { background: var(--bg-mint); transform: translateY(-1px); }
+.purchase-gate-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.16);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+}
+.purchase-gate-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+/* An "off" switch is neutral, not red. Red was a third hue spent on a state that
+   greyscale already reads: the knob is visibly to the left. "On" is the accent. */
+.purchase-gate-slider {
+  position: relative;
+  width: 46px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--admin-sunken-strong);
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+.purchase-gate-slider::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--white0);
+  transition: transform 0.2s ease;
+}
+.purchase-gate-switch input:checked + .purchase-gate-slider { background: var(--admin-ok); }
+.purchase-gate-switch input:checked + .purchase-gate-slider::before { transform: translateX(22px); }
+.purchase-gate-switch input:disabled + .purchase-gate-slider { opacity: 0.55; cursor: not-allowed; }
+.purchase-gate-switch input:focus-visible + .purchase-gate-slider { outline: var(--focus-outline, 2px solid var(--fg-blue)); outline-offset: 2px; }
+.purchase-gate-switch-label { font-size: var(--font-size-small); }
 
-/* ── Bug reports ────────────────────────────────────────────── */
-.bug-actions {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.12);
-    flex-wrap: wrap;
+.purchase-gate-message-row {
+  margin-top: calc(var(--nav-size) * 0.24);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.12);
+}
+.purchase-gate-message-row label { font-size: var(--font-size-small); color: var(--plane-muted); }
+.purchase-gate-message-row textarea {
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
 }
 
-.report-resolution {
-    margin-top: calc(var(--nav-size) * 0.12);
-    padding: calc(var(--nav-size) * 0.15);
-    background: rgba(34, 197, 94, 0.1);
-    border-left: 3px solid #22c55e;
-    border-radius: var(--admin-r);
-    font-size: var(--font-size-xs);
+/* ── 11. Home title rule editor ──────────────────────────────────────────── */
+
+/* A block nested INSIDE a plane is an inset tint, never a second glass surface —
+   glass on glass is the one thing glass design is unanimous about avoiding, and
+   it also costs a stacking context for nothing (§5). */
+.ht-default {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.12);
+  padding: calc(var(--nav-size) * 0.24) calc(var(--nav-size) * 0.28);
+  /* Concentric with the panel that holds it: 20px panel − 6px of inset. */
+  border-radius: var(--admin-radius-inner);
+  background: var(--admin-sunken);
 }
+.ht-default__input { width: 100%; }
+.ht-default__hint { margin: 0; }
+.ht-empty { margin: 0; }
 
-.agent-run-feed {
-    margin-top: calc(var(--nav-size) * 0.12);
-    padding: calc(var(--nav-size) * 0.15);
-    background: var(--admin-surface);
-    border-left: 3px solid var(--fg-blue);
-    border-radius: var(--admin-r);
-    font-size: var(--font-size-xs);
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.06);
-    max-width: 480px;
+.ht-rule-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: calc(var(--nav-size) * 0.22);
+  align-items: start;
+  min-width: 0;
 }
-
-.agent-run-status { font-weight: 700; line-height: 1.3; }
-.agent-run-status--running { color: var(--fg-blue); }
-.agent-run-status--done    { color: #22c55e; }
-.agent-run-status--failed  { color: #ef4444; }
-
-.agent-step { color: var(--text-color-accent); line-height: 1.35; white-space: pre-wrap; word-break: break-word; }
-.agent-step--tool        { color: var(--text-color); }
-.agent-step--tool-result { color: var(--text-color-accent); font-size: 90%; }
-.agent-step--error       { color: #ef4444; }
-.agent-step--thought     { color: var(--text-color-accent); font-style: italic; }
-
-/* ── Date filter / visitor map ──────────────────────────────── */
-.date-filter {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.2);
-    flex-wrap: wrap;
-    margin-bottom: calc(var(--nav-size) * 0.35);
-    padding: calc(var(--nav-size) * 0.25);
-    background: var(--admin-surface);
-    border: 1px solid var(--admin-line);
-    border-radius: var(--admin-r);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+.ht-rule-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: var(--admin-radius-inner);
+  overflow: hidden;
+  background: var(--admin-sunken);
+  transition: background 0.15s ease;
 }
+.ht-rule-card:hover { background: var(--admin-sunken-strong); }
+/* A disabled rule is muted, never outlined. */
+.ht-rule-card--disabled { opacity: 0.62; }
 
-.date-filter label {
-    font-size: var(--font-size-xs);
-    color: var(--text-color);
-    font-weight: bold;
-    margin: 0;
+.ht-rule-card__head {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.16);
+  padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.24);
+  background: var(--admin-sunken-strong);
 }
-
-.date-filter input,
-.date-filter select {
-    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.2);
-    font-size: var(--font-size-xs);
-    border: 1px solid var(--admin-line);
-    border-radius: 999px;
-    background: var(--bg-1);
-    color: var(--text-color);
-    font-family: 'CutiveMono-Regular', monospace;
-    min-height: 38px;
+.ht-rule-card__index {
+  flex: 1 1 auto;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--plane-muted);
 }
-
-.visit-counter {
-    font-size: var(--font-size-xs);
-    color: var(--text-color-accent);
-    font-weight: 600;
-    margin-left: auto;
-    font-variant-numeric: tabular-nums;
+.ht-rule-card__body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  gap: calc(var(--nav-size) * 0.18);
+  padding: calc(var(--nav-size) * 0.24);
 }
-
-.visitor-map-container {
-    border-radius: var(--admin-r-xl);
-    box-shadow: var(--admin-shadow-sm);
-    border: 1px solid var(--admin-line);
+.ht-field { display: flex; flex-direction: column; gap: calc(var(--nav-size) * 0.08); min-width: 0; }
+.ht-field--full { grid-column: 1 / -1; }
+.ht-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--plane-muted);
 }
-
-.visitor-list h4 {
-    margin: calc(var(--nav-size) * 0.3) 0 calc(var(--nav-size) * 0.15) 0;
-    font-size: var(--font-size-small);
-    color: var(--text-color-strong);
+.ht-input { width: 100%; }
+.ht-rule-card__remove {
+  min-height: 0;
+  padding: 0 calc(var(--nav-size) * 0.14);
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--admin-bad);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
 }
+.ht-rule-card__remove:hover:not(:disabled) { background: color-mix(in srgb, var(--admin-bad) 16%, transparent); transform: none; }
 
-/* ── Funnel tester panels ───────────────────────────────────── */
+/* A rule's own on/off switch. The input is visually hidden but still the
+   control: the switch is drawn on the span so `:checked + span` can restyle it,
+   and focus lands on the real checkbox. */
+.ht-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.08);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--plane-muted);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.ht-toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+/* The knob is a background image so it can slide by animating background-position. */
+.ht-toggle span::before {
+  content: '';
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 6px;
+  width: 30px;
+  height: 16px;
+  border-radius: 999px;
+  background-color: var(--admin-sunken-strong);
+  background-image: radial-gradient(circle closest-side, var(--white0) 76%, transparent 78%);
+  background-repeat: no-repeat;
+  background-size: 12px 12px;
+  background-position: 2px center;
+  transition: background-color 0.2s ease, background-position 0.2s ease;
+}
+.ht-toggle input:checked + span::before {
+  background-color: var(--admin-ok);
+  background-position: calc(100% - 2px) center;
+}
+.ht-toggle input:checked + span { color: var(--text-color); }
+.ht-toggle input:focus-visible + span::before { outline: 2px solid var(--fg-blue); outline-offset: 2px; }
+
+/* ── 12. Funnel tester ───────────────────────────────────────────────────── */
+
 .funnel-test-panel {
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.24);
+  min-width: 0;
 }
-
 .test-creds-box,
 .test-stripe-state,
 .funnel-timeline,
 .captured-emails {
-    background: var(--admin-surface);
-    border: 1px solid var(--admin-line);
-    border-radius: var(--admin-r);
-    padding: calc(var(--nav-size) * 0.3);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    box-shadow: var(--admin-shadow-sm);
+  padding: calc(var(--nav-size) * 0.24) calc(var(--nav-size) * 0.28);
+  border-radius: var(--admin-radius-inner);
+  background: var(--admin-sunken);
+  min-width: 0;
 }
-
 .test-creds-box h4,
 .test-stripe-state h4,
 .funnel-timeline h4,
 .captured-emails h4 {
-    margin: 0 0 calc(var(--nav-size) * 0.18) 0;
-    font-size: var(--font-size-small);
-    color: var(--text-color-strong);
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
+  margin: 0 0 calc(var(--nav-size) * 0.16);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--plane-muted);
 }
 
 .creds-grid {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.25);
-    align-items: center;
-    font-size: var(--font-size-xs);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.2);
+  align-items: center;
+  font-size: var(--font-size-small);
 }
-
-.creds-label {
-    color: var(--text-color-accent);
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: var(--font-size-xs);
-    letter-spacing: 0.5px;
-}
-
+.creds-label { color: var(--plane-muted); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.08em; }
 .creds-grid code {
-    font-family: 'CutiveMono-Regular', monospace;
-    background: var(--bg-1);
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-size: var(--font-size-xs);
-    user-select: all;
-    color: var(--text-color);
-    word-break: break-all;
+  font-family: 'CutiveMono-Regular', ui-monospace, monospace;
+  font-size: var(--font-size-small);
+  padding: 0 6px;
+  border-radius: var(--border-radius-sm);
+  background: var(--admin-sunken-strong);
+  color: var(--text-color);
+  overflow-wrap: anywhere;
 }
 
-.timeline-list { display: flex; flex-direction: column; gap: 2px; }
-
+.timeline-list { display: flex; flex-direction: column; gap: calc(var(--nav-size) * 0.06); }
 .timeline-step {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.15);
-    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.18);
-    border-radius: var(--admin-r);
-    font-size: var(--font-size-xs);
-    color: var(--text-color);
-    flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.16);
+  padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.14);
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-small);
+  color: var(--text-color);
+  transition: background 0.15s ease;
 }
-
-.timeline-step:hover { background: var(--bg-1); }
-
-.timeline-step.response-step {
-    padding-left: calc(var(--nav-size) * 0.45);
-    font-size: var(--font-size-xs);
-    color: var(--text-color-accent);
+.timeline-step { border-bottom: 1px solid var(--border-nav); }
+.timeline-step:last-child { border-bottom: none; }
+.timeline-step:hover { background-color: color-mix(in srgb, var(--fg-blue) 12%, transparent); }
+.timeline-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--admin-ok);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--admin-ok) 45%, transparent);
 }
-
-.timeline-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--fg-blue); flex-shrink: 0; }
-.response-step .timeline-dot { width: 7px; height: 7px; background: var(--text-color-accent); }
-
-.timeline-name { flex: 1; text-transform: capitalize; }
-.timeline-elapsed { font-family: 'CutiveMono-Regular', monospace; font-weight: 600; color: var(--fg-blue); white-space: nowrap; }
+.timeline-name { flex: 1 1 auto; text-transform: capitalize; }
+.timeline-elapsed { color: var(--plane-muted); font-size: var(--font-size-xs); white-space: nowrap; }
+.timeline-step.response-step { opacity: 0.72; }
+.response-step .timeline-dot { background: var(--admin-bad); box-shadow: none; }
 
 .email-card {
-    background: var(--bg-1);
-    border-radius: var(--admin-r);
-    padding: calc(var(--nav-size) * 0.18);
-    border: 1px solid var(--admin-line);
-    margin-bottom: calc(var(--nav-size) * 0.12);
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.24);
+  border-radius: var(--border-radius);
+  /* One step stronger than the `.captured-emails` block it sits in — an inset
+     within an inset, so the two never read as siblings. */
+  background: var(--admin-sunken-strong);
 }
-
+.email-card + .email-card { margin-top: calc(var(--nav-size) * 0.14); }
 .email-card-header {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.15);
-    margin-bottom: calc(var(--nav-size) * 0.1);
-    flex-wrap: wrap;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.14);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
 }
-
 .email-card-body {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.15);
-    font-size: var(--font-size-xs);
-    color: var(--text-color-accent);
+  margin-top: calc(var(--nav-size) * 0.1);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-base);
+  color: var(--plane-muted);
+  overflow-wrap: anywhere;
 }
 
-/* ── Footer actions ─────────────────────────────────────────── */
-.admin-footer-actions {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.25);
-    margin-top: calc(var(--nav-size) * 0.4);
-    padding-top: calc(var(--nav-size) * 0.25);
-    border-top: 1px solid var(--admin-line);
-    flex-wrap: wrap;
+/* ── 13. Autonomous agent run feed (bug reports) ─────────────────────────── */
+
+.agent-run-feed {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.22);
+  border-radius: var(--border-radius);
+  background: var(--admin-sunken);
+  font-family: 'CutiveMono-Regular', ui-monospace, monospace;
+  font-size: var(--font-size-xs);
+  line-height: 1.7;
+  min-width: 0;
+}
+.agent-run-status { font-weight: var(--font-weight-bold); }
+.agent-run-status--running { color: var(--fg-blue); }
+.agent-run-status--done { color: var(--admin-ok); }
+.agent-run-status--failed { color: var(--admin-bad); }
+.agent-step { overflow-wrap: anywhere; }
+.agent-step--tool { color: var(--text-color); }
+.agent-step--tool-result { color: var(--plane-muted); font-size: 90%; }
+.agent-step--error { color: var(--admin-bad); }
+.agent-step--thought { color: var(--plane-muted); font-style: italic; }
+
+.bug-actions { display: flex; flex-wrap: wrap; gap: calc(var(--nav-size) * 0.1); align-items: center; }
+.report-resolution { display: flex; flex-direction: column; gap: 2px; }
+.report-resolution small { color: var(--plane-muted); font-size: var(--font-size-xs); }
+
+/* ── 14. Visitor map (Leaflet canvas owned by components/Admin/VisitorMap) ── */
+
+.date-filter {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.14);
+  font-size: var(--font-size-small);
+  color: var(--plane-muted);
+}
+.date-filter label { font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.08em; }
+
+.hide-own-visits {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.1);
+  font-size: var(--font-size-small);
+  color: var(--plane-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.visitor-map-leaflet {
+  width: 100%;
+  height: clamp(320px, 52vh, 620px);
+  border-radius: var(--admin-radius-inner);
+  overflow: hidden;
+  z-index: 1;
+  background: var(--admin-sunken);
 }
 
-/* ── Modal ──────────────────────────────────────────────────── */
+/* ── 15. Modals (things that genuinely float keep their elevation) ───────── */
+
 .admin-modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-    padding: var(--spacing-md);
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--nav-size) * 0.4);
+  background: color-mix(in srgb, var(--grey5) 62%, transparent);
+  backdrop-filter: blur(2px);
 }
-
 .admin-modal {
-    background: var(--admin-card);
-    border-radius: var(--admin-r-xl);
-    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
-    border: 1px solid var(--admin-line);
-    width: 100%;
-    max-width: 560px;
-    max-height: 88vh;
-    overflow-y: auto;
-    animation: adminFadeUp 0.25s ease both;
+  width: 100%;
+  max-width: 560px;
+  max-height: 88vh;
+  overflow-y: auto;
+  border-radius: var(--admin-radius);
+  /* A modal genuinely floats, so it stays OPAQUE and keeps its elevation — the
+     one place on the page where a shadow is doing structural work. */
+  background: var(--bg-1);
+  box-shadow: var(--shadow-xl);
 }
-
 .admin-modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.35);
-    border-bottom: 1px solid var(--admin-line);
-    background: var(--admin-surface);
-    border-radius: var(--admin-r-xl) var(--admin-r-xl) 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--nav-size) * 0.2);
+  padding: calc(var(--nav-size) * 0.24) calc(var(--nav-size) * 0.3);
+  background: var(--admin-sunken);
 }
-
-.admin-modal-header h3 { margin: 0; font-size: var(--font-size-base); color: var(--text-color-strong); }
-
+.admin-modal-header h3 { margin: 0; font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); }
 .admin-modal-close {
-    background: var(--bg-accent);
-    border: none;
-    color: var(--text-color);
-    font-size: var(--font-size-small);
-    cursor: pointer;
-    padding: 4px 10px;
-    border-radius: 999px;
-    min-height: 32px;
+  padding: 0 calc(var(--nav-size) * 0.18);
+  font-size: var(--font-size-small);
+  background: transparent;
+  color: var(--plane-muted);
 }
-
-.admin-modal-close:hover { background: var(--bg-mint); }
-
-.admin-modal-content { padding: calc(var(--nav-size) * 0.35); }
-
-.admin-modal-content label {
-    display: block;
-    font-weight: 600;
-    color: var(--text-color);
-    margin-bottom: calc(var(--nav-size) * 0.1);
-    font-size: var(--font-size-small);
+.admin-modal-close:hover:not(:disabled) { background: color-mix(in srgb, var(--admin-bad) 16%, transparent); color: var(--admin-bad); }
+.admin-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.14);
+  padding: calc(var(--nav-size) * 0.3);
 }
-
-.admin-modal-content textarea {
-    width: 100%;
-    padding: calc(var(--nav-size) * 0.18);
-    border: 1px solid var(--admin-line);
-    border-radius: var(--admin-r);
-    background: var(--bg-1);
-    color: var(--text-color);
-    font-family: 'CutiveMono-Regular', monospace;
-    font-size: var(--font-size-small);
-    line-height: var(--line-height-base);
-    resize: vertical;
-    box-sizing: border-box;
-}
-
-.admin-modal-content textarea:focus { outline: none; border-color: var(--fg-blue); }
-
-.admin-char-count {
-    display: block;
-    text-align: right;
-    color: var(--text-color-accent);
-    font-size: var(--font-size-xs);
-    margin-top: 4px;
-}
-
+.admin-modal-content label { font-size: var(--font-size-small); color: var(--plane-muted); }
+.admin-modal-content textarea { width: 100%; resize: vertical; font-family: inherit; }
+.admin-char-count { text-align: right; font-size: var(--font-size-xs); color: var(--plane-muted); }
 .admin-modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: calc(var(--nav-size) * 0.15);
-    padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.35);
-    border-top: 1px solid var(--admin-line);
-    flex-wrap: wrap;
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.14);
+  padding: 0 calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.3);
+}
+.admin-modal-confirm { color: var(--text-color-inv); background: var(--admin-action); }
+.admin-modal-confirm:hover:not(:disabled) { background: var(--admin-action); box-shadow: var(--shadow-md); }
+.admin-modal-cancel { color: var(--text-color); background: color-mix(in srgb, var(--text-color) 10%, var(--bg-1)); }
+
+/* ── 16. States ──────────────────────────────────────────────────────────── */
+
+.admin-loading,
+.admin-error,
+.admin-no-data {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.18);
+  padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.32);
+  border-radius: var(--admin-radius-inner);
+  font-size: var(--font-size-small);
+  text-align: center;
+  background: var(--admin-sunken);
+}
+/* A ring, not a three-dot bounce: it still reads as "working" at 14px, and it
+   costs one element — `border-top-color` is the only moving part. */
+.admin-loading { color: var(--plane-muted); }
+.admin-loading::before {
+  content: '';
+  flex: 0 0 auto;
+  width: calc(var(--nav-size) * 0.3);
+  height: calc(var(--nav-size) * 0.3);
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--fg-blue) 26%, transparent);
+  border-top-color: var(--fg-blue);
+  animation: adminSpin 0.7s linear infinite;
+}
+/* Errors are a stronger wash in their own hue, not an outline. */
+.admin-error {
+  color: var(--admin-bad);
+  background: color-mix(in srgb, var(--admin-bad) 20%, var(--bg-1));
+  justify-content: space-between;
+}
+/* An empty state is a quiet inset on the pane it belongs to. It used to be bare
+   italic text, which reads as "content failed to render" rather than as "there
+   is nothing here yet". */
+.admin-no-data {
+  color: var(--plane-muted);
+  background: var(--admin-sunken);
+}
+.admin-help-text {
+  margin: 0;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-base);
+  color: var(--plane-muted);
+}
+.admin-error .admin-help-text { color: inherit; }
+
+/* ── 16b. Skeletons ───────────────────────────────────────────────────────
+
+   A service page's first paint is the moment it is most likely to look broken:
+   the toolbar already names the view, the panels have not arrived, and a bare
+   "Loading…" line makes a slow fetch look like a dead page. These placeholders
+   are shaped like the content they stand in for, so nothing jumps when the data
+   lands — the standard answer, and it costs one element per block.
+
+   The shimmer is a `::after` translating across a flat `--admin-sunken` block
+   rather than an animated gradient, so no gradient is repainted per frame. */
+.admin-skeleton {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: var(--border-radius-sm);
+  background: var(--admin-sunken);
+}
+.admin-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--text-color) 9%, transparent),
+    transparent
+  );
+  animation: adminShimmer 1.5s ease-in-out infinite;
+}
+.admin-skeleton--kpi-label { height: 9px; width: 58%; }
+.admin-skeleton--kpi-value { height: 24px; width: 42%; margin-top: 5px; }
+.admin-skeleton--kpi-sub { height: 9px; width: 70%; margin-top: 5px; }
+.admin-skeleton--panel-title { height: 12px; width: 34%; }
+.admin-skeleton--row { height: 11px; width: 100%; }
+.admin-skeleton--row-short { height: 11px; width: 62%; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   17. Motion
+   ═══════════════════════════════════════════════════════════════════════════
+
+   §5.7 keeps service pages free of *marketing* motion — no scroll reveals, no
+   marketing stagger, because content that fades in is content that arrives late
+   on a page whose whole point is "help me now". What is here is the other kind:
+   motion that says a thing happened.
+
+     · a short rise when a panel appears (it appears because its data arrived —
+       so the movement *is* the "it loaded")
+     · the brand rule under the head drifting (it is the page's one piece of
+       brand, and a ruled line that breathes reads as alive, not as a band)
+     · the room behind everything sweeping its gradient, and its halo floating
+       over it — two layers at two rates, which is what makes the page feel like
+       a place
+     · the title's gradient running through the letterforms
+     · the live-status dot pulsing
+     · the funnel bars growing to their width instead of snapping
+     · the KPI spotlight following the pointer (§7) — light that answers the
+       cursor, which is interaction feedback rather than ambience
+     · hover/state transitions everywhere a control already had one
+
+   What is here now that was NOT: the room MOVES. That reverses the rule this file
+   used to state ("the room is lit; it does not move"), on the user's explicit ask.
+
+   The first attempt moved it with `transform`, to keep every frame free of paint
+   — a promoted compositor layer costs nothing. That was the wrong call for a
+   reason worth recording: a drift gentle enough to look calm is also too gentle
+   to notice, so it bought no calm and cost the effect, and the user had to ask
+   twice more. The room now sweeps its own gradient with `background-position`,
+   which DOES repaint the viewport each frame. Real cost, accepted knowingly, and
+   bounded by keeping it to one layer at the very back.
+
+   Everything here is disabled under `prefers-reduced-motion` (bottom of file). */
+
+@keyframes adminRise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes adminRuleDrift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes adminPulse {
+  0%, 100% { opacity: 1;    transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(1.3); }
+}
+/* The title's gradient running through it. `background-position` is the cheap
+   animatable property here and the gradient is already 240% wide, so the sweep
+   never reaches an end. */
+@keyframes adminInkShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+/* The halo's float. Translate and scale only — see the note on
+   `.admin-surface::after` for why a rotation is not safe on this box. */
+@keyframes adminHaloFloat {
+  0%   { transform: translate3d(-3%, 2%, 0) scale(1); }
+  50%  { transform: translate3d(4%, -3%, 0) scale(1.12); }
+  100% { transform: translate3d(-3%, 2%, 0) scale(1); }
+}
+@keyframes adminSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes adminShimmer {
+  to { transform: translateX(100%); }
+}
+/* The room's sweep — the marketing pages' `gradientShift`, in this console's two
+   hues instead of their four. Four positions walked in order, so the colour
+   crosses the window diagonally and returns the way it came. 26s: slow enough to
+   read as light moving through a room rather than as a picture being dragged, and
+   quick enough that you actually see it. */
+@keyframes adminRoomSweep {
+  0%   { background-position: 0% 50%; }
+  25%  { background-position: 100% 50%; }
+  50%  { background-position: 100% 100%; }
+  75%  { background-position: 0% 100%; }
+  100% { background-position: 0% 50%; }
+}
+/* A light running the length of the signature line. */
+@keyframes adminRuleSweep {
+  from { background-position: -45% 0; }
+  to   { background-position: 145% 0; }
+}
+/* A block's accent rule wiping in from the left as the block arrives. Deliberately
+   `from`-ONLY: the animation then ends on whatever the rule's own state is (0.5,
+   or 1 when a tone is set), so the entrance can never fight the tone.
+
+   Which is also why every use of this is `backwards` and never `both`. A filling
+   animation OUTRANKS normal declarations in the cascade, so `forwards` would own
+   `opacity` on the rule permanently — and a panel or tile that only LATER gained a
+   tone (Open Bugs crossing zero) would keep the neutral 0.5 for good, while the
+   `opacity: 1` sitting right there in the stylesheet silently lost. `backwards`
+   holds the `from` state through any `animation-delay`, then hands the property
+   straight back. */
+@keyframes adminRuleWipe {
+  from { transform: scaleX(0); opacity: 0; }
 }
 
-.admin-modal-cancel,
-.admin-modal-confirm {
-    padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.3);
-    border-radius: 999px;
-    border: none;
-    font-family: 'CutiveMono-Regular', monospace;
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    cursor: pointer;
-    min-height: 44px;
+/* One rise per top-level block, staggered by ~40ms — enough to read as a page
+   assembling itself, short enough that nothing waits. The modal overlay is
+   excluded: it is `position: fixed`, and an in-flight `transform` on an
+   ancestor would make it the containing block for its own children.
+
+   `backwards`, not `both`: the stagger needs the `from` state held through each
+   delay, but `forwards` would then own `transform` on these blocks forever and
+   kill the hover lift on anything in here that has one (`adminRise` ends at
+   `transform: none`, which is a filling animation beating a normal `:hover`
+   declaration). */
+.admin-main > *:not(.admin-modal-overlay) {
+  animation: adminRise 0.4s ease backwards;
+}
+.admin-main > *:nth-child(1) { animation-delay: 0s; }
+.admin-main > *:nth-child(2) { animation-delay: 0.04s; }
+.admin-main > *:nth-child(3) { animation-delay: 0.08s; }
+.admin-main > *:nth-child(4) { animation-delay: 0.12s; }
+.admin-main > *:nth-child(5) { animation-delay: 0.16s; }
+.admin-main > *:nth-child(6) { animation-delay: 0.2s; }
+.admin-main > *:nth-child(n + 7) { animation-delay: 0.22s; }
+
+/* The brand rule breathes. `background-position` is animatable and cheap, and
+   the gradient is already wider than the element. */
+.admin-head::after {
+  background-size: 220% 100%;
+  animation: adminRuleDrift 14s ease-in-out infinite;
 }
 
-.admin-modal-cancel {
-    background: var(--bg-accent);
-    color: var(--text-color);
-    border: 1px solid var(--admin-line);
+/* A live connection reads as live. */
+.admin-bar-status__dot { animation: adminPulse 2.6s ease-in-out infinite; }
+
+/* Bars grow to their data width rather than appearing at it. */
+.funnel-bar { transition: width 0.6s ease; }
+
+/* Rows and chips ease into their hover wash instead of blinking into it. */
+.stat-row,
+.signup-row,
+.timeline-step,
+.admin-table tbody tr { transition: background 0.15s ease; }
+
+/* A hair of lift on the small, self-contained controls. Never on a full panel:
+   moving a whole block of data under the cursor is unpleasant.
+
+   (The KPI tile's accent rule, spotlight and hover all live with the tile in §7,
+   so its state is declared in exactly one place rather than split across two
+   sections that could drift.) */
+.admin-tab { transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease; }
+.admin-tab:hover { transform: translateY(-1px); }
+
+/* ── 18. Responsive ──────────────────────────────────────────────────────── */
+
+/* Below ~900px both of the head's rows stop wrapping and scroll sideways instead:
+   the tab row, and the live readout. A wrapped 3-row tab block — or a readout
+   spilling onto a second line — makes the head taller than the content it is
+   introducing, on every view.
+
+   The readout gets `flex: 1 1 0` rather than `width: 100%`. A full-width readout
+   pushes the view's one action onto a row of its own — 23px of head before a
+   single pixel of data. And the BASIS is the load-bearing part: with
+   `flex-basis: auto` the wrap decision is taken from the chips' full intrinsic
+   width, so the action wraps to the next line however much room is actually left
+   over. Basis 0 lets the readout shrink into the remainder. */
+@media (max-width: 900px) {
+  .admin-tabs,
+  .admin-bar-readout {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 2px;
+  }
+  .admin-tabs::-webkit-scrollbar,
+  .admin-bar-readout::-webkit-scrollbar { display: none; }
+  .admin-bar-readout { flex: 1 1 0; width: auto; min-width: 0; }
 }
 
-.admin-modal-cancel:hover { background: var(--bg-mint); }
-
-.admin-modal-confirm {
-    background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
-    color: var(--text-color-inv, #ffffff);
-}
-
-.admin-modal-confirm:hover:not(:disabled) { filter: brightness(1.05); }
-.admin-modal-confirm:disabled { background: var(--bg-accent); color: var(--text-color-accent); cursor: not-allowed; }
-
-/* ═══════════════════════════════════════════════════════════════════
-   ── RESPONSIVE ─────────────────────────────────────────────────────
-   ═══════════════════════════════════════════════════════════════════ */
-
-/* Small laptops / large tablets */
-@media (max-width: 1024px) {
-    .revenue-grid { grid-template-columns: 1fr; }
-    .traffic-grid { grid-template-columns: 1fr 1fr; }
-    .kpi-grid { grid-template-columns: repeat(3, 1fr); }
-}
-
-/* Tablets */
 @media (max-width: 768px) {
-    .admin-page {
-        width: 96%;
-        margin-top: calc(var(--nav-size) * 0.9);
-    }
-
-    .admin-hero {
-        padding: calc(var(--nav-size) * 0.35) var(--spacing-sm);
-        margin-bottom: calc(var(--nav-size) * 0.5);
-    }
-
-    .admin-hero__title { font-size: var(--font-size-heading); }
-    .admin-hero__subtitle { font-size: var(--font-size-small); }
-    .admin-hero__eyebrow { letter-spacing: 0.14em; }
-
-    .admin-nav {
-        top: calc(var(--nav-size) * 0.35);
-        border-radius: var(--admin-r-xl);
-        padding: calc(var(--nav-size) * 0.14);
-        gap: calc(var(--nav-size) * 0.1);
-    }
-
-    .admin-nav-link {
-        padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.22);
-        font-size: var(--font-size-xs);
-    }
-
-    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-    .traffic-grid { grid-template-columns: 1fr; }
-    .revenue-grid { grid-template-columns: 1fr; }
-
-    .section-toolbar { flex-direction: column; align-items: stretch; }
-    .admin-search, .type-select { min-width: 0; width: 100%; }
-
-    .date-filter { flex-direction: column; align-items: stretch; }
-    .date-filter input, .date-filter select { width: 100%; }
-    .visit-counter { margin-left: 0; text-align: right; }
-
-    .creds-grid { grid-template-columns: 1fr; gap: calc(var(--nav-size) * 0.1); }
-
-    .admin-modal-actions { justify-content: stretch; }
-    .admin-modal-actions button { flex: 1; }
-
-    .admin-footer-actions { flex-direction: column; align-items: stretch; }
-    .admin-footer-actions .btn-refresh { width: 100%; }
+  /* The bar wraps into rows on its own: name + status, then the readout with the
+     action at the end of it. The action used to claim a whole row of its own
+     (`width: 100%`), which cost 23px of head on every view. */
+  .admin-bar { gap: calc(var(--nav-size) * 0.12); }
+  .admin-bar-actions { margin-left: auto; width: auto; }
+  .admin-panel-head { align-items: flex-start; }
+  .admin-panel-tools { margin-left: 0; width: 100%; }
+  .admin-surface .admin-search { flex: 1 1 100%; }
+  .admin-footer-actions { justify-content: flex-start; }
+  .admin-modal { max-width: none; }
+  /* A long table scrolls inside its panel rather than pushing the page wide. */
+  .admin-panel-body { padding: calc(var(--nav-size) * 0.22); }
 }
 
-/* Phones */
-@media (max-width: 480px) {
-    .admin-hero__title { font-size: var(--font-size-large); }
-    .admin-hero__subtitle { display: none; }
+/* ── Phones (≤ 640px) ────────────────────────────────────────────────────────
 
-    .kpi-grid { grid-template-columns: 1fr; }
-    .kpi-card { padding: calc(var(--nav-size) * 0.35); }
+   Every `/admin` view is a stack of panels, so the head is the one block standing
+   between the top of the page and the first number — 190px of a 720px phone screen
+   at 320px wide, a quarter of the viewport, before any data. The work here is
+   vertical economy in the head, plus the two wide tables, which cannot be tables. */
 
-    .admin-section-tile h2 { font-size: var(--font-size-large); }
+@media (max-width: 640px) {
+  /* The head: a tighter vertical rhythm. The chips and the tab row already
+     scroll as single rows from the 900px block above. */
+  .admin-head {
+    gap: calc(var(--nav-size) * 0.06);
+    padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.12);
+  }
+  .admin-bar { gap: calc(var(--nav-size) * 0.06) calc(var(--nav-size) * 0.18); }
+  .admin-bar-actions .admin-btn { padding: 0 calc(var(--nav-size) * 0.22); }
+  .admin-bar-status { font-size: var(--font-size-xs); }
 
-    .collapsible-header { padding: calc(var(--nav-size) * 0.25) calc(var(--nav-size) * 0.3); }
-    .collapsible-content { padding: calc(var(--nav-size) * 0.3); }
+  /* Two KPI cards per row. One per row turned a six-card readout into six
+     full-width blocks — 700px of scroll for six numbers. */
+  .kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(120px, 100%), 1fr));
+    gap: calc(var(--nav-size) * 0.16);
+  }
+  .kpi-card { padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.2); }
+  .kpi-value { font-size: calc(var(--font-size-heading) * 0.72); }
 
-    .funnel-stage { flex-wrap: wrap; }
-    .funnel-bar { min-width: 0; width: 100%; }
-    .funnel-count { min-width: 0; width: 100%; text-align: right; }
+  /* A phone-sized bar: one row per label, a full-width track and the count
+     pinned right. The desktop grid's fixed `11ch`/`9ch` columns left the track
+     about 80px wide, which reads as a dot rather than a proportion. */
+  .funnel-stage { grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; }
+  .funnel-label { grid-column: 1; grid-row: 1; }
+  .funnel-count { grid-column: 2; grid-row: 1; }
+  .funnel-track { grid-column: 1 / -1; grid-row: 2; }
+  .funnel-arrow { grid-column: 1 / -1; grid-row: 3; }
 
-    .pagination { gap: calc(var(--nav-size) * 0.15); }
-    .pagination button { flex: 0 0 auto; }
+  /* ---- The two wide tables stop being tables -------------------------------
+     Six and seven columns do not fit, and the failure was ugly rather than
+     merely cramped: the reviews Content column is 74px wide, so 120 characters
+     wrapped into a ~20-line block and one row was taller than the viewport.
+     Each row becomes a labelled block instead. The field names live in the
+     `::before` rules below, in column order — **keep them in step with the
+     markup** in `Reviews.jsx` and `VisitorMapPage.jsx`. */
 
-    .admin-modal-overlay { padding: var(--spacing-sm); }
-    .admin-modal { max-height: 92vh; }
-}
+  .admin-surface .admin-table--stacked { display: block; }
+  .admin-surface .admin-table--stacked thead { display: none; }
+  .admin-surface .admin-table--stacked tbody,
+  .admin-surface .admin-table--stacked tr,
+  .admin-surface .admin-table--stacked td { display: block; }
 
-/* Landscape phones / short screens */
-@media (orientation: landscape) and (max-height: 500px) {
-    .admin-hero { padding: calc(var(--nav-size) * 0.15); margin-bottom: calc(var(--nav-size) * 0.3); }
-    .admin-hero__subtitle { display: none; }
-    .visitor-map-container, .visitor-map-leaflet { height: 260px; }
-}
-
-/* Respect reduced-motion preference */
-@media (prefers-reduced-motion: reduce) {
-    .admin-container,
-    .admin-orb,
-    .admin-page .admin-section-tile,
-    .admin-modal {
-        animation: none !important;
-        transition: none !important;
-    }
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   ── Multi-device polish (tables, touch targets, visitor "user" badge)
-   ═══════════════════════════════════════════════════════════════════ */
-
-/* Wide data tables keep readable column widths on small screens by
-   scrolling horizontally inside .table-scroll-container instead of
-   crushing their columns together. */
-.admin-table {
-    min-width: 720px;
-}
-
-/* Logged-in / guest visitor badge (visitor map table) */
-.user-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-weight: 600;
+  .admin-surface .admin-table--stacked tr {
+    padding: calc(var(--nav-size) * 0.1) 0;
+    border-radius: var(--border-radius);
+  }
+  /* No zebra in either parity: the row hairline carries the separation here too,
+     and on a block this tall a tint reads as a divider rather than as a stripe. */
+  .admin-surface .admin-table--stacked tbody tr:nth-child(odd),
+  .admin-surface .admin-table--stacked tbody tr:nth-child(even) { background: transparent; }
+  .admin-surface .admin-table--stacked td {
+    display: grid;
+    grid-template-columns: 9ch minmax(0, 1fr);
+    gap: calc(var(--nav-size) * 0.14);
+    padding: calc(var(--nav-size) * 0.05) calc(var(--nav-size) * 0.18);
+  }
+  /* Always present, even when a column has no label: it holds the label column
+     open so the values stay aligned down the block. */
+  .admin-surface .admin-table--stacked td::before {
+    content: '';
     font-size: var(--font-size-xs);
-    white-space: nowrap;
-    border: 1px solid transparent;
-}
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--plane-muted);
+  }
 
-.user-badge--in {
-    background: rgba(59, 130, 246, 0.16);
-    color: var(--fg-blue);
-    border-color: var(--fg-blue);
-}
+  /* Field names — reviews: Title, Rating, Category, User, Content, Date */
+  .admin-surface .admin-table--reviews td:nth-child(1)::before { content: 'Title'; }
+  .admin-surface .admin-table--reviews td:nth-child(2)::before { content: 'Rating'; }
+  .admin-surface .admin-table--reviews td:nth-child(3)::before { content: 'Category'; }
+  .admin-surface .admin-table--reviews td:nth-child(4)::before { content: 'User'; }
+  .admin-surface .admin-table--reviews td:nth-child(5)::before { content: 'Content'; }
+  .admin-surface .admin-table--reviews td:nth-child(6)::before { content: 'Date'; }
 
-.user-badge--out {
-    background: var(--bg-accent);
-    color: var(--text-color-accent);
-    border-color: var(--admin-line);
-}
+  /* Field names — visits: When, User, IP, Location, Browser, Referer, Category */
+  .admin-surface .admin-table--visits td:nth-child(1)::before { content: 'When'; }
+  .admin-surface .admin-table--visits td:nth-child(2)::before { content: 'User'; }
+  .admin-surface .admin-table--visits td:nth-child(3)::before { content: 'IP'; }
+  .admin-surface .admin-table--visits td:nth-child(4)::before { content: 'Location'; }
+  .admin-surface .admin-table--visits td:nth-child(5)::before { content: 'Browser'; }
+  .admin-surface .admin-table--visits td:nth-child(6)::before { content: 'Referer'; }
+  .admin-surface .admin-table--visits td:nth-child(7)::before { content: 'Category'; }
 
-/* ── Home Title editor (card-based rules) ─────────────────────── */
-.ht-default {
-    background: var(--admin-card);
-    border: 1px solid var(--admin-line);
-    border-radius: var(--admin-r-xl);
-    box-shadow: var(--admin-shadow-sm);
-    padding: calc(var(--nav-size) * 0.4);
-    margin-bottom: calc(var(--nav-size) * 0.5);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-}
+  /* The stacked value column has room now, so the review body can be read
+     rather than teased. */
+  .admin-surface .admin-table--stacked td { overflow-wrap: anywhere; }
 
-.ht-default__input {
+  /* The date filter is a `label | control` grid. As a wrapping flex row the
+     second date input was wider than the panel and got *clipped* by the
+     panel's own `overflow: hidden` — the field was unreachable, not just
+     untidy. */
+  .date-filter {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.16);
     width: 100%;
-    box-sizing: border-box;
-    flex: none;
-}
-
-.ht-default__hint {
-    margin: calc(var(--nav-size) * 0.2) 0 0 0;
-}
-
-.ht-label {
-    display: block;
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-color-accent);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: calc(var(--nav-size) * 0.12);
-}
-
-.ht-rule-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: calc(var(--nav-size) * 0.35);
-    margin-bottom: calc(var(--nav-size) * 0.4);
-}
-
-.ht-rule-card {
-    background: var(--admin-card);
-    border: 1px solid var(--admin-line);
-    border-radius: var(--admin-r-xl);
-    box-shadow: var(--admin-shadow-sm);
-    padding: calc(var(--nav-size) * 0.35);
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.25);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    transition: box-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
-}
-
-.ht-rule-card:hover {
-    box-shadow: var(--admin-shadow);
-    transform: translateY(-2px);
-}
-
-.ht-rule-card--disabled {
-    opacity: 0.55;
-}
-
-.ht-rule-card__head {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.2);
-    padding-bottom: calc(var(--nav-size) * 0.2);
-    border-bottom: 1px solid var(--admin-line);
-}
-
-.ht-rule-card__index {
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-bold);
-    color: var(--text-color-strong);
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    margin-right: auto;
-}
-
-.ht-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    user-select: none;
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-color);
-    white-space: nowrap;
-}
-
-.ht-toggle input {
-    width: 16px;
-    height: 16px;
-    accent-color: var(--fg-blue);
-    cursor: pointer;
-}
-
-.ht-rule-card__remove {
-    display: grid;
-    place-items: center;
-    width: calc(var(--nav-size) * 0.5);
-    height: calc(var(--nav-size) * 0.5);
-    min-width: 32px;
-    min-height: 32px;
-    border: 1px solid var(--admin-line);
-    border-radius: 50%;
-    background: transparent;
-    color: var(--text-color-accent);
-    cursor: pointer;
-    font-size: var(--font-size-xs);
-    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.ht-rule-card__remove:hover {
-    background: var(--red0, #e53e3e);
-    color: #fff;
-    border-color: transparent;
-}
-
-.ht-rule-card__body {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.25);
-}
-
-.ht-field {
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.08);
+  }
+  .date-filter > label:not(.hide-own-visits) { grid-column: 1; }
+  .date-filter input:not([type='checkbox']),
+  .date-filter select {
+    grid-column: 2;
+    width: 100%;
     min-width: 0;
+  }
+  .date-filter .hide-own-visits { grid-column: 1 / -1; white-space: normal; }
 }
 
-.ht-field--full {
-    grid-column: 1 / -1;
+/* A portrait *tablet* deserves a tighter KPI floor than a landscape one.
+   The `min-width` is load-bearing: without it this rule outranks the phone
+   block above (it is later in the file) and puts a phone back to one card per
+   row. */
+@media (orientation: portrait) and (min-width: 641px) {
+  .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr)); }
 }
 
-.ht-input {
-    width: 100%;
-    box-sizing: border-box;
-    padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.25);
-    border: 1px solid var(--admin-line);
-    border-radius: 999px;
-    background: var(--bg-1);
+/* Below 420px even that is one card per row, so give it the tighter floor. */
+@media (max-width: 420px) {
+  .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(min(110px, 100%), 1fr)); }
+  /* The last of the head's height is spent here: a tighter frame, and the status
+     line allowed to truncate rather than push everything below it down a row. */
+  .admin-head {
+    gap: calc(var(--nav-size) * 0.05);
+    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.1);
+  }
+  /* "Signed in as" is three words of ceremony above the fold on every view. */
+  .admin-bar-status__who { display: none; }
+  .admin-bar-title { font-size: calc(var(--font-size-heading) * 0.82); }
+  /* The site link is one arrow: the logo in the header above it already goes
+     home, and the row it frees is worth more than the two words. `aria-label`
+     carries the name, since `display: none` takes the text out of the
+     accessible tree. */
+  .admin-btn__label { display: none; }
+  .admin-panel-head { padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.2); }
+  .admin-panel-body { padding: calc(var(--nav-size) * 0.18); }
+  .admin-surface .admin-table--stacked td { grid-template-columns: 8ch minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Motion here only ever means "state changed", so nothing needs to move —
+     including the entrance rise and the brand rule's drift. */
+  .admin-main > *:not(.admin-modal-overlay) { animation: none; }
+  /* Every pseudo-element that moves, listed explicitly: `animation: none` on a
+     parent does NOT reach its own ::before/::after. */
+  .admin-head::after,
+  .admin-head::before,
+  .admin-surface::before,
+  .admin-surface::after,
+  .admin-bar-title,
+  .admin-panel::before,
+  .kpi-card::before { animation: none; }
+  .admin-share { transition: none; }
+  .admin-bar-status__dot { animation: none; }
+  /* The pointer spotlight is the one piece of motion here that is not a state
+     change — it is ambience that happens to answer the cursor — so it is the one
+     piece that switches off outright rather than merely losing its transition. */
+  .kpi-card::after { display: none; }
+  /* A shimmer is motion with no information in it, and a spinner is the one
+     place a rotation is pure decoration. Both stop; the state is still stated
+     by the label and the ring. */
+  .admin-skeleton::after { animation: none; }
+  .admin-loading::before { animation: none; }
+  .funnel-bar { transition: none; }
+  .admin-tab,
+  .admin-head,
+  .admin-chip,
+  .admin-panel,
+  .kpi-card,
+  .ht-rule-card,
+  .stat-row,
+  .signup-row,
+  .timeline-step,
+  .admin-table tbody tr,
+  .btn-sm,
+  .btn-refresh,
+  .btn-inline,
+  .btn-outline,
+  .btn-reset,
+  .btn-retry,
+  .btn-close-report,
+  .btn-agent-fix,
+  .admin-btn,
+  .pagination button,
+  .admin-modal-actions button,
+  .admin-modal-close,
+  .purchase-gate-slider,
+  .purchase-gate-slider::before,
+  .plan-badge--clickable {
+    transition: none;
+    animation: none;
+  }
+  .btn-sm:hover:not(:disabled),
+  .btn-inline:hover:not(:disabled),
+  .btn-outline:hover:not(:disabled),
+  .btn-reset:hover:not(:disabled),
+  .btn-retry:hover:not(:disabled),
+  .btn-close-report:hover:not(:disabled),
+  .btn-agent-fix:hover:not(:disabled),
+  .admin-btn:hover:not(:disabled),
+  .pagination button:hover:not(:disabled),
+  .admin-modal-actions button:hover:not(:disabled),
+  .admin-modal-close:hover:not(:disabled),
+  .admin-tab:hover,
+  .kpi-card:hover { transform: none; }
+}
+
+/* `more`, not `high` — `high` is not a valid value and silently never applied
+   (§13.12). Rather than listing selectors, this overrides the MATERIAL TOKENS:
+   glass gives way to solid surfaces, the grain and the ambient room switch off,
+   and the row tints and the hairline edge strengthen. Every rule that already
+   consumes a token inherits the change for free, which is the whole reason the
+   material lives in tokens. */
+@media (prefers-contrast: more) {
+  .admin-surface {
+    --focus-outline: 3px solid var(--fg-blue);
+    /* Reset the LAND rather than the glass: every pane derives from it, so one
+       value turns the whole material opaque. */
+    --admin-land: var(--bg-1);
+    --admin-sunken: color-mix(in srgb, var(--text-color) 12%, transparent);
+    --admin-sunken-strong: color-mix(in srgb, var(--text-color) 18%, transparent);
+    --admin-tint: color-mix(in srgb, var(--text-color) 9%, transparent);
+    --admin-tint-strong: color-mix(in srgb, var(--text-color) 15%, transparent);
+    --admin-edge-hi: var(--text-color);
+    --admin-edge-lo: var(--text-color);
+    --admin-noise: none;
+    --admin-shadow: none;
+  }
+  /* The room is decoration, and at higher contrast it goes away entirely. Nothing
+     is lost by hiding it: `body`/`html` still paint the page colour underneath,
+     so the glass simply sits on the plain background instead. */
+  .admin-surface::before,
+  .admin-surface::after { display: none; }
+  /* A gradient-filled heading is decoration too. At higher contrast it becomes
+     plain, maximum-contrast ink. */
+  .admin-bar-title {
+    background: none;
+    -webkit-text-fill-color: currentColor;
     color: var(--text-color);
-    font-size: var(--font-size-small);
-    font-family: 'CutiveMono-Regular', monospace;
-    min-height: 44px;
+    /* The outline was insurance against a background that moves. At this
+       preference the ink is plain and the room is gone, so there is nothing left
+       for it to insure against. */
+    -webkit-text-stroke-width: 0;
+  }
 }
 
-.ht-input:focus {
-    outline: none;
-    border-color: var(--fg-blue);
-    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.12);
-}
-
-.ht-empty {
-    margin: calc(var(--nav-size) * 0.4) 0;
-}
-
-.ht-actions {
-    justify-content: flex-start;
-}
-
-/* Phones: stack home-title rule cards in a single column */
-@media (max-width: 480px) {
-    .ht-rule-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .ht-rule-card__body {
-        grid-template-columns: 1fr;
-    }
-}
-
-/* Touch-friendly nav + table readability on tablets/phones */
-@media (max-width: 768px) {
-    .admin-nav-link {
-        min-height: 44px;
-        align-items: center;
-    }
-
-    .table-scroll-container {
-        -webkit-overflow-scrolling: touch;
-    }
+/* Safari honours this; the other engines simply ignore the block. Same trade as
+   `prefers-contrast: more` for a different reason — a busy surface behind text
+   is harder to read for some people whatever its contrast ratio, and that is a
+   preference we can actually respect here because the glass is pure decoration:
+   nothing about how the console WORKS depends on it. */
+@media (prefers-reduced-transparency: reduce) {
+  .admin-surface {
+    --admin-land: var(--bg-1);
+    --admin-noise: none;
+  }
+  /* A drifting gradient under text is precisely what "reduce transparency" is
+     asking about, so the room stops here as well as losing its wash. */
+  .admin-surface::before,
+  .admin-surface::after { display: none; }
 }

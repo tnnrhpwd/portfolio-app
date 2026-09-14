@@ -24,13 +24,20 @@ import {
 } from '../core';
 
 const STOCK_COUNT = 36;
-/** Items per shop page (6 columns × 2 rows, matching the reference). */
+/** Items per shop page in the wide box (6 columns × 2 rows, matching the reference). */
 const SHOP_PAGE_SIZE = 12;
 /** Shop restock cadence in ms (matches the reference's ~15-minute timer). */
 const RESTOCK_MS = 15 * 60 * 1000;
 
-/** Items per inventory page in the shop (6 columns × 2 rows). */
+/** Items per inventory page in the wide box (6 columns × 2 rows). */
 const SHOP_INV_PAGE_SIZE = 12;
+
+/**
+ * Items per grid page in the tall box (720×1280): 4 columns × 2 rows of much
+ * larger cells, since six columns cannot fit and the extra height is spent on
+ * taller bands rather than more rows.
+ */
+const PORTRAIT_PAGE_SIZE = 8;
 
 /** The seven equipment slots, in body order for the equipped-gear summary. */
 const SLOTS: EquipmentSlot[] = ['head', 'torso', 'leftArm', 'rightArm', 'legs', 'mainHand', 'offHand'];
@@ -79,6 +86,11 @@ export class ShopScene extends BaseScene {
     super('Shop');
   }
 
+  /** Items per inventory page — the tall box shows fewer, much larger cells. */
+  private get inventoryPageSize(): number {
+    return this.portrait ? PORTRAIT_PAGE_SIZE : SHOP_INV_PAGE_SIZE;
+  }
+
   create(data: { tier?: number; cityId?: string } = {}): void {
     this.tier = data?.tier ?? 1;
     this.cityId = data?.cityId ?? '';
@@ -89,10 +101,6 @@ export class ShopScene extends BaseScene {
     this.stock = generateShopStock(this.tier, STOCK_COUNT, Math.random);
     if (!this.restockDeadline) this.restockDeadline = Date.now() + RESTOCK_MS;
     this.time.addEvent({ delay: 1000, loop: true, callback: () => this.tickRestock() });
-    this.render();
-  }
-
-  protected onResize(): void {
     this.render();
   }
 
@@ -115,8 +123,8 @@ export class ShopScene extends BaseScene {
     const fighter = roster[this.fighterIndex];
     if (!fighter) return;
 
-    if (this.compact) {
-      this.renderCompact(fighter);
+    if (this.portrait) {
+      this.renderPortrait(fighter);
       return;
     }
 
@@ -365,57 +373,178 @@ export class ShopScene extends BaseScene {
     });
   }
 
-  // ── Compact (portrait) fallback: button-based list ──
-  private renderCompact(f: Fighter): void {
+  // ── Tall box (720×1280): the same panels stacked into labelled bands ──
+  //    fighter (top) · stats · shop header + filters · stock grid · inventory · actions
+  private renderPortrait(f: Fighter): void {
     const x = this.cx;
-    addText(this, x, 80, f.name.toUpperCase(), { fontSize: '20px', color: '#f2d98c', fontStyle: 'bold' });
-    this.button(x - 70, 80, '◀', () => this.shiftFighter(-1), { width: 40, height: 40, fontSize: 20 });
-    this.button(x + 70, 80, '▶', () => this.shiftFighter(1), { width: 40, height: 40, fontSize: 20 });
+    const tip = createTooltip(this);
 
-    let y = 122;
-    addText(this, x, y, 'Sort by:', { fontSize: '13px', color: '#f2d98c' });
-    y += 26;
+    // Band 1 — fighter selector: nameplate, arrows, fighter and equip mannequin.
+    addText(this, x, 68, 'FIGHTER', { fontSize: '13px', color: '#b8aa94', fontStyle: 'bold' });
+    this.add.rectangle(x, 96, 360, 44, 0x8c1f28).setStrokeStyle(2, 0xe8b84b);
+    addText(this, x, 96, f.name.toUpperCase(), { fontSize: '20px', color: '#f2d98c', fontStyle: 'bold' });
+    this.button(x - 228, 96, '◀', () => this.shiftFighter(-1), { width: 60, height: 48, fontSize: 22 });
+    this.button(x + 228, 96, '▶', () => this.shiftFighter(1), { width: 60, height: 48, fontSize: 22 });
+
+    const fighterX = x - 148;
+    const manX = x + 148;
+    const bodyY = 218;
+    const spriteScale = 0.85;
+    const manScale = 1;
+    const manW = 120 * manScale + 26;
+    const manH = 180 * manScale + 18;
+    addLayeredFighter(this, fighterX, bodyY, f, spriteScale);
+    this.add.ellipse(fighterX, bodyY + 90 * spriteScale + 8, 110, 22, 0x000000, 0.35);
+    addMannequinFrame(this, manX, bodyY, manScale);
+    this.add.ellipse(manX, bodyY + 90 * manScale + 8, 110, 22, 0x000000, 0.25);
+
+    // Mannequin: the tall drop target with its eight always-visible slots.
+    const hitArea = this.add
+      .rectangle(manX, bodyY, manW, manH, 0x000000, 0)
+      .setInteractive({ useHandCursor: true });
+    hitArea.on('pointerover', () => {
+      if (!this.dragging) this.equipTargets?.setHover(true);
+    });
+    hitArea.on('pointerout', () => {
+      if (!this.dragging) this.equipTargets?.setHover(false);
+    });
+    this.mannequinBounds = {
+      x0: manX - manW / 2,
+      y0: bodyY - manH / 2,
+      x1: manX + manW / 2,
+      y1: bodyY + manH / 2,
+    };
+    this.equipTargets = new EquipTargets(this, { cx: manX, cy: bodyY, w: 120 * manScale, h: 180 * manScale });
+    this.equipTargets.setDragCallbacks({
+      onDragStart: () => {
+        this.dragging = true;
+        tip.hide();
+      },
+      onDragEnd: (slot, px, py) => {
+        this.dragging = false;
+        if (this.pointIn(this.inventoryBounds, px, py)) this.unequipToInventory(slot);
+        else if (this.pointIn(this.sellBounds, px, py)) this.sellEquipped(slot);
+        this.render();
+      },
+      onItemHover: (item, hx, hy) => {
+        if (!this.dragging) tip.show(hx, hy - 40, this.itemTooltip(item, false));
+      },
+      onItemHoverOut: () => tip.hide(),
+    });
+    this.equipTargets.drawSlots(f.loadout);
+
+    // Equipped gear summary, then the stats panel.
+    const equipped = SLOTS.map((slot) => f.loadout[slot]).filter(Boolean) as Equipment[];
+    addText(
+      this,
+      x,
+      334,
+      equipped.length ? `Equipped: ${equipped.map((e) => e.name).join(', ')}` : 'Equipped: nothing',
+      { fontSize: '12px', color: '#b8aa94', wordWrap: { width: 660 } },
+    );
+    this.renderStats(f, x, 362);
+
+    // Band 2 — shop heading, restock countdown and the sort filters.
+    addText(this, x, 556, 'SHOP', { fontSize: '20px', color: '#e8b84b', fontStyle: 'bold' });
+    this.countdownText = addText(this, x, 580, this.countdownLabel(), { fontSize: '15px', color: '#f2d98c' });
+    addText(this, x, 602, 'Drag gear to buy — onto your fighter to equip, or into inventory to store.', {
+      fontSize: '12px',
+      color: '#b8aa94',
+      wordWrap: { width: 640 },
+    });
+    addText(this, x, 626, 'SORT BY', { fontSize: '13px', color: '#b8aa94', fontStyle: 'bold' });
     FILTERS.forEach((flt, i) => {
-      const col = i % 4;
-      const row = Math.floor(i / 4);
-      this.button(x - 150 + col * 100, y + row * 36, flt.label, () => {
+      const bx = x + (i - (FILTERS.length - 1) / 2) * 96;
+      const active = this.filter === flt.id;
+      this.button(bx, 656, flt.label, () => {
         this.filter = flt.id;
         this.render();
       }, {
-        width: 92,
-        height: 30,
-        fontSize: 11,
-        fill: this.filter === flt.id ? 0xe8b84b : undefined,
-        textColor: this.filter === flt.id ? '#3a2f24' : undefined,
-      });
-    });
-    y += 84;
-
-    const visible = this.stock
-      .filter((item) => !!FILTERS.find((flt) => flt.id === this.filter)?.match(item))
-      .slice(0, 20);
-    addText(this, x, y, 'SHOP — tap to buy', { fontSize: '14px', color: '#f2d98c' });
-    y += 26;
-    visible.forEach((item) => {
-      const price = itemPrice(item);
-      const btn = this.button(x, y, `${item.name} · ${price}gp`, () => this.buyToInventory(item), {
-        width: 260,
-        height: 32,
+        width: 88,
+        height: 48,
         fontSize: 12,
+        fill: active ? 0xe8b84b : undefined,
+        hoverFill: active ? 0xf0c858 : undefined,
+        textColor: active ? '#3a2f24' : undefined,
       });
-      if (this.gameState.gold < price) btn.setEnabled(false);
-      y += 38;
     });
 
-    y += 10;
-    addText(this, x, y, `INVENTORY (${this.gameState.inventory.length})`, { fontSize: '14px', color: '#f2d98c' });
-    y += 26;
-    this.gameState.inventory.forEach((item) => {
-      addText(this, x, y, `${item.name} (${item.slot})`, { fontSize: '12px' });
-      this.button(x - 60, y + 20, 'EQUIP', () => this.equipFromInventory(item), { width: 70, height: 30, fontSize: 12 });
-      this.button(x + 60, y + 20, 'SELL', () => this.sellFromInventory(item), { width: 70, height: 30, fontSize: 12 });
-      y += 46;
-    });
+    // Band 3 — shop stock: 4 columns × 2 rows of large cells, paginated.
+    const visible = this.stock.filter((item) => !!FILTERS.find((flt) => flt.id === this.filter)?.match(item));
+    const totalPages = Math.max(1, Math.ceil(visible.length / PORTRAIT_PAGE_SIZE));
+    const page = Math.min(this.shopPage, totalPages - 1);
+    const pageItems = visible.slice(page * PORTRAIT_PAGE_SIZE, page * PORTRAIT_PAGE_SIZE + PORTRAIT_PAGE_SIZE);
+
+    const cols = 4;
+    const cell = 92;
+    const gap = 10;
+    const gridW = cols * cell + (cols - 1) * gap;
+    const x0 = x - gridW / 2 + cell / 2;
+    const y0 = 736;
+    for (let i = 0; i < PORTRAIT_PAGE_SIZE; i += 1) {
+      const item = pageItems[i] ?? null;
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const cx = x0 + col * (cell + gap);
+      const cy = y0 + row * (cell + gap);
+      if (item) this.addShopCell(item, cx, cy, cell, tip);
+      else this.addEmptyCell(cx, cy, cell);
+    }
+
+    // Pagination row.
+    const pageY = 908;
+    this.button(x - 140, pageY, '◀', () => this.changePage(-1), { width: 60, height: 44, fontSize: 16 });
+    addText(this, x, pageY, `PAGE ${page + 1}/${totalPages}`, { fontSize: '14px', color: '#f2d98c' });
+    this.button(x + 140, pageY, '▶', () => this.changePage(1), { width: 60, height: 44, fontSize: 16 });
+
+    // Band 4 — inventory: 4 columns × 2 rows of large cells, paginated.
+    const invTotalPages = Math.max(1, Math.ceil(this.gameState.inventory.length / PORTRAIT_PAGE_SIZE));
+    this.inventoryPage = Math.min(this.inventoryPage, invTotalPages - 1);
+    const invLabelY = 956;
+    addText(this, x, invLabelY, `INVENTORY (${this.gameState.inventory.length})`, { fontSize: '16px', color: '#f2d98c' });
+    const prevBtn = this.button(x - 210, invLabelY, '\u25C0', () => this.changeInventoryPage(-1), { width: 60, height: 44, fontSize: 16 });
+    const nextBtn = this.button(x + 210, invLabelY, '\u25B6', () => this.changeInventoryPage(1), { width: 60, height: 44, fontSize: 16 });
+    if (this.inventoryPage <= 0) prevBtn.setEnabled(false);
+    if (this.inventoryPage >= invTotalPages - 1) nextBtn.setEnabled(false);
+
+    const invY0 = 1038;
+    const invItems = this.gameState.inventory.slice(
+      this.inventoryPage * PORTRAIT_PAGE_SIZE,
+      this.inventoryPage * PORTRAIT_PAGE_SIZE + PORTRAIT_PAGE_SIZE,
+    );
+    this.inventoryBounds = {
+      x0: x - gridW / 2,
+      y0: invY0 - cell / 2,
+      x1: x + gridW / 2,
+      y1: invY0 + (cell + gap) + cell / 2,
+    };
+    for (let i = 0; i < PORTRAIT_PAGE_SIZE; i += 1) {
+      const item = invItems[i] ?? null;
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const cx = x0 + col * (cell + gap);
+      const cy = invY0 + row * (cell + gap);
+      if (item) this.addInventoryCell(item, cx, cy, cell, tip);
+      else this.addEmptyCell(cx, cy, cell);
+    }
+
+    // Band 5 — SELL drop zone and the action buttons, along the bottom edge.
+    const actionY = 1230;
+    const sellW = 300;
+    const sellH = 60;
+    const sellX = 170;
+    this.add.rectangle(sellX, actionY, sellW, sellH, 0x2a241d).setStrokeStyle(2, 0xe8b84b);
+    addText(this, sellX, actionY, 'SELL — drop loot here', { fontSize: '15px', color: '#f2d98c' });
+    this.sellBounds = {
+      x0: sellX - sellW / 2,
+      y0: actionY - sellH / 2,
+      x1: sellX + sellW / 2,
+      y1: actionY + sellH / 2,
+    };
+
+    this.button(415, actionY, 'UNEQUIP ALL', () => this.unequipAllGear(), { width: 170, height: 60, fontSize: 15 });
+    this.backAction = () => this.scene.start('Main');
+    this.button(610, actionY, 'BACK', () => this.scene.start('Main'), { width: 160, height: 60, fontSize: 18 });
   }
 
   // ── Draggable item cells ──
@@ -430,27 +559,22 @@ export class ShopScene extends BaseScene {
   ): Phaser.GameObjects.Container {
     const rect = this.add.rectangle(0, 0, size, size, fill).setStrokeStyle(2, stroke);
     const objs: Phaser.GameObjects.GameObject[] = [rect];
-    const icon = addEquipmentIcon(this, 0, footer ? -size * 0.28 : -size * 0.16, item, size * 0.42);
+    // No name label: it was eating the space the art needs, and the hover tooltip already
+    // names the item. The price sits in the TOP-LEFT corner instead of a footer band, so it
+    // no longer reserves a strip of the tile and the art gets the whole square.
+    const icon = addEquipmentIcon(this, 0, 0, item, size * 0.94);
     if (icon) objs.push(icon);
-    const label = this.add
-      .text(0, footer ? -8 : 0, item.name, {
-        fontFamily: 'Arial, sans-serif',
-        fontSize: '10px',
-        color: '#f2d98c',
-        wordWrap: { width: size - 10 },
-        align: 'center',
-      })
-      .setOrigin(0.5);
-    objs.push(label);
     if (footer) {
       objs.push(
         this.add
-          .text(0, size / 2 - 10, footer, {
+          .text(-size / 2 + 5, -size / 2 + 3, footer, {
             fontFamily: 'Arial, sans-serif',
             fontSize: '11px',
             color: '#f2d98c',
+            backgroundColor: 'rgba(20,8,10,0.55)',
+            padding: { x: 3, y: 1 },
           })
-          .setOrigin(0.5),
+          .setOrigin(0, 0),
       );
     }
     const container = this.add.container(x, y, objs);
@@ -575,7 +699,7 @@ export class ShopScene extends BaseScene {
   }
 
   private changeInventoryPage(delta: number): void {
-    const totalPages = Math.max(1, Math.ceil(this.gameState.inventory.length / SHOP_INV_PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(this.gameState.inventory.length / this.inventoryPageSize));
     this.inventoryPage = Math.max(0, Math.min(this.inventoryPage + delta, totalPages - 1));
     this.render();
   }

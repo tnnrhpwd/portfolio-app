@@ -13,29 +13,58 @@
 .coliseum-shell {
   flex: 1;
   display: flex;
-  align-items: stretch;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   /* Clear the fixed site header (nav-size tall) so the game frame never sits
      underneath the hamburger / home / theme-toggle controls. */
   padding: var(--nav-size) clamp(0px, 1.5vw, 16px) clamp(0px, 1.5vw, 16px);
   min-height: 0;
 }
 
-.coliseum-game {
+/* One of exactly TWO fixed shapes — 16:9 or 9:16 — chosen by the SAME media
+   query the game uses to pick its design box, so the shape the page paints and
+   the box the canvas draws can never disagree. The frame must match the canvas
+   or the letterboxing reappears *inside* the canvas. `width: min(100%, …)` is
+   the whole trick: the frame takes the full width when that is the binding
+   constraint (portrait) and the height-derived width when *that* is
+   (landscape). No JS measures anything. */
+.coliseum-frame {
+  --coliseum-aspect: 16 / 9;
+  --coliseum-gutter: 96px;
+  width: min(100%, calc((100vh - var(--nav-size) - var(--coliseum-gutter)) * 16 / 9));
+  aspect-ratio: var(--coliseum-aspect);
   position: relative;
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
+  border-radius: 4px;
+  overflow: hidden;
   background: #0c0a08;
 }
 
-.light-theme .coliseum-game {
+@media (orientation: portrait) {
+  .coliseum-frame {
+    --coliseum-aspect: 9 / 16;
+    /* A phone can't spare 96px of vertical padding the way a desktop can. */
+    --coliseum-gutter: 56px;
+    width: min(100%, calc((100vh - var(--nav-size) - var(--coliseum-gutter)) * 9 / 16));
+  }
+}
+
+/* Follow the site's light theme for the shell + letterbox area. */
+.light-theme .coliseum-frame {
   background: #f4ecdc;
+}
+
+.coliseum-game {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .coliseum-game canvas {
   display: block;
   margin: 0 auto;
-  border-radius: 4px;
 }
 
 /* Pre-mount "tap to play" gate. Original, minimal styling that matches the

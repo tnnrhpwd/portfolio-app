@@ -128,10 +128,12 @@
 .adv-subtabs__tab--active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  /* The ink for an accent fill, not a fixed white: the accent's lightness is
+     re-pinned per theme, so white fails on the dark theme's bright one. */
+  color: var(--accent-text);
 }
 
-/* ─── Content ─────────────────────────────────────────────────────────────── */
+/* ── Content ─────────────────────────────────────────────────────────────── */
 .adv-content {
   flex: 1;
   overflow-y: auto;
@@ -594,7 +596,7 @@
 
 .adv-agent__btn--select {
   background: var(--accent);
-  color: white;
+  color: var(--accent-text);
 }
 
 .adv-agent__btn--select:hover {

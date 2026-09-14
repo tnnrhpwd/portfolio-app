@@ -1,0 +1,189 @@
+/*
+ * /quizzes hub — the same animated-gradient recipe as the quiz pages
+ * (QuizPage.css), with its own `quizzes-` prefix, plus a responsive card grid.
+ */
+
+/* ── Re-point the raw brand hues at the colour scheme ─────────────────────
+ *
+ * The hub is a separate chunk from the quiz pages, so this is its own copy of
+ * the alias block rather than a shared rule — `QuizPage.css` is not on this
+ * route. Same mapping and the same reasons; the full explanation is there.
+ *
+ * The gradient here is the page background, so it takes the BACKDROP tokens
+ * (with the same first-paint fallback): they pin their lightness per mode,
+ * which is what keeps muted text legible over a pale identity hue in dark
+ * mode. `--fg-blue` is the card focus border, so it takes the accent. */
+.quizzes {
+  --quizzes-backdrop-a: var(--scheme-backdrop-a, var(--scheme-accent-bg));
+  --quizzes-backdrop-b: var(--scheme-backdrop-b, var(--scheme-primary-bg));
+
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
+  --fg-pink: var(--scheme-primary);
+
+  --bg-orange: var(--quizzes-backdrop-a);
+  --bg-blue: var(--quizzes-backdrop-a);
+  --bg-mint: var(--quizzes-backdrop-b);
+  --bg-pink: var(--quizzes-backdrop-b);
+}
+
+.quizzes {
+  color: var(--text-color);
+  min-height: 100vh;
+  padding: calc(var(--nav-size) * 2) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.5);
+  background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+  background-size: 400% 400%;
+  animation: quizzesGradientShift 12s ease infinite;
+  position: relative;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.light-theme .quizzes { animation-duration: 15s; }
+.dark-theme .quizzes { animation-duration: 10s; }
+
+@keyframes quizzesGradientShift {
+  0% { background-position: 0% 50%; }
+  25% { background-position: 100% 50%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 0% 100%; }
+  100% { background-position: 0% 50%; }
+}
+
+.quizzes-floating { pointer-events: none; position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.quizzes-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--white1-transp, #f4f7fd33) 0%, transparent 70%);
+  animation: quizzesFloat 6s ease-in-out infinite;
+}
+.quizzes-circle-1 { width: 180px; height: 180px; top: 8%; left: 6%; animation-duration: 9s; }
+.quizzes-circle-2 { width: 120px; height: 120px; top: 55%; right: 8%; animation-duration: 11s; animation-delay: -2s; }
+.quizzes-circle-3 { width: 220px; height: 220px; bottom: 5%; left: 55%; animation-duration: 13s; animation-delay: -4s; }
+@keyframes quizzesFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-24px) rotate(180deg); }
+}
+
+.quizzes-section {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 1000px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.quizzes-title-wrap { text-align: center; max-width: 760px; margin: calc(var(--nav-size) * 0.3) auto calc(var(--nav-size) * 0.5); }
+.quizzes-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: calc(var(--nav-size) * 0.24);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+  margin: 0 0 calc(var(--nav-size) * 0.15);
+}
+.quizzes-title {
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  font-size: calc(var(--nav-size) * 0.9);
+  margin: 0 0 calc(var(--nav-size) * 0.2) 0;
+  text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--grey3-transp);
+}
+.quizzes-underline {
+  height: 4px;
+  width: 70px;
+  margin: 0 auto calc(var(--nav-size) * 0.3);
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
+  border-radius: 2px;
+}
+.quizzes-subtitle {
+  color: var(--text-color-accent);
+  font-size: calc(var(--nav-size) * 0.32);
+  line-height: 1.6;
+  margin: 0 auto;
+}
+
+.quizzes-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: calc(var(--nav-size) * 0.3);
+  /* Scroll-triggered entrance; the hook adds `is-visible` once it is near. */
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.quizzes-grid.is-visible { opacity: 1; transform: translateY(0); }
+
+.quizzes-card {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.15);
+  padding: calc(var(--nav-size) * 0.4);
+  border-radius: 12px;
+  border: 1px solid #ffffff26;
+  background: var(--bg-1);
+  box-shadow: 0 8px 24px #00000026;
+  color: var(--text-color);
+  text-decoration: none;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.quizzes-card:hover,
+.quizzes-card:focus-visible {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 14px 34px #00000040;
+  border-color: var(--fg-blue);
+}
+.quizzes-card-emoji { font-size: calc(var(--nav-size) * 0.7); line-height: 1; }
+.quizzes-card-name { font-size: calc(var(--nav-size) * 0.36); margin: 0; }
+.quizzes-card-tagline { font-size: calc(var(--nav-size) * 0.26); line-height: 1.6; color: var(--text-color-accent); margin: 0; flex: 1; }
+.quizzes-card-meta { display: flex; align-items: center; justify-content: space-between; gap: calc(var(--nav-size) * 0.2); margin-top: calc(var(--nav-size) * 0.15); }
+.quizzes-chip {
+  font-size: calc(var(--nav-size) * 0.2);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: #ffffff1a;
+  color: var(--text-color-accent);
+}
+.quizzes-card-time { font-size: calc(var(--nav-size) * 0.22); color: var(--text-color-accent); }
+
+.quizzes-disclaimer {
+  font-size: calc(var(--nav-size) * 0.22);
+  color: var(--text-color-accent);
+  text-align: center;
+  max-width: 700px;
+  margin: calc(var(--nav-size) * 0.5) auto 0;
+  line-height: 1.6;
+}
+
+.quizzes-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--nav-size) * 0.4);
+  flex-wrap: wrap;
+  margin-top: calc(var(--nav-size) * 0.3);
+}
+.quizzes-source-link { font-size: calc(var(--nav-size) * 0.24); color: var(--text-color-accent); }
+
+@media (max-width: 768px) {
+  .quizzes-circle { display: none; }
+  .quizzes-title { font-size: calc(var(--nav-size) * 0.7); }
+  .quizzes-grid { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quizzes, .quizzes-circle { animation: none; }
+  .quizzes-grid { opacity: 1; transform: none; transition: none; }
+  .quizzes * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}

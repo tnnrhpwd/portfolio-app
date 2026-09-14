@@ -1,0 +1,111 @@
+{
+  "renderedAt": "2026-09-13T00:03:39.035Z",
+  "note": "Rendered by scripts/rocket/generate-audio.js from scripts/rocket/audio.json — do not edit by hand.",
+  "generator": "offline-synth",
+  "format": "wav",
+  "sampleRate": 22050,
+  "channels": 1,
+  "counts": {
+    "total": 8,
+    "music": 5,
+    "sfx": 3
+  },
+  "tracks": [
+    {
+      "slug": "menu-drift",
+      "kind": "music",
+      "title": "Menu — drifting",
+      "file": "menu-drift.wav",
+      "bytes": 882044,
+      "ms": 20000,
+      "loop": true,
+      "usedBy": "MenuScene",
+      "prompt": "Calm, curious retro space title theme. Warm analogue pads under a gentle pulse, slow 96 BPM, hopeful mood, sparse melody, seamless loop.",
+      "renderedAt": "2026-09-13T00:02:51.061Z"
+    },
+    {
+      "slug": "arena-pulse",
+      "kind": "music",
+      "title": "Arena — pulse",
+      "file": "arena-pulse.wav",
+      "bytes": 604844,
+      "ms": 13714,
+      "loop": true,
+      "usedBy": "PlayScene",
+      "prompt": "Driving 8-bit space shooter battle loop, 140 BPM. Arpeggiated bass, punchy drums, heroic lead trading with a counter-melody. Energetic but never chaotic, seamless loop.",
+      "renderedAt": "2026-09-13T00:02:51.063Z"
+    },
+    {
+      "slug": "boss-alarm",
+      "kind": "music",
+      "title": "Boss — alarm",
+      "file": "boss-alarm.wav",
+      "bytes": 564524,
+      "ms": 12800,
+      "loop": true,
+      "usedBy": "PlayScene (boss waves)",
+      "prompt": "Dark space shooter boss loop, 150 BPM. Ominous low stabs, urgent pulsing bass, fast percussion, dissonant alarm motif. Threatening and relentless, seamless loop.",
+      "renderedAt": "2026-09-13T00:02:51.064Z"
+    },
+    {
+      "slug": "shop-spend",
+      "kind": "music",
+      "title": "Shop — spend",
+      "file": "shop-spend.wav",
+      "bytes": 756044,
+      "ms": 17143,
+      "loop": true,
+      "usedBy": "ShopScene",
+      "prompt": "Upbeat interlude for a between-levels upgrade shop. Bouncy synth bass, playful marimba and chiptune plucks, light percussion, cheerful and rewarding. Seamless loop.",
+      "renderedAt": "2026-09-13T00:02:51.064Z"
+    },
+    {
+      "slug": "run-over",
+      "kind": "music",
+      "title": "Run over — sting",
+      "file": "run-over.wav",
+      "bytes": 504044,
+      "ms": 11429,
+      "loop": false,
+      "usedBy": "GameOverScene",
+      "prompt": "Short instrumental defeat sting: descending pad, melancholy chiptune melody, soft pulse underneath, resolving to a warm quiet chord. Rueful, not harsh.",
+      "renderedAt": "2026-09-13T00:02:51.065Z"
+    },
+    {
+      "slug": "wave-clear",
+      "kind": "sfx",
+      "title": "Wave clear fanfare",
+      "file": "wave-clear.wav",
+      "bytes": 66194,
+      "ms": 1500,
+      "loop": false,
+      "usedBy": "PlayScene (wave-clear sting; falls back to the synthesised blip if missing)",
+      "prompt": "Triumphant 8-bit arcade fanfare: rising three-note synth horn with a bright chime at the peak, dry and punchy.",
+      "renderedAt": "2026-09-13T00:02:51.065Z"
+    },
+    {
+      "slug": "boss-explosion",
+      "kind": "sfx",
+      "title": "Boss explosion",
+      "file": "boss-explosion.wav",
+      "bytes": 75014,
+      "ms": 1700,
+      "loop": false,
+      "usedBy": "PlayScene (reserved — the synthesised explosion is still used today)",
+      "prompt": "Huge cartoon space explosion: deep sub-bass thump, layered debris cracks, metallic shrapnel tail, arcade impact.",
+      "renderedAt": "2026-09-13T00:02:51.065Z"
+    },
+    {
+      "slug": "coin-chime",
+      "kind": "sfx",
+      "title": "Coin chime",
+      "file": "coin-chime.wav",
+      "bytes": 18566,
+      "ms": 420,
+      "loop": false,
+      "usedBy": "PlayScene (reserved)",
+      "prompt": "Tiny bright retro coin pickup: two quick ascending bell tones, clean and dry, no reverb tail.",
+      "renderedAt": "2026-09-13T00:02:51.066Z"
+    }
+  ]
+}

@@ -1,0 +1,473 @@
+/*
+ * Shared styles for the /quizzes pages.
+ *
+ * This is the IQ Test page's recipe (animated gradient + floating circles +
+ * translucent cards) lifted into one prefix — `quiz-` — so nine quizzes share
+ * one stylesheet instead of nine near-identical copies. Each quiz's own accent
+ * colour arrives as the `--quiz-accent` custom property on the root element.
+ *
+ * Deviations from IQTest.css, both deliberate:
+ *   - no `backdrop-filter`, per FRONTEND_UI_STANDARD.md §8 ("don't stack
+ *     glassmorphism on cards") — a hairline border + soft shadow instead
+ *   - a `--quiz-accent` variable so a quiz can tint its own badges/buttons
+ */
+
+/* ── Re-point the raw brand hues at the colour scheme ─────────────────────
+ *
+ * These pages were painted with FOUR unrelated hues chosen independently of the
+ * rest of the site, so they ignored the visitor's scheme entirely. This block
+ * collapses them onto the scheme's TWO roles, which is the same move
+ * `Home.css`, `Profile.css` and `Admin.css` make — and, as there, not one rule
+ * below it is touched.
+ *
+ * The pairing rule, and it is not arbitrary: `--fg-blue` is the LINK/action hue
+ * on these pages (option borders, focus rings, the underline, the progress
+ * fill) so it takes the ACCENT role, which is the link role everywhere else.
+ * `--fg-mint` / `--fg-pink` only ever appear OPPOSITE it in a ramp
+ * (`.quiz-btn`, `.quiz-trait-row .bar-fill`, the score number), so they take
+ * PRIMARY. Mapping both to one role would collapse every ramp on the page into
+ * a flat fill — the exact failure this pass exists to avoid.
+ *
+ * `--fg-orange` is not used in this file at all — it is aliased anyway so that
+ * a rule added later cannot quietly reintroduce a fixed hue and go on ignoring
+ * the scheme.
+ *
+ * `--quiz-accent` names the ROLE this particular quiz highlights with (see
+ * meta.js), and it is used only where a SINGLE hue is wanted — the option
+ * border, a focus ring, the question badge. The RAMPS deliberately do not use
+ * it: a ramp reads the two aliased families instead, so it is always
+ * accent→primary and can never be collapsed into a flat fill by a quiz whose
+ * own role happens to match the ramp's first stop.
+ *
+ * ⚠️ The page BACKGROUND is a full-bleed field, so it uses
+ * `--scheme-backdrop-*` rather than `--scheme-*-bg`. The two are not
+ * interchangeable: `-bg` is calibrated as a small TINT, and stretched over a
+ * whole page it lands too light in dark mode for muted text to keep its
+ * contrast (index.css says so at length). The fallback is not decoration — the
+ * scheme is applied by an effect in `Header`, so on the very first paint
+ * `--scheme-backdrop-*` does not exist yet, and an invalid value here would
+ * paint no background at all for a frame. */
+.quiz {
+  --quiz-backdrop-a: var(--scheme-backdrop-a, var(--scheme-accent-bg));
+  --quiz-backdrop-b: var(--scheme-backdrop-b, var(--scheme-primary-bg));
+
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
+  --fg-orange: var(--scheme-accent);
+  --fg-pink: var(--scheme-primary);
+
+  --bg-orange: var(--quiz-backdrop-a);
+  --bg-blue: var(--quiz-backdrop-a);
+  --bg-mint: var(--quiz-backdrop-b);
+  --bg-pink: var(--quiz-backdrop-b);
+}
+
+.quiz {
+  color: var(--text-color);
+  min-height: 100vh;
+  padding: calc(var(--nav-size) * 2) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.5);
+  background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+  background-size: 400% 400%;
+  animation: quizGradientShift 12s ease infinite;
+  position: relative;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.light-theme .quiz { animation-duration: 15s; }
+.dark-theme .quiz { animation-duration: 10s; }
+
+@keyframes quizGradientShift {
+  0% { background-position: 0% 50%; }
+  25% { background-position: 100% 50%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 0% 100%; }
+  100% { background-position: 0% 50%; }
+}
+
+.quiz-floating { pointer-events: none; position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.quiz-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--white1-transp, #f4f7fd33) 0%, transparent 70%);
+  animation: quizFloat 6s ease-in-out infinite;
+}
+.quiz-circle-1 { width: 180px; height: 180px; top: 8%; left: 6%; animation-duration: 9s; }
+.quiz-circle-2 { width: 120px; height: 120px; top: 55%; right: 8%; animation-duration: 11s; animation-delay: -2s; }
+.quiz-circle-3 { width: 220px; height: 220px; bottom: 5%; left: 55%; animation-duration: 13s; animation-delay: -4s; }
+@keyframes quizFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-24px) rotate(180deg); }
+}
+
+.quiz-section { position: relative; z-index: 2; width: 100%; max-width: 900px; display: flex; flex-direction: column; align-items: center; }
+.quiz-section-narrow { max-width: 720px; }
+
+.quiz-title-wrap { text-align: center; max-width: 900px; margin: calc(var(--nav-size) * 0.3) auto calc(var(--nav-size) * 0.5); }
+.quiz-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: calc(var(--nav-size) * 0.24);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+  margin: 0 0 calc(var(--nav-size) * 0.15);
+}
+.quiz-title {
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  font-size: calc(var(--nav-size) * 0.9);
+  margin: 0 0 calc(var(--nav-size) * 0.2) 0;
+  text-shadow: calc(var(--nav-size)*.025) calc(var(--nav-size)*.02) var(--grey3-transp);
+}
+.quiz-title-sm { font-size: calc(var(--nav-size) * 0.6); }
+.quiz-underline {
+  height: 4px;
+  width: 70px;
+  margin: 0 auto calc(var(--nav-size) * 0.3);
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
+  border-radius: 2px;
+}
+.quiz-subtitle {
+  color: var(--text-color-accent);
+  font-size: calc(var(--nav-size) * 0.32);
+  line-height: 1.6;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.quiz-card {
+  background: var(--bg-1);
+  border: 1px solid #ffffff26;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px #00000026;
+  width: 100%;
+  max-width: 720px;
+  padding: calc(var(--nav-size) * 0.5);
+  margin-top: calc(var(--nav-size) * 0.3);
+}
+.quiz-card h2 { font-size: calc(var(--nav-size) * 0.4); margin: calc(var(--nav-size) * 0.3) 0 calc(var(--nav-size) * 0.2); }
+.quiz-card h2:first-child { margin-top: 0; }
+.quiz-card h3 { font-size: calc(var(--nav-size) * 0.32); margin: 0 0 6px; }
+
+.quiz-pill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: calc(var(--nav-size) * 0.2);
+  margin: calc(var(--nav-size) * 0.3) 0;
+}
+.quiz-pill {
+  text-align: center;
+  padding: calc(var(--nav-size) * 0.25);
+  border-radius: 8px;
+  border: 1px solid #ffffff26;
+  background: #ffffff0d;
+  font-size: calc(var(--nav-size) * 0.28);
+  font-weight: 600;
+}
+.quiz-pill .emoji { font-size: 1.6rem; display: block; margin-bottom: 6px; }
+.quiz-hint { color: var(--text-color-accent); font-size: calc(var(--nav-size) * 0.28); line-height: 1.6; }
+
+/* ── Length picker (start screen) ─────────────────────────────────────────
+   Mirrors the IQ Test's own "Choose a test length" row, so the two read the
+   same. `:not(:disabled)` and the restated `color` are both deliberate — see
+   the note above `.quiz-option`. */
+.quiz-length-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: calc(var(--nav-size) * 0.2);
+  margin: calc(var(--nav-size) * 0.2) 0;
+}
+.quiz-length-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  padding: calc(var(--nav-size) * 0.25);
+  border-radius: 8px;
+  border: 2px solid #ffffff26;
+  background: #ffffff0d;
+  color: var(--text-color);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.quiz-length-btn:hover:not(:disabled) { background: #ffffff1a; color: var(--text-color); }
+.quiz-length-btn.selected {
+  border-color: var(--quiz-accent, var(--fg-blue));
+  background: linear-gradient(45deg, #ffffff1f, #ffffff0d);
+  box-shadow: 0 4px 15px #00000033;
+}
+.quiz-length-btn .label { font-size: calc(var(--nav-size) * 0.32); font-weight: 700; }
+.quiz-length-btn .count { font-size: calc(var(--nav-size) * 0.26); font-weight: 600; color: var(--text-color-accent); }
+.quiz-length-btn .blurb { font-size: calc(var(--nav-size) * 0.22); color: var(--text-color-accent); }
+
+.quiz-btn, .quiz-btn.secondary {
+  font-weight: 700;
+  font-size: calc(var(--nav-size) * 0.3);
+  border-radius: 8px;
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.5);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  border: 2px solid transparent;
+}
+.quiz-btn {
+  color: var(--text-color-inv);
+  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  box-shadow: 0 4px 15px #00000033;
+}
+.quiz-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 25px #0000004d; }
+.quiz-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+.quiz-btn.secondary {
+  background: transparent;
+  color: var(--text-color);
+  border: 2px solid var(--border-nav);
+}
+.quiz-btn.secondary:hover:not(:disabled) { background: #ffffff1a; color: var(--text-color); }
+.quiz-btn-row { display: flex; gap: calc(var(--nav-size) * 0.2); justify-content: center; flex-wrap: wrap; margin-top: calc(var(--nav-size) * 0.3); }
+
+.quiz-disclaimer {
+  font-size: calc(var(--nav-size) * 0.22);
+  color: var(--text-color-accent);
+  text-align: center;
+  max-width: 640px;
+  margin: calc(var(--nav-size) * 0.3) auto 0;
+  line-height: 1.6;
+}
+.quiz-disclaimer-left { text-align: left; margin-left: 0; }
+
+.quiz-source-link {
+  margin-top: calc(var(--nav-size) * 0.4);
+  font-size: calc(var(--nav-size) * 0.24);
+  color: var(--text-color-accent);
+}
+.quiz-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--nav-size) * 0.4);
+  flex-wrap: wrap;
+}
+.quiz-links .quiz-source-link { margin-top: calc(var(--nav-size) * 0.3); }
+
+/* ── Question screen ────────────────────────────────────────────── */
+.quiz-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--nav-size) * 0.2);
+  margin-bottom: calc(var(--nav-size) * 0.2);
+  font-size: calc(var(--nav-size) * 0.26);
+  color: var(--text-color-accent);
+  flex-wrap: wrap;
+}
+.quiz-progress-track { flex: 1; min-width: 120px; height: 8px; border-radius: 4px; background: #ffffff1a; overflow: hidden; }
+.quiz-progress-fill { height: 100%; background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink)); border-radius: 4px; transition: width 0.35s ease; }
+
+.quiz-badge {
+  display: inline-block;
+  font-size: calc(var(--nav-size) * 0.2);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--quiz-accent, var(--fg-blue));
+  color: var(--text-color-inv);
+}
+
+.quiz-question {
+  font-size: calc(var(--nav-size) * 0.38);
+  font-weight: 700;
+  line-height: 1.3;
+  margin: calc(var(--nav-size) * 0.3) 0;
+}
+.quiz-question-help { font-size: calc(var(--nav-size) * 0.26); color: var(--text-color-accent); margin-top: calc(var(--nav-size) * 0.15); }
+
+.quiz-options { display: flex; flex-direction: column; gap: calc(var(--nav-size) * 0.2); margin-top: calc(var(--nav-size) * 0.3); }
+/* ⚠️ The hover rules below restate `color`, and it is NOT redundant. The global
+   `button:hover:not(:disabled)` in index.css flips text to `--text-color-inv`.
+   These controls hover to a translucent LIGHT fill rather than to the site
+   gradient, so inheriting that colour paints white text on a near-white card —
+   invisible in the light theme. `.quiz-btn` (the filled gradient button) is the
+   one that genuinely wants the inverse colour, so it is the one rule that does
+   not restate it. If you add a hover state here that only sets a background,
+   it will have this bug. */
+.quiz-option {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.2);
+  text-align: left;
+  width: 100%;
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.3);
+  background: #ffffff0d;
+  border: 2px solid #ffffff26;
+  border-radius: 8px;
+  color: var(--text-color);
+  font-size: calc(var(--nav-size) * 0.3);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.quiz-option:hover:not(:disabled) { background: #ffffff1f; border-color: var(--quiz-accent, var(--fg-blue)); color: var(--text-color); }
+.quiz-option.selected { border-color: var(--quiz-accent, var(--fg-blue)); background: color-mix(in srgb, var(--quiz-accent, var(--scheme-accent)) 16%, transparent); color: var(--text-color); }
+.quiz-option:disabled { cursor: default; }
+.quiz-letter {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #ffffff1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: calc(var(--nav-size) * 0.24);
+}
+
+/* ── Results screen ─────────────────────────────────────────────── */
+.quiz-score-hero { text-align: center; margin: calc(var(--nav-size) * 0.3) 0 calc(var(--nav-size) * 0.4); }
+.quiz-score-number {
+  font-weight: 700;
+  font-size: calc(var(--nav-size) * 1.6);
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-pink));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  line-height: 1.05;
+  word-break: break-word;
+}
+.quiz-score-number-sm { font-size: calc(var(--nav-size) * 1.1); }
+.quiz-score-label { color: var(--text-color-accent); font-size: calc(var(--nav-size) * 0.3); margin-top: 4px; }
+.quiz-score-summary {
+  font-size: calc(var(--nav-size) * 0.3);
+  line-height: 1.7;
+  margin: calc(var(--nav-size) * 0.3) 0 0;
+}
+
+.quiz-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: calc(var(--nav-size) * 0.2);
+  margin: calc(var(--nav-size) * 0.3) 0;
+}
+.quiz-stat-box { text-align: center; padding: calc(var(--nav-size) * 0.3); border-radius: 8px; background: #ffffff0d; border: 1px solid #ffffff26; }
+.quiz-stat-box .val { font-size: calc(var(--nav-size) * 0.5); font-weight: 700; }
+.quiz-stat-box .lbl { font-size: calc(var(--nav-size) * 0.2); color: var(--text-color-accent); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
+
+.quiz-traits { margin: calc(var(--nav-size) * 0.3) 0; }
+.quiz-trait-row { display: flex; align-items: center; gap: calc(var(--nav-size) * 0.2); margin-bottom: calc(var(--nav-size) * 0.2); font-size: calc(var(--nav-size) * 0.26); }
+.quiz-trait-row .name { width: 128px; flex-shrink: 0; font-weight: 600; }
+.quiz-trait-row .bar-track { flex: 1; height: 14px; border-radius: 7px; background: #ffffff1a; overflow: hidden; }
+.quiz-trait-row .bar-fill { height: 100%; border-radius: 7px; background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint)); transition: width 0.6s ease; }
+.quiz-trait-row .count { width: 58px; text-align: right; flex-shrink: 0; color: var(--text-color-accent); font-variant-numeric: tabular-nums; }
+.quiz-trait-note { font-size: calc(var(--nav-size) * 0.22); color: var(--text-color-accent); margin: calc(var(--nav-size) * 0.06) 0 calc(var(--nav-size) * 0.25) calc(128px + var(--nav-size) * 0.2); line-height: 1.5; }
+
+.quiz-blocks { margin-top: calc(var(--nav-size) * 0.3); display: flex; flex-direction: column; gap: calc(var(--nav-size) * 0.25); }
+.quiz-block { background: #ffffff0d; border-radius: 10px; padding: calc(var(--nav-size) * 0.3); }
+.quiz-block .body { font-size: calc(var(--nav-size) * 0.26); line-height: 1.65; color: var(--text-color); margin: 0; }
+
+.quiz-review-item { border: 1px solid #ffffff26; border-radius: 8px; padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.3); margin-bottom: calc(var(--nav-size) * 0.2); }
+.quiz-review-item .review-q-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: calc(var(--nav-size) * 0.2);
+  margin-bottom: 6px;
+}
+.quiz-review-item .review-q { font-weight: 700; margin: 0; }
+.quiz-review-item .review-ans { font-size: calc(var(--nav-size) * 0.26); margin: 2px 0; color: var(--text-color-accent); }
+.quiz-review-item .review-ans strong { color: var(--text-color); }
+.quiz-report-btn {
+  flex-shrink: 0;
+  font-size: calc(var(--nav-size) * 0.2);
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid #ffffff40;
+  background: transparent;
+  color: var(--text-color-accent);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.quiz-report-btn:hover { background: #ffffff1a; color: var(--text-color); }
+
+/* ── Modals (report item / quiz history) ────────────────────────── */
+.quiz-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: #00000099;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--nav-size) * 0.3);
+}
+.quiz-modal {
+  width: 100%;
+  max-width: 520px;
+  max-height: 85vh;
+  overflow-y: auto;
+  margin-top: 0;
+}
+.quiz-modal-question {
+  font-size: calc(var(--nav-size) * 0.28);
+  font-weight: 600;
+  background: #ffffff0d;
+  border-radius: 8px;
+  padding: calc(var(--nav-size) * 0.2);
+}
+.quiz-modal-label {
+  display: block;
+  font-size: calc(var(--nav-size) * 0.24);
+  color: var(--text-color-accent);
+  margin: calc(var(--nav-size) * 0.2) 0 6px;
+}
+.quiz-modal-textarea {
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+  font-size: calc(var(--nav-size) * 0.26);
+  color: var(--text-color);
+  background: #ffffff0d;
+  border: 2px solid #ffffff26;
+  border-radius: 8px;
+  padding: calc(var(--nav-size) * 0.2);
+}
+.quiz-modal-textarea:focus { outline: none; border-color: var(--quiz-accent, var(--fg-blue)); }
+
+.quiz-history-list { display: flex; flex-direction: column; gap: calc(var(--nav-size) * 0.15); margin: calc(var(--nav-size) * 0.2) 0; }
+.quiz-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--nav-size) * 0.2);
+  flex-wrap: wrap;
+  padding: calc(var(--nav-size) * 0.2);
+  border-radius: 8px;
+  background: #ffffff0d;
+  border: 1px solid #ffffff26;
+}
+.quiz-history-main { display: flex; align-items: center; gap: calc(var(--nav-size) * 0.2); flex-wrap: wrap; }
+.quiz-history-score { font-weight: 700; font-size: calc(var(--nav-size) * 0.3); }
+.quiz-history-detail { font-size: calc(var(--nav-size) * 0.24); color: var(--text-color-accent); }
+.quiz-history-date { font-size: calc(var(--nav-size) * 0.22); color: var(--text-color-accent); }
+
+@media (max-width: 768px) {
+  .quiz-circle { display: none; }
+  .quiz-title { font-size: calc(var(--nav-size) * 0.7); }
+  .quiz-card { padding: calc(var(--nav-size) * 0.35); }
+  .quiz-trait-row .name { width: 84px; font-size: calc(var(--nav-size) * 0.22); }
+  .quiz-trait-row .count { width: 48px; }
+  .quiz-trait-note { margin-left: 0; }
+  .quiz-score-number { font-size: calc(var(--nav-size) * 1.2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quiz, .quiz-circle { animation: none; }
+  .quiz * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}

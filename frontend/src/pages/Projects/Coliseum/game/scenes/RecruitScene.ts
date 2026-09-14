@@ -21,10 +21,6 @@ export class RecruitScene extends BaseScene {
     this.render();
   }
 
-  protected onResize(): void {
-    this.render();
-  }
-
   private render(): void {
     this.clearScreen();
     this.applyBackground();
@@ -36,38 +32,46 @@ export class RecruitScene extends BaseScene {
     const recruit = this.offered;
     if (!recruit) return;
 
-    addText(this, this.cx, 130, recruit.name, {
+    // One centred card. The tall box just spreads the same rows further apart,
+    // which keeps the RECRUIT button within thumb reach on a phone.
+    const portrait = this.portrait;
+    const nameY = portrait ? 300 : 130;
+
+    addText(this, this.cx, nameY, recruit.name, {
       fontSize: '28px',
       color: '#f2d98c',
       fontStyle: 'bold',
+      wordWrap: { width: this.w - 60 },
+      align: 'center',
     });
-    addText(this, this.cx, 172, `Level ${recruit.level} · ${this.cost} gp`, {
+    addText(this, this.cx, nameY + (portrait ? 58 : 42), `Level ${recruit.level} · ${this.cost} gp`, {
       fontSize: '20px',
     });
     addText(
       this,
       this.cx,
-      206,
+      nameY + (portrait ? 118 : 76),
       `STR ${recruit.attributes.strength} DEX ${recruit.attributes.dexterity} SPD ${recruit.attributes.speed}`,
-      { fontSize: '16px', color: '#b8aa94', wordWrap: { width: this.w - 60 } },
+      { fontSize: '16px', color: '#b8aa94', wordWrap: { width: this.w - 60 }, align: 'center' },
     );
     addText(
       this,
       this.cx,
-      232,
+      nameY + (portrait ? 146 : 102),
       `DEF ${recruit.attributes.defense} VIT ${recruit.attributes.vitality} CHA ${recruit.attributes.charisma}`,
-      { fontSize: '16px', color: '#b8aa94', wordWrap: { width: this.w - 60 } },
+      { fontSize: '16px', color: '#b8aa94', wordWrap: { width: this.w - 60 }, align: 'center' },
     );
 
     const affordable = this.gameState.gold >= this.cost && this.gameState.roster.length < 12;
-    const btn = this.button(this.cx, 300, 'RECRUIT', () =>
+    const btn = this.button(this.cx, nameY + (portrait ? 250 : 170), 'RECRUIT', () =>
       this.confirm('Recruit gladiator?', `Hire ${recruit.name} for ${this.cost} gp?`, () =>
         this.recruit(recruit, this.cost),
       ),
+      { width: portrait ? 360 : 260, height: portrait ? 68 : 56 },
     );
     if (!affordable) btn.setEnabled(false);
 
-    addText(this, this.cx, 370, `Roster: ${this.gameState.roster.length}/12`, {
+    addText(this, this.cx, nameY + (portrait ? 340 : 240), `Roster: ${this.gameState.roster.length}/12`, {
       fontSize: '16px',
       color: '#b8aa94',
     });

@@ -80,10 +80,6 @@ export class BattleScene extends BaseScene {
     this.render();
   }
 
-  protected onResize(): void {
-    this.render();
-  }
-
   // ── Round / command plumbing ──
   private livingPlayers(): Fighter[] {
     return this.snap.playerTeam.filter((f) => f.alive && !isDefeated(f));
@@ -203,108 +199,142 @@ export class BattleScene extends BaseScene {
     this.clearScreen();
     this.tooltip = null;
     addArenaBackgroundRaster(this);
-    const compact = this.compact;
+    const portrait = this.portrait;
 
-    // Top-left utility: auto-battle + speed.
-    this.button(compact ? this.cx - 70 : 110, 24, 'AUTO-BATTLE', () => this.startAuto(), {
-      width: 120,
-      height: 32,
-      fontSize: 13,
+    // Top row: auto-battle + speed — the left pair in the wide box, a centred
+    // pair in the tall box.
+    this.button(portrait ? this.cx - 98 : 110, portrait ? 22 : 24, 'AUTO-BATTLE', () => this.startAuto(), {
+      width: portrait ? 176 : 120,
+      height: portrait ? 36 : 32,
+      fontSize: portrait ? 16 : 13,
     });
     this.button(
-      compact ? this.cx + 70 : 250,
-      24,
+      portrait ? this.cx + 98 : 250,
+      portrait ? 22 : 24,
       this.speedFast ? 'SPEED: FAST' : 'SPEED: NORMAL',
       () => {
         this.speedFast = !this.speedFast;
         this.render();
       },
-      { width: 130, height: 32, fontSize: 13 },
+      { width: portrait ? 176 : 130, height: portrait ? 36 : 32, fontSize: portrait ? 16 : 13 },
     );
 
-    this.renderActionMenu(compact);
-    this.renderTurnOrder(compact);
-    this.renderTeamTray(compact);
-    this.renderSurrender(compact);
-    this.renderArena(compact);
+    this.renderActionMenu(portrait);
+    this.renderTurnOrder(portrait);
+    this.renderTeamTray(portrait);
+    this.renderSurrender(portrait);
+    this.renderArena(portrait);
 
-    addText(this, this.cx, 48, this.summary, {
+    addText(this, this.cx, portrait ? 76 : 48, this.summary, {
       fontSize: '15px',
       color: '#f2d98c',
-      wordWrap: { width: this.w - 280 },
+      wordWrap: { width: this.w - (portrait ? 100 : 280) },
     });
   }
 
-  private renderActionMenu(compact: boolean): void {
+  private renderActionMenu(portrait: boolean): void {
     if (!this.currentFighter()) return; // enemy turn (or none) — no player input
-    const x = compact ? this.cx : 110;
+    const x = portrait ? this.cx : 110;
 
     if (this.phase === 'action') {
       const cur = this.currentFighter();
-      addText(this, x, 70, cur ? `${cur.name}'s turn` : '', {
-        fontSize: '18px',
+      addText(this, x, portrait ? 680 : 70, cur ? `${cur.name}'s turn` : '', {
+        fontSize: portrait ? '20px' : '18px',
         color: '#f2d98c',
         fontStyle: 'bold',
       });
-      const y0 = compact ? 150 : 105;
-      const step = compact ? 54 : 50;
-      const attack = this.button(x, y0, 'ATTACK', () => {
+      const y0 = portrait ? 730 : 105;
+      const step = portrait ? 76 : 50;
+      const lx = portrait ? this.cx - 160 : x;
+      const rx = portrait ? this.cx + 160 : x;
+      const bw = portrait ? 300 : 170;
+      const bh = portrait ? 58 : 44;
+      const fs = portrait ? 18 : 16;
+      // The tall box fits two columns, so all five actions stay in one band of
+      // full-size, thumb-reachable buttons instead of a cramped single column.
+      const attack = this.button(lx, y0, 'ATTACK', () => {
         this.phase = 'precision';
         this.render();
-      }, { width: 170, height: 44, fontSize: 16 });
+      }, { width: bw, height: bh, fontSize: fs });
       if (!cur || !canMeleeAttack(cur)) attack.setEnabled(false);
-      const tech = this.button(x, y0 + step, 'TECHNIQUE', () => {
+      const tech = this.button(rx, portrait ? y0 : y0 + step, 'TECHNIQUE', () => {
         this.phase = 'skill';
         this.render();
-      }, { width: 170, height: 44, fontSize: 16 });
+      }, { width: bw, height: bh, fontSize: fs });
       if (this.activeSkills(cur).length === 0) tech.setEnabled(false);
-      this.button(x, y0 + step * 2, 'BLOCK', () => this.commit({ kind: 'block' }), { width: 170, height: 44, fontSize: 16 });
-      this.button(x, y0 + step * 3, 'CROWD APPEAL', () => this.commit({ kind: 'crowdAppeal' }), { width: 170, height: 44, fontSize: 15 });
-      this.button(x, y0 + step * 4, 'ROW', () => this.commit({ kind: 'row' }), { width: 170, height: 44, fontSize: 16 });
+      this.button(lx, portrait ? y0 + step : y0 + step * 2, 'BLOCK', () => this.commit({ kind: 'block' }), { width: bw, height: bh, fontSize: fs });
+      this.button(rx, portrait ? y0 + step : y0 + step * 3, 'CROWD APPEAL', () => this.commit({ kind: 'crowdAppeal' }), { width: bw, height: bh, fontSize: portrait ? 16 : 15 });
+      this.button(portrait ? this.cx : x, portrait ? y0 + step * 2 : y0 + step * 4, 'ROW', () => this.commit({ kind: 'row' }), { width: bw, height: bh, fontSize: fs });
       return;
     }
 
     if (this.phase === 'precision') {
-      addText(this, x, 70, 'Attack strength:', { fontSize: '16px', color: '#f2d98c' });
-      const y0 = compact ? 150 : 110;
-      this.button(x, y0, 'WEAK', () => this.pickPrecision('weak'), { width: 170, height: 44, fontSize: 16 });
-      this.button(x, y0 + 50, 'MEDIUM', () => this.pickPrecision('medium'), { width: 170, height: 44, fontSize: 16 });
-      this.button(x, y0 + 100, 'STRONG', () => this.pickPrecision('strong'), { width: 170, height: 44, fontSize: 16 });
-      this.button(x, y0 + 150, 'BACK', () => {
+      addText(this, x, portrait ? 680 : 70, 'Attack strength:', {
+        fontSize: portrait ? '20px' : '16px',
+        color: '#f2d98c',
+      });
+      const y0 = portrait ? 730 : 110;
+      const step = portrait ? 76 : 50;
+      const lx = portrait ? this.cx - 160 : x;
+      const rx = portrait ? this.cx + 160 : x;
+      const bw = portrait ? 300 : 170;
+      const bh = portrait ? 58 : 44;
+      const fs = portrait ? 18 : 16;
+      this.button(lx, y0, 'WEAK', () => this.pickPrecision('weak'), { width: bw, height: bh, fontSize: fs });
+      this.button(rx, portrait ? y0 : y0 + step, 'MEDIUM', () => this.pickPrecision('medium'), { width: bw, height: bh, fontSize: fs });
+      this.button(lx, portrait ? y0 + step : y0 + step * 2, 'STRONG', () => this.pickPrecision('strong'), { width: bw, height: bh, fontSize: fs });
+      this.button(rx, portrait ? y0 + step : y0 + step * 3, 'BACK', () => {
         this.phase = 'action';
         this.render();
-      }, { width: 120, height: 40, fontSize: 15 });
+      }, { width: portrait ? bw : 120, height: portrait ? bh : 40, fontSize: portrait ? fs : 15 });
       return;
     }
 
     if (this.phase === 'target') {
-      addText(this, x, 70, 'Choose a target:', { fontSize: '16px', color: '#f2d98c' });
-      addText(this, x, compact ? 102 : 94, 'Click an enemy in the arena.', {
-        fontSize: '13px',
-        color: '#b8aa94',
-        wordWrap: { width: 200 },
+      addText(this, x, portrait ? 690 : 70, 'Choose a target:', {
+        fontSize: portrait ? '20px' : '16px',
+        color: '#f2d98c',
       });
-      this.button(x, compact ? 160 : 140, 'BACK', () => this.cancelTargeting(), { width: 120, height: 40, fontSize: 15 });
+      addText(this, x, portrait ? 726 : 94, 'Click an enemy in the arena.', {
+        fontSize: portrait ? '15px' : '13px',
+        color: '#b8aa94',
+        wordWrap: { width: portrait ? 600 : 200 },
+      });
+      this.button(x, portrait ? 800 : 140, 'BACK', () => this.cancelTargeting(), {
+        width: portrait ? 300 : 120,
+        height: portrait ? 58 : 40,
+        fontSize: portrait ? 18 : 15,
+      });
       return;
     }
 
     if (this.phase === 'zone') {
       const target = this.snap.enemyTeam.find((f) => f.id === this.targetEnemyId);
-      addText(this, x, 70, `Target: ${target?.name ?? ''}`, { fontSize: '16px', color: '#f2d98c' });
-      addText(this, x, compact ? 102 : 94, 'Click a body part on them.', {
-        fontSize: '13px',
-        color: '#b8aa94',
-        wordWrap: { width: 200 },
+      addText(this, x, portrait ? 690 : 70, `Target: ${target?.name ?? ''}`, {
+        fontSize: portrait ? '20px' : '16px',
+        color: '#f2d98c',
       });
-      this.button(x, compact ? 160 : 140, 'BACK', () => this.cancelTargeting(), { width: 120, height: 40, fontSize: 15 });
+      addText(this, x, portrait ? 726 : 94, 'Click a body part on them.', {
+        fontSize: portrait ? '15px' : '13px',
+        color: '#b8aa94',
+        wordWrap: { width: portrait ? 600 : 200 },
+      });
+      this.button(x, portrait ? 800 : 140, 'BACK', () => this.cancelTargeting(), {
+        width: portrait ? 300 : 120,
+        height: portrait ? 58 : 40,
+        fontSize: portrait ? 18 : 15,
+      });
       return;
     }
 
     // phase === 'skill'
     const cur = this.currentFighter();
-    addText(this, x, 70, 'Choose a technique:', { fontSize: '16px', color: '#f2d98c' });
+    addText(this, x, portrait ? 680 : 70, 'Choose a technique:', {
+      fontSize: portrait ? '20px' : '16px',
+      color: '#f2d98c',
+    });
     const skills = this.activeSkills(cur);
-    const y0 = compact ? 150 : 110;
+    const y0 = portrait ? 714 : 110;
     skills.forEach((skillId, i) => {
       if (!cur) return;
       const node = getSkill(skillId);
@@ -317,19 +347,25 @@ export class BattleScene extends BaseScene {
         (!meleeSkill || canMeleeAttack(cur)) &&
         (!shieldSkill || (canMeleeAttack(cur) && !isZoneDestroyed(cur, 'leftArm')));
       const btn = this.button(
-        x,
-        y0 + i * 52,
+        portrait ? this.cx + (i % 2 === 0 ? -160 : 160) : x,
+        portrait ? y0 + Math.floor(i / 2) * 56 : y0 + i * 52,
         `${node.label} (${rank}) — ${node.mpCost} MP`,
         () => this.chooseSkill(skillId),
-        { width: 280, height: 44, fontSize: 15 },
+        { width: portrait ? 300 : 280, height: portrait ? 52 : 44, fontSize: portrait ? 13 : 15 },
       );
       if (!affordable || !usable) btn.setEnabled(false);
     });
-    this.button(x, y0 + skills.length * 52 + 8, 'BACK', () => {
-      this.pendingSkillId = '';
-      this.phase = 'action';
-      this.render();
-    }, { width: 120, height: 40, fontSize: 15 });
+    this.button(
+      portrait ? this.cx + (skills.length % 2 === 0 ? -160 : 160) : x,
+      portrait ? y0 + Math.floor(skills.length / 2) * 56 : y0 + skills.length * 52 + 8,
+      'BACK',
+      () => {
+        this.pendingSkillId = '';
+        this.phase = 'action';
+        this.render();
+      },
+      { width: portrait ? 300 : 120, height: portrait ? 52 : 40, fontSize: portrait ? 16 : 15 },
+    );
   }
 
   private pickPrecision(precision: AttackPrecision): void {
@@ -437,16 +473,24 @@ export class BattleScene extends BaseScene {
     this.render();
   }
 
-  private renderTurnOrder(compact: boolean): void {
+  private renderTurnOrder(portrait: boolean): void {
     const order = [...this.livingPlayers(), ...this.livingEnemies()].sort(
       (a, b) => (this.turnQueue[a.id] ?? 0) - (this.turnQueue[b.id] ?? 0),
     );
-    const x = compact ? this.w - 70 : this.w - 100;
-    addText(this, x, 70, 'TURN ORDER', { fontSize: '14px', color: '#f2d98c' }).setOrigin(0.5, 0.5);
+    // Wide box: a column down the right-hand edge. Tall box: a centred strip of
+    // three-per-row chips between the summary and the arena.
+    const perRow = 3;
+    const gap = 210;
+    addText(this, portrait ? this.cx : this.w - 100, portrait ? 118 : 70, 'TURN ORDER', {
+      fontSize: '14px',
+      color: '#f2d98c',
+    }).setOrigin(0.5, 0.5);
     order.forEach((f, i) => {
       const isPlayer = this.snap.playerTeam.some((p) => p.id === f.id);
-      addText(this, x, 102 + i * 28, `${f.name}${f.row === 'back' ? ' (B)' : ''}`, {
-        fontSize: '12px',
+      const x = portrait ? this.cx + ((i % perRow) - (perRow - 1) / 2) * gap : this.w - 100;
+      const y = portrait ? 142 + Math.floor(i / perRow) * 24 : 102 + i * 28;
+      addText(this, x, y, `${f.name}${f.row === 'back' ? ' (B)' : ''}`, {
+        fontSize: portrait ? '13px' : '12px',
         color: isPlayer ? '#f2d98c' : '#e8dcc8',
         backgroundColor: f.id === this.currentId ? '#8c1f28' : undefined,
         padding: { x: 6, y: 2 },
@@ -454,17 +498,20 @@ export class BattleScene extends BaseScene {
     });
   }
 
-  private renderTeamTray(compact: boolean): void {
-    const bottom = this.h - 24;
-    const playerX = compact ? this.cx - 130 : 200;
-    const enemyX = compact ? this.cx + 130 : this.w - 200;
+  private renderTeamTray(portrait: boolean): void {
+    // Tall box: two narrow columns just above the bottom edge, clear of the
+    // action band above and the surrender corner below.
+    const bottom = portrait ? this.h - 130 : this.h - 24;
+    const step = portrait ? 52 : 58;
+    const playerX = portrait ? 180 : 200;
+    const enemyX = portrait ? 540 : this.w - 200;
 
     this.snap.playerTeam.forEach((f, i) => {
-      const y = bottom - (this.snap.playerTeam.length - 1 - i) * 58;
+      const y = bottom - (this.snap.playerTeam.length - 1 - i) * step;
       this.drawFighterCard(f, playerX, y, 'player');
     });
     this.snap.enemyTeam.forEach((f, i) => {
-      const y = bottom - (this.snap.enemyTeam.length - 1 - i) * 58;
+      const y = bottom - (this.snap.enemyTeam.length - 1 - i) * step;
       this.drawFighterCard(f, enemyX, y, 'enemy');
     });
   }
@@ -487,21 +534,24 @@ export class BattleScene extends BaseScene {
     });
 
     // Small body sprite beside the card — hover a body part to see its armor + health.
-    const compact = this.compact;
-    const s = compact ? 0.34 : 0.42;
-    const sx = side === 'player' ? (compact ? x + 80 : x - 110) : (compact ? x - 80 : x + 110);
+    const portrait = this.portrait;
+    const s = portrait ? 0.34 : 0.42;
+    const off = portrait ? 105 : 110;
+    const sx = side === 'player' ? x - off : x + off;
     this.drawTrayFighter(f, sx, y + 19, s);
   }
 
   // ── Arena rendering: visible fighters + click-to-target body zones ──
-  private renderArena(compact: boolean): void {
-    const s = compact ? 0.7 : 1;
+  private renderArena(portrait: boolean): void {
+    // The tall arena strip is 720 wide, so the two columns sit closer in and the
+    // sprites shrink enough to keep three rows clear of the HUD bands above and below.
+    const s = portrait ? 0.9 : 1;
     const players = this.snap.playerTeam;
     const enemies = this.snap.enemyTeam;
-    const py = this.teamYs(players.length);
-    const ey = this.teamYs(enemies.length);
-    const px = compact ? this.cx - 130 : this.cx - 200;
-    const ex = compact ? this.cx + 130 : this.cx + 200;
+    const py = this.teamYs(players.length, portrait);
+    const ey = this.teamYs(enemies.length, portrait);
+    const px = portrait ? this.cx - 170 : this.cx - 200;
+    const ex = portrait ? this.cx + 170 : this.cx + 200;
     const targetable = new Set(
       this.pendingSkillId
         ? this.skillTargets(this.pendingSkillId).map((f) => f.id)
@@ -517,10 +567,10 @@ export class BattleScene extends BaseScene {
     });
   }
 
-  private teamYs(n: number): number[] {
-    if (n <= 1) return [this.h * 0.48];
-    const top = this.h * 0.34;
-    const bottom = this.h * 0.62;
+  private teamYs(n: number, portrait: boolean): number[] {
+    if (n <= 1) return [portrait ? 412 : this.h * 0.48];
+    const top = portrait ? 280 : this.h * 0.34;
+    const bottom = portrait ? 545 : this.h * 0.62;
     const ys: number[] = [];
     for (let i = 0; i < n; i += 1) ys.push(top + ((bottom - top) * i) / (n - 1));
     return ys;
@@ -653,14 +703,15 @@ export class BattleScene extends BaseScene {
     this.tooltip = null;
   }
 
-  /** Bottom-right forfeit control (centered on desktop so it never covers the enemy tray). */
-  private renderSurrender(compact: boolean): void {
+  /** Forfeit control on the bottom edge — centred in the wide box, in the tall box
+   *  tucked into the bottom-right corner below the enemy tray. */
+  private renderSurrender(portrait: boolean): void {
     this.button(
-      compact ? this.w - 70 : this.cx,
-      this.h - 30,
+      portrait ? this.w - 70 : this.cx,
+      portrait ? this.h - 26 : this.h - 30,
       'SURRENDER',
       () => this.finish(false),
-      { width: 130, height: 36, fontSize: 14, fill: 0x5b1420 },
+      { width: 130, height: portrait ? 44 : 36, fontSize: portrait ? 15 : 14, fill: 0x5b1420 },
     );
   }
 

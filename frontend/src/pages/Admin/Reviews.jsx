@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import dataService from "../../features/data/dataService.js";
-import { formatTimestamp } from "./adminShared";
+import AdminPanel from "../../components/Admin/AdminPanel.jsx";
+import { useAdminReadout } from "./adminBarContext";
+import { fmt, formatTimestamp } from "./adminShared";
 
 function Reviews() {
   const { user } = useSelector((state) => state.data);
@@ -49,14 +51,30 @@ function Reviews() {
 
   const ts = formatTimestamp;
 
-  return (
-    <section className="admin-section-tile">
-      <h2>Ratings &amp; Reviews</h2>
+  const avgRating = useMemo(() => {
+    const rated = ratingsAndReviews.filter((r) => Number(r.rating) > 0);
+    if (!rated.length) return null;
+    return (rated.reduce((sum, r) => sum + Number(r.rating), 0) / rated.length).toFixed(1);
+  }, [ratingsAndReviews]);
 
+  useAdminReadout(
+    ratingsAndReviews.length > 0
+      ? [
+          { label: 'Reviews', value: fmt(ratingsAndReviews.length) },
+          ...(avgRating ? [{ label: 'Avg', value: `${avgRating} ★` }] : []),
+        ]
+      : null
+  );
+
+  return (
+    <AdminPanel title="Ratings & reviews">
       {allDataLoading && <div className="admin-loading">Loading...</div>}
       {!allDataLoading && ratingsAndReviews.length > 0 ? (
         <div className="table-scroll-container">
-        <table className="admin-table compact-table">
+        {/* `admin-table--reviews` drives the stacked phone layout, whose field
+            labels live in the matching `nth-child` rules in Admin.css §18 —
+            keep the two column lists in step. */}
+        <table className="admin-table compact-table admin-table--stacked admin-table--reviews">
           <thead><tr>
             <th>Title</th><th>Rating</th><th>Category</th><th>User</th><th>Content</th><th>Date</th>
           </tr></thead>
@@ -77,7 +95,7 @@ function Reviews() {
       ) : (
         !allDataLoading && <p className="admin-no-data">No ratings or reviews found</p>
       )}
-    </section>
+    </AdminPanel>
   );
 }
 

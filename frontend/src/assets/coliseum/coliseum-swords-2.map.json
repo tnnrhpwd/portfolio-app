@@ -1,0 +1,10 @@
+{
+  "source": "coliseum-swords-2.png",
+  "width": 1344,
+  "height": 768,
+  "$comment": "Auto-detection splits every sword into TWO leaves (blade+guard, then the pommel, with a gutter above it), so these two are hand-placed and merge each sword's halves. Only the two sword kinds the game actually has are kept: gladius (one-handed) and greatsword (two-handed). The leftmost sword starts at x=0 and is clipped by the sheet edge, so it was skipped.",
+  "regions": [
+    { "name": "sword-gladius", "x": 117, "y": 22, "w": 112, "h": 342, "nx": 0.0871, "ny": 0.0286, "nw": 0.0833, "nh": 0.4453 },
+    { "name": "sword-greatsword", "x": 1131, "y": 24, "w": 64, "h": 339, "nx": 0.8415, "ny": 0.0313, "nw": 0.0476, "nh": 0.4414 }
+  ]
+}

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { ensureRuntimeTextures, missingSprites, queueGameSprites } from '../assets';
-import { currentWorld } from '../session';
+import { currentWorld, syncCloud } from '../session';
 import { addText } from '../ui/button';
 import { PALETTE, TEXT, VIEW_HEIGHT, VIEW_WIDTH } from '../ui/theme';
 
@@ -61,6 +61,11 @@ export class BootScene extends Phaser.Scene {
           missing.join(', '),
       );
     }
+
+    // Pull the profile's progress in the background rather than awaiting it: a
+    // slow network should never keep the player on a loading screen, and a
+    // signed-out player's sync is a no-op that resolves immediately.
+    void syncCloud();
 
     // The game is destroyed and recreated when the device rotates, so a run can
     // already be in progress before the menu has ever been shown. Put the player

@@ -1,10 +1,15 @@
 /* Simple Marketplace — a service workspace (FRONTEND_UI_STANDARD.md §5.7)
    ------------------------------------------------------------------------
-   One flat surface, a sticky toolbar (name + what-to-browse switch + search +
-   the publish action), then one panel holding the results. No bands, no
-   gradient behind the data, no decorative circles, no scroll reveal — and
-   nothing separated by a border: the toolbar's rule is a gradient, and the
-   cards are planes of color (§5 "color beside color"). */
+   The page's ground is the shared ambient ROOM (`.service-room`, worn by
+   `.mkt-surface` below) and everything on it is GLASS: one sticky toolbar, then
+   one panel holding the results, with the cards as panes inside it. No bands, no
+   decorative circles, no scroll reveal — and nothing separated by a border: the
+   toolbar's rule is a gradient.
+
+   Colour is reserved for SIGNAL. The old version gave every card a hue by kind
+   (`--mkt-hue`) and every capability chip a hue by category, which meant a page
+   of six colours where none of them meant anything. A card is neutral now, and
+   what it IS gets said by its badges. */
 
 .mkt-surface {
   display: flex;
@@ -12,8 +17,22 @@
   min-height: 100vh;
   min-height: 100svh;
   padding: calc(var(--nav-size) * 1.15) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
-  background: var(--bg-page);
   color: var(--text-color);
+  /* NO background here, deliberately: the room's two layers are `position:
+     fixed` with `z-index: -1`, so an opaque fill on this box would cover them.
+     The room paints `--bg-page` itself. */
+
+  /* ── The colour scheme ─────────────────────────────────────────────────
+   * Two aliases, no rule below touched: this page's interaction families are
+   * `--fg-blue` (links, focus, the primary action) and `--fg-mint` (the goal
+   * kind, the emerald accents), so they follow the visitor's two scheme roles.
+   *
+   * ⚠️ `--fg-orange`, `--fg-pink` and `--red0` are deliberately NOT aliased:
+   * they are the page's SIGNALS — low-trust / dry-run warnings, the shell and
+   * destructive capability chips, a rating that failed. An alarm that changes
+   * colour with the decor is not an alarm (§2.1). */
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
 }
 
 .mkt {
@@ -37,7 +56,13 @@
   flex-wrap: wrap;
   gap: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.25);
   padding: calc(var(--nav-size) * 0.18) 0;
-  background: var(--bg-page);      /* opaque — no glassmorphism */
+  /* OPAQUE, and that is this page's one departure from `/admin`: the toolbar is
+     STICKY and the panel scrolls beneath it, so a translucent pane would let
+     result text run under the search box. It takes the glass LAND — the same
+     fill a pane is made of — so it still reads as the same material, and in the
+     dark theme the land sits above the page, which is what makes the bar read as
+     the page's frame rather than as one more panel. */
+  background: var(--glass-land);
 }
 /* The one piece of brand on the page. */
 .mkt-bar::after {
@@ -81,27 +106,31 @@
   cursor: pointer;
   transition: background 0.18s ease;
 }
+/* An active tab marks a PLACE, not an action, so it is a tint of the scheme's
+   emphasis hue on a solid control background — not the action gradient, which
+   would make it look like the thing to press. */
 .mkt-switch-btn:hover:not(.is-active) { background: color-mix(in srgb, var(--text-color) 12%, transparent); }
 .mkt-switch-btn.is-active {
-  background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
-  color: var(--text-color-inv);
+  background: color-mix(in srgb, var(--scheme-primary) 20%, var(--bg-1));
+  color: var(--text-color);
 }
 
 .mkt-bar-search { display: flex; flex: 1 1 320px; flex-wrap: wrap; gap: calc(var(--nav-size) * 0.15); min-width: 0; }
 .mkt-bar-actions { margin-left: auto; display: flex; gap: calc(var(--nav-size) * 0.12); }
 
-/* ── The results panel ───────────────────────────────────────────────────── */
+/* ── The results panel ─────────────────────────────────────────────────────
+   A PANE of glass, like every other block on a service page: the page colour at
+   84% over the room, `--glass-radius` and `--glass-shadow`, and no border. */
 
 .mkt-panel {
-  --mkt-hue: var(--fg-blue);
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: color-mix(in srgb, var(--mkt-hue) 7%, var(--bg-1));
-  border-radius: var(--border-radius-lg);
+  background: var(--glass);
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow);
   overflow: hidden;
 }
-.dark-theme .mkt-panel { background: color-mix(in srgb, var(--mkt-hue) 14%, var(--bg-1)); }
 
 .mkt-panel-head {
   display: flex;
@@ -109,10 +138,12 @@
   justify-content: space-between;
   gap: calc(var(--nav-size) * 0.15);
   padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.28);
-  background: color-mix(in srgb, var(--mkt-hue) 12%, transparent);
+  /* A head is a tone change mixed from the TEXT colour, never a hue: on this
+     material a hue that isn't a signal is just decoration. */
+  background: var(--glass-sheen);
 }
 .mkt-panel-title { margin: 0; font-size: var(--font-size-small); font-weight: var(--font-weight-semibold); }
-.mkt-count { font-size: var(--font-size-xs); color: var(--text-color-accent); }
+.mkt-count { font-size: var(--font-size-xs); color: var(--plane-muted); }
 .mkt-panel-body { padding: calc(var(--nav-size) * 0.28); }
 
 .mkt-note {
@@ -152,7 +183,7 @@
   font-size: var(--font-size-base);
   color: var(--text-color);
   background: var(--bg-1);
-  border: 1px solid color-mix(in srgb, var(--fg-blue) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--scheme-accent) 30%, transparent);
   border-radius: var(--border-radius);
   padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.28);
 }
@@ -194,7 +225,7 @@
   font-size: var(--font-size-small);
   color: var(--text-color);
   background: var(--bg-1);
-  border: 1px solid color-mix(in srgb, var(--fg-blue) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--scheme-accent) 30%, transparent);
   border-radius: 999px;
   padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.4);
 }
@@ -231,7 +262,9 @@
 
 .mkt-btn--primary {
   color: var(--text-color-inv);
-  background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+  /* The page's ONE action colour: a gradient inside the scheme's emphasis hue,
+     re-pinned so the label stays AA on both stops. */
+  background: var(--action);
   box-shadow: var(--shadow-sm);
 }
 .mkt-btn--primary:not(:disabled):hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
@@ -279,25 +312,18 @@
   text-align: left;
   cursor: pointer;
   border: 1px solid transparent;
-  border-radius: var(--border-radius-lg);
+  border-radius: var(--glass-radius-inner);
   padding: calc(var(--nav-size) * 0.32);
-  background: color-mix(in srgb, var(--fg-blue) 7%, var(--bg-1));
+  /* A card is a pane INSIDE the panel's pane — never a second pane (glass on
+     glass), so it is a flat sunken tint of the text colour on the panel. */
+  background: var(--glass-sunken);
   color: var(--text-color);
   transition: background 0.18s ease;
 }
-/* The whole tone is the hue of the card's neighbours' step — no border, no
-   shadow, no accent strip: hover just deepens the plane (§5). */
-.mkt-card--goal { background: color-mix(in srgb, var(--fg-mint) 7%, var(--bg-1)); }
-.dark-theme .mkt-card { background: color-mix(in srgb, var(--fg-blue) 14%, var(--bg-1)); }
-.dark-theme .mkt-card--goal { background: color-mix(in srgb, var(--fg-mint) 14%, var(--bg-1)); }
-.mkt-card:hover { background: color-mix(in srgb, var(--fg-blue) 13%, var(--bg-1)); }
-.mkt-card--goal:hover { background: color-mix(in srgb, var(--fg-mint) 13%, var(--bg-1)); }
-.mkt-card--lowtrust { background: color-mix(in srgb, var(--fg-orange) 10%, var(--bg-1)); }
-.dark-theme .mkt-card--lowtrust { background: color-mix(in srgb, var(--fg-orange) 16%, var(--bg-1)); }
-/* Hover must stay in the card's own hue — a low-trust card that warmed up would
-   look like a different kind of thing on mouse-over. Doubled class so it also
-   beats `.dark-theme .mkt-card:hover`. */
-.mkt-card.mkt-card--lowtrust:hover { background: color-mix(in srgb, var(--fg-orange) 16%, var(--bg-1)); }
+/* Hover deepens the tint one step. It used to warm the card's own hue, which
+   meant a low-trust card changed KIND under the mouse — the reason the hue
+   variants are gone: what a card is, its badges say. */
+.mkt-card:hover { background: var(--glass-sunken-strong); }
 
 .mkt-card-head {
   display: flex;
@@ -316,7 +342,7 @@
 .mkt-card-slug {
   margin: 0;
   font-size: var(--font-size-xs);
-  color: var(--text-color-accent);
+  color: var(--plane-muted);
   font-family: monospace;
 }
 
@@ -324,7 +350,7 @@
   margin: 0;
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
-  color: var(--text-color-accent);
+  color: var(--plane-muted);
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -343,7 +369,7 @@
   align-items: center;
   gap: var(--spacing-xs);
   font-size: var(--font-size-small);
-  color: var(--text-color-accent);
+  color: var(--plane-muted);
 }
 
 .mkt-card-dl,
@@ -351,6 +377,11 @@
 
 /* ── Category + trust badges ─────────────────────────────────────────────── */
 
+/* A capability chip carries its category as a WORD ("read", "write", "shell"…),
+   so it does not need a hue as well — five hues for five categories is a
+   different colour every 200px and none of them meaning anything. Two keep a
+   wash, because they are genuine risk rather than taxonomy: shell access, and
+   anything destructive. */
 .mkt-cat {
   font-size: var(--font-size-xs);
   padding: calc(var(--nav-size) * 0.04) calc(var(--nav-size) * 0.16);
@@ -359,11 +390,11 @@
   background: var(--bg-accent);
 }
 
-.mkt-cat--read { background: color-mix(in srgb, var(--fg-mint) 22%, transparent); }
-.mkt-cat--write { background: color-mix(in srgb, var(--fg-blue) 22%, transparent); }
-.mkt-cat--shell { background: color-mix(in srgb, var(--fg-orange) 22%, transparent); }
-.mkt-cat--destructive { background: color-mix(in srgb, var(--red0) 22%, transparent); }
-.mkt-cat--system { background: color-mix(in srgb, var(--fg-pink) 22%, transparent); }
+.mkt-cat--read,
+.mkt-cat--write,
+.mkt-cat--system { background: var(--bg-accent); }
+.mkt-cat--shell { background: color-mix(in srgb, var(--fg-orange) 22%, var(--bg-1)); }
+.mkt-cat--destructive { background: color-mix(in srgb, var(--red0) 20%, var(--bg-1)); }
 
 .mkt-badge {
   font-size: var(--font-size-xs);
@@ -383,13 +414,13 @@
 
 .mkt-stars { display: inline-flex; align-items: center; gap: 4px; }
 
-.mkt-stars-row { color: var(--text-color-accent); letter-spacing: 1px; }
+.mkt-stars-row { color: var(--plane-muted); letter-spacing: 1px; }
 .mkt-star--on { color: var(--fg-orange); }
 
 .mkt-stars--sm { font-size: var(--font-size-small); }
 .mkt-stars--md { font-size: var(--font-size-base); }
 
-.mkt-stars-count { color: var(--text-color-accent); }
+.mkt-stars-count { color: var(--plane-muted); }
 
 /* ── Modal ───────────────────────────────────────────────────────────────── */
 
@@ -404,13 +435,15 @@
   padding: var(--spacing-sm);
 }
 
+/* A dialog genuinely floats, so it keeps a shadow — but not a grey hairline:
+   borders are for controls (§5). */
 .mkt-modal {
   position: relative;
   width: 100%;
   max-width: 560px;
   max-height: 85vh;
   overflow-y: auto;
-  border: 1px solid var(--border-nav);
+  border: 1px solid transparent;
   border-radius: var(--border-radius-xl);
   padding: var(--spacing-md);
   background: var(--bg-1);
@@ -485,11 +518,15 @@
   margin-top: var(--spacing-xs);
 }
 
+/* "Installed" is a SUCCESS, so it wears the shared ok green rather than a brand
+   hue — mint now follows the scheme, and a scheme whose accent is pink would
+   have painted a confirmation in pink. */
 .mkt-installed-ok {
   font-weight: var(--font-weight-semibold);
-  color: var(--fg-mint);
+  color: var(--green2);
   margin: 0;
 }
+.dark-theme .mkt-installed-ok { color: var(--green1); }
 
 .mkt-warning {
   border-radius: var(--border-radius);
@@ -538,7 +575,7 @@
 
 .mkt-capability-list code { font-family: monospace; }
 
-.mkt-capability-count { color: var(--text-color-accent); }
+.mkt-capability-count { color: var(--plane-muted); }
 
 .mkt-capability-empty {
   font-size: var(--font-size-small);
@@ -570,7 +607,7 @@
 /* ── Rating ──────────────────────────────────────────────────────────────── */
 
 .mkt-rate {
-  border-top: 1px solid var(--border-nav);
+  border-top: 1px solid color-mix(in srgb, var(--text-color) 14%, transparent);
   padding-top: var(--spacing-xs);
 }
 
@@ -629,7 +666,7 @@
   font-size: var(--font-size-base);
   color: var(--text-color);
   background: var(--bg-1);
-  border: 1px solid var(--border-nav);
+  border: 1px solid color-mix(in srgb, var(--scheme-accent) 30%, transparent);
   border-radius: var(--border-radius);
   padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.35);
 }
@@ -666,7 +703,7 @@
 
 .mkt-pub-preview {
   margin-top: var(--spacing-xs);
-  border-top: 1px solid var(--border-nav);
+  border-top: 1px solid color-mix(in srgb, var(--text-color) 14%, transparent);
   padding-top: var(--spacing-xs);
 }
 
