@@ -1793,4 +1793,63 @@ preview` inside the package) now serves `renderer/` over loopback and opens a br
 
 ---
 
+### 13.20 The head's dropper — the webapp's `HeaderDropper`, ported (2026-09-13)
+
+A ☰ at the right of the head opens a drawer containing **every view**, the app-level
+actions, and the mode toggle at its foot — the shape of the site's drawer (groups of
+links, theme last, pinned with `margin-top: auto`). This is what the user asked for
+directly, and it deliberately **reverses** §13.18's "no ☰ nav dropdown" decision: that
+removal was about the *page list* being duplicated, so the tab row stays AND the drawer
+now carries the same list. Both are legitimate: the tab row moves between views at a
+glance, the drawer is the only place that also reaches the actions.
+
+- 🔧 **The trap worth keeping: `#topbar` is a stacking context.** It carries
+  `z-index: 10`, so a descendant's `z-index` orders it only against its *siblings inside
+  the head* — a `position: fixed` drawer left outside the header would have painted over
+  the ☰ and hidden the ✕ that closes it, no matter what `z-index` the trigger was given.
+  The trigger, the scrim and the drawer are therefore **all descendants of `<header>`**
+  (which is what the webapp does too), ordered 70 / 50 / 60 inside that one context.
+  Verified by hit-testing the trigger's centre with the drawer fully open — it resolves to
+  the trigger, not the drawer.
+- 🔧 **The view list is generated from the tab row**, not written out again: page names,
+  order and the set of them live in one place, so a view added to the tabs appears in the
+  drawer for free. Each badge is a **mirror** kept in step by one `MutationObserver` per
+  badge (classes included, so `on`/`warn`/`err` arrive), rather than a snapshot that would
+  freeze at load time. `activateTab()` marks the current view in both lists.
+- **Material:** a pane is 84% (`--glass-a`) because it floats over the flat room, which has
+  nothing legible to show through it. The drawer floats over the *workspace*, so it keeps
+  more of itself (92%) and a scrim dims what is behind: content contributes ~4% of the
+  drawer's final colour. Measured with the compositing done explicitly against a
+  deliberately hostile backdrop — a bright pane behind the open drawer — the effective
+  surface is `#191c22` in dark and `#e9eaec` in light, matching the arithmetic.
+- **Verified in the dev preview (§13.19), not by reasoning:** 192 contrast measurements
+  (12 schemes × 2 modes × 8 pairs, `oklch`/`oklab` converted by hand because Chromium
+  returns the tokens in their authored spaces) — **0 failures, worst 4.50:1**, and that
+  worst case is the pre-existing `.tab-btn .badge` pair (`--muted` on `--glass-sunken`)
+  mirrored rather than "fixed", since changing it here would make the drawer's badges
+  disagree with the tabs'. Plus: open/close by trigger, scrim and Escape (focus returning
+  to the ☰ only if it was inside the drawer); `aria-expanded` driving the ☰→✕ morph from
+  one attribute; no horizontal overflow 320→1600px; the 17-row drawer scrolling at 560px
+  window height with the foot still reachable and the trigger still visible.
+- **Details that are easy to undo by accident:** the closed drawer is `inert` (declared in
+  the markup, not only toggled from script) — that is what keeps its buttons out of the tab
+  order without a hand-rolled focus trap. Each action **delegates** to the control that
+  already owns it (`#status-restart-server` et al.) rather than calling the IPC a second
+  time, so the disabled state and toast stay in one place, and an action whose result lives
+  on a tab takes you to that tab. The `::after` arrow uses `content: '→' / ''`: generated
+  content is otherwise announced, so every row would have been read as "Agent, right
+  arrow". Two `:focus-visible` rules were **removed** — `appearance.css` already defines the
+  addon's single focus ring, and restating it gave these controls a different offset.
+- **Mode toggle semantics match the site:** clicking it makes an *explicit* light/dark
+  choice and leaves `system` behind, which is why the label is read from `data-mode` (the
+  mode actually painted) rather than from `appearanceState.mode`, a value that may be
+  `system` and so is not something to invert. Verified both ways: the Settings `<select>`
+  follows, and the neighbouring `theme` key survives the read-modify-write.
+- ⚠️ Two caveats. The badge pair sits *exactly* at 4.50:1 (AA passes with no margin) —
+  inherited, not introduced. And all of this was verified in Chromium with the preload
+  stubbed: the drawer is pure DOM/CSS so it should transfer, but the built Electron window
+  has not been eyeballed.
+
+---
+
 **Companion doc:** [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md) — threat model, trust boundaries, and the permissions matrix.

@@ -96,7 +96,7 @@
   .dash-readout:empty { display: none; }
 
   .dash-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-  /* The one action in the head, so it wears the scheme's ramp (solid, never glass). */
+  /* The primary action in the head, so it wears the scheme's ramp (solid, never glass). */
   .btn-webapp {
     background: var(--accent-fill); color: var(--on-accent); border: none; border-radius: 8px;
     padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
@@ -105,14 +105,148 @@
      from the scheme's two hues, so there is no fixed hex to step it to. */
   .btn-webapp:hover { filter: brightness(1.12); }
 
+  /* ── The dropper: the webapp's HeaderDropper, ported ─────────────────────
+     A ☰ in the head that slides a drawer in from the right. It is NOT a list of views —
+     `#view-tabs` is the navigation — so see the markup for what it holds instead.
+
+     ⚠️ THE TRIGGER, THE SCRIM AND THE DRAWER ARE ALL DESCENDANTS OF `#topbar`, and that
+     is load-bearing rather than incidental. `#topbar` carries `z-index: 10`, so it is a
+     STACKING CONTEXT: a descendant's `z-index` orders it only against its siblings
+     INSIDE the head, never against a drawer left outside it (which would then paint over
+     the ☰ and hide the ✕ that closes it). Keeping all three in the same context is what
+     lets the trigger outrank the drawer, and it is why the webapp puts them in its
+     header too. All three are `position: fixed`, so they take no room in the head's flex
+     flow — `fixed` is not a flex item, and `#topbar` has no transform/filter that could
+     turn it into their containing block. */
+  #nav-drop-btn {
+    display: inline-flex; flex-direction: column; justify-content: center;
+    width: 34px; height: 34px; padding: 0 7px; flex-shrink: 0;
+    background: transparent; border: 1px solid transparent; border-radius: 8px;
+    cursor: pointer; position: relative; z-index: 70;
+  }
+  #nav-drop-btn:hover { background: var(--glass-hover); border-color: var(--glass-edge); }
+  /* No `:focus-visible` rule here (or on `.drawer-mode` below): the addon already has ONE
+     focus ring, defined globally in appearance.css. Restating it would give these two
+     controls a different offset from every other control in the app. */
+  #nav-drop-btn > span {
+    position: relative; display: block; width: 100%; height: 2px;
+    border-radius: 999px; background: var(--text); transition: transform .25s ease;
+  }
+  #nav-drop-btn > span::before,
+  #nav-drop-btn > span::after {
+    content: ''; position: absolute; left: 0; width: 100%; height: 2px;
+    border-radius: 999px; background: var(--text);
+    transition: transform .25s ease, top .25s ease;
+  }
+  #nav-drop-btn > span::before { top: -6px; }
+  #nav-drop-btn > span::after { top: 6px; }
+  /* Three bars become an ✕ by rotating the middle bar and collapsing the outer two onto
+     it (the webapp's trick): the pseudo-elements inherit that 45°, so their own 0° and 90°
+     land at 45° and 135° — a clean cross rather than three hand-picked angles. */
+  #nav-drop-btn[aria-expanded='true'] > span { transform: rotate(45deg); }
+  #nav-drop-btn[aria-expanded='true'] > span::before { top: 0; transform: rotate(0deg); }
+  #nav-drop-btn[aria-expanded='true'] > span::after { top: 0; transform: rotate(90deg); }
+
+  #nav-scrim {
+    position: fixed; inset: 0; z-index: 50;
+    background: color-mix(in srgb, var(--bg) 40%, transparent);
+    opacity: 0; visibility: hidden; transition: opacity .25s ease, visibility .25s ease;
+  }
+  #nav-scrim.is-open { opacity: 1; visibility: visible; }
+
+  /* ⚠️ A pane is 84% (`--glass-a`) because it floats over the flat room, which has nothing
+     legible to show through it. THIS drawer floats over the WORKSPACE — panes, lists,
+     console output — so it keeps more of its own body (92%) and the scrim dims what is
+     behind it. What is left of the content underneath contributes ~4% of the drawer's
+     final colour: a texture, not a ghost of the text below it. Reasoned in §13.20, and
+     measured in both modes against a deliberately hostile backdrop (a bright pane with
+     dark text scrolled behind the open drawer). */
+  #nav-drawer {
+    position: fixed; top: 0; right: 0; z-index: 60;
+    width: min(320px, 88vw); height: 100%;
+    display: flex; flex-direction: column; gap: 18px;
+    /* The extra top padding clears the ☰/✕, which floats over the drawer's own header at
+       the same offset it holds in the head (the webapp leaves the same gap this way). */
+    padding: 60px 14px 18px;
+    background: color-mix(in srgb, var(--glass-land) 92%, transparent);
+    border-left: 1px solid var(--glass-edge);
+    box-shadow: var(--shadow-lift);
+    transform: translateX(100%);
+    transition: transform .3s cubic-bezier(.22, .61, .36, 1);
+    overflow-y: auto;
+  }
+  #nav-drawer.is-open { transform: translateX(0); }
+
+  .drawer-group { display: flex; flex-direction: column; gap: 2px; }
+  /* The foot group is pushed down with `margin-top: auto` — the same mechanism the
+     webapp's theme group uses — so the drawer's shape does not depend on how many
+     actions happen to sit above it. */
+  .drawer-group--foot {
+    margin-top: auto; border-top: 1px solid var(--glass-edge); padding-top: 14px;
+  }
+  .drawer-label {
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--muted); padding: 0 10px 6px;
+  }
+  .drawer-link {
+    display: flex; align-items: center; justify-content: flex-start; gap: 6px;
+    width: 100%; font: inherit; font-size: 13px; text-align: left;
+    padding: 9px 10px; border-radius: 9px; border: none; background: transparent;
+    color: var(--text); cursor: pointer;
+    transition: background-color .18s ease, transform .18s ease;
+  }
+  /* The arrow the webapp's links carry, revealed on hover. `margin-left: auto` rather than
+     `justify-content: space-between`, because a row can now hold a label AND a badge before
+     it — space-between would push the badge away from the name it belongs to. */
+  .drawer-link::after {
+    /* The `/ ''` is alternative text, and it is what keeps this arrow out of the item's
+       accessible name — generated content is otherwise announced, so every row would be
+       read out as "Agent, right arrow". Same glyph, silent. */
+    content: '→' / ''; color: var(--accent-in-text); opacity: 0; transform: translateX(-4px);
+    margin-left: auto; transition: opacity .18s ease, transform .18s ease;
+  }
+  /* The current view, marked the way the tab row marks it: an accent-tinted wash with the
+     ink pair on it, because a label on a wash of its own hue is the one case where the
+     page's `--accent` is not the right colour for text. Same recipe as `.tab-btn.active`,
+     re-measured against the drawer's own background in §13.20. */
+  .drawer-link.active {
+    background: color-mix(in srgb, var(--scheme-hue-accent) 16%, transparent);
+    color: var(--accent-in-text); font-weight: 600;
+  }
+  /* Mirrors `.tab-btn .badge` — which is scoped to the tab row and so cannot reach a clone
+     in here. The clone is kept in step by a MutationObserver, never frozen at load time,
+     and deliberately inherits its font-weight like the original does. */
+  .drawer-badge {
+    display: inline-block; padding: 1px 6px; border-radius: 10px;
+    font-size: 10px; background: var(--glass-sunken); color: var(--muted);
+  }
+  .drawer-badge.on { background: var(--green); color: var(--on-solid); }
+  .drawer-badge.warn { background: var(--yellow); color: var(--on-solid); }
+  .drawer-badge.err { background: var(--red); color: var(--on-solid); }
+  .drawer-link:hover,
+  .drawer-link:focus-visible { background: var(--glass-hover); transform: translateX(2px); }
+  .drawer-link:hover::after,
+  .drawer-link:focus-visible::after { opacity: 1; transform: translateX(0); }
+  /* The webapp's foot control is a pill on the accent ramp: deliberately NOT glass, and
+     not the page's accent ink either — it is the one solid thing in the drawer. */
+  .drawer-mode {
+    display: flex; align-items: center; justify-content: center; width: 100%;
+    padding: 10px 12px; border-radius: 999px; border: none;
+    background: var(--accent-fill); color: var(--on-accent);
+    font: inherit; font-size: 11px; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase; cursor: pointer;
+  }
+  .drawer-mode:hover { filter: brightness(1.12); }
+
   /* ── The view tabs: one scrolling row of pills inside the head ───────── */
   #view-tabs {
     display: flex; gap: 6px; padding-bottom: 10px;
     overflow-x: auto;
-    /* ⚠️ The row IS the navigation — there is no ☰ dropdown behind it — so its overflow
-       has to be VISIBLE. With the scrollbar hidden (as it was while the dropdown existed
-       as a fallback), a mouse user on a narrow window had no way to reach a tab that had
-       scrolled out of sight. Thin and themed rather than the default chrome. */
+    /* ⚠️ The row IS the navigation — the ☰ beside the web app button opens actions, not a
+       list of views — so its overflow has to be VISIBLE. With the scrollbar hidden (as it
+       was while a nav dropdown existed as a fallback), a mouse user on a narrow window
+       had no way to reach a tab that had scrolled out of sight. Thin and themed rather
+       than the default chrome. */
     scrollbar-width: thin;
     scrollbar-color: var(--glass-edge) transparent;
   }
@@ -463,7 +597,7 @@
 <!-- The room: the scheme's two hues, held well back. Decorative, so aria-hidden. -->
 <div id="room" aria-hidden="true"></div>
 
-<!-- One floating glass head: the surface's name, its live state, the one action, and the
+<!-- One floating glass head: the surface's name, its live state, its actions, and the
      view tabs. Not sticky on purpose — see the note in the <style> block. -->
 <header id="topbar">
   <div class="dash-head">
@@ -475,6 +609,12 @@
     <ul class="dash-readout" id="dash-readout"></ul>
     <div class="dash-actions">
       <button id="topbar-webapp" class="btn-webapp">Open Web App ↗</button>
+      <!-- The dropper's trigger. `aria-expanded` is the open/closed state (the stylesheet
+           reads it to morph the bars into the ✕, so the two cannot disagree). -->
+      <button id="nav-drop-btn" type="button" aria-label="Menu"
+              aria-expanded="false" aria-controls="nav-drawer">
+        <span></span>
+      </button>
     </div>
   </div>
   <nav id="view-tabs" aria-label="Dashboard views">
@@ -491,6 +631,42 @@
     <button class="tab-btn" data-tab="updates">Updates <span class="badge" id="tab-badge-updates"></span></button>
     <button class="tab-btn" data-tab="settings">Settings</button>
   </nav>
+
+  <!-- ── The dropper ───────────────────────────────────────────────────────
+       The webapp's HeaderDropper, ported: a ☰ in the head that slides a drawer in from
+       the right, listing every surface, then the app-level actions, with the mode toggle
+       at its foot — the same shape as the site's drawer (groups of links, theme last).
+
+       The VIEWS group is the SAME list as `#view-tabs` above, generated from it rather
+       than written out a second time: a view added to the tab row appears here with no
+       second edit, and the two lists cannot fall out of step. Both stay — the tab row is
+       the fast way to move between views at a glance, and the drawer is the one place
+       that also reaches the app-level actions and the mode.
+
+       Both elements are inside <header> (see the stacking-context note in the <style>
+       block) and `position: fixed`, so they overlay the workspace without taking part in
+       the head's flex flow. `inert` while closed — declared here, not only toggled from
+       script — keeps the buttons out of the tab order from the first paint, without a
+       hand-rolled focus trap. -->
+  <div id="nav-scrim"></div>
+  <aside id="nav-drawer" aria-label="Simple menu" inert>
+    <div class="drawer-group" id="drawer-pages">
+      <div class="drawer-label">Views</div>
+    </div>
+    <div class="drawer-group">
+      <div class="drawer-label">This app</div>
+      <button class="drawer-link" id="drawer-restart" type="button">Restart server</button>
+      <button class="drawer-link" id="drawer-log" type="button">Open log file</button>
+      <button class="drawer-link" id="drawer-resources" type="button">Open resources folder</button>
+      <button class="drawer-link" id="drawer-updates" type="button">Check for updates</button>
+    </div>
+    <div class="drawer-group drawer-group--foot">
+      <div class="drawer-label">Appearance</div>
+      <!-- Label names what clicking it will DO, so it reads as the opposite of the mode
+           in force. Set in `paintAppearance()` from the mode actually painted. -->
+      <button class="drawer-mode" id="drawer-mode" type="button">Light mode</button>
+    </div>
+  </aside>
 </header>
 
 <div id="content">
@@ -1560,6 +1736,17 @@ function activateTab(tabId) {
   sidebarBtn?.classList.add('active');
   document.getElementById(`panel-${tabId}`).classList.add('active');
 
+  // The drawer lists these same views, so exactly one item there is current too. Queried
+  // rather than read out of a variable, so this stays correct however the drawer was built.
+  for (const item of document.querySelectorAll('.drawer-page')) {
+    const current = item.dataset.tab === tabId;
+    item.classList.toggle('active', current);
+    // Additive for screen readers: the tab row carries no such marker, so saying which
+    // view is open can only help, never contradict it.
+    if (current) item.setAttribute('aria-current', 'true');
+    else item.removeAttribute('aria-current');
+  }
+
   // Lazily load the marketplace list the first time the tab is opened.
   if (tabId === 'marketplace' && !marketplaceLoaded) {
     marketplaceLoaded = true;
@@ -1574,11 +1761,134 @@ for (const btn of document.querySelectorAll('.tab-btn')) {
   btn.addEventListener('click', () => activateTab(btn.dataset.tab));
 }
 
-// ── The head's one action ──
-// There is deliberately no ☰ nav dropdown: the view tabs are the navigation and they
-// live in the head itself (see #view-tabs' visible overflow in the <style> block). Every
-// view is therefore reachable from the same place, at every window width.
+// ── The head's actions ──
+// The view tabs are the navigation and they live in the head itself (see #view-tabs'
+// visible overflow in the <style> block), so every view is reachable from the same place
+// at every window width. The ☰ beside the web app button is NOT a second copy of them:
+// it opens the dropper, which holds only what a tab cannot.
 document.getElementById('topbar-webapp').addEventListener('click', () => window.simpleDashboard.openWebApp());
+
+const navDropBtn = document.getElementById('nav-drop-btn');
+const navDrawer = document.getElementById('nav-drawer');
+const navScrim = document.getElementById('nav-scrim');
+
+/** Open or close the drawer.
+ *
+ *  `inert` — rather than an `aria-hidden` a focusable child would contradict — is what
+ *  takes the closed drawer out of the tab order, so Tab around the head can never land on
+ *  a button that has slid off-screen. It also means there is no focus TRAP to write: the
+ *  drawer cannot hold focus while closed, and while open Tab walks its own controls and
+ *  then on into the page, which is what a service surface should do (trapping focus in a
+ *  drawer of five shortcuts would be worse than not trapping it). */
+function setDrawerOpen(open, { focus = true } = {}) {
+  // Captured BEFORE `inert` goes on: Chromium blurs whatever sits inside an inert
+  // subtree, so asking afterwards always answers `body`.
+  const hadFocus = navDrawer.contains(document.activeElement);
+  navDrawer.classList.toggle('is-open', open);
+  navScrim.classList.toggle('is-open', open);
+  navDropBtn.setAttribute('aria-expanded', String(open));
+  navDrawer.inert = !open;
+  if (!focus) return;
+  if (open) {
+    const first = navDrawer.querySelector('.drawer-link, .drawer-mode');
+    if (first) first.focus();
+  } else if (hadFocus) {
+    // Only ever move focus BACK if it was in the drawer, so a mouse click on the scrim
+    // does not yank the caret to the ☰ for someone who never had it there.
+    navDropBtn.focus();
+  }
+}
+
+navDropBtn.addEventListener('click', () => setDrawerOpen(!navDrawer.classList.contains('is-open')));
+navScrim.addEventListener('click', () => setDrawerOpen(false));
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && navDrawer.classList.contains('is-open')) setDrawerOpen(false);
+});
+
+/** Run one of the drawer's actions, then close.
+ *
+ *  Each one DELEGATES to the control that already owns it instead of calling the same IPC
+ *  a second time: the Status tab's button carries the disabled state, the toast and the
+ *  refresh that belong to the action, so a copy here would be a second behaviour to keep
+ *  in step with it — the drift this file warns about elsewhere.
+ *
+ *  An action whose only visible result is on a tab takes you to that tab, because from
+ *  any other view "Restart server" and "Check for updates" would otherwise look like
+ *  nothing happened at all. */
+function drawerAction(controlId, tabId) {
+  return () => {
+    setDrawerOpen(false);
+    if (tabId) activateTab(tabId);
+    const el = document.getElementById(controlId);
+    if (el) el.click();
+  };
+}
+
+document.getElementById('drawer-restart').addEventListener('click', drawerAction('status-restart-server', 'status'));
+document.getElementById('drawer-log').addEventListener('click', drawerAction('status-open-log'));
+document.getElementById('drawer-resources').addEventListener('click', drawerAction('status-open-resources'));
+document.getElementById('drawer-updates').addEventListener('click', drawerAction('update-check', 'updates'));
+
+// The foot control, and the webapp drawer's own. Clicking it makes an EXPLICIT light/dark
+// choice and leaves `system` behind, exactly as the site's does — which is why it reads
+// the mode in force off the DOM rather than out of `appearanceState.mode`, a value that
+// may be `system` and so is not something to invert. The label comes from
+// `paintAppearance()`, so it cannot describe a mode the page is not painting.
+document.getElementById('drawer-mode').addEventListener('click', () => {
+  const resolved = document.documentElement.dataset.mode === 'light' ? 'light' : 'dark';
+  saveAppearance({ mode: resolved === 'dark' ? 'light' : 'dark' });
+});
+
+// ── The drawer's view list ──
+// Built FROM the tab row rather than written out again: the page names, their order and
+// the set of them stay in one place, so a view added to the head shows up here for free
+// and the two lists cannot disagree about what the app contains.
+const drawerPages = document.getElementById('drawer-pages');
+
+for (const tabBtn of document.querySelectorAll('.tab-btn')) {
+  const tabId = tabBtn.dataset.tab;
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.className = 'drawer-link drawer-page';
+  item.dataset.tab = tabId;
+
+  // The label is the tab's own text with the badge left out. The badge is live state, so
+  // copying it as text here would freeze it at whatever it said during load.
+  const label = document.createElement('span');
+  label.textContent = [...tabBtn.childNodes]
+    .filter((n) => !(n.nodeType === 1 && n.classList.contains('badge')))
+    .map((n) => n.textContent).join('').trim();
+  item.appendChild(label);
+
+  const sourceBadge = tabBtn.querySelector('.badge');
+  if (sourceBadge) {
+    const badge = sourceBadge.cloneNode(true);
+    badge.classList.add('drawer-badge');
+    item.appendChild(badge);
+    // A MIRROR, not a snapshot: it copies whatever the tab row is showing, classes
+    // included, so `on`/`warn`/`err` arrive with it and a badge introduced on a tab later
+    // needs no change here. Watching the source (not the clone) is what stops a loop.
+    const mirror = () => {
+      badge.textContent = sourceBadge.textContent;
+      badge.className = sourceBadge.className + ' drawer-badge';
+    };
+    new MutationObserver(mirror).observe(sourceBadge, {
+      childList: true, characterData: true, subtree: true,
+      attributes: true, attributeFilter: ['class'],
+    });
+  }
+
+  item.addEventListener('click', () => {
+    setDrawerOpen(false);
+    activateTab(tabId);
+  });
+  drawerPages.appendChild(item);
+}
+
+// Mark whichever view the markup starts on, so the drawer agrees with the head before
+// anything has been clicked. `activateTab` keeps it in step from here on. Read from the
+// DOM rather than hardcoding the default a second time.
+activateTab(document.querySelector('.tab-btn.active')?.dataset.tab || 'status');
 const MARKETPLACE_URL = 'https://sthopwood.com/market';
 let marketplaceLoaded = false;
 
@@ -4479,6 +4789,19 @@ let appearanceState = { scheme: appearanceApi.DEFAULT_SCHEME, mode: appearanceAp
 
 function paintAppearance() {
   appearanceApi.applyToElement(document.documentElement, appearanceState);
+
+  // The drawer's foot control. Its label names what clicking it will DO, so it is the
+  // OPPOSITE of the mode in force — and that mode is read back off the DOM, which
+  // `applyToElement` has just written, rather than resolved a second time here: `system`
+  // resolves to something the Mode `<select>` can display but the button cannot invert,
+  // and a second resolution could disagree with what is actually painted.
+  // Done BEFORE the guard below, so a page without the Settings controls still labels its
+  // drawer instead of leaving it claiming the wrong mode.
+  const drawerMode = document.getElementById('drawer-mode');
+  if (drawerMode) {
+    const resolved = document.documentElement.dataset.mode === 'light' ? 'light' : 'dark';
+    drawerMode.textContent = resolved === 'dark' ? 'Light mode' : 'Dark mode';
+  }
 
   const schemeSelect = document.getElementById('appearance-scheme');
   const modeSelect = document.getElementById('appearance-mode');
