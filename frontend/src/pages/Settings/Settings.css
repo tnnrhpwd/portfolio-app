@@ -17,6 +17,36 @@
    =========================================================================== */
 
 .settings-page {
+  /* ── Follow the site-wide colour scheme ───────────────────────────────
+   * Four aliases, and no rule below this was touched.
+   *
+   * This page painted with the RAW brand hues — `--fg-blue`, `--fg-mint`,
+   * `--fg-orange`, `--fg-pink`. Those are the fixed pre-scheme palette, so every
+   * panel hue, the toolbar's gradient hairline, the focus/selection colour and
+   * the two gradient buttons stayed cyan-and-pink whatever scheme the visitor
+   * had picked on `/profile`. Aliasing them to the scheme's two ROLE hues is the
+   * whole fix: the panels, the hairline and the buttons now move with the picker.
+   *
+   * The pairings matter. `--fg-mint` only ever appeared opposite `--fg-blue` in a
+   * gradient (the primary button, the toolbar rule), so it maps to `primary` to
+   * keep those ramps two-hued rather than collapsing them into a flat fill. Same
+   * for `--fg-pink`/`--fg-orange`, which are the warm button's two ends.
+   *
+   * Scoped to this page's root, so the rest of the site keeps the real tokens —
+   * and declared HERE rather than on `:root` because a custom property is
+   * substituted where it is DECLARED. `--scheme-*` lives on `<body>`, this page's
+   * ancestor, so it resolves against the body palette and cannot form a cycle
+   * with the `--fg-*` names being redefined on this element. (Platform Admin.css
+   * and Profile.css use this same shape; index.css has the long version.)
+   *
+   * The `-bg` half of the scheme is deliberately absent: those exist to paint a
+   * full-bleed animated backdrop, and a service page is one flat `--bg-page`
+   * surface with no backdrop to tint (§5.7). */
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
+  --fg-orange: var(--scheme-accent);
+  --fg-pink: var(--scheme-primary);
+
   --settings-hue: var(--fg-blue);
   /* Muted (secondary) text. The shared `--text-color-accent` is tuned against
      `--bg-page`, where it measures 6.26:1 in dark mode; the panels below are
@@ -28,6 +58,17 @@
      mode needs the lift; light already passes. (§13.13 of the audit notes.) */
   --settings-muted: var(--text-color-accent);
 
+  /* The ACCENT AS TEXT gets the same treatment `--settings-muted` gets, and for
+     the same reason. index.css pins the scheme accent's lightness (0.52 light /
+     0.76 dark) so that the accent clears 4.5:1 as text on a PAGE background —
+     but the AI panel is a 15% wash of that same accent, which lifts the surface
+     toward the text. In dark mode the accent is the LIGHT one and so is the
+     wash, and the gap between them collapses: `--fg-blue` as a link measured
+     4.05:1 there, under AA, in every one of the twelve schemes. Same move, same
+     direction — mix toward `--text-color`, preserving the hue so it still reads
+     as a link. (Profile.css has this exposure too; not touched here.) */
+  --settings-link: var(--fg-blue);
+
   position: relative;
   min-height: 100vh;
   min-height: 100svh;
@@ -38,8 +79,14 @@
   background: var(--bg-page);
 }
 
+/* Dark mode lifts the muted tone toward the primary text. 55/45 rather than the
+   70/30 the Plans page uses, because the toggle rows stack a SECOND wash on top
+   of the panel's — the surface under a toggle description is two tints deep, not
+   one. At 70/30 the neutral scheme (a grey hue, so the washes shift lightness
+   without adding colour) measured 4.34:1 there, under AA. */
 .dark-theme .settings-page {
-  --settings-muted: color-mix(in srgb, var(--text-color-accent) 70%, var(--text-color));
+  --settings-muted: color-mix(in srgb, var(--text-color-accent) 55%, var(--text-color));
+  --settings-link: color-mix(in srgb, var(--fg-blue) 55%, var(--text-color));
 }
 
 /* ── Shell ────────────────────────────────────────────────────────────────── */
@@ -104,6 +151,9 @@
   align-items: center;
   gap: calc(var(--nav-size) * 0.12);
   padding: 1px 9px;
+  /* Inside the narrow-screen scroller below: `flex-shrink` would squash a chip
+     rather than let it scroll out of view. */
+  flex: 0 0 auto;
   border-radius: 999px;
   background: color-mix(in srgb, var(--fg-blue) 8%, transparent);
   color: var(--settings-muted);
@@ -427,7 +477,7 @@ select.settings-input { cursor: pointer; }
   color: var(--settings-muted);
 }
 .settings-note strong { color: var(--text-color); }
-.settings-note a { color: var(--fg-blue); font-weight: var(--font-weight-semibold); }
+.settings-note a { color: var(--settings-link); font-weight: var(--font-weight-semibold); }
 .settings-note code {
   padding: 0 calc(var(--nav-size) * 0.1);
   border-radius: var(--border-radius-sm, 4px);
@@ -607,6 +657,27 @@ select.settings-input { cursor: pointer; }
 }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
+
+/* Below ~900px the readout stops wrapping and scrolls sideways instead, exactly
+   as the admin console's does. A wrapped readout costs a second and third chip
+   row in a bar that never leaves the screen.
+
+   `flex: 1 1 0` rather than `width: 100%` is the load-bearing part: with
+   `flex-basis: auto` the wrap decision is taken from the chips' FULL intrinsic
+   width, so the actions wrap onto a row of their own however much room is
+   actually left over. Basis 0 lets the readout shrink into the remainder. */
+@media (max-width: 900px) {
+  .settings-bar-readout {
+    flex: 1 1 0;
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 2px;
+  }
+  .settings-bar-readout::-webkit-scrollbar { display: none; }
+}
 
 @media (max-width: 720px) {
   .settings-page {

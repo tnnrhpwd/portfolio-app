@@ -1,63 +1,56 @@
 /* ── SimpleCtaBand ────────────────────────────────────────────────────────────
    The closing "use the product" band, shared by /home and /projects.
 
-   The band's ink is --text-color-inv — white in light mode, deep navy in dark
-   mode — so the fill must be DEEP in light mode and BRIGHT in dark mode for that
-   ink to stay legible. `--cta-l-a` / `--cta-l-b` decide exactly that, and they
-   are the only thing a theme flip changes.
+   The band is the COLOUR SCHEME worn as a PLANE, the way /profile wears it: its
+   two stops are `--scheme-accent-bg` / `--scheme-primary-bg` — the pair that mixes
+   each identity hue into THIS mode's page colour — so the band is pale on a light
+   page and deep on a dark one, and it follows the picker with no per-page
+   override.
 
-   ⚠️ The fill is the COLOUR SCHEME, not the theme's fixed brand blue → teal. It
-   was `--fg-blue`/`--fg-mint`, which made this the one band on the site that
-   ignored the picker — and it read as broken the moment /home and /profile
-   started following it.
+   Because that pair already carries the mode, the band does not have to guess a
+   brightness and the ink can just be `--text-color` (dark navy in light mode,
+   near-white in dark): fill and copy move together, and every other colour on the
+   band — the buttons, the card hairlines, the secondary copy — is derived from
+   that one ink token.
+
+   ⚠️ `--text-color-inv` is deliberately NOT the band's ink. It is the ink for a
+   *filled gradient button*, and pinning the band to it is what made this the one
+   plane that fought the page in both directions — bright against the dark page,
+   a heavy dark slab against the light one — and needed the old `--cta-l-a`/`-b`
+   lightness pair to rescue its contrast. `--scheme-*-bg` needs no such rescue.
 
    ⚠️ Applied HERE and not from either page. This component is the only place the
    band is styled — `Projects.css` says so explicitly, because a local override is
    how /home and /projects drift apart. Driving it from the component means both
    pages follow the picker together and neither restyles the other's copy.
 
-   The two stops are the scheme's own roles re-pinned to a lightness that clears
-   AA for the band's ink — the same move `Admin.css` makes for its action, and for
-   the same reason: a scheme's identity hues are chosen for contrast ON A PAGE, and
-   a full-bleed band is the opposite problem. Re-pinning also means a PALE identity
-   hue (Cyberpunk's yellow, Monokai's lime) needs no hand-picked variant, which is
-   what the old `.light-theme` rule was doing for the mint end alone.
-
-   Chroma rides along (`c`), so a scheme with no chroma stays grey: `neutral` is
-   deliberately a greyscale band rather than a coloured one.
-
    Geometry mirrors the page bands it bookends (`.home-band` / `.projects-band`):
    full-bleed, flat, centered, with the same vertical rhythm. */
 
 .simple-cta {
+  /* Band-local derivations. The FILL is the scheme's page-relative pair; every
+     piece of INK is `--text-color`, so the two always agree about how light the
+     band is. `neutral` needs nothing special: its two roles are the same grey, so
+     the band is a flat grey plane rather than a coloured one. */
+  --cta-a: var(--scheme-accent-bg);
+  --cta-b: var(--scheme-primary-bg);
+  --cta-ink: var(--text-color);
+  --cta-ink-soft: color-mix(in srgb, var(--text-color) 85%, transparent);
+  --cta-hairline: color-mix(in srgb, var(--text-color) 24%, transparent);
+  --cta-hairline-strong: color-mix(in srgb, var(--text-color) 55%, transparent);
+  --cta-wash: color-mix(in srgb, var(--text-color) 10%, transparent);
+  --cta-wash-strong: color-mix(in srgb, var(--text-color) 16%, transparent);
+  --cta-on-ink: var(--bg-page); /* copy inside the ink-filled pill */
+
   position: relative;
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: calc(var(--nav-size) * 1.6) calc(var(--nav-size) * 0.3);
-  color: var(--text-color-inv);
+  color: var(--cta-ink);
   text-align: center;
-
-  /* Light theme: deep enough that the white ink clears AA on BOTH stops, and on
-     the 12%-white card surfaces above them — the cards are the tightest case,
-     because that overlay lightens the band again underneath the text. Measured
-     worst across all thirteen schemes: 4.87:1 (aurora). 0.48 also passes, at
-     4.55:1, but that is too little margin to survive any later tweak; 0.44 buys
-     5.21:1 at the cost of a noticeably muddier band. */
-  --cta-l-a: 0.46;
-  --cta-l-b: 0.36;
-  background: linear-gradient(45deg, var(--scheme-accent), var(--scheme-primary));
-  background: linear-gradient(
-    45deg,
-    oklch(from var(--scheme-accent) var(--cta-l-a) c h),
-    oklch(from var(--scheme-primary) var(--cta-l-b) c h)
-  );
-}
-/* Dark theme: the ink is the deep navy, so the band comes UP instead of down. */
-.dark-theme .simple-cta {
-  --cta-l-a: 0.80;
-  --cta-l-b: 0.70;
+  background: linear-gradient(45deg, var(--cta-a), var(--cta-b));
 }
 .simple-cta-wrap { width: 100%; max-width: 1000px; }
 
@@ -70,7 +63,7 @@
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--text-color-inv);
+  color: var(--cta-ink);
   opacity: 0.9;
 }
 .simple-cta-title {
@@ -79,11 +72,10 @@
   letter-spacing: -0.02em;
   line-height: 1.1;
   margin: 0 0 calc(var(--nav-size) * 0.2);
-  color: var(--text-color-inv);
+  color: var(--cta-ink);
 }
 .simple-cta-sub {
-  color: var(--text-color-inv);
-  opacity: 0.9;
+  color: var(--cta-ink-soft);
   font-size: var(--font-size-base);
   line-height: var(--line-height-relaxed);
   margin: 0 auto calc(var(--nav-size) * 0.5);
@@ -99,9 +91,15 @@
 }
 
 /* ── Buttons: uppercase letter-spaced pills ──
-   Both variants derive from --text-color-inv. The old absolute --white0 made the
-   ghost button white-on-bright-cyan (unreadable) and left the primary as a flat
-   white slab on the dark-theme band. */
+   Both variants are painted in the band's own ink, so they invert with the band
+   instead of against it: the primary is a solid ink pill (the one loud thing on a
+   calm plane), the secondary an outline of the same ink. Each variant names its
+   own `background`, so the base carries none.
+
+   ⚠️ `color` must be NAMED on hover. The global `a:hover { color: var(--fg-mint) }`
+   is (0,1,1) and outranks a plain class at (0,1,0) — and both buttons here are
+   anchors. Unnamed, the label turns the scheme's accent, which is a hue in the
+   plane the button sits on, so the text does not dim on hover: it drifts. */
 .simple-cta-btn {
   font-family: inherit;
   font-weight: var(--font-weight-semibold);
@@ -112,50 +110,46 @@
   padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.55);
   cursor: pointer;
   border: 1px solid transparent;
-  color: var(--text-color-inv);
-  /* Dead in practice — both variants below override `background` — but it is kept
-     on the scheme tokens rather than the old `--fg-blue`/`--fg-mint` so that it
-     cannot become a landmine if a third variant ever lands on it. */
-  background: linear-gradient(45deg, var(--scheme-accent), var(--scheme-primary));
+  color: var(--cta-ink);
+  background: transparent;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: calc(var(--nav-size) * 0.12);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-/* ⚠️ `color` must be NAMED on hover. The global `a:hover { color: var(--fg-mint) }`
-   is (0,1,1) and outranks a plain class at (0,1,0) — and both buttons here are
-   anchors. Unnamed, the label turns the scheme's PRIMARY, which is one end of the
-   band's own gradient, so the text does not dim on hover: it disappears. */
-.simple-cta-btn:hover { color: var(--text-color-inv); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.simple-cta-btn:hover { color: var(--cta-ink); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 .simple-cta-btn:focus-visible {
-  outline: 3px solid var(--text-color-inv);
+  outline: 3px solid var(--cta-ink);
   outline-offset: 3px;
 }
+/* The solid ink pill: ink fill, page-coloured label. Far and away the strongest
+   thing on the band, and it is the page's own two colours, so it cannot clash. */
 .simple-cta-btn--inv {
-  background: var(--text-color-inv);
-  color: var(--text-color);
+  background: var(--cta-ink);
+  color: var(--cta-on-ink);
 }
-/* The inverse fill is a light slab, so the label keeps the READING ink on hover —
-   not `--text-color-inv`, which is what the band uses. */
-.simple-cta-btn--inv:hover { color: var(--text-color); }
+.simple-cta-btn--inv:hover { color: var(--cta-on-ink); }
 .simple-cta-btn--ghost {
   background: transparent;
-  color: var(--text-color-inv);
-  border-color: color-mix(in srgb, var(--text-color-inv) 55%, transparent);
+  color: var(--cta-ink);
+  border-color: var(--cta-hairline-strong);
 }
 .simple-cta-btn--ghost:hover {
-  background: color-mix(in srgb, var(--text-color-inv) 16%, transparent);
-  border-color: var(--text-color-inv);
-  color: var(--text-color-inv);
+  background: var(--cta-wash);
+  border-color: var(--cta-ink);
+  color: var(--cta-ink);
   box-shadow: none;
 }
 
 /* ── The three surfaces ──
-   The card surface, border and secondary text are all built from
-   --text-color-inv so the same rules work in both themes. Explicit tracks
-   (rather than auto-fit) so exactly-three cards never spill into a fourth
-   column on wide screens. */
+   The card is a film of `--bg-1` (the page's own surface token) rather than a
+   wash of the band's ink: a film of the ink would lighten the card on a dark-mode
+   band and darken it on a light-mode one, which is the wrong direction in one of
+   the two modes. A `--bg-1` film lifts the card off the plane in BOTH, so the
+   copy on it keeps its contrast whatever the scheme is.
+   Explicit tracks (rather than auto-fit) so exactly-three cards never spill into
+   a fourth column on wide screens. */
 .simple-cta-surfaces {
   list-style: none;
   margin: calc(var(--nav-size) * 0.7) 0 0;
@@ -173,20 +167,20 @@
   width: 100%;
   min-width: 0;
   padding: calc(var(--nav-size) * 0.32);
-  border: 1px solid color-mix(in srgb, var(--text-color-inv) 30%, transparent);
+  border: 1px solid var(--cta-hairline);
   border-radius: var(--border-radius-lg);
-  background: color-mix(in srgb, var(--text-color-inv) 12%, transparent);
-  color: var(--text-color-inv);
+  background: color-mix(in srgb, var(--bg-1) 40%, transparent);
+  color: var(--cta-ink);
   text-decoration: none;
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 .simple-cta-surface-link:hover {
-  background: color-mix(in srgb, var(--text-color-inv) 20%, transparent);
-  border-color: color-mix(in srgb, var(--text-color-inv) 55%, transparent);
+  background: color-mix(in srgb, var(--bg-1) 60%, transparent);
+  border-color: var(--cta-hairline-strong);
   transform: translateY(-2px);
 }
 .simple-cta-surface-link:focus-visible {
-  outline: 3px solid var(--text-color-inv);
+  outline: 3px solid var(--cta-ink);
   outline-offset: 2px;
 }
 .simple-cta-surface-title {
@@ -205,7 +199,7 @@
 .simple-cta-surface-desc {
   font-size: var(--font-size-small);
   line-height: var(--line-height-base);
-  color: color-mix(in srgb, var(--text-color-inv) 84%, transparent);
+  color: var(--cta-ink-soft);
   margin: 0;
 }
 
@@ -213,19 +207,19 @@
 .simple-cta-note {
   margin: calc(var(--nav-size) * 0.45) 0 0;
   font-size: var(--font-size-small);
-  color: color-mix(in srgb, var(--text-color-inv) 84%, transparent);
+  color: var(--cta-ink-soft);
 }
 .simple-cta-note a {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--text-color-inv);
+  color: var(--cta-ink);
   font-weight: var(--font-weight-semibold);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 .simple-cta-note a:focus-visible {
-  outline: 3px solid var(--text-color-inv);
+  outline: 3px solid var(--cta-ink);
   outline-offset: 2px;
 }
 .simple-cta-note a span { transition: transform 0.2s ease; }

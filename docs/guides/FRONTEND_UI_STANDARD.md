@@ -102,22 +102,52 @@ That is fine on a control filled with `--fg-blue`/`--fg-mint` (bright in both th
 `--text-color`, or it will be unreadable. Same rule for hairlines drawn over a gradient:
 `color-mix(in srgb, var(--text-color) 30%, transparent)`, not `--text-color-inv`.
 
-Which is why a **closing CTA band is built from the `--bg-*` corners and inked with `--text-color`**
-(§"Full-bleed bands"): its fill follows the theme's ink — light in light mode, deep in dark — instead
-of being bright in both. `SimpleCtaBand` and /about's contact band are the two reference cases.
+Which is why a **full-bleed band takes the colour scheme, and the page-relative half of it**. The CTA
+band's two stops are `--scheme-accent-bg` → `--scheme-primary-bg` — the same pair `/profile` wears —
+not the saturated `--scheme-accent`/`--scheme-primary`. Those carry the hue at a lightness chosen for a
+*small* field, so a band built from them has to be either re-pinned in lightness or inked with
+`--text-color-inv`, and either way it gets *brighter* as the page gets darker. The `-bg` pair mixes each
+hue into **this mode's** page colour, so the band is pale on a light page and deep on a dark one, and
+its copy is plain `--text-color`. `SimpleCtaBand` and /about's contact band are the two reference cases.
 
-**Anything that sits on the `--bg-*` corners follows the rule end to end** — and `/login` and
-`/register` are the case worth knowing, because their page root *is* that gradient and they are
-usually a visitor's first, cold load of the site. Their card, its edges and their primary button are
-all derived from `--text-color` through page-local `--login-ink` / `--register-ink` tokens: a
-**solid, tinted `--bg-1` plane** (a translucent film over a *moving* gradient takes on whatever hue
-the animation is showing — pink in light mode, maroon in dark — so the form surface changed colour
-as you sat on it), a hairline that is a **tone of the ink** rather than a neutral grey, and an
-**ink-filled** primary pill.
+### Pages that *are* their own gradient: the alias block
 
-That ink pill is a deliberate, documented exception to §6's "primary actions are gradient-filled":
-the gradient is bright in *both* themes, so on a page that flips it is the one element that never
-follows — the ink pill inverts with everything around it instead. Don't "fix" it back to a gradient.
+`/login` and `/register` are the case worth knowing, because their page root **is** the four-stop
+backdrop and they are usually a visitor's first, cold load of the site. They follow the scheme the way
+every other converted gradient page does (`Pricing.css`, `Projects.css`, `/support`, `/about`) — by
+re-pointing the four corner names and the two accents, which is the whole change, because the page was
+already written against them:
+
+```css
+.foo-page {
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
+  /* BACKDROP tokens, not `--scheme-*-bg`: a full-bleed field has to pin its
+     lightness per mode, or a pale identity hue is far too light on a dark page */
+  --bg-orange: var(--scheme-backdrop-a, var(--scheme-accent-bg));
+  --bg-pink:   var(--scheme-backdrop-b, var(--scheme-primary-bg));
+  --bg-blue:   var(--scheme-backdrop-a, var(--scheme-accent-bg));
+  --bg-mint:   var(--scheme-backdrop-b, var(--scheme-primary-bg));
+}
+```
+
+- **`--fg-orange` is deliberately not aliased** — orange is the alert hue, the one colour that must not
+  follow the decor. `--bg-orange` *is*, because it only appears in the decorative backdrop.
+- **The `-bg` fallback is not decoration.** `initScheme()` runs in the header's *mount effect*, a frame
+  after the first paint, so without it the entire `background` declaration is invalid on that frame and
+  the page flashes with no backdrop at all.
+- **A scheme needs no account.** It is device-local — `utils/scheme.js` keeps it in `localStorage` and
+  the shared `Header` paints it — so it applies on `/login` and `/register` exactly like light/dark.
+- **The primary is the scheme's ramp, at a pinned lightness** (`--login-btn-l-*`, and the same move the
+  band makes): a scheme's identity hues are chosen for contrast *on a page*, so white on Cyberpunk's
+  yellow at its page lightness does not read. Measured across the thirteen schemes, the worst cell is
+  **6.14:1**. An un-pinned ramp would make the picker's most visible control the only one that stopped
+  following it — don't "restore" it to a plain gradient.
+- ⚠️ **Never put a control's label on a wash of its own hue.** Tinting the sign-in card
+  (`color-mix(in srgb, var(--fg-blue) 7%, var(--bg-1))`) cost the accent-coloured links about a stop:
+  the worst scheme measured **4.38:1** — under AA — against **4.84:1** or better on the plain `--bg-1`
+  card every other page uses. The scheme belongs in the backdrop *behind* a card and in the controls
+  *on* it, not in the surface underneath text.
 
 **Watch the global `input:invalid` on a form.** `index.css` paints every invalid input with
 `border-color: var(--red0)`, and a `required` field is invalid while it is *empty* — so a sign-in form
@@ -401,13 +431,17 @@ compact controls only:
 .foo-band--tint { background: color-mix(in srgb, var(--fg-mint) 12%, var(--bg-page)); }
 .foo-band--wash { background: color-mix(in srgb, var(--fg-blue) 10%, var(--bg-page)); }
 
-/* A closing CTA band wears the --bg-* corners, NOT the --fg-* accents. The
-   corners are light in light mode and deep in dark mode, so the copy is plain
-   --text-color and the band sits in the page's palette. A --fg-blue/--fg-mint
-   fill is bright in BOTH themes: neon against the dark page, a heavy dark slab
-   against the light one, and it forces --text-color-inv copy on the band.
+/* A closing CTA band wears the SCHEME's page-relative pair, inked with plain
+   --text-color. The -bg tokens mix each identity hue into THIS mode's page
+   colour, so the band is pale on a light page and deep on a dark one. The
+   saturated --scheme-accent/--scheme-primary pair is for small fields: on a band
+   it needs either a pinned lightness or --text-color-inv ink, and both make the
+   band brighter as the page gets darker.
    `SimpleCtaBand` and /about's contact band are built this way — copy them. */
-.foo-band--cta { background: linear-gradient(45deg, var(--bg-blue), var(--bg-mint)); color: var(--text-color); }
+.foo-band--cta {
+  background: linear-gradient(45deg, var(--scheme-accent-bg), var(--scheme-primary-bg));
+  color: var(--text-color);
+}
 
 /* Controls inside it are painted in the band's own ink so they invert with the
    band: a solid ink pill, and an outline of the same ink. Never --white0/--grey5
@@ -416,12 +450,17 @@ compact controls only:
 .foo-btn-ghost {
   background: transparent;
   color: var(--text-color);
-  border-color: color-mix(in srgb, var(--text-color) 52%, transparent);
+  border-color: color-mix(in srgb, var(--text-color) 55%, transparent);
 }
 .foo-btn-ghost:hover {
   background: color-mix(in srgb, var(--text-color) 10%, transparent);
   border-color: var(--text-color);
 }
+
+/* Cards on the band are a film of --bg-1, NOT a wash of the ink: an ink film
+   lightens the card on a dark band and darkens it on a light one, i.e. it spends
+   the copy's contrast in one of the two modes. */
+.foo-band--cta .foo-card { background: color-mix(in srgb, var(--bg-1) 40%, transparent); }
 
 /* Translucent surface for tiles that need contrast without a border. On the
    gradient-everywhere shape use the --bg-1 flavor instead, since --bg-page
@@ -852,7 +891,13 @@ the page's `<h1>` reads "Dream board" — three one-word tabs stay the same heig
   cursor: pointer;
   border: 1px solid transparent;
   color: var(--text-color-inv);
-  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  /* A primary control is the scheme's ACTION ramp: ONE hue with its lightness
+     pinned per mode (`--action-hi`/`-lo`), which is what lets the label above
+     clear AA on every scheme — a raw `--fg-blue` → `--fg-mint` fill is bright in
+     both themes and only readable at one end. Fallback line first: relative
+     color syntax is what `--action` is built from. */
+  background: linear-gradient(45deg, var(--scheme-accent), var(--scheme-primary));
+  background: var(--action);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 .foo-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
@@ -870,14 +915,20 @@ the page's `<h1>` reads "Dream board" — three one-word tabs stay the same heig
 
 | Selector | What it sets |
 | --- | --- |
-| `button` | gradient fill, `--text-color-inv` text, `2px transparent` border, `min-height: 44px`, `position: relative`, `overflow: hidden` |
-| `button:hover:not(:disabled)` | **the site's blue→mint gradient and inverted text** |
+| `button` | **the scheme's action ramp** (`--action`), `--text-color-inv` text, `2px transparent` border, `min-height: 44px`, `position: relative`, `overflow: hidden` |
+| `button:hover:not(:disabled)` | **the same ramp reversed** (`--action-hover`) and inverted text |
+| `a:hover` | the scheme's partner hue as the link ink — `(0,1,1)`, so your own hover must NAME its colour to beat it |
 | `input`, `select`, `textarea` | `2px solid var(--border-nav)`, `var(--bg-1)`, `min-height: 44px`, `padding: var(--spacing-sm)` |
-| `input:focus`, … | the shared focus outline + a blue box-shadow |
+| `input:focus`, … | the shared focus outline, a `--scheme-accent` edge and a scheme-tinted box-shadow |
+
+The global defaults follow the visitor's **colour scheme**, so a page that keeps them lands in the
+scheme for free. The legacy `--fg-blue`/`--fg-mint` pair is no longer what a bare control paints —
+reach for `var(--action)` for a filled control, and keep `--fg-blue`/`--fg-mint` where a page has
+deliberately not been converted yet.
 
 The trap is **specificity**. `.foo-btn:hover` is `(0,2,0)`; `button:hover:not(:disabled)` is
-`(0,2,1)` — so the global rule wins and *every* control on your page turns into the site gradient on
-hover, including outline and text buttons.
+`(0,2,1)` — so the global rule wins and *every* control on your page turns into the scheme's action
+ramp on hover, including outline and text buttons.
 
 Fix it by matching the shape, not by fighting it with `!important`:
 

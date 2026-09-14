@@ -4,6 +4,15 @@
    and scales gracefully on any device size. */
 
 .pets-page {
+  /* Colour scheme — the room's taps and tiles are scheme fills now
+     (FRONTEND_UI_STANDARD §2). `--fg-orange` is left alone: orange is the alert
+     hue. */
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
+  --bg-orange: var(--scheme-backdrop-a, var(--scheme-accent-bg));
+  --bg-pink: var(--scheme-backdrop-b, var(--scheme-primary-bg));
+  --bg-blue: var(--scheme-backdrop-a, var(--scheme-accent-bg));
+  --bg-mint: var(--scheme-backdrop-b, var(--scheme-primary-bg));
   font-family: 'CutiveMono-Regular', monospace;
   width: 92%;
   max-width: 1200px;

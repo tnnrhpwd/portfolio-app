@@ -36,7 +36,7 @@
 .dropper-btn > span::after { content: ''; top: calc(var(--nav-size) * 0.13); }
 .dropper-btn:hover > span,
 .dropper-btn:hover > span::before,
-.dropper-btn:hover > span::after { background-color: var(--fg-blue); }
+.dropper-btn:hover > span::after { background-color: var(--scheme-accent); }
 #planit-header-dropper__toggle:checked + .dropper-btn > span { transform: rotate(45deg); }
 #planit-header-dropper__toggle:checked + .dropper-btn > span::before { top: 0; transform: rotate(0deg); }
 #planit-header-dropper__toggle:checked + .dropper-btn > span::after { top: 0; transform: rotate(90deg); }
@@ -45,7 +45,6 @@
 .dropper-box {
   --dropper-surface: var(--bg-page);
   --dropper-highlight: var(--bg-accent);
-  --dropper-accent: var(--text-color-accent);
   position: fixed;
   top: 0;
   right: -100%;
@@ -64,25 +63,22 @@
   z-index: 9999999;
 }
 
-/* Color modes — the surface and its highlights come from the theme's accent
-   tokens, so light mode gets a pale mint-to-blue panel with a mint hover and
-   dark blue ink, while dark mode gets a deep teal-to-navy panel with a darker
-   hover and cyan ink. */
+/* Colour SCHEME — the surface and its highlights come from `--scheme-*`, not the
+   theme's fixed brand pairs, because this drawer renders inside the header and so
+   sits OUTSIDE whichever page root re-points `--fg-blue` for itself.
+
+   The panel is a FLAT plane: one accent wash per mode, no gradient across it. A
+   gradient behind a list of links reads as decoration, and it walks the rows into a
+   different colour top to bottom. The modes differ only in how much of the hue is
+   mixed in, because `--scheme-accent` already re-pins its own lightness per mode
+   (0.52 light / 0.76 dark). */
 .light-theme .dropper-box {
-  --dropper-surface: linear-gradient(180deg,
-      color-mix(in srgb, var(--fg-mint) 18%, var(--bg-page)) 0%,
-      var(--bg-page) 38%,
-      color-mix(in srgb, var(--fg-blue) 14%, var(--bg-page)) 100%);
-  --dropper-highlight: color-mix(in srgb, var(--fg-mint) 22%, transparent);
-  --dropper-accent: var(--fg-blue);
+  --dropper-surface: color-mix(in srgb, var(--scheme-accent) 9%, var(--bg-page));
+  --dropper-highlight: color-mix(in srgb, var(--scheme-accent) 22%, transparent);
 }
 .dark-theme .dropper-box {
-  --dropper-surface: linear-gradient(180deg,
-      color-mix(in srgb, var(--fg-mint) 12%, var(--bg-page)) 0%,
-      var(--bg-page) 38%,
-      color-mix(in srgb, var(--fg-blue) 24%, var(--bg-page)) 100%);
-  --dropper-highlight: color-mix(in srgb, var(--fg-mint) 18%, transparent);
-  --dropper-accent: var(--fg-mint);
+  --dropper-surface: color-mix(in srgb, var(--scheme-accent) 12%, var(--bg-page));
+  --dropper-highlight: color-mix(in srgb, var(--scheme-accent) 18%, transparent);
 }
 #planit-header-dropper__toggle:checked ~ .dropper-box { right: 0 !important; }
 
@@ -117,22 +113,26 @@
 }
 .dropper-link::after {
   content: '→';
-  color: var(--dropper-accent);
+  color: var(--text-color);
   opacity: 0;
   transform: translateX(-4px);
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
-/* :not(:disabled) so the Log-out button doesn't fall to the global
-   `button:hover` gradient from index.css. */
+/* `:not(:disabled)` so the Log-out button doesn't fall to the global
+   `button:hover` gradient from index.css.
+
+   The ink stays `--text-color` while the wash carries the scheme: an accent printed
+   on a wash of its OWN hue loses about a stop and a half, which is how a coloured
+   scheme (cyberpunk's yellow, crimson's red) lands under AA on its own highlight. */
 .dropper-link:hover:not(:disabled) {
   background: var(--dropper-highlight);
-  color: var(--dropper-accent);
+  color: var(--text-color);
   transform: translateX(2px);
 }
 .dropper-link:focus {
   outline: none;
   background: var(--dropper-highlight);
-  color: var(--dropper-accent);
+  color: var(--text-color);
 }
 .dropper-link:hover::after { opacity: 1; transform: translateX(0); }
 .dropper-link--strong { font-weight: var(--font-weight-semibold); }
@@ -148,7 +148,7 @@
   padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.3);
   border-radius: 999px;
   border: none;
-  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  background: linear-gradient(45deg, var(--scheme-accent), var(--scheme-primary));
   color: var(--text-color-inv);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -165,7 +165,7 @@
 /* One-time pulse on homepage load */
 .hamburger-animate { border-radius: 50%; animation: dropperPulse 2.2s ease; }
 @keyframes dropperPulse {
-  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--fg-mint) 70%, transparent); }
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--scheme-accent) 70%, transparent); }
   70% { box-shadow: 0 0 0 calc(var(--nav-size) * 0.4) transparent; }
   100% { box-shadow: 0 0 0 0 transparent; }
 }

@@ -60,8 +60,13 @@
   transition: background 0.18s ease, color 0.18s ease;
 }
 .snav-link:hover { background: var(--bg-accent); }
+/* The active pill is the header's one filled accent surface, so it follows the
+   colour SCHEME — the header renders outside the page root and would otherwise
+   keep the theme's fixed brand blue/teal while the page below it followed the
+   picker. Ink is the house `--text-color-inv`, the same pairing every other
+   filled gradient control on the site uses. */
 .snav-link.is-active {
-  background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+  background: linear-gradient(135deg, var(--scheme-accent), var(--scheme-primary));
   color: var(--text-color-inv);
 }
 .snav-link-icon { font-size: var(--font-size-base); line-height: 1; }

@@ -1925,6 +1925,133 @@ which also put a stop to the 60px of empty padding that had existed only to clea
   the repo reads it (checked). Running the 38-script `test:unit` chain for a markup/CSS pass would
   be exactly the sweep the repo's instructions forbid.
 
+### 13.22 The sign-in pages follow the colour scheme (2026-09-14)
+
+`/login`, `/register` and `/forgot-password` were still painting the theme's **fixed brand palette**
+(`--bg-orange/--bg-pink/--bg-blue/--bg-mint` corners, `--fg-blue`/`--fg-mint` accents) while the rest of
+the site aliased those onto `--scheme-*`, so the picker's most-visited pages — usually a visitor's first,
+cold load — were the one place the scheme did not show.
+
+- ✅ **Three pages, one change each.** `/forgot-password` is included because it is one link from the
+  login card and shares its template: leaving it out would have made stepping into it look like leaving
+  the site. All three were already written against those six names, so re-pointing them
+  (`--fg-blue`/`--fg-mint` → `--scheme-accent`/`--scheme-primary`; the four corners →
+  `--scheme-backdrop-a`/`-b`) converts the page whole. `--fg-orange` is deliberately left alone: orange is
+  the alert hue. Same shape as `Pricing.css` / `Projects.css` / `/support` / `/about`.
+- ✅ **Backdrops, not tints.** A full-bleed field takes `--scheme-backdrop-*` — the pair that PINS its
+  lightness per mode — because `--scheme-*-bg` is calibrated as a tint and a pale identity hue mixed to
+  a page-relative lightness goes pale on a *dark* page (see the note in `index.css`).
+- ⚠️ **The fallback in `var(--scheme-backdrop-a, var(--scheme-accent-bg))` is load-bearing.** `Header`'s
+  `useEffect` calls `initScheme()`, a frame *after* the first paint, so without it the whole `background`
+  declaration is invalid on that frame and the page flashes with no backdrop at all. With it, that frame
+  is the pre-change brand corner.
+- ✅ **The primary is the scheme's ramp at a pinned lightness** (`--login-btn-l-a/-b`, 0.46/0.36 light and
+  0.80/0.70 dark), because a scheme's identity hues are chosen for contrast *on a page*: white on
+  Cyberpunk's yellow at its page lightness does not read. `SimpleCtaBand` borrowed those same numbers for
+  its band for a while; the band now wears the page-relative pair (`--scheme-*-bg`, what `/profile`
+  wears) instead, so its fill and its ink move together — see the UI standard's band section.
+- 🐛 **Tinting the card with its own accent cost the page its worst contrast.** The card had been
+  `color-mix(in srgb, var(--fg-blue) 7%, var(--bg-1))`; the links on that card *are* the accent, and an
+  ink on a wash of its own hue loses about a stop. Plain `--bg-1` (what `Pricing`'s cards use) fixed it:
+  **4.38:1 → 4.84:1** at the worst scheme.
+- 🐛 **Both forms greeted every visitor with red-ringed boxes.** `index.css` has
+  `input:invalid { border-color: var(--red0) }`, and a `required` field is invalid while it is *empty* —
+  so a first-time visitor landed on a form that already looked broken. All three pages now opt out
+  (`:invalid` keeps the neutral edge, focus still shows blue) and the red is reserved for a real failure.
+- ✅ **The card is a solid plane, not a 55%-transparent film.** Over a *moving* gradient a film takes on
+  whatever hue the animation is showing, so the form surface changed colour as you sat on it.
+- **Measured, 26 cells** (13 schemes × 2 modes, oklch → sRGB converted in the probe because Chromium
+  keeps `oklch()` in computed styles): **0 failures, worst 4.84:1** (aurora/light, accent link on the
+  card). Tightest others: muted-on-backdrop 5.27, submit ink on the pinned ramp 6.14 (sunset/dark),
+  SHOW/HIDE on the input 4.91. Eyeballed in ocean/light, ocean/dark, cyberpunk/light (the pale-hue stress
+  case) and neutral/dark.
+- ✅ **The rest of the fixed-palette pages were swept in the same pass** (19 stylesheets): `Chess`,
+  `legal` (privacy + terms), `MicTest`, `Music`, `Muse`, `NotFound`, `Pets`, `Polls`, `ResetPassword`,
+  `Sit`, `Strip`, `UIMapper`, and `Projects/{Annuities, Ethanol, Fluid, Halfway, PassGen, SleepAssist,
+  Sonic}`. Each takes the same six aliases on its page root — they were already written against those
+  names, so nothing below them moved. Verified live in both modes on `/music`, `/mic-test`, `/strip`,
+  `/sit`, `/privacy`, `/pets`, `/chess`, `/ethanol`, `/fluid`, `/halfway`, `/sleepassist`, `/sonic`,
+  `/uimapper`, `/annuities`, `/passgen` and a 404: the backdrop stops resolve to `oklch(...)` at the
+  scheme's hue and `--fg-blue`/`--fg-mint` resolve to `oklch(from …)`. `/muse` (gated) and
+  `/reset-password` (needs a token) would not render for this session, so those two rest on the
+  identical block plus a clean parse of all 19 files.
+- ⬜ **Two residues, both deliberate.** (1) `--fg-pink` and `--fg-orange` stay the fixed palette on these
+  pages: orange is the alert hue, and mapping BOTH `--fg-mint` and `--fg-pink` onto `--scheme-primary`
+  flattens every three-stop ramp — `Chess`, `Fluid` and `Muse` pair all three in one gradient. The
+  reference converted pages (`Pricing`, `Projects`, `/support`, `/about`) leave pink alone for the same
+  reason. (2) The swept pages' *buttons* keep the shared, un-pinned ramp exactly as those reference
+  pages do; only the three sign-in pages pin theirs to a lightness that clears AA.
+- ⬜ **Still on the fixed palette:** the shared chrome — `App.css`,
+  `components/ErrorBoundary/ErrorBoundary.css`, `components/SimpleAddon/AIWorkflowSettings.css`. The
+  chrome (header, footer, switcher, `index.css`) was already being converted next door, so this pass
+  deliberately did not touch it.
+- **No test run:** the change is 22 stylesheets plus these docs; no test file reads any of them
+  (checked). Verified in the running app instead, which is the only thing that can see a gradient.
+
+### 13.23 `/passgen`'s calculator was invisible with reduced motion on (2026-09-14)
+
+Reported as "passgen styling broke" right after the colour-scheme sweep, so the sweep was the first
+suspect — and it was innocent. Two things settled that: the diff against HEAD for `PassGen.css` is the
+seven alias lines and nothing else, and dropping just that rule at runtime changed **only colours**
+(the `.primary-btn` ramp and one input border). The stylesheet was also intact — brace and comment
+balance checked across all 22 stylesheets the sweep touched.
+
+- 🐛 **The real bug is a `prefers-reduced-motion` trap.** `.animate-in` has a **base state of
+  `opacity: 0` + `translateY(20px)`** and arrives only through `animation: slideInUp 0.8s ease forwards`.
+  The reduced-motion block set `animation: none` on it, which reverts the element to its base state — so
+  for anyone with reduced motion on, the *entire calculator* (slider, four checkboxes, both buttons and
+  the output field) rendered at `opacity: 0`. Reduced motion means no **movement**, not no **content**:
+  the block now puts those elements at their resting state (`opacity: 1; transform: none`). Verified by
+  A/B: reduced → `1 · none · none`, normal → `1 · slideInUp` (the animation still runs for everyone else),
+  and a hidden-element scan over the page goes from 7 to 0.
+- ✅ **Audited, not assumed.** Every route was loaded with reduced motion emulated and scanned for
+  laid-out-but-invisible elements (`opacity < 0.1`, real box, text or a widget inside): 37 routes signed
+  in, plus a static pass over all 33 `animation: … forwards|both` declarations in the codebase — that
+  fill only bites when the rule's *base* state is hidden.
+- ℹ️ **`/home` was a false positive** — its typed subtitle arrives on a timer (~2.5s), so a 1.1s scan
+  caught it mid-flight; it is `opacity: 1` by 4s. **`/muse` is the reference implementation**, its
+  reduced-motion block already restoring `opacity: 1; transform: none` for its hero copy and reveals.
+  `Profile`, `Pets`, `Annuities`, `Wordle`, `WordleSolver`, `About`, `Plans`, `Hype` and the shared
+  components are safe (base state visible, so killing the animation leaves them shown). Muse, and the
+  pages the scan could not reach because the dev session dropped mid-sweep (the backend was down —
+  `/profile`, `/settings`, `/admin`, `/deepstorage`, `/pay` all redirect to `/login` signed out), were
+  covered statically instead.
+- ⚠️ **Not touched: `/passgen`'s page root is still unstyled.** Its `.container` rule — background, layout,
+  font — is commented out *in the committed file*, and its keyframes with it, which is why the page has no
+  gradient behind it while every sibling does. That is a separate, bigger call than a bug fix: restoring
+  it means re-deriving that rule from the scheme backdrop (and re-checking the layout it used to impose),
+  not un-commenting a rule that references a keyframe that no longer exists.
+
+### 13.24 The global element chrome follows the colour scheme (2026-09-14)
+
+The scheme sweep had covered page stylesheets; the *global* rules in `index.css` were still painting the
+theme's fixed brand palette, so every page that did not override a bare `<button>` got a blue → mint fill
+whatever the visitor had picked — and one that had picked Crimson saw the site's cyan anyway.
+
+- ✅ **The default fill is now the site's ACTION ramp.** `button` (and `input[type=submit|button]`) is
+  `--action`, and `button:hover:not(:disabled)` is the new `--action-hover` — the same ramp with its stops
+  swapped, which is what the old rule did when it reversed `--fg-blue` → `--fg-mint`. `--action` is one
+  scheme hue at a lightness pinned per mode (`--action-hi`/`-lo`), so the `--text-color-inv` LABEL clears
+  AA on every scheme; the raw blue → mint gradient it replaces is bright in *both* themes, where white
+  passes at the blue end and fails at the mint end. Each line keeps a plain `--scheme-*` ramp as its
+  fallback, because `--action` is built from relative colour syntax (the house pattern for those tokens).
+- ✅ **`a:hover` is the scheme's partner hue** (`--scheme-primary`), the same substitution every converted
+  page makes. It stays a bare `a:hover` at `(0,1,1)`, so §6's trap — a component `:hover` must NAME its
+  colour or the global rule wins — is unchanged, and is now recorded in the table there as well.
+- ✅ **Three literal colours are gone.** `a:focus`'s `rgba(33, 150, 243, 0.15)` wash, `input:focus`'s
+  `0 0 0 3px rgba(33, 150, 243, 0.1)` shadow and its `--fg-blue` edge, and `input:invalid:focus`'s
+  `rgba(220, 0, 0, 0.1)`: all four are `color-mix()` of a token now. The MUI blue had been shipping in
+  the global stylesheet through both halves of the scheme migration.
+- ⬜ **Still fixed-palette, deliberately: `--focus-outline`.** It is `3px solid var(--link-color-accessible)`
+  on `:root`, and moving it to the scheme is not a find-and-replace — `:root` has never seen
+  `--scheme-accent` (it lives on `<body>`), so the declaration would collapse to the guaranteed-invalid
+  value and take the focus ring off *every* page. It has to be redeclared in the
+  `.light-theme, .dark-theme` block, and it is accessibility-critical enough to want its own eyeball.
+- ⬜ **Still fixed-palette, page-level:** the same hardcoded blue survives in `App.css`'s `.info-message`,
+  `Hype.css` / `Support.css` focus washes (0.2), `Polls.css` (0.35 ×2), and `Polls.css` / `Sit.css`'s
+  `rgba(220, 0, 0, 0.12)` error washes. Same fix, one line each, when someone is in those files.
+- **No test run:** `index.css` is not read by any test file (checked); the change is 4 rules plus one token.
+
 ---
 
 **Companion doc:** [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md) — threat model, trust boundaries, and the permissions matrix.

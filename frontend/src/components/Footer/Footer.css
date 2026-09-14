@@ -1,7 +1,17 @@
-/* Footer — transparent, so it sits on whatever band the page ends with. Only
-   the link highlights are themed (underline + hover fill per color mode). */
+/* Footer — transparent, so it sits on whatever band the page ends with. Only the
+   link highlights are themed, and they follow the COLOUR SCHEME.
+
+   ⚠️ The scheme tokens are read DIRECTLY, not through a `--fg-*` alias. The footer
+   renders outside the page root, so a page that re-points `--fg-blue` for itself
+   (`/pricing`, `/simple`, `/login` — all aliasing it onto `--scheme-accent`) never
+   reaches this element: the footer kept the theme's fixed brand blue/teal while
+   the page above it followed the picker.
+
+   That is also why there is no `.light-theme` / `.dark-theme` pair here any more —
+   `--scheme-accent` already re-pins its lightness per mode (0.52 light / 0.76 dark),
+   so one declaration covers both. */
 .footer-space{
-    --footer-line: color-mix(in srgb, var(--text-color) 45%, transparent);
+    --footer-line: color-mix(in srgb, var(--scheme-accent) 45%, transparent);
     padding-top: calc(var(--nav-size)*.5);
     font-family: 'CutiveMono-Regular';
     font-weight: bold;
@@ -11,12 +21,6 @@
     text-align: center;
     padding-bottom: calc(var(--nav-size)*.5);
     background-color: transparent;
-}
-.light-theme .footer-space{
-    --footer-line: color-mix(in srgb, var(--fg-blue) 45%, transparent);
-}
-.dark-theme .footer-space{
-    --footer-line: color-mix(in srgb, var(--fg-mint) 45%, transparent);
 }
 .footer-space-links {
     margin-top: calc(var(--nav-size)*0.2);
@@ -35,5 +39,5 @@
 .footer-space-link:hover:not(:disabled) {
     color: var(--text-color-inv);
     text-decoration-color: transparent;
-    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    background: linear-gradient(45deg, var(--scheme-accent), var(--scheme-primary));
 }

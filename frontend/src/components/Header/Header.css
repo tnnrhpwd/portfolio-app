@@ -273,7 +273,14 @@ a{
     position: fixed;
   }
   .planit-header-themebutton-landscape:hover {
-    background-image: radial-gradient(var(--bg-themebutton-land) , transparent 60% );
+    /* Follows the colour SCHEME. The header renders outside the page root, so it
+       never inherits a page's `--fg-blue: var(--scheme-accent)` alias, and this hover
+       used to keep the theme's fixed brand wash on a page that followed the picker.
+       A wash rather than a fill, so `--text-color` stays legible on any hue. */
+    background-image: radial-gradient(
+      color-mix(in srgb, var(--scheme-accent) 24%, transparent),
+      transparent 60%
+    );
     color: var(--text-color);
     font-weight: bold;
   }

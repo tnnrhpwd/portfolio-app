@@ -421,7 +421,6 @@ body[data-scheme='custom'] {
   --border-nav: var(--input-border-accessible);
   --border-plan: var(--grey5-transp);
   --bg-nav-dropper: var(--grey1);
-  --bg-themebutton-land: var(--bg-accent);
 
   /* ── Service-page color planes (FRONTEND_UI_STANDARD.md §5.7) ──────────
      A plane is the *same hue* as its accent, held at a fixed lightness with its
@@ -538,7 +537,6 @@ body[data-scheme='custom'] {
   --border-nav: var(--input-border-accessible);
   --border-plan: var(--grey3-transp);
   --bg-nav-dropper: var(--grey4);
-  --bg-themebutton-land: var(--green3);
 
   /* Saturated planes in the dark theme stay *deep* rather than light — that is
      what keeps white text readable and still reads as a rich color, not muddy.
@@ -595,6 +593,15 @@ body[data-scheme='custom'] {
     135deg,
     oklch(from var(--scheme-primary) var(--action-hi) c h),
     oklch(from var(--scheme-primary) var(--action-lo) c h)
+  );
+  /* The same ramp with its stops swapped, so the global `button:hover` can light a
+     control up without leaving the scheme. The rule it replaces reversed its own
+     gradient the same way; a brightness filter was the only alternative, and it
+     would have repainted the label too. */
+  --action-hover: linear-gradient(
+    135deg,
+    oklch(from var(--scheme-primary) var(--action-lo) c h),
+    oklch(from var(--scheme-primary) var(--action-hi) c h)
   );
 }
 
@@ -674,9 +681,13 @@ ul {
   padding: 0;
 }
 
+/* ⚠️ This stays a bare `a:hover` at (0,1,1), which is why a component's own
+   `:hover` has to NAME its colour to beat it — see FRONTEND_UI_STANDARD.md §6.
+   The ink is the scheme's PARTNER hue, the substitution every converted page makes
+   (`--fg-blue` → accent, `--fg-mint` → primary), so a link still visibly changes
+   colour on hover whatever the visitor picked. */
 a:hover {
-  color: var(--fg-mint);
-  /* background: rgba(33, 150, 243, 0.1); */
+  color: var(--scheme-primary);
   transform: translateY(-1px);
 }
 
@@ -687,14 +698,24 @@ a:hover::after {
 a:focus {
   outline: var(--focus-outline);
   outline-offset: var(--focus-outline-offset);
-  background: rgba(33, 150, 243, 0.15);
+  background: color-mix(in srgb, var(--scheme-accent) 15%, transparent);
 }
 
 a:active {
   transform: translateY(0);
 }
 
-/* Enhanced Button Styles */
+/* Enhanced Button Styles
+
+   The default fill is the site's ACTION ramp — one scheme hue, its lightness
+   pinned per mode (`--action-hi`/`-lo`) so the `--text-color-inv` LABEL clears AA
+   on every scheme. It replaces a raw `--fg-blue` → `--fg-mint` gradient, which is
+   bright in both themes: white on it passes at the blue end and fails at the mint
+   end, which is why the pages that kept it each needed their own correction. The
+   two lines are the house fallback pattern — a plain ramp first, the pinned one
+   second — so a browser without relative color syntax still gets a scheme fill
+   rather than no fill at all. A page wanting the explicit blue → mint gradient
+   still sets it locally; `.foo-btn` outranks an element selector. */
 button,
 input[type="submit"],
 input[type="button"] {
@@ -705,7 +726,8 @@ input[type="button"] {
   padding: var(--spacing-sm) var(--spacing-md);
   border: 2px solid transparent;
   border-radius: var(--border-radius);
-  background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+  background: linear-gradient(135deg, var(--scheme-primary), var(--scheme-accent));
+  background: var(--action);
   color: var(--text-color-inv);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -717,7 +739,8 @@ input[type="button"] {
 button:hover:not(:disabled),
 input[type="submit"]:hover:not(:disabled),
 input[type="button"]:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--fg-mint), var(--fg-blue));
+  background: linear-gradient(135deg, var(--scheme-accent), var(--scheme-primary));
+  background: var(--action-hover);
   color: var(--text-color-inv);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
@@ -767,8 +790,8 @@ select:focus,
 textarea:focus {
   outline: var(--focus-outline);
   outline-offset: var(--focus-outline-offset);
-  border-color: var(--fg-blue);
-  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+  border-color: var(--scheme-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--scheme-accent) 12%, transparent);
 }
 
 input:invalid,
@@ -780,7 +803,7 @@ textarea:invalid {
 input:invalid:focus,
 select:invalid:focus,
 textarea:invalid:focus {
-  box-shadow: 0 0 0 3px rgba(220, 0, 0, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--red0) 10%, transparent);
 }
 
 /* Placeholder styling */
@@ -806,21 +829,40 @@ label {
   line-height: var(--line-height-base);
 }
 
-/* ── Toast notifications (vibrant editorial restyle) ── */
+/* ── Toast notifications (vibrant editorial restyle) ──
+
+   The CHROME follows the colour scheme, the same substitution every converted
+   page makes: `--fg-blue` → `--scheme-accent`, `--fg-mint` → `--scheme-primary`.
+   Info takes the accent and success the primary, so the two hues the visitor
+   picked are the two a toast can be, and the progress ramp is the house
+   accent → primary one (the active nav chip, the primary button). On `neutral`
+   the roles are told apart by LIGHTNESS rather than hue, which is how that
+   scheme separates its two roles everywhere else.
+
+   ⚠️ Warning and error are NOT switched to the scheme. They are `--fg-orange`
+   and `--red0` on purpose, for the rule `index.css` states where the alert token
+   is defined: an alarm that changes colour with the decor is not an alarm.
+
+   The BODY stays the neutral `--bg-1` plane with `--text-color` copy. A toast is
+   a surface, and a surface carries text — the scheme belongs in the chrome and in
+   the accent, not under the words (§13.22's lesson from the sign-in card). */
 .light-theme,
 .dark-theme {
   --toastify-color-light: var(--bg-1);
   --toastify-color-dark: var(--bg-1);
   --toastify-text-color-light: var(--text-color);
   --toastify-text-color-dark: var(--text-color);
-  --toastify-icon-color-info: var(--fg-blue);
-  --toastify-icon-color-success: var(--fg-mint);
+  --toastify-icon-color-info: var(--scheme-accent);
+  --toastify-icon-color-success: var(--scheme-primary);
   --toastify-icon-color-warning: var(--fg-orange);
   --toastify-icon-color-error: var(--red0);
-  --toastify-color-progress-light: linear-gradient(90deg, var(--fg-blue), var(--fg-mint));
-  --toastify-color-progress-dark: var(--fg-mint);
-  --toastify-color-progress-info: var(--fg-blue);
-  --toastify-color-progress-success: var(--fg-mint);
+  /* One ramp for both container themes: the app renders a single <ToastContainer>
+     and never passes `theme`, so the `-dark` pair only exists so a future
+     `theme="dark"` toast cannot fall back to the library's own purple. */
+  --toastify-color-progress-light: linear-gradient(90deg, var(--scheme-accent), var(--scheme-primary));
+  --toastify-color-progress-dark: linear-gradient(90deg, var(--scheme-accent), var(--scheme-primary));
+  --toastify-color-progress-info: var(--scheme-accent);
+  --toastify-color-progress-success: var(--scheme-primary);
   --toastify-color-progress-warning: var(--fg-orange);
   --toastify-color-progress-error: var(--red0);
   --toastify-toast-width: min(92vw, 400px);
@@ -870,7 +912,7 @@ label {
 }
 
 .Toastify__toast--success .Toastify__toast-icon {
-  background: color-mix(in srgb, var(--fg-mint) 18%, transparent) !important;
+  background: color-mix(in srgb, var(--scheme-primary) 18%, transparent) !important;
 }
 
 .Toastify__toast--error .Toastify__toast-icon {
@@ -882,7 +924,7 @@ label {
 }
 
 .Toastify__toast--info .Toastify__toast-icon {
-  background: color-mix(in srgb, var(--fg-blue) 18%, transparent) !important;
+  background: color-mix(in srgb, var(--scheme-accent) 18%, transparent) !important;
 }
 
 .Toastify__close-button {

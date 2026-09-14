@@ -2,18 +2,43 @@
 /* ── Login — vibrant editorial (docs/guides/FRONTEND_UI_STANDARD.md) ── */
 
 .login {
-  /* Page-local derivations, in the same shape as the shared closing CTA band
-     (components/Simple/SimpleCtaBand/SimpleCtaBand.css).
+  /* ── The colour scheme ──────────────────────────────────────────────────────
+     The alias block the other converted pages use (`Pricing.css`, `Projects.css`,
+     `/about`, `/support`). It works because everything below is already written
+     against `--fg-blue` / `--fg-mint` / the `--bg-*` corners, so re-pointing those
+     re-points the whole page at the visitor's scheme instead of the theme's fixed
+     brand palette.
 
-     The page's own gradient is built from the --bg-* corners, which are pale in
-     light mode and deep in dark mode, so everything drawn on top of it — ink,
-     hairlines, washes — is derived from --text-color and follows the theme.
-     --text-color-inv is deliberately NOT used here: it is the ink for a *filled
-     gradient button*, not "the text colour for a gradient page", and it resolves
-     to a dark colour in dark mode (docs/guides/FRONTEND_UI_STANDARD.md). */
-  --login-ink: var(--text-color);
+     This page has to do it for itself: there is no converted ancestor to inherit
+     from, only the shared header and footer. And it matters most HERE — `/login`
+     and `/register` are usually a visitor's first, cold load of the site. That is
+     also why no account is needed to see the right colours: a scheme is
+     device-local (`utils/scheme.js` keeps it in localStorage, the shared `Header`
+     paints it via `initScheme()`), exactly like the light/dark mode.
+
+     ⚠️ `--fg-orange` is deliberately NOT aliased — orange is the ALERT hue, the
+     one colour that must not follow the decor. */
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
+  /* The four backdrop stops take the BACKDROP tokens, not `--scheme-*-bg`: this is
+     a full-bleed field, and the tint pair carries the page's lightness, which a
+     pale identity hue turns too light for a dark page (see the note in
+     `index.css`). The backdrop pins its lightness per mode and takes only the hue.
+
+     The `-bg` fallback matters because `initScheme()` runs in the header's mount
+     effect — a frame AFTER the first paint. Without it the whole gradient
+     declaration is invalid on that first frame and the page flashes with no
+     backdrop at all; with it the pre-scheme frame is the fixed brand corner, i.e.
+     what the page looked like before this change. */
+  --bg-orange: var(--scheme-backdrop-a, var(--scheme-accent-bg));
+  --bg-pink: var(--scheme-backdrop-b, var(--scheme-primary-bg));
+  --bg-blue: var(--scheme-backdrop-a, var(--scheme-accent-bg));
+  --bg-mint: var(--scheme-backdrop-b, var(--scheme-primary-bg));
+
+  /* Hairlines are a tone of the page's own ink rather than a neutral grey (§5 of
+     the UI standard), so they follow the light/dark mode while the fills above
+     follow the scheme. */
   --login-ink-hairline: color-mix(in srgb, var(--text-color) 22%, transparent);
-  --login-on-ink: var(--bg-page);
   color: var(--text-color);
   min-height: 100vh;
   padding: calc(var(--nav-size) * 1.8) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.5);
@@ -97,14 +122,19 @@
   align-items: center;
 }
 .login-card {
-  /* A solid, deliberately-tinted plane rather than a 55%-transparent film: over
-     a moving gradient, a translucent film takes on whatever hue the gradient is
-     showing (pink in light mode, maroon in dark), so the one surface holding the
-     form changed colour with the background animation. A wash of a single accent
-     over --bg-1 is the §5 recipe for a container, and it leaves the solid --bg-1
-     fields sitting *on* it legible as fields. The edge is a tone of the page ink,
-     not a neutral grey hairline. */
-  background: color-mix(in srgb, var(--fg-blue) 7%, var(--bg-1));
+  /* A solid plane rather than a 55%-transparent film: over a moving gradient a
+     translucent film takes on whatever hue the animation is showing (pink in one
+     scheme, maroon in the next), so the one surface holding the form changed
+     colour as you sat on it.
+
+     ⚠️ It is the plain `--bg-1`, NOT a wash of the scheme accent. It was
+     `color-mix(in srgb, var(--fg-blue) 7%, var(--bg-1))`, and that cost the page
+     its most important contrast: the links on this card ARE the accent, and an ink
+     printed on a wash of its own hue loses roughly a stop. Measured across the
+     thirteen schemes, aurora/light came in at 4.38:1 — under AA — against 4.58:1
+     or better on the plain surface. A card is a surface; the scheme belongs in the
+     backdrop behind it and in the controls on it. */
+  background: var(--bg-1);
   border: 1px solid var(--login-ink-hairline);
   border-radius: var(--border-radius-lg);
   box-shadow: var(--shadow-md);
@@ -188,13 +218,23 @@
 }
 .login-showhide:focus { outline: var(--focus-outline); outline-offset: var(--focus-outline-offset); }
 
-/* Primary pill button — the page's one loud control, painted in the page's own
-   ink so it inverts with the theme (deep navy in light mode, near-white in dark)
-   instead of staying a saturated slab in both. This is the same treatment the
-   shared CTA band's primary takes, and it is why the fill is restated on hover:
-   the global `button:hover:not(:disabled)` rule pipes in the site gradient
-   otherwise (§6 of the UI standard). */
+/* Primary pill button — the page's one loud control, so it wears the SCHEME
+   rather than an ink pill: a button that ignored the picker would be the one
+   thing on the page that never changed colour, which is the same complaint the
+   closing CTA band was rebuilt to fix.
+
+   The two stops are the scheme's own roles RE-PINNED to a lightness that clears AA
+   for `--text-color-inv` — the move `SimpleCtaBand` (and `Admin.css`) makes, for
+   the same reason: a scheme's identity hues are chosen for contrast ON A PAGE, so
+   white on Cyberpunk's yellow or Monokai's lime at its page lightness does not
+   read. Pinning also means a pale identity hue needs no hand-picked variant.
+
+   The fill is restated on hover because the global `button:hover:not(:disabled)`
+   rule would otherwise pipe in the unpinned site gradient (§6 of the UI
+   standard). */
 .login-submit {
+  --login-btn-l-a: 0.46;
+  --login-btn-l-b: 0.36;
   min-height: 0;
   font-family: inherit;
   font-weight: var(--font-weight-semibold);
@@ -205,16 +245,29 @@
   padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.55);
   cursor: pointer;
   border: 1px solid transparent;
-  color: var(--login-on-ink);
-  background: var(--login-ink);
+  color: var(--text-color-inv);
+  background: linear-gradient(
+    45deg,
+    oklch(from var(--scheme-accent) var(--login-btn-l-a) c h),
+    oklch(from var(--scheme-primary) var(--login-btn-l-b) c h)
+  );
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   margin-top: calc(var(--nav-size) * 0.15);
+}
+/* The ink is the deep navy in dark mode, so the ramp comes UP instead of down. */
+.dark-theme .login-submit {
+  --login-btn-l-a: 0.8;
+  --login-btn-l-b: 0.7;
 }
 .login-submit:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
-  background: var(--login-ink);
-  color: var(--login-on-ink);
+  color: var(--text-color-inv);
+  background: linear-gradient(
+    45deg,
+    oklch(from var(--scheme-accent) var(--login-btn-l-a) c h),
+    oklch(from var(--scheme-primary) var(--login-btn-l-b) c h)
+  );
 }
 .login-submit:focus { outline: var(--focus-outline); outline-offset: var(--focus-outline-offset); }
 .login-submit:disabled { opacity: 0.6; cursor: not-allowed; }

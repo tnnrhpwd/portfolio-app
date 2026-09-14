@@ -5,6 +5,15 @@
 .polls-page {
   min-height: 100vh;
   min-height: 100svh;
+  /* Colour scheme — re-pointed here rather than rewritten below, so the page
+     follows the visitor's pick like the converted pages do (FRONTEND_UI_STANDARD
+     §2). `--fg-orange` and the display pinks are deliberately left alone. */
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
+  --bg-orange: var(--scheme-backdrop-a, var(--scheme-accent-bg));
+  --bg-pink: var(--scheme-backdrop-b, var(--scheme-primary-bg));
+  --bg-blue: var(--scheme-backdrop-a, var(--scheme-accent-bg));
+  --bg-mint: var(--scheme-backdrop-b, var(--scheme-primary-bg));
   background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
   background-size: 400% 400%;
   animation: polls-gradient 18s ease infinite;

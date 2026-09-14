@@ -5,7 +5,6 @@ import { logout, resetDataSlice, getLLMProviders, getEmailPreferences, updateEma
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import { toast } from 'react-toastify';
 import {
-  getThemePreference,
   setDarkMode,
   setLightMode,
   setSystemColorMode,
@@ -252,8 +251,14 @@ function Settings() {
       email: user.email || '',
     });
 
-    // The PREFERENCE, not the resolved class — see the note in `Profile.jsx`.
-    setColorMode(getThemePreference());
+    const body = document.body;
+    if (body.classList.contains('dark-theme')) {
+      setColorMode('dark');
+    } else if (body.classList.contains('light-theme')) {
+      setColorMode('light');
+    } else {
+      setColorMode('system');
+    }
 
     return () => {
       dispatch(resetDataSlice());

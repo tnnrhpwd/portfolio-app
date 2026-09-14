@@ -146,8 +146,30 @@
 }
 .about-band--surface { background: transparent; }
 .about-band--tint { background: color-mix(in srgb, var(--deco-b) 14%, transparent); }
-.about-band--cta { background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint)); color: var(--text-color-inv); }
-.about-wrap { width: 100%; max-width: 1080px; }
+/* The contact band is the scheme worn as a PLANE, exactly as the shared closing
+   CTA wears it on /home and /projects: `--scheme-accent-bg` / `--scheme-primary-bg`
+   are each identity hue mixed into THIS mode's page colour, so the band is pale on
+   a light page and deep on a dark one, and the ink can simply be `--text-color`.
+
+   ⚠️ Not the `--fg-blue`/`--fg-mint` ramp the rest of this page uses. Those alias
+   the SATURATED scheme accents, which with `--text-color-inv` copy made this the
+   one plane that ignored the mode — bright against the dark page, a heavy dark
+   slab against the light one.
+
+   ⚠️ And not `--bg-blue`/`--bg-mint` either. The page ROOT is already the
+   backdrop pair (`--scheme-backdrop-a`/`-b`), and the band has to read as a plane
+   rather than as a continuation of the field behind it — which is what the
+   page-relative tint pair gives it: deeper than the light-mode field, lighter
+   than the dark-mode one. */
+.about-band--cta {
+  --cta-ink: var(--text-color);
+  --cta-ink-soft: color-mix(in srgb, var(--text-color) 85%, transparent);
+  --cta-hairline-strong: color-mix(in srgb, var(--text-color) 55%, transparent);
+  --cta-wash: color-mix(in srgb, var(--text-color) 10%, transparent);
+  --cta-on-ink: var(--bg-page);
+  background: linear-gradient(45deg, var(--scheme-accent-bg), var(--scheme-primary-bg));
+  color: var(--cta-ink);
+}
 
 /* Hero */
 .about-hero {
@@ -241,10 +263,23 @@
   border-color: var(--border-nav);
 }
 .about-btn-outline:hover { color: var(--text-color); background: color-mix(in srgb, var(--bg-1) 45%, transparent); box-shadow: none; }
-.about-btn-inv { background: var(--white0); color: var(--grey5); }
-.about-btn-inv:hover { color: var(--grey5); }
-.about-btn-ghost { background: var(--white1-transp); color: var(--text-color-inv); border-color: var(--text-color-inv); }
-.about-btn-ghost:hover { color: var(--text-color-inv); box-shadow: none; background: var(--white1-transp); }
+/* The contact band's two buttons are painted in the band's own ink, like the
+   shared CTA band's: a solid ink pill and an outline of the same ink. Neither uses
+   the absolute `--white0`/`--grey5` pair, which made the primary a white slab on
+   whichever plane it landed on. */
+.about-btn-inv { background: var(--cta-ink); color: var(--cta-on-ink); }
+.about-btn-inv:hover { color: var(--cta-on-ink); }
+.about-btn-ghost {
+  background: transparent;
+  color: var(--cta-ink);
+  border-color: var(--cta-hairline-strong);
+}
+.about-btn-ghost:hover {
+  color: var(--cta-ink);
+  box-shadow: none;
+  border-color: var(--cta-ink);
+  background: var(--cta-wash);
+}
 
 /* Hero portrait */
 .about-hero-media { display: flex; justify-content: center; }
@@ -497,9 +532,12 @@
 
 /* CTA band */
 .about-band--cta .about-section-head { text-align: center; margin-left: auto; margin-right: auto; }
-.about-band--cta .about-eyebrow,
-.about-band--cta .about-heading,
-.about-band--cta .about-lead { color: var(--text-color-inv); }
+/* The band's copy is inked from `--cta-ink`, not from the page's hierarchy: the
+   eyebrow's `--text-color-accent` grey is only ~3.4:1 on a deep dark-mode plane,
+   and the band is the one plane on the page whose ground moves with the scheme. */
+.about-band--cta .about-eyebrow { color: var(--cta-ink); opacity: 0.9; }
+.about-band--cta .about-heading { color: var(--cta-ink); }
+.about-band--cta .about-lead { color: var(--cta-ink-soft); }
 .about-cta-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: calc(var(--nav-size) * 0.3); }
 
 /* Footer */
@@ -909,17 +947,23 @@
 .about-reveal.is-visible .about-edu-card { opacity: 1; translate: 0 0; }
 
 /* ── CTA aurora ──────────────────────────────────────────────────────────────
-   A slow double bloom drifting across the gradient band. It sits UNDER the
-   content, which needs its own stacking context to get there — a positioned
-   pseudo-element paints above static in-flow content by default. */
+   A slow double bloom drifting across the band. It sits UNDER the content,
+   which needs its own stacking context to get there — a positioned
+   pseudo-element paints above static in-flow content by default.
+
+   The bloom is a wash of the band's own INK, not the absolute `--white0` it used
+   to be. A white bloom over a deep dark-mode plane lifts the plane toward the
+   light copy and spends the copy's contrast; over a pale light-mode plane it did
+   nothing at all. An ink wash moves with the mode, so the texture reads in both
+   and it keeps its distance from the copy. */
 .about-band--cta::before {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
   background-image:
-    radial-gradient(58% 120% at 18% 28%, color-mix(in srgb, var(--white0) 30%, transparent), transparent 70%),
-    radial-gradient(48% 100% at 82% 72%, color-mix(in srgb, var(--white0) 22%, transparent), transparent 70%);
+    radial-gradient(58% 120% at 18% 28%, color-mix(in srgb, var(--cta-ink) 10%, transparent), transparent 70%),
+    radial-gradient(48% 100% at 82% 72%, color-mix(in srgb, var(--cta-ink) 7%, transparent), transparent 70%);
   background-size: 200% 200%;
   animation: aboutCtaDrift 20s ease-in-out infinite alternate;
 }

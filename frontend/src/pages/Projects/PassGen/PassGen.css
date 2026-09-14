@@ -23,6 +23,13 @@
 } */
 
 /* Theme-specific animation speeds */
+/* Colour scheme — the page root carries the visitor's hues (FRONTEND_UI_STANDARD
+   §2). This page's own four-corner rule is commented out above, so only the
+   accents have to be re-pointed; `--fg-orange` is left alone (alert hue). */
+.container {
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
+}
 .light-theme .container {
     animation-duration: 15s;
 }
@@ -608,6 +615,20 @@
 @media (prefers-reduced-motion: reduce) {
     .container {
         animation: none;
+    }
+    
+    /* ⚠️ These arrived BY ANIMATION: their base state is `opacity: 0` +
+       `translateY(20px)` and `slideInUp` is the only thing that brings them to 1.
+       Switching the animation off therefore left the whole calculator — slider,
+       checkboxes, buttons and the output field — at opacity 0, i.e. permanently
+       invisible. Reduced motion means no *movement*, not no content, so they are
+       put at their resting state instead. (`.fade-in-up` above needs no guard: it
+       is brought in by a class the page adds on a timer, and `.calculator-section`
+       relies on a `both` fill, whose base state is already visible.) */
+    .animate-in {
+        animation: none;
+        opacity: 1;
+        transform: none;
     }
     
     .floating-circle {
