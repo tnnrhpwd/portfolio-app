@@ -1756,4 +1756,41 @@ stack before computing each ratio:
 
 ---
 
+### 13.19 A renderer dev preview, and the bug it caught on its first run (2026-09-13)
+
+Seeing a dashboard change used to mean launching Electron (`npm run dev`, which kills the
+installed copy) or building and publishing. `npm run addon` (from the repo root; `npm run
+preview` inside the package) now serves `renderer/` over loopback and opens a browser, with
+**live reload** on any edit under `renderer/`.
+
+- **Why a tool is needed rather than just opening the file.** Each page calls into the
+  preload bridge at module scope, so in a plain browser the *first* `window.simpleDashboard.…`
+  throws and every line after it in the page's script never runs — the page looks broken
+  rather than unstubbed. `scripts/dev-preview.js` injects a shim **ahead of the page's own
+  scripts** (that ordering is the whole point) and watches the tree with
+  `fs.watch({recursive:true})` + SSE for the reload. No dependency, no polling, no build.
+- **It is honest about what it is not.** Bridges are Proxies: `on*` returns an unsubscribe,
+  collection-returning calls resolve to `[]` (so lists render their empty state instead of
+  crashing on `.map`), everything else to `{}`. So IPC-backed panels are empty — device
+  lists, camera previews, gaze streams, Python status — while anything that goes over the
+  local HTTP server is **real**, because the addon's CORS allowlist accepts any loopback
+  origin. The tab title is prefixed `[dev]` and the console says which half is stubbed.
+  Nothing under `renderer/` references the shim; the packaged app still loads those files
+  straight from disk.
+- 🐛 **It found a real bug within minutes.** Against a `settings.json` with no appearance
+  keys — i.e. **a fresh install** — `loadAppearance()` assigned the stored value raw, so
+  `select.value = undefined` left both Appearance pickers **blank**: it read as "broken"
+  rather than "not set yet", and offered a change from an empty state. The stored value now
+  goes through the resolver (which supplies the defaults) and `wireAppearance()` paints the
+  state in force up front, so the pickers are populated even if the settings round-trip
+  never lands. Worth noting the shape of the miss: every test of that picker so far had run
+  against a `settings.json` that already *had* values, because the values were put there by
+  the same feature — the empty case only appeared when previewing against a clean store.
+- ⚠️ Not covered: the preview cannot exercise anything Electron-specific (window
+  `backgroundColor`, real transparency, fullscreen geometry), and its shim is not the real
+  bridge — a panel that looks right here can still fail on a preload method the real app
+  lacks. It shortens the loop for markup/CSS/DOM work; it does not replace one real run.
+
+---
+
 **Companion doc:** [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md) — threat model, trust boundaries, and the permissions matrix.
