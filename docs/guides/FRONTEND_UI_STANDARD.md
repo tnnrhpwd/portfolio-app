@@ -97,10 +97,14 @@ Also convert alpha yourself for translucent fills — `withAlpha(color, 0.16)` i
 ### `--text-color-inv` is not "the text color for bands"
 
 It is *inverted* text for a **filled gradient button**, so it resolves to a dark color in dark mode.
-That is fine on a CTA band built from `--fg-blue`/`--fg-mint` (bright in both themes), but the
+That is fine on a control filled with `--fg-blue`/`--fg-mint` (bright in both themes), but the
 `--bg-*` gradient corners are **dark in dark mode** — band copy sitting on them must use
 `--text-color`, or it will be unreadable. Same rule for hairlines drawn over a gradient:
 `color-mix(in srgb, var(--text-color) 30%, transparent)`, not `--text-color-inv`.
+
+Which is why a **closing CTA band is built from the `--bg-*` corners and inked with `--text-color`**
+(§"Full-bleed bands"): its fill follows the theme's ink — light in light mode, deep in dark — instead
+of being bright in both. `SimpleCtaBand` and /about's contact band are the two reference cases.
 
 ### Key tokens
 
@@ -377,18 +381,34 @@ compact controls only:
 .foo-band--surface { background: var(--bg-page); }
 .foo-band--tint { background: color-mix(in srgb, var(--fg-mint) 12%, var(--bg-page)); }
 .foo-band--wash { background: color-mix(in srgb, var(--fg-blue) 10%, var(--bg-page)); }
-.foo-band--cta {
-  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
-  color: var(--text-color-inv);
+
+/* A closing CTA band wears the --bg-* corners, NOT the --fg-* accents. The
+   corners are light in light mode and deep in dark mode, so the copy is plain
+   --text-color and the band sits in the page's palette. A --fg-blue/--fg-mint
+   fill is bright in BOTH themes: neon against the dark page, a heavy dark slab
+   against the light one, and it forces --text-color-inv copy on the band.
+   `SimpleCtaBand` and /about's contact band are built this way — copy them. */
+.foo-band--cta { background: linear-gradient(45deg, var(--bg-blue), var(--bg-mint)); color: var(--text-color); }
+
+/* Controls inside it are painted in the band's own ink so they invert with the
+   band: a solid ink pill, and an outline of the same ink. Never --white0/--grey5
+   (a white slab on whichever theme's band it lands on). */
+.foo-btn-inv { background: var(--text-color); color: var(--bg-page); }
+.foo-btn-ghost {
+  background: transparent;
+  color: var(--text-color);
+  border-color: color-mix(in srgb, var(--text-color) 52%, transparent);
 }
-/* A band built from the --bg-* corners instead needs theme-aware copy: */
-.foo-band--corners { background: linear-gradient(-45deg, var(--bg-blue), var(--bg-mint)); color: var(--text-color); }
+.foo-btn-ghost:hover {
+  background: color-mix(in srgb, var(--text-color) 10%, transparent);
+  border-color: var(--text-color);
+}
 
 /* Translucent surface for tiles that need contrast without a border. On the
    gradient-everywhere shape use the --bg-1 flavor instead, since --bg-page
    would hide it: color-mix(in srgb, var(--bg-1) 55%, transparent) */
-.foo-tile { background: color-mix(in srgb, var(--fg-blue) 7%, transparent); }
-.foo-tile:hover { background: color-mix(in srgb, var(--fg-blue) 12%, transparent); }
+.foo-tile { background: color-mix(in srgb, var(--text-color) 10%, transparent); }
+.foo-tile:hover { background: color-mix(in srgb, var(--text-color) 18%, transparent); }
 ```
 
 **Put one reveal on the band, not on each card inside it** — wrap the band in a tiny local component

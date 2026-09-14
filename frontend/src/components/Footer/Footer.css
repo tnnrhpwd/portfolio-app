@@ -1,4 +1,7 @@
+/* Footer — transparent, so it sits on whatever band the page ends with. Only
+   the link highlights are themed (underline + hover fill per color mode). */
 .footer-space{
+    --footer-line: color-mix(in srgb, var(--text-color) 45%, transparent);
     padding-top: calc(var(--nav-size)*.5);
     font-family: 'CutiveMono-Regular';
     font-weight: bold;
@@ -9,11 +12,28 @@
     padding-bottom: calc(var(--nav-size)*.5);
     background-color: transparent;
 }
+.light-theme .footer-space{
+    --footer-line: color-mix(in srgb, var(--fg-blue) 45%, transparent);
+}
+.dark-theme .footer-space{
+    --footer-line: color-mix(in srgb, var(--fg-mint) 45%, transparent);
+}
 .footer-space-links {
     margin-top: calc(var(--nav-size)*0.2);
 }
 .footer-space-link {
-    border-bottom: 1px solid var(--text-color);
-    padding-bottom: calc(var(--nav-size)*0.05);
+    color: var(--text-color);
+    text-decoration: underline;
+    text-decoration-color: var(--footer-line);
+    text-underline-offset: calc(var(--nav-size)*0.07);
+    text-decoration-thickness: 1px;
+    padding: calc(var(--nav-size)*0.05) calc(var(--nav-size)*0.16);
+    border-radius: 999px;
     margin-left: calc(var(--nav-size)*0.2);
+    transition: color 0.2s ease, background-color 0.2s ease, text-decoration-color 0.2s ease;
+}
+.footer-space-link:hover:not(:disabled) {
+    color: var(--text-color-inv);
+    text-decoration-color: transparent;
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
 }

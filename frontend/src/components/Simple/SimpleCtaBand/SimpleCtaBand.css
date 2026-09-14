@@ -1,33 +1,43 @@
 /* ── SimpleCtaBand ────────────────────────────────────────────────────────────
    The closing "use the product" band, shared by /home and /projects.
 
-   The band's ink is --text-color-inv — white in light mode, deep navy in dark
-   mode — so the fill must be DEEP in light mode and BRIGHT in dark mode for that
-   ink to stay legible. The dark-theme tokens already are; in light mode the mint
-   end is darkened toward the ink so white clears WCAG AA (white on the raw
-   --fg-mint teal was only ~2.2:1). Everything on the band derives from that one
-   token, which is why it survives a theme flip with no hardcoded colors.
+   The band's ink is --text-color — deep navy in light mode, near-white in dark
+   mode — so its fill has to be LIGHT in light mode and DEEP in dark mode for that
+   ink to stay legible. The --bg-blue/--bg-mint corners do exactly that: they are
+   two of the four colors the hero gradient on these same pages is built from, so
+   the closing band bookends the hero in the page's own palette instead of
+   fighting it. The old --fg-blue/--fg-mint fill was bright in BOTH themes —
+   neon against the dark page, a heavy dark slab against the light one — and
+   forced white copy onto the band, which is what the old per-theme override
+   below existed to rescue. Everything on the band now derives from --cta-ink,
+   one theme-aware token, so it survives a theme flip with no hardcoded colors
+   and no per-theme override block.
 
    Geometry mirrors the page bands it bookends (`.home-band` / `.projects-band`):
    full-bleed, flat, centered, with the same vertical rhythm. */
 
 .simple-cta {
+  /* Band-local derivations. --text-color-inv is deliberately NOT used here: it is
+     the ink for a *filled gradient button*, not "the text color for bands" (see
+     docs/guides/FRONTEND_UI_STANDARD.md) — it resolves to a dark color in dark
+     mode, which is unreadable on the --bg-* corners. */
+  --cta-ink: var(--text-color);
+  --cta-ink-soft: color-mix(in srgb, var(--text-color) 76%, transparent);
+  --cta-ink-hairline: color-mix(in srgb, var(--text-color) 24%, transparent);
+  --cta-ink-hairline-strong: color-mix(in srgb, var(--text-color) 52%, transparent);
+  --cta-ink-wash: color-mix(in srgb, var(--text-color) 10%, transparent);
+  --cta-ink-wash-strong: color-mix(in srgb, var(--text-color) 18%, transparent);
+  --cta-on-ink: var(--bg-page); /* copy inside the ink-filled pill */
+
   position: relative;
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: calc(var(--nav-size) * 1.6) calc(var(--nav-size) * 0.3);
-  color: var(--text-color-inv);
+  color: var(--cta-ink);
   text-align: center;
-  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
-}
-.light-theme .simple-cta {
-  background: linear-gradient(
-    45deg,
-    var(--fg-blue),
-    color-mix(in srgb, var(--fg-mint) 45%, var(--dark-blue0))
-  );
+  background: linear-gradient(45deg, var(--bg-blue), var(--bg-mint));
 }
 .simple-cta-wrap { width: 100%; max-width: 1000px; }
 
@@ -40,7 +50,7 @@
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--text-color-inv);
+  color: var(--cta-ink);
   opacity: 0.9;
 }
 .simple-cta-title {
@@ -49,11 +59,10 @@
   letter-spacing: -0.02em;
   line-height: 1.1;
   margin: 0 0 calc(var(--nav-size) * 0.2);
-  color: var(--text-color-inv);
+  color: var(--cta-ink);
 }
 .simple-cta-sub {
-  color: var(--text-color-inv);
-  opacity: 0.9;
+  color: var(--cta-ink-soft);
   font-size: var(--font-size-base);
   line-height: var(--line-height-relaxed);
   margin: 0 auto calc(var(--nav-size) * 0.5);
@@ -69,9 +78,9 @@
 }
 
 /* ── Buttons: uppercase letter-spaced pills ──
-   Both variants derive from --text-color-inv. The old absolute --white0 made the
-   ghost button white-on-bright-cyan (unreadable) and left the primary as a flat
-   white slab on the dark-theme band. */
+   Both variants are painted in the band's own ink, so they invert with the band
+   instead of against it: the primary is a solid ink pill (the one loud thing on
+   a calm band), the secondary is an outline of the same ink. */
 .simple-cta-btn {
   font-family: inherit;
   font-weight: var(--font-weight-semibold);
@@ -82,8 +91,8 @@
   padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.55);
   cursor: pointer;
   border: 1px solid transparent;
-  color: var(--text-color-inv);
-  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  color: var(--cta-ink);
+  background: transparent;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
@@ -92,29 +101,28 @@
 }
 .simple-cta-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 .simple-cta-btn:focus-visible {
-  outline: 3px solid var(--text-color-inv);
+  outline: 3px solid var(--cta-ink);
   outline-offset: 3px;
 }
 .simple-cta-btn--inv {
-  background: var(--text-color-inv);
-  color: var(--text-color);
+  background: var(--cta-ink);
+  color: var(--cta-on-ink);
 }
 .simple-cta-btn--ghost {
   background: transparent;
-  color: var(--text-color-inv);
-  border-color: color-mix(in srgb, var(--text-color-inv) 55%, transparent);
+  color: var(--cta-ink);
+  border-color: var(--cta-ink-hairline-strong);
 }
 .simple-cta-btn--ghost:hover {
-  background: color-mix(in srgb, var(--text-color-inv) 16%, transparent);
-  border-color: var(--text-color-inv);
+  background: var(--cta-ink-wash);
+  border-color: var(--cta-ink);
   box-shadow: none;
 }
 
 /* ── The three surfaces ──
-   The card surface, border and secondary text are all built from
-   --text-color-inv so the same rules work in both themes. Explicit tracks
-   (rather than auto-fit) so exactly-three cards never spill into a fourth
-   column on wide screens. */
+   Card fill, hairline and secondary text are all washes of the band's own ink,
+   so one set of rules covers both themes. Explicit tracks (rather than auto-fit)
+   so exactly-three cards never spill into a fourth column on wide screens. */
 .simple-cta-surfaces {
   list-style: none;
   margin: calc(var(--nav-size) * 0.7) 0 0;
@@ -132,20 +140,20 @@
   width: 100%;
   min-width: 0;
   padding: calc(var(--nav-size) * 0.32);
-  border: 1px solid color-mix(in srgb, var(--text-color-inv) 30%, transparent);
+  border: 1px solid var(--cta-ink-hairline);
   border-radius: var(--border-radius-lg);
-  background: color-mix(in srgb, var(--text-color-inv) 12%, transparent);
-  color: var(--text-color-inv);
+  background: var(--cta-ink-wash);
+  color: var(--cta-ink);
   text-decoration: none;
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 .simple-cta-surface-link:hover {
-  background: color-mix(in srgb, var(--text-color-inv) 20%, transparent);
-  border-color: color-mix(in srgb, var(--text-color-inv) 55%, transparent);
+  background: var(--cta-ink-wash-strong);
+  border-color: var(--cta-ink-hairline-strong);
   transform: translateY(-2px);
 }
 .simple-cta-surface-link:focus-visible {
-  outline: 3px solid var(--text-color-inv);
+  outline: 3px solid var(--cta-ink);
   outline-offset: 2px;
 }
 .simple-cta-surface-title {
@@ -164,7 +172,7 @@
 .simple-cta-surface-desc {
   font-size: var(--font-size-small);
   line-height: var(--line-height-base);
-  color: color-mix(in srgb, var(--text-color-inv) 84%, transparent);
+  color: var(--cta-ink-soft);
   margin: 0;
 }
 
@@ -172,19 +180,19 @@
 .simple-cta-note {
   margin: calc(var(--nav-size) * 0.45) 0 0;
   font-size: var(--font-size-small);
-  color: color-mix(in srgb, var(--text-color-inv) 84%, transparent);
+  color: var(--cta-ink-soft);
 }
 .simple-cta-note a {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--text-color-inv);
+  color: var(--cta-ink);
   font-weight: var(--font-weight-semibold);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 .simple-cta-note a:focus-visible {
-  outline: 3px solid var(--text-color-inv);
+  outline: 3px solid var(--cta-ink);
   outline-offset: 2px;
 }
 .simple-cta-note a span { transition: transform 0.2s ease; }

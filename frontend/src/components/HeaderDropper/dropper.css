@@ -43,6 +43,9 @@
 
 /* Drawer */
 .dropper-box {
+  --dropper-surface: var(--bg-page);
+  --dropper-highlight: var(--bg-accent);
+  --dropper-accent: var(--text-color-accent);
   position: fixed;
   top: 0;
   right: -100%;
@@ -55,10 +58,31 @@
   flex-direction: column;
   gap: calc(var(--nav-size) * 0.5);
   overflow-y: auto;
-  background: var(--bg-page);
+  background: var(--dropper-surface);
   box-shadow: var(--shadow-xl);
   transition: right 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
   z-index: 9999999;
+}
+
+/* Color modes — the surface and its highlights come from the theme's accent
+   tokens, so light mode gets a pale mint-to-blue panel with a mint hover and
+   dark blue ink, while dark mode gets a deep teal-to-navy panel with a darker
+   hover and cyan ink. */
+.light-theme .dropper-box {
+  --dropper-surface: linear-gradient(180deg,
+      color-mix(in srgb, var(--fg-mint) 18%, var(--bg-page)) 0%,
+      var(--bg-page) 38%,
+      color-mix(in srgb, var(--fg-blue) 14%, var(--bg-page)) 100%);
+  --dropper-highlight: color-mix(in srgb, var(--fg-mint) 22%, transparent);
+  --dropper-accent: var(--fg-blue);
+}
+.dark-theme .dropper-box {
+  --dropper-surface: linear-gradient(180deg,
+      color-mix(in srgb, var(--fg-mint) 12%, var(--bg-page)) 0%,
+      var(--bg-page) 38%,
+      color-mix(in srgb, var(--fg-blue) 24%, var(--bg-page)) 100%);
+  --dropper-highlight: color-mix(in srgb, var(--fg-mint) 18%, transparent);
+  --dropper-accent: var(--fg-mint);
 }
 #planit-header-dropper__toggle:checked ~ .dropper-box { right: 0 !important; }
 
@@ -93,18 +117,22 @@
 }
 .dropper-link::after {
   content: '→';
-  color: var(--text-color-accent);
+  color: var(--dropper-accent);
   opacity: 0;
   transform: translateX(-4px);
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
-.dropper-link:hover {
-  background: var(--bg-accent);
+/* :not(:disabled) so the Log-out button doesn't fall to the global
+   `button:hover` gradient from index.css. */
+.dropper-link:hover:not(:disabled) {
+  background: var(--dropper-highlight);
+  color: var(--dropper-accent);
   transform: translateX(2px);
 }
 .dropper-link:focus {
   outline: none;
-  background: var(--bg-accent);
+  background: var(--dropper-highlight);
+  color: var(--dropper-accent);
 }
 .dropper-link:hover::after { opacity: 1; transform: translateX(0); }
 .dropper-link--strong { font-weight: var(--font-weight-semibold); }

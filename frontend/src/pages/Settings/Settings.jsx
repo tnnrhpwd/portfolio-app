@@ -18,13 +18,13 @@ import { getCloudSettings, saveCloudSettings, isAddonOptedIn, setAddonOptIn } fr
 import { GEOLOCATION, isPermissionEnabled, setPermissionEnabled } from '../../utils/browserPermissions.js';
 import { ADDON_DOWNLOAD_URL, useAddonDetection } from '../../hooks/simpleAddon/useAddonDetection';
 import AIWorkflowSettings from '../../components/SimpleAddon/AIWorkflowSettings.jsx';
-import { DEFAULT_CLOUD_MODEL_ID, resolveCloudModelLabel, resolveCloudModelProvider } from '../../utils/llmProviderOptions.js';
-import { providerLabel } from '../../constants/aiModel.js';
+import { DEFAULT_CLOUD_MODEL_ID, resolveCloudModelLabel } from '../../utils/llmProviderOptions.js';
 import ProfileAvatar from '../../components/ProfilePicture/ProfileAvatar.jsx';
 import ProfilePictureEditor from '../../components/ProfilePicture/ProfilePictureEditor.jsx';
 import './Settings.css';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
+import SEO from '../../components/SEO/SEO.jsx';
 
 const DEVICE_SETTINGS_KEY = 'csimple_device_settings';
 
@@ -58,7 +58,11 @@ function Settings() {
     dispatch(getLLMProviders());
   }, [dispatch]);
 
-  const { addonNeedsCertTrust } = useAddonDetection();
+  // Only the toolbar needs the connection state, but it needs it *live*: the
+  // readout is where "is my PC agent reachable?" is answered on this page, so it
+  // must come from the hook rather than a one-shot check.
+  const { addonNeedsCertTrust, isConnected: addonConnected, isRemoteConnected } = useAddonDetection();
+  const addonOnline = Boolean(addonConnected || isRemoteConnected);
   const [addonOptedIn, setAddonOptedInState] = useState(() => isAddonOptedIn());
   const isSecurePage = typeof window !== 'undefined' && window.location?.protocol === 'https:';
 
@@ -140,10 +144,11 @@ function Settings() {
   // its own flag because Halfway is the only page that uses it.
   const [locationEnabled, setLocationEnabled] = useState(() => isPermissionEnabled(GEOLOCATION));
 
-  // What the AI section should *state* it is using — resolved from the user's
+  // What the AI panel should *state* it is using — resolved from the user's
   // saved choice and the live `/llm-providers` response, never hardcoded.
+  // `resolveCloudModelLabel` already folds the provider in ("Claude Haiku 4.5
+  // (Bedrock)"), so the panel needs no separate provider string.
   const cloudModelLabel = resolveCloudModelLabel(aiSettings?.portfolioModel, llmProviders);
-  const cloudProviderLabel = providerLabel(resolveCloudModelProvider(aiSettings?.portfolioModel, llmProviders));
 
   const cloudSyncDebounce = useRef(null);
   const cloudPullDone = useRef(false);
@@ -395,444 +400,442 @@ function Settings() {
   };
 
   if (user) {
+    const hasPhoto = Boolean(user.profilePicture);
+    // `#photo` is a child of `#identity`, so both hashes light up the same panel.
+    const accountHighlighted = activeSection === 'identity' || activeSection === 'photo';
+
     return (
       <>
+        <SEO
+          title="Settings"
+          description="Manage your Simple account: profile, email notifications, appearance, AI provider, and browser permissions."
+          path="/settings"
+        />
         <Header />
-        <div className="planit-settings-bg">
-          <div className="floating-shapes">
-            <div className="floating-circle floating-circle-1"></div>
-            <div className="floating-circle floating-circle-2"></div>
-            <div className="floating-circle floating-circle-3"></div>
-          </div>
 
-          <div className="planit-settings-shell">
-            <section className="planit-settings-hero">
-              <div className="planit-settings-hero-main">
-                <div className="planit-settings-heading-copy">
-                  <span className="planit-settings-eyebrow">Workspace preferences</span>
-                  <h1 className="planit-settings-heading-title">Settings</h1>
-                  <p className="planit-settings-heading-description">
-                    Your profile, notifications, appearance, and AI connection — all in one place.
-                  </p>
-                </div>
+        <div className="settings-page">
+          <div className="settings-shell">
+            {/* Sticky toolbar — the page's "hero", collapsed onto one row: the
+                room's name, its live state, and the primary action reachable from
+                anywhere on the page (FRONTEND_UI_STANDARD.md §5.7). No eyebrow,
+                no subtitle, no lead. */}
+            <header className="settings-bar">
+              <h1 className="settings-bar-title">Settings</h1>
+
+              <ul className="settings-bar-readout">
+                <li className="settings-chip">
+                  <span className="settings-chip-key">Account</span>
+                  <strong>{user.nickname || user.email}</strong>
+                </li>
+                <li className="settings-chip">
+                  <span className="settings-chip-key">Theme</span>
+                  <strong>{colorMode}</strong>
+                </li>
+                <li className="settings-chip">
+                  <span className="settings-chip-key">Text</span>
+                  <strong>{Math.round(fontScale * 100)}%</strong>
+                </li>
+                <li className={`settings-chip${addonOnline ? ' settings-chip--live' : ''}`}>
+                  <span className="settings-chip-key">Addon</span>
+                  <strong>{addonOnline ? 'online' : 'offline'}</strong>
+                </li>
+              </ul>
+
+              <div className="settings-bar-actions">
+                <button
+                  type="button"
+                  className="settings-btn settings-btn--outline"
+                  onClick={() => navigate('/net')}
+                >
+                  💬 Open chat
+                </button>
+                <button
+                  type="submit"
+                  form="settings-form"
+                  className="settings-btn settings-btn--primary"
+                  disabled={profileSaving}
+                >
+                  {profileSaving ? 'Saving…' : '💾 Save changes'}
+                </button>
               </div>
-            </section>
+            </header>
 
-            <form onSubmit={handleProfileSave} className="planit-settings-form">
-              <section className="planit-settings-content">
-                <div className="planit-settings-layout">
-                  <div className="planit-settings-main">
-                    <div
-                      className={`planit-settings-section${activeSection === 'identity' ? ' is-highlighted' : ''}`}
-                      id="identity"
-                    >
-                      <div className="planit-settings-section-header">
-                        <div>
-                          <span className="planit-settings-section-kicker">Account</span>
-                          <h2 className="planit-settings-section-title">Account settings</h2>
-                          <p className="planit-settings-section-description">
-                            Your photo, profile name, email, and password — everything about how you appear in the app.
-                          </p>
-                        </div>
-                      </div>
+            <form id="settings-form" className="settings-form" onSubmit={handleProfileSave}>
+              {/* Row 1 — who you are, and how the app looks. */}
+              <div className="settings-row">
+                <section
+                  id="identity"
+                  className={`settings-panel settings-panel--account${accountHighlighted ? ' is-highlighted' : ''}`}
+                >
+                  <div className="settings-panel-head">
+                    <h2 className="settings-panel-title">Account</h2>
+                  </div>
 
-                      <div className="planit-settings-photo" id="photo">
-                        <ProfileAvatar
-                          picture={user.profilePicture}
-                          name={user.nickname}
-                          size="lg"
-                        />
-                        <div className="planit-settings-photo-copy">
-                          <span className="planit-settings-photo-title">Profile picture</span>
-                          <span className="planit-settings-hint">
-                            {user.profilePicture
-                              ? 'Shown across your account. Upload a new image to replace it.'
-                              : 'Add your own photo to replace the default checkmark.'}
-                          </span>
-                          <div className="planit-settings-photo-actions">
-                            <button
-                              type="button"
-                              className="planit-settings-outline-button"
-                              onClick={() => setPhotoEditorOpen(true)}
-                              disabled={profileSaving}
-                            >
-                              {user.profilePicture ? '🖼️ Change photo' : '⬆️ Upload photo'}
-                            </button>
-                            {user.profilePicture && (
-                              <button
-                                type="button"
-                                className="planit-settings-text-button"
-                                onClick={() => handlePhotoSave(null)}
-                                disabled={profileSaving}
-                              >
-                                Remove
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="planit-settings-grid">
-                        <div className="planit-settings-item">
-                          <label className="planit-settings-label" htmlFor="planit-settings-nickname">👤 Profile name</label>
-                          <input
-                            id="planit-settings-nickname"
-                            type="text"
-                            name="nickname"
-                            value={profileForm.nickname}
-                            onChange={handleProfileChange}
-                            className="planit-settings-input"
-                            placeholder="Your display name"
-                            autoComplete="nickname"
-                            maxLength={40}
-                          />
-                          <span className="planit-settings-hint">This is the name shown across the app.</span>
-                        </div>
-
-                        <div className="planit-settings-item">
-                          <label className="planit-settings-label" htmlFor="planit-settings-email">📧 Email address</label>
-                          <input
-                            id="planit-settings-email"
-                            type="email"
-                            name="email"
-                            value={profileForm.email}
-                            onChange={handleProfileChange}
-                            className="planit-settings-input"
-                            placeholder="Enter email address"
-                            autoComplete="email"
-                          />
-                          <span className="planit-settings-hint">Used for receipts, alerts, and account recovery.</span>
-                        </div>
-
-                        <div className="planit-settings-item planit-settings-item-full">
-                          <label className="planit-settings-label">🔐 Password</label>
-                          <p className="planit-settings-hint">Send a secure reset link to your current account email when you need to update your password.</p>
-                          <button
-                            type="button"
-                            onClick={handlePasswordReset}
-                            disabled={isResetPasswordLoading}
-                            className="planit-settings-password-reset-button"
-                          >
-                            {isResetPasswordLoading ? '📤 Sending reset email...' : '🔐 Send password reset email'}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="planit-settings-save-row">
+                  <div className="settings-photo" id="photo">
+                    <ProfileAvatar
+                      picture={user.profilePicture}
+                      name={user.nickname}
+                      size="lg"
+                    />
+                    <div className="settings-photo-copy">
+                      <span className="settings-photo-title">Profile picture</span>
+                      <span className="settings-hint">
+                        {hasPhoto ? 'Shown across your account.' : 'Replaces the default checkmark.'}
+                      </span>
+                      <div className="settings-photo-actions">
                         <button
-                          type="submit"
-                          className="planit-settings-save-button"
+                          type="button"
+                          className="settings-btn settings-btn--outline settings-btn--sm"
+                          onClick={() => setPhotoEditorOpen(true)}
                           disabled={profileSaving}
                         >
-                          {profileSaving ? 'Saving…' : '💾 Save changes'}
+                          {hasPhoto ? '🖼️ Change' : '⬆️ Upload'}
                         </button>
-                        <span className="planit-settings-hint">
-                          Your profile name and email are saved to your account.
-                        </span>
-                      </div>
-                    </div>
-
-                    <div
-                      className={`planit-settings-section${activeSection === 'notifications' ? ' is-highlighted' : ''}`}
-                      id="notifications"
-                    >
-                      <div className="planit-settings-section-header">
-                        <div>
-                          <span className="planit-settings-section-kicker">Email</span>
-                          <h2 className="planit-settings-section-title">Email notifications</h2>
-                          <p className="planit-settings-section-description">
-                            Choose which emails you receive. Account &amp; security emails always stay on.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="planit-settings-checkbox-grid">
-                        <label className="planit-settings-toggle-card">
-                          <div className="planit-settings-toggle-copy">
-                            <span className="planit-settings-toggle-title">🔐 Account &amp; Security</span>
-                            <span className="planit-settings-toggle-description">Password resets, welcome, and security alerts. Always on.</span>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={emailPrefsLocal.account}
-                            disabled
-                            className="planit-settings-checkbox"
-                          />
-                        </label>
-
-                        <label className="planit-settings-toggle-card">
-                          <div className="planit-settings-toggle-copy">
-                            <span className="planit-settings-toggle-title">💳 Plan &amp; Billing</span>
-                            <span className="planit-settings-toggle-description">Plan changes, subscription updates, and receipts.</span>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={emailPrefsLocal.billing}
-                            onChange={handleEmailPrefToggle('billing')}
-                            className="planit-settings-checkbox"
-                          />
-                        </label>
-
-                        <label className="planit-settings-toggle-card">
-                          <div className="planit-settings-toggle-copy">
-                            <span className="planit-settings-toggle-title">✨ Product Updates</span>
-                            <span className="planit-settings-toggle-description">New features, improvements, and product announcements.</span>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={emailPrefsLocal.product}
-                            onChange={handleEmailPrefToggle('product')}
-                            className="planit-settings-checkbox"
-                          />
-                        </label>
-
-                        <label className="planit-settings-toggle-card">
-                          <div className="planit-settings-toggle-copy">
-                            <span className="planit-settings-toggle-title">📣 Marketing &amp; Promotions</span>
-                            <span className="planit-settings-toggle-description">Offers, discounts, and newsletter. Opt-in only.</span>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={emailPrefsLocal.marketing}
-                            onChange={handleEmailPrefToggle('marketing')}
-                            className="planit-settings-checkbox"
-                          />
-                        </label>
-                      </div>
-                    </div>
-
-                    <div
-                      className={`planit-settings-section${activeSection === 'appearance' ? ' is-highlighted' : ''}`}
-                      id="appearance"
-                    >
-                      <div className="planit-settings-section-header">
-                        <div>
-                          <span className="planit-settings-section-kicker">Appearance</span>
-                          <h2 className="planit-settings-section-title">Appearance settings</h2>
-                          <p className="planit-settings-section-description">
-                            Match the app to your environment with live theme and readable typography controls.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="planit-settings-grid">
-                        <div className="planit-settings-item">
-                          <label className="planit-settings-label" htmlFor="planit-settings-theme">🌓 Theme</label>
-                          <select
-                            id="planit-settings-theme"
-                            name="theme"
-                            value={colorMode}
-                            onChange={handleColorModeChange}
-                            className="planit-settings-input"
-                          >
-                            <option value="light">☀️ Light</option>
-                            <option value="dark">🌙 Dark</option>
-                            <option value="system">💻 System</option>
-                          </select>
-                          <span className="planit-settings-hint">Changes preview immediately so you can compare modes.</span>
-                        </div>
-
-                        <div className="planit-settings-item">
-                          <label className="planit-settings-label" htmlFor="planit-settings-font-size">🔤 Font Size</label>
-                          <div className="planit-settings-range-group">
-                            <input
-                              id="planit-settings-font-size"
-                              type="range"
-                              min={FONT_SCALE_MIN}
-                              max={FONT_SCALE_MAX}
-                              step="0.05"
-                              value={fontScale}
-                              onChange={handleFontScaleChange}
-                              className="planit-settings-range"
-                              aria-label="Font size scale"
-                            />
-                            <span className="planit-settings-range-value">{Math.round(fontScale * 100)}%</span>
-                          </div>
-                          <div className="planit-settings-font-preview">
-                            <span className="planit-settings-font-preview-text">The quick brown fox jumps over the lazy dog</span>
-                            {fontScale !== FONT_SCALE_DEFAULT && (
-                              <button
-                                type="button"
-                                className="planit-settings-font-reset"
-                                onClick={resetFontScale}
-                              >
-                                Reset to default
-                              </button>
-                            )}
-                          </div>
-                          <span className="planit-settings-hint">
-                            Adjusts text size across the entire app ({Math.round(FONT_SCALE_MIN * 100)}%–{Math.round(FONT_SCALE_MAX * 100)}%).
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div
-                      className={`planit-settings-section${activeSection === 'ai' ? ' is-highlighted' : ''}`}
-                      id="ai"
-                    >
-                      <div className="planit-settings-section-header">
-                        <div>
-                          <span className="planit-settings-section-kicker">AI workflow</span>
-                          <h2 className="planit-settings-section-title">AI &amp; Simple addon</h2>
-                          <p className="planit-settings-section-description">
-                            Choose your provider, tune chat defaults, and manage {cloudProviderLabel} access.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="planit-settings-ai-info">
-                        <p className="planit-settings-ai-description">
-                          Access AI chat powered by {cloudModelLabel} at <strong>/net</strong>. For local AI and desktop automation, install the <strong>Simple addon</strong>.
-                        </p>
-
-                        <AIWorkflowSettings
-                          settings={aiSettings}
-                          onChange={updateAISetting}
-                          user={user}
-                          portfolioLLMProviders={llmProviders}
-                        />
-
-                        <div className="planit-settings-ai-actions">
+                        {hasPhoto && (
                           <button
                             type="button"
-                            className="planit-settings-ai-button"
-                            onClick={() => navigate('/net')}
+                            className="settings-btn settings-btn--danger settings-btn--sm"
+                            onClick={() => handlePhotoSave(null)}
+                            disabled={profileSaving}
                           >
-                            🤖 Open AI Chat
+                            Remove
                           </button>
-                          <a
-                            href={ADDON_DOWNLOAD_URL}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="planit-settings-ai-link"
-                          >
-                            📥 Get Simple Addon
-                          </a>
-                        </div>
-                        <p className="planit-settings-ai-note">
-                          AI preferences sync with the /net chat sidebar automatically.
-                        </p>
-                        <p className="planit-settings-ai-note">
-                          Need agents, personas, behaviors, memory, goals, or shortcuts? Install the <strong>Simple addon</strong> and open <strong>Advanced Settings</strong> inside the <strong>/net</strong> chat for those power-user tools.
-                        </p>
-                        <p className="planit-settings-ai-note">
-                          Removing it later is just as easy: right-click the Simple tray icon, turn off <strong>Start at Login</strong> if it&apos;s on, choose <strong>Quit Simple Addon</strong>, then delete the downloaded <code>Simple-Addon-portable.exe</code>. Nothing is left installed in Windows.
-                        </p>
-                        {addonNeedsCertTrust && (
-                          <p className="planit-settings-ai-note">
-                            Already installed? Browsers block the addon's self-signed cert on HTTPS sites.{' '}
-                            <a
-                              href="https://localhost:3444/api/status"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{ textDecoration: 'underline' }}
-                            >
-                              Click here
-                            </a>
-                            , choose &quot;Advanced → Proceed&quot;, then reload this page.
-                          </p>
                         )}
-                        {isSecurePage && (
-                          <div className="planit-settings-ai-optout">
-                            <p className="planit-settings-ai-note">
-                              This browser {addonOptedIn ? 'checks' : 'does not check'} for the Simple addon
-                              on this page. Turning this off stops the page from probing your addon's local
-                              cert entirely — no addon features work here until it's back on, but it's easy
-                              to reverse anytime.
-                            </p>
-                            <button
-                              type="button"
-                              className="planit-settings-ai-button"
-                              onClick={toggleAddonOptIn}
-                            >
-                              {addonOptedIn ? '🔌 Turn off browser integration' : '🔌 Turn on browser integration'}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div
-                      className={`planit-settings-section${activeSection === 'privacy' ? ' is-highlighted' : ''}`}
-                      id="privacy"
-                    >
-                      <div className="planit-settings-section-header">
-                        <div>
-                          <span className="planit-settings-section-kicker">Privacy</span>
-                          <h2 className="planit-settings-section-title">Privacy &amp; permissions</h2>
-                          <p className="planit-settings-section-description">
-                            Control when a page may ask your browser for the microphone or your location. If a switch is off, nothing asks — no popups.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="planit-settings-checkbox-grid">
-                        <label className="planit-settings-toggle-card">
-                          <div className="planit-settings-toggle-copy">
-                            <span className="planit-settings-toggle-title">🎤 Microphone</span>
-                            <span className="planit-settings-toggle-description">
-                              Voice input and wake-word listening on <strong>/net</strong>. Turning this on allows the browser to ask for mic access; off means it never asks (the mic button still works if you press it).
-                            </span>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={aiSettings.sttEnabled ?? false}
-                            onChange={handleMicToggle}
-                            className="planit-settings-checkbox"
-                          />
-                        </label>
-
-                        <label className="planit-settings-toggle-card">
-                          <div className="planit-settings-toggle-copy">
-                            <span className="planit-settings-toggle-title">📍 Location</span>
-                            <span className="planit-settings-toggle-description">
-                              Sunrise &amp; sunset on the Halfway tool. Off means that page waits for you to press <strong>Use my location</strong> before it asks the browser.
-                            </span>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={locationEnabled}
-                            onChange={handleLocationToggle}
-                            className="planit-settings-checkbox"
-                          />
-                        </label>
                       </div>
                     </div>
                   </div>
+
+                  <div className="settings-fields">
+                    <div className="settings-field">
+                      <label className="settings-label" htmlFor="planit-settings-nickname">👤 Profile name</label>
+                      <input
+                        id="planit-settings-nickname"
+                        type="text"
+                        name="nickname"
+                        value={profileForm.nickname}
+                        onChange={handleProfileChange}
+                        className="settings-input"
+                        placeholder="Your display name"
+                        autoComplete="nickname"
+                        maxLength={40}
+                      />
+                      <span className="settings-hint">Shown across the app.</span>
+                    </div>
+
+                    <div className="settings-field">
+                      <label className="settings-label" htmlFor="planit-settings-email">📧 Email address</label>
+                      <input
+                        id="planit-settings-email"
+                        type="email"
+                        name="email"
+                        value={profileForm.email}
+                        onChange={handleProfileChange}
+                        className="settings-input"
+                        placeholder="Enter email address"
+                        autoComplete="email"
+                      />
+                      <span className="settings-hint">Receipts, alerts, and account recovery.</span>
+                    </div>
+                  </div>
+
+                  <div className="settings-field">
+                    <label className="settings-label" htmlFor="planit-settings-password">🔐 Password</label>
+                    <button
+                      id="planit-settings-password"
+                      type="button"
+                      onClick={handlePasswordReset}
+                      disabled={isResetPasswordLoading}
+                      className="settings-btn settings-btn--warm settings-btn--sm"
+                    >
+                      {isResetPasswordLoading ? '📤 Sending…' : '🔐 Send reset email'}
+                    </button>
+                    <span className="settings-hint">Emails a secure reset link to {user.email}.</span>
+                  </div>
+
+                  <div className="settings-panel-foot">
+                    <span className="settings-hint">
+                      {profileSaving ? 'Saving…' : 'Name and email save to your account.'}
+                    </span>
+                  </div>
+                </section>
+
+                <section
+                  id="appearance"
+                  className={`settings-panel settings-panel--appearance${activeSection === 'appearance' ? ' is-highlighted' : ''}`}
+                >
+                  <div className="settings-panel-head">
+                    <h2 className="settings-panel-title">Appearance</h2>
+                  </div>
+
+                  <div className="settings-field">
+                    <label className="settings-label" htmlFor="planit-settings-theme">🌓 Theme</label>
+                    <select
+                      id="planit-settings-theme"
+                      name="theme"
+                      value={colorMode}
+                      onChange={handleColorModeChange}
+                      className="settings-input"
+                    >
+                      <option value="light">☀️ Light</option>
+                      <option value="dark">🌙 Dark</option>
+                      <option value="system">💻 System</option>
+                    </select>
+                    <span className="settings-hint">Previews immediately.</span>
+                  </div>
+
+                  <div className="settings-field">
+                    <label className="settings-label" htmlFor="planit-settings-font-size">🔤 Text size</label>
+                    <div className="settings-range">
+                      <input
+                        id="planit-settings-font-size"
+                        type="range"
+                        min={FONT_SCALE_MIN}
+                        max={FONT_SCALE_MAX}
+                        step="0.05"
+                        value={fontScale}
+                        onChange={handleFontScaleChange}
+                        className="settings-range-input"
+                        aria-label="Font size scale"
+                      />
+                      <span className="settings-range-value">{Math.round(fontScale * 100)}%</span>
+                    </div>
+                    <div className="settings-font-preview">
+                      <span className="settings-font-preview-text">The quick brown fox jumps over the lazy dog</span>
+                      {fontScale !== FONT_SCALE_DEFAULT && (
+                        <button
+                          type="button"
+                          className="settings-btn settings-btn--ghost settings-btn--sm"
+                          onClick={resetFontScale}
+                        >
+                          Reset to default
+                        </button>
+                      )}
+                    </div>
+                    <span className="settings-hint">
+                      Scales text across the app ({Math.round(FONT_SCALE_MIN * 100)}%–{Math.round(FONT_SCALE_MAX * 100)}%).
+                    </span>
+                  </div>
+                </section>
+              </div>
+
+              {/* Row 2 — what we send you, and what a page may ask for. */}
+              <div className="settings-row">
+                <section
+                  id="notifications"
+                  className={`settings-panel settings-panel--notifications${activeSection === 'notifications' ? ' is-highlighted' : ''}`}
+                >
+                  <div className="settings-panel-head">
+                    <h2 className="settings-panel-title">Email notifications</h2>
+                  </div>
+
+                  <div className="settings-toggle-list">
+                    <label className="settings-toggle">
+                      <span className="settings-toggle-copy">
+                        <span className="settings-toggle-title">🔐 Account &amp; security</span>
+                        <span className="settings-toggle-desc">Resets, welcome, and security alerts. Always on.</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={emailPrefsLocal.account}
+                        disabled
+                        className="settings-toggle-input"
+                      />
+                    </label>
+
+                    <label className="settings-toggle">
+                      <span className="settings-toggle-copy">
+                        <span className="settings-toggle-title">💳 Plan &amp; billing</span>
+                        <span className="settings-toggle-desc">Plan changes, subscription updates, and receipts.</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={emailPrefsLocal.billing}
+                        onChange={handleEmailPrefToggle('billing')}
+                        className="settings-toggle-input"
+                      />
+                    </label>
+
+                    <label className="settings-toggle">
+                      <span className="settings-toggle-copy">
+                        <span className="settings-toggle-title">✨ Product updates</span>
+                        <span className="settings-toggle-desc">New features and improvements.</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={emailPrefsLocal.product}
+                        onChange={handleEmailPrefToggle('product')}
+                        className="settings-toggle-input"
+                      />
+                    </label>
+
+                    <label className="settings-toggle">
+                      <span className="settings-toggle-copy">
+                        <span className="settings-toggle-title">📣 Marketing</span>
+                        <span className="settings-toggle-desc">Offers, discounts, and newsletter. Opt-in only.</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={emailPrefsLocal.marketing}
+                        onChange={handleEmailPrefToggle('marketing')}
+                        className="settings-toggle-input"
+                      />
+                    </label>
+                  </div>
+                </section>
+
+                <section
+                  id="privacy"
+                  className={`settings-panel settings-panel--privacy${activeSection === 'privacy' ? ' is-highlighted' : ''}`}
+                >
+                  <div className="settings-panel-head">
+                    <h2 className="settings-panel-title">Privacy &amp; permissions</h2>
+                  </div>
+
+                  <div className="settings-toggle-list">
+                    <label className="settings-toggle">
+                      <span className="settings-toggle-copy">
+                        <span className="settings-toggle-title">🎤 Microphone</span>
+                        <span className="settings-toggle-desc">
+                          Voice input on <strong>/net</strong>. Off means the browser is never asked.
+                        </span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={aiSettings.sttEnabled ?? false}
+                        onChange={handleMicToggle}
+                        className="settings-toggle-input"
+                      />
+                    </label>
+
+                    <label className="settings-toggle">
+                      <span className="settings-toggle-copy">
+                        <span className="settings-toggle-title">📍 Location</span>
+                        <span className="settings-toggle-desc">
+                          Sunrise &amp; sunset on Halfway. Off waits for <strong>Use my location</strong>.
+                        </span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={locationEnabled}
+                        onChange={handleLocationToggle}
+                        className="settings-toggle-input"
+                      />
+                    </label>
+                  </div>
+                </section>
+              </div>
+
+              {/* Row 3 — the AI connection, which needs the full width. */}
+              <section
+                id="ai"
+                className={`settings-panel settings-panel--ai${activeSection === 'ai' ? ' is-highlighted' : ''}`}
+              >
+                <div className="settings-panel-head">
+                  <h2 className="settings-panel-title">AI &amp; Simple addon</h2>
+                  <span className="settings-chip settings-chip--quiet">☁️ {cloudModelLabel}</span>
+                </div>
+
+                <div className="settings-ai">
+                  <p className="settings-hint">
+                    Cloud chat runs on {cloudModelLabel} at <strong>/net</strong>. Local models and
+                    desktop automation need the <strong>Simple addon</strong>.
+                  </p>
+
+                  <AIWorkflowSettings
+                    settings={aiSettings}
+                    onChange={updateAISetting}
+                    user={user}
+                    portfolioLLMProviders={llmProviders}
+                  />
+
+                  <div className="settings-ai-actions">
+                    <a
+                      href={ADDON_DOWNLOAD_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="settings-btn settings-btn--outline"
+                    >
+                      📥 Get the addon
+                    </a>
+                  </div>
+
+                  {addonNeedsCertTrust && (
+                    <p className="settings-note">
+                      Already installed? Browsers block the addon&apos;s self-signed cert on HTTPS
+                      sites.{' '}
+                      <a href="https://localhost:3444/api/status" target="_blank" rel="noopener noreferrer">
+                        Trust the cert
+                      </a>{' '}
+                      (choose &quot;Advanced → Proceed&quot;), then reload this page.
+                    </p>
+                  )}
+
+                  {/* Power-user plumbing, folded away: the first screen is the
+                      job, not the config (§5.7). */}
+                  <details className="settings-details">
+                    <summary>Addon, sync, and browser integration</summary>
+                    <div className="settings-details-body">
+                      <p className="settings-note">
+                        AI preferences sync with the /net chat sidebar automatically.
+                      </p>
+                      <p className="settings-note">
+                        Agents, personas, behaviors, memory, goals, and shortcuts live in{' '}
+                        <strong>Advanced Settings</strong> inside the addon&apos;s <strong>/net</strong> chat.
+                      </p>
+                      <p className="settings-note">
+                        To remove it: right-click the tray icon, turn off <strong>Start at Login</strong>{' '}
+                        if it&apos;s on, choose <strong>Quit Simple Addon</strong>, then delete{' '}
+                        <code>Simple-Addon-portable.exe</code>. Nothing is left installed in Windows.
+                      </p>
+                      {isSecurePage && (
+                        <div className="settings-optout">
+                          <p className="settings-note">
+                            This browser {addonOptedIn ? 'checks' : 'does not check'} for the addon on
+                            this page. Off stops the page probing your addon&apos;s local cert entirely
+                            — no addon features work here until it&apos;s back on.
+                          </p>
+                          <button
+                            type="button"
+                            className="settings-btn settings-btn--outline settings-btn--sm"
+                            onClick={toggleAddonOptIn}
+                          >
+                            {addonOptedIn ? '🔌 Turn off browser integration' : '🔌 Turn on browser integration'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </details>
                 </div>
               </section>
 
-              <section className="planit-settings-actions">
+              {/* Closing row — leaving the room, not a pitch. */}
+              <div className="settings-session">
                 <button
                   type="button"
-                  className="planit-settings-profile-button"
+                  className="settings-btn settings-btn--outline"
                   onClick={() => navigate('/profile')}
                 >
-                  👤 Back to Profile
+                  👤 Back to profile
                 </button>
                 <button
                   type="button"
-                  className="planit-settings-ai-button"
-                  onClick={() => navigate('/net')}
+                  className="settings-btn settings-btn--danger"
+                  onClick={onLogout}
                 >
-                  💬 Open AI Chat
+                  🚪 Sign out
                 </button>
-                <button type="button" className="planit-settings-logout-button" onClick={onLogout}>
-                  🚪 Sign Out
-                </button>
-              </section>
+              </div>
             </form>
           </div>
-        </div>
 
-        <ProfilePictureEditor
-          open={photoEditorOpen}
-          onClose={() => setPhotoEditorOpen(false)}
-          onSave={handlePhotoSave}
-          currentPicture={user.profilePicture}
-          saving={profileSaving}
-        />
+          <ProfilePictureEditor
+            open={photoEditorOpen}
+            onClose={() => setPhotoEditorOpen(false)}
+            onSave={handlePhotoSave}
+            currentPicture={user.profilePicture}
+            saving={profileSaving}
+          />
+        </div>
 
         <Footer />
       </>

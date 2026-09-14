@@ -1,575 +1,650 @@
-/* ─────────────────────────────────────────────────────────────────────────
-   Settings page
-   Same visual language as the Profile page: vibrant gradient backdrop with
-   soft, border-light translucent surfaces. All colours are theme tokens so
-   light/dark mode both read correctly; sizing scales off --nav-size.
-   ───────────────────────────────────────────────────────────────────────── */
+/* ===========================================================================
+   Settings — the account & preferences workspace
+   ---------------------------------------------------------------------------
+   A SERVICE PAGE (FRONTEND_UI_STANDARD.md §5.7). Settings is a tool someone
+   already opened on purpose, so it shares the palette, the tokens and the
+   typography — but none of the band stack:
 
-.planit-settings-bg {
-    color: var(--text-color);
-    min-height: 100vh;
-    padding: calc(var(--nav-size) * 1.6) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
-    background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
-    background-size: 400% 400%;
-    animation: gradientShift 14s ease infinite;
-    position: relative;
-    overflow-x: hidden;
-}
+     · ONE flat surface (`--bg-page`) — no animated gradient behind the data,
+       no floating circles, no scroll reveals, no stagger.
+     · The hero collapses into a STICKY TOOLBAR carrying the room's name, its
+       live state, and the primary action, reachable from anywhere on the page.
+     · A DENSE PANEL GRID, grouped into rows by subject.
+     · Copy is labels, not sentences; long explanations fold into a <details>.
 
-.dark-theme .planit-settings-bg {
-    animation-duration: 11s;
-}
+   Nothing here is separated by a border: panels are PLANES OF COLOR, each with
+   its own hue, and neighbouring planes differ in tone ("color beside color").
+   =========================================================================== */
 
-.floating-shapes {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 1;
-    overflow: hidden;
-}
+.settings-page {
+  --settings-hue: var(--fg-blue);
+  /* Muted (secondary) text. The shared `--text-color-accent` is tuned against
+     `--bg-page`, where it measures 6.26:1 in dark mode; the panels below are
+     hue-washed, which lifts the plane's luminance and drops that under AA
+     (Plans measured 3.89:1 on a 15%-mint card). Blending a little of the
+     primary text back in lifts the worst case to ~5.1, which is the cheap side
+     of the trade — the alternative is flattening the washes, and the washes are
+     what make neighbouring blocks read as different blocks at all. Only dark
+     mode needs the lift; light already passes. (§13.13 of the audit notes.) */
+  --settings-muted: var(--text-color-accent);
 
-.floating-circle {
-    position: absolute;
-    border-radius: 50%;
-    background: radial-gradient(circle, var(--white1-transp) 0%, transparent 70%);
-    animation: float 10s ease-in-out infinite;
-}
-
-.floating-circle-1 {
-    width: calc(var(--nav-size) * 2.4);
-    height: calc(var(--nav-size) * 2.4);
-    top: 14%;
-    left: 6%;
+  position: relative;
+  min-height: 100vh;
+  min-height: 100svh;
+  /* NO `overflow-x: hidden`: it makes this element a scroll container, and a
+     `position: sticky` toolbar inside one offsets itself instead of sticking. */
+  padding: calc(var(--nav-size) * 1.15) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
+  color: var(--text-color);
+  background: var(--bg-page);
 }
 
-.floating-circle-2 {
-    width: calc(var(--nav-size) * 1.8);
-    height: calc(var(--nav-size) * 1.8);
-    top: 56%;
-    right: 8%;
-    animation-delay: -3s;
+.dark-theme .settings-page {
+  --settings-muted: color-mix(in srgb, var(--text-color-accent) 70%, var(--text-color));
 }
 
-.floating-circle-3 {
-    width: calc(var(--nav-size) * 3.1);
-    height: calc(var(--nav-size) * 3.1);
-    bottom: 10%;
-    left: 60%;
-    animation-delay: -6s;
+/* ── Shell ────────────────────────────────────────────────────────────────── */
+
+.settings-shell {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
 }
 
-.planit-settings-shell {
-    position: relative;
-    z-index: 2;
-    max-width: 900px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.4);
+/* ── Toolbar — the page's "hero", collapsed onto one sticky row ───────────── */
+
+.settings-bar {
+  position: sticky;
+  top: var(--nav-size);            /* just under the fixed site header */
+  z-index: 5;                      /* below the header's 10, above the panels */
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.25);
+  margin-bottom: calc(var(--nav-size) * 0.25);
+  padding: calc(var(--nav-size) * 0.18) 0;
+  background: var(--bg-page);      /* opaque — no glassmorphism (§8) */
 }
 
-/* ── Surfaces ───────────────────────────────────────────────────────── */
-.planit-settings-hero,
-.planit-settings-section,
-.planit-settings-actions {
-    background: color-mix(in srgb, var(--bg-page) 84%, transparent);
-    border-radius: var(--border-radius-2xl);
-    box-shadow: var(--shadow-md);
+/* The one piece of brand on the page: an accent rule under the toolbar. */
+.settings-bar::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: 0; height: 2px;
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint) 42%, transparent 72%);
+  pointer-events: none;
 }
 
-.planit-settings-hero {
-    padding: calc(var(--nav-size) * 0.6);
-    animation: fadeInSection 0.6s ease both;
+.settings-bar-title {
+  margin: 0;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+  line-height: 1;
 }
 
-.planit-settings-hero-main {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: var(--spacing-xs);
+.settings-bar-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.planit-settings-heading-copy {
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.08);
-    max-width: 60ch;
+.settings-bar-actions {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.12);
 }
 
-.planit-settings-eyebrow,
-.planit-settings-section-kicker {
-    font-size: var(--font-size-xs);
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--text-color-accent);
-    font-weight: var(--font-weight-semibold);
+/* One row of live state, never a 2x2 stat grid. */
+.settings-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.12);
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--fg-blue) 8%, transparent);
+  color: var(--settings-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.7;
+  white-space: nowrap;
 }
 
-.planit-settings-heading-title {
-    margin: 0;
-    font-size: var(--font-size-heading);
-    font-weight: var(--font-weight-bold);
-    line-height: var(--line-height-tight);
-    color: var(--text-color);
-    letter-spacing: -0.01em;
+.settings-chip-key {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
-.planit-settings-heading-description,
-.planit-settings-section-description,
-.planit-settings-hint,
-.planit-settings-ai-description,
-.planit-settings-ai-note,
-.planit-settings-toggle-description {
-    margin: 0;
-    color: var(--text-color-accent);
-    line-height: var(--line-height-relaxed);
+.settings-chip strong {
+  color: var(--text-color);
+  font-weight: var(--font-weight-semibold);
 }
 
-.planit-settings-heading-description,
-.planit-settings-section-description {
-    font-size: var(--font-size-base);
+/* Live connection state — the only chip that is allowed a colour of its own. */
+.settings-chip--live {
+  color: var(--green2);
+  background: color-mix(in srgb, currentColor 16%, transparent);
+}
+.dark-theme .settings-chip--live { color: var(--green1); }
+.settings-chip--live strong { color: inherit; }
+
+/* A chip that sits on a panel head rather than the page background. */
+.settings-chip--quiet {
+  margin-left: auto;
+  background: color-mix(in srgb, var(--text-color) 10%, transparent);
 }
 
-.planit-settings-hint,
-.planit-settings-ai-note,
-.planit-settings-toggle-description {
-    font-size: var(--font-size-small);
+/* ── Form + rows ──────────────────────────────────────────────────────────── */
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.25);
 }
 
-/* ── Form / sections ────────────────────────────────────────────────── */
-.planit-settings-form,
-.planit-settings-content,
-.planit-settings-main {
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.4);
+/* Panels that share a subject sit in the same row: two columns on a desktop,
+   one on a phone, no media query. `min()` inside `minmax()` matters — a bare
+   `minmax(320px, 1fr)` sets a hard 320px track MINIMUM, so on a 320px phone the
+   row would be wider than the space it has and the page would spill sideways. */
+.settings-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: calc(var(--nav-size) * 0.25);
 }
 
-.planit-settings-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: calc(var(--nav-size) * 0.4);
+/* ── Panels — planes of color, not cards ──────────────────────────────────── */
+
+.settings-panel {
+  --settings-hue: var(--fg-blue);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.28);
+  padding: calc(var(--nav-size) * 0.3);
+  border-radius: var(--border-radius-xl);
+  background: color-mix(in srgb, var(--settings-hue) 7%, var(--bg-1));
+  transition: background 0.25s ease;
+}
+.dark-theme .settings-panel {
+  background: color-mix(in srgb, var(--settings-hue) 15%, var(--bg-1));
 }
 
-.planit-settings-section {
-    padding: calc(var(--nav-size) * 0.5);
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.32);
-    animation: slideInUp 0.6s ease both;
-    scroll-margin-top: calc(var(--nav-size) * 2);
-    transition: box-shadow var(--speed) ease, background var(--speed) ease;
+/* Every panel claims its own hue, so neighbouring blocks differ in tone. */
+.settings-panel--account       { --settings-hue: var(--fg-blue); }
+.settings-panel--appearance    { --settings-hue: var(--fg-mint); }
+.settings-panel--notifications { --settings-hue: var(--fg-pink); }
+.settings-panel--privacy       { --settings-hue: var(--fg-orange); }
+.settings-panel--ai            { --settings-hue: var(--fg-blue); }
+
+/* Head and foot are stronger washes of the panel's OWN hue, bled to its edges,
+   so a block reads as one family instead of a box with two rules in it. */
+.settings-panel-head {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.2);
+  margin: calc(var(--nav-size) * -0.3) calc(var(--nav-size) * -0.3) 0;
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.3);
+  border-radius: var(--border-radius-xl) var(--border-radius-xl) 0 0;
+  background: color-mix(in srgb, var(--settings-hue) 13%, transparent);
 }
 
-/* Played when /profile deep-links to a specific section. */
-.planit-settings-section.is-highlighted {
-    background: color-mix(in srgb, var(--bg-page) 92%, var(--fg-blue) 8%);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--fg-blue) 55%, transparent), var(--shadow-lg);
+.settings-panel-title {
+  margin: 0;
+  font-size: var(--font-size-large);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+  line-height: var(--line-height-tight);
 }
 
-.planit-settings-section-header {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--spacing-sm);
+.settings-panel-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.2);
+  margin: 0 calc(var(--nav-size) * -0.3) calc(var(--nav-size) * -0.3);
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.3);
+  border-radius: 0 0 var(--border-radius-xl) var(--border-radius-xl);
+  background: color-mix(in srgb, var(--settings-hue) 10%, transparent);
 }
 
-.planit-settings-section-title {
-    margin: calc(var(--nav-size) * 0.08) 0 0;
-    font-size: var(--font-size-large);
-    font-weight: var(--font-weight-semibold);
-    line-height: var(--line-height-tight);
-    color: var(--text-color);
+/* /profile deep-links to a section (#photo, #notifications, ...). The state is
+   transient, so it is shown as a deeper tone rather than a ring + shadow. */
+.settings-panel.is-highlighted {
+  background: color-mix(in srgb, var(--settings-hue) 18%, var(--bg-1));
+}
+.dark-theme .settings-panel.is-highlighted {
+  background: color-mix(in srgb, var(--settings-hue) 28%, var(--bg-1));
+}
+.settings-panel,
+.settings-photo {
+  scroll-margin-top: calc(var(--nav-size) * 2.4);
 }
 
-.planit-settings-section-description {
-    margin-top: calc(var(--nav-size) * 0.12);
+/* ── Fields ───────────────────────────────────────────────────────────────── */
+
+.settings-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: calc(var(--nav-size) * 0.28);
 }
 
-/* ── Profile photo row ──────────────────────────────────────────────── */
-.planit-settings-photo {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.4);
-    padding: calc(var(--nav-size) * 0.35);
-    border-radius: var(--border-radius-lg);
-    background: color-mix(in srgb, var(--fg-blue) 8%, transparent);
-    scroll-margin-top: calc(var(--nav-size) * 2);
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.1);
+  min-width: 0;
 }
 
-.planit-settings-photo-copy {
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.1);
-    min-width: 0;
+/* A field's own action sits under its label, not stretched to the panel width. */
+.settings-field > .settings-btn { align-self: flex-start; }
+
+.settings-label {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.1);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color);
 }
 
-.planit-settings-photo-title {
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-color);
+.settings-hint {
+  margin: 0;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-base);
+  color: var(--settings-muted);
+}
+.settings-hint strong { color: var(--text-color); }
+
+/* An input on a tinted panel: a solid surface, and at most an edge mixed from
+   the panel's own accent — never a neutral grey outline (§5). */
+.settings-input {
+  width: 100%;
+  min-height: calc(var(--nav-size) * 0.9);
+  padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.26);
+  border: 1px solid color-mix(in srgb, var(--settings-hue) 30%, transparent);
+  border-radius: var(--border-radius);
+  background: var(--bg-1);
+  color: var(--text-color);
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  transition: border-color 0.18s ease;
+}
+select.settings-input { cursor: pointer; }
+.settings-input:hover { border-color: color-mix(in srgb, var(--settings-hue) 55%, transparent); }
+.settings-input:focus {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
+  border-color: var(--fg-blue);
 }
 
-.planit-settings-photo-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.18);
-    margin-top: calc(var(--nav-size) * 0.08);
+/* ── Profile photo row ────────────────────────────────────────────────────── */
+
+.settings-photo {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.35);
+  padding: calc(var(--nav-size) * 0.28);
+  border-radius: var(--border-radius-lg);
+  background: color-mix(in srgb, var(--settings-hue) 10%, transparent);
 }
 
-/* ── Grid + fields ──────────────────────────────────────────────────── */
-.planit-settings-grid,
-.planit-settings-checkbox-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: calc(var(--nav-size) * 0.28);
+.settings-photo-copy {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.1);
+  min-width: 0;
 }
 
-.planit-settings-item {
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.1);
-    min-width: 0;
+.settings-photo-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
 }
 
-.planit-settings-item-full {
-    grid-column: 1 / -1;
+.settings-photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.16);
+  margin-top: calc(var(--nav-size) * 0.08);
 }
 
-.planit-settings-label {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.1);
-    font-size: var(--font-size-small);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-color-accent);
+/* ── Range (text size) ────────────────────────────────────────────────────── */
+
+.settings-range {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
 }
 
-.planit-settings-input {
-    width: 100%;
-    min-height: calc(var(--nav-size) * 0.85);
-    border: 1px solid var(--border-nav);
-    border-radius: var(--border-radius);
-    background: var(--bg-1);
-    color: var(--text-color);
-    font-family: inherit;
-    font-size: var(--font-size-base);
-    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.24);
-    transition: border-color var(--speed) ease, box-shadow var(--speed) ease;
+.settings-range-input {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--fg-blue);
 }
 
-.planit-settings-input:hover {
-    box-shadow: var(--shadow-sm);
+.settings-range-value {
+  min-width: 4ch;
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--settings-muted);
 }
 
-.planit-settings-input:focus {
-    outline: var(--focus-outline);
-    outline-offset: var(--focus-outline-offset);
-    border-color: var(--fg-blue);
+.settings-font-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(var(--nav-size) * 0.14);
+  padding: calc(var(--nav-size) * 0.24);
+  border-radius: var(--border-radius);
+  background: color-mix(in srgb, var(--settings-hue) 10%, transparent);
 }
 
-/* ── Buttons ────────────────────────────────────────────────────────── */
-.planit-settings-outline-button,
-.planit-settings-text-button,
-.planit-settings-save-button,
-.planit-settings-password-reset-button,
-.planit-settings-profile-button,
-.planit-settings-logout-button,
-.planit-settings-ai-button,
-.planit-settings-ai-link,
-.planit-settings-font-reset {
-    font-family: inherit;
-    font-size: var(--font-size-small);
-    font-weight: var(--font-weight-semibold);
-    letter-spacing: 0.03em;
-    border-radius: 999px;
-    border: 1px solid transparent;
-    min-height: calc(var(--nav-size) * 0.78);
-    padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.45);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: calc(var(--nav-size) * 0.1);
-    text-decoration: none;
-    white-space: nowrap;
-    cursor: pointer;
-    transition: transform var(--speed) ease, box-shadow var(--speed) ease, background var(--speed) ease, border-color var(--speed) ease;
+.settings-font-preview-text {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
 }
 
-.planit-settings-outline-button:hover:not(:disabled),
-.planit-settings-save-button:hover:not(:disabled),
-.planit-settings-password-reset-button:hover:not(:disabled),
-.planit-settings-profile-button:hover:not(:disabled),
-.planit-settings-logout-button:hover:not(:disabled),
-.planit-settings-ai-button:hover:not(:disabled),
-.planit-settings-ai-link:hover,
-.planit-settings-font-reset:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+/* ── Toggles (email + permissions) ────────────────────────────────────────── */
+
+.settings-toggle-list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.1);
 }
 
-.planit-settings-outline-button:focus-visible,
-.planit-settings-text-button:focus-visible,
-.planit-settings-save-button:focus-visible,
-.planit-settings-password-reset-button:focus-visible,
-.planit-settings-profile-button:focus-visible,
-.planit-settings-logout-button:focus-visible,
-.planit-settings-ai-button:focus-visible,
-.planit-settings-ai-link:focus-visible,
-.planit-settings-font-reset:focus-visible,
-.planit-settings-toggle-card:focus-within {
-    outline: var(--focus-outline);
-    outline-offset: var(--focus-outline-offset);
+.settings-toggle {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  padding: calc(var(--nav-size) * 0.24) calc(var(--nav-size) * 0.28);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: background 0.2s ease;
 }
 
-.planit-settings-outline-button,
-.planit-settings-profile-button,
-.planit-settings-logout-button,
-.planit-settings-font-reset {
-    background: transparent;
-    color: var(--text-color);
-    border-color: var(--border-nav);
+/* Rows are separated by alternating tints, not a hairline under every row (§5). */
+.settings-toggle:nth-child(odd) {
+  background: color-mix(in srgb, var(--settings-hue) 8%, transparent);
 }
-.planit-settings-outline-button:hover:not(:disabled),
-.planit-settings-profile-button:hover:not(:disabled),
-.planit-settings-logout-button:hover:not(:disabled),
-.planit-settings-font-reset:hover:not(:disabled) {
-    background: var(--bg-accent);
-    /* Re-declared to beat the global `button:hover:not(:disabled)` rule in
-       index.css, which would otherwise flip these labels to inverted text. */
-    color: var(--text-color);
+.settings-toggle:hover {
+  background: color-mix(in srgb, var(--settings-hue) 15%, transparent);
+}
+.settings-toggle:focus-within {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
 }
 
-.planit-settings-text-button {
-    background: transparent;
-    color: var(--red0);
-    border-color: transparent;
-    padding-inline: calc(var(--nav-size) * 0.2);
-    min-height: 0;
-}
-.planit-settings-text-button:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--red0) 12%, transparent);
-    color: var(--red0);
-    transform: none;
-    box-shadow: none;
+.settings-toggle-copy {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.06);
+  min-width: 0;
 }
 
-.planit-settings-save-button {
-    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
-    color: var(--text-color-inv);
+.settings-toggle-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
 }
 
-.planit-settings-password-reset-button {
-    align-self: flex-start;
-    background: linear-gradient(45deg, var(--fg-orange), var(--fg-pink));
-    color: var(--text-color-inv);
+.settings-toggle-desc {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-base);
+  color: var(--settings-muted);
+}
+.settings-toggle-desc strong { color: var(--text-color); font-weight: var(--font-weight-semibold); }
+
+.settings-toggle-input {
+  flex-shrink: 0;
+  width: calc(var(--nav-size) * 0.46);
+  height: calc(var(--nav-size) * 0.46);
+  margin: 0;
+  accent-color: var(--fg-blue);
+  cursor: pointer;
+}
+.settings-toggle-input:disabled { cursor: default; opacity: 0.6; }
+
+/* ── AI panel ─────────────────────────────────────────────────────────────── */
+
+.settings-ai {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.24);
 }
 
-.planit-settings-ai-button {
-    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
-    color: var(--text-color-inv);
+.settings-ai-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.18);
 }
 
-.planit-settings-ai-link {
-    background: transparent;
-    color: var(--text-color);
-    border-color: var(--border-nav);
+.settings-note {
+  margin: 0;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-base);
+  color: var(--settings-muted);
+}
+.settings-note strong { color: var(--text-color); }
+.settings-note a { color: var(--fg-blue); font-weight: var(--font-weight-semibold); }
+.settings-note code {
+  padding: 0 calc(var(--nav-size) * 0.1);
+  border-radius: var(--border-radius-sm, 4px);
+  background: color-mix(in srgb, var(--settings-hue) 14%, transparent);
+  font-size: var(--font-size-xs);
 }
 
-.planit-settings-save-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: calc(var(--nav-size) * 0.25);
-    padding-top: calc(var(--nav-size) * 0.24);
-    border-top: 1px solid var(--border-nav);
+/* Power-user plumbing, folded away (§5.7) — a plane of colour, not a box. */
+.settings-details {
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.28);
+  border-radius: var(--border-radius);
+  background: color-mix(in srgb, var(--settings-hue) 7%, transparent);
 }
 
-/* ── Toggle cards (email preferences) ───────────────────────────────── */
-.planit-settings-toggle-card {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: var(--spacing-sm);
-    padding: calc(var(--nav-size) * 0.3);
-    border-radius: var(--border-radius-lg);
-    background: color-mix(in srgb, var(--bg-accent) 45%, transparent);
-    cursor: pointer;
-    transition: background var(--speed) ease;
+.settings-details > summary {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.14);
+  cursor: pointer;
+  list-style: none;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color);
+}
+.settings-details > summary::-webkit-details-marker { display: none; }
+.settings-details > summary::before {
+  content: '➕';
+  font-size: var(--font-size-xs);
+}
+.settings-details[open] > summary::before { content: '➖'; }
+.settings-details > summary:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
 }
 
-.planit-settings-toggle-card:hover {
-    background: color-mix(in srgb, var(--bg-accent) 70%, transparent);
+.settings-details-body {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.18);
+  padding-top: calc(var(--nav-size) * 0.2);
 }
 
-.planit-settings-toggle-copy {
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.06);
+.settings-optout {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(var(--nav-size) * 0.18);
+  padding: calc(var(--nav-size) * 0.24);
+  border-radius: var(--border-radius);
+  background: color-mix(in srgb, var(--settings-hue) 8%, transparent);
 }
 
-.planit-settings-toggle-title {
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-color);
+/* ── The shared AIWorkflowSettings control set ────────────────────────────────
+   `/settings` and the /net Advanced Settings modal host the same component, so
+   its own stylesheet has to stay host-agnostic — and it is written in the old
+   idiom: bordered white cards with a shadow, and muted text tuned for
+   `--bg-page`. Scoping the *surface* tokens here (never the component's file)
+   keeps a page from mixing two idioms: on a tinted panel we want planes of
+   colour instead of boxes (§5), and secondary text lifted to `--settings-muted`
+   so it clears AA on a wash. Layout, sizing and behaviour stay the component's
+   business, and the /net modal is untouched. */
+.settings-ai .aiw-toggle-card,
+.settings-ai .aiw-token-group,
+.settings-ai .aiw-static-value {
+  border: none;
+  box-shadow: none;
+  border-radius: var(--border-radius);
+  background: color-mix(in srgb, var(--settings-hue) 8%, transparent);
+}
+.settings-ai .aiw-toggle-card:hover {
+  background: color-mix(in srgb, var(--settings-hue) 15%, transparent);
+}
+.settings-ai .aiw-input {
+  background: var(--bg-1);
+  border-color: color-mix(in srgb, var(--settings-hue) 30%, transparent);
+  border-radius: var(--border-radius);
+}
+.settings-ai .aiw-input:focus {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
+  border-color: var(--fg-blue);
+}
+.settings-ai .aiw-hint,
+.settings-ai .aiw-note,
+.settings-ai .aiw-toggle-description,
+.settings-ai .aiw-token-status,
+.settings-ai .aiw-token-help {
+  color: var(--settings-muted);
 }
 
-.planit-settings-checkbox {
-    margin: 0;
-    width: calc(var(--nav-size) * 0.45);
-    height: calc(var(--nav-size) * 0.45);
-    accent-color: var(--fg-blue);
-    flex-shrink: 0;
+/* ── Session row — leaving the room, not a pitch ──────────────────────────── */
+
+.settings-session {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--nav-size) * 0.18);
+  padding: calc(var(--nav-size) * 0.28);
+  border-radius: var(--border-radius-xl);
+  background: color-mix(in srgb, var(--text-color) 6%, transparent);
 }
 
-/* ── Font-size control ──────────────────────────────────────────────── */
-.planit-settings-range-group {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+
+.settings-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--nav-size) * 0.12);
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.55);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease;
 }
 
-.planit-settings-range {
-    width: 100%;
-    accent-color: var(--fg-blue);
+/* Undo the global `button` min-height where a compact control is wanted. */
+.settings-btn--sm {
+  padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.4);
+  min-height: calc(var(--nav-size) * 0.72);
 }
 
-.planit-settings-range-value {
-    font-size: var(--font-size-small);
-    color: var(--text-color-accent);
-    font-variant-numeric: tabular-nums;
-    min-width: 4ch;
-    text-align: right;
+/* Every hover rule below repeats `:not(:disabled)` so it out-specifies the
+   global `button:hover:not(:disabled)` in index.css, which would otherwise
+   repaint these controls with the site gradient and inverted text. */
+.settings-btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+.settings-btn--primary {
+  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  color: var(--text-color-inv);
+}
+.settings-btn--primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+
+.settings-btn--warm {
+  background: linear-gradient(45deg, var(--fg-orange), var(--fg-pink));
+  color: var(--text-color-inv);
+}
+.settings-btn--warm:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+
+.settings-btn--outline {
+  background: color-mix(in srgb, var(--text-color) 9%, transparent);
+  color: var(--text-color);
+}
+.settings-btn--outline:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text-color) 15%, transparent);
+  color: var(--text-color);
 }
 
-.planit-settings-font-preview {
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.14);
-    padding: calc(var(--nav-size) * 0.25);
-    border-radius: var(--border-radius);
-    background: color-mix(in srgb, var(--bg-accent) 45%, transparent);
+.settings-btn--ghost {
+  background: var(--bg-1);
+  color: var(--text-color);
+}
+.settings-btn--ghost:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--settings-hue, var(--fg-blue)) 20%, var(--bg-1));
+  color: var(--text-color);
 }
 
-.planit-settings-font-preview-text {
-    color: var(--text-color);
-    font-size: var(--font-size-base);
+.settings-btn--danger {
+  background: transparent;
+  color: var(--red0);
+}
+.settings-btn--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--red0) 14%, transparent);
+  color: var(--red0);
 }
 
-.planit-settings-font-reset {
-    align-self: flex-start;
-    min-height: 0;
-    padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.3);
+.settings-btn:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
 }
 
-/* ── AI section ─────────────────────────────────────────────────────── */
-.planit-settings-ai-info {
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.24);
-}
+/* ── Responsive ───────────────────────────────────────────────────────────── */
 
-.planit-settings-ai-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: calc(var(--nav-size) * 0.18);
-}
-
-.planit-settings-ai-optout {
-    display: flex;
-    flex-direction: column;
-    gap: calc(var(--nav-size) * 0.2);
-    padding-top: calc(var(--nav-size) * 0.24);
-    border-top: 1px solid var(--border-nav);
-}
-
-.planit-settings-ai-note a,
-.planit-settings-ai-description a {
-    color: var(--fg-blue);
-}
-
-.planit-settings-ai-note code {
-    font-size: var(--font-size-xs);
-    padding: 0 calc(var(--nav-size) * 0.1);
-    border-radius: var(--border-radius-sm);
-    background: var(--bg-accent);
-}
-
-/* ── Action bar ─────────────────────────────────────────────────────── */
-.planit-settings-actions {
-    padding: calc(var(--nav-size) * 0.5);
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: calc(var(--nav-size) * 0.18);
-    animation: fadeInSection 0.8s ease both;
-}
-
-/* ── Responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 720px) {
-    .planit-settings-bg {
-        padding: calc(var(--nav-size) * 1.3) var(--spacing-xs) var(--spacing-md);
-    }
+  .settings-page {
+    padding: calc(var(--nav-size) * 1.15) var(--spacing-xs) calc(var(--nav-size) * 1);
+  }
 
-    .floating-circle {
-        display: none;
-    }
+  .settings-bar-actions { margin-left: 0; }
 
-    .planit-settings-hero,
-    .planit-settings-section,
-    .planit-settings-actions {
-        padding: calc(var(--nav-size) * 0.35);
-        border-radius: var(--border-radius-xl);
-    }
-
-    .planit-settings-hero-main,
-    .planit-settings-photo {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .planit-settings-grid,
-    .planit-settings-checkbox-grid {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .planit-settings-actions,
-    .planit-settings-actions button {
-        width: 100%;
-    }
+  .settings-photo { flex-direction: column; align-items: flex-start; }
+  .settings-session { justify-content: flex-start; }
 }
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
-    .planit-settings-bg,
-    .floating-circle,
-    .planit-settings-hero,
-    .planit-settings-section,
-    .planit-settings-actions {
-        animation: none;
-    }
+  .settings-panel,
+  .settings-btn,
+  .settings-input,
+  .settings-toggle {
+    animation: none;
+    transition: none;
+  }
+  .settings-btn:hover:not(:disabled) { transform: none; }
 }
 
-/* ── Keyframes ──────────────────────────────────────────────────────── */
-@keyframes gradientShift {
-    0% { background-position: 0% 50%; }
-    25% { background-position: 100% 50%; }
-    50% { background-position: 100% 100%; }
-    75% { background-position: 0% 100%; }
-    100% { background-position: 0% 50%; }
-}
+/* ── High contrast ────────────────────────────────────────────────────────── */
 
-@keyframes float {
-    0%, 100% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(calc(var(--nav-size) * -0.35)) rotate(180deg); }
-}
-
-@keyframes fadeInSection {
-    from { opacity: 0; transform: translateY(calc(var(--nav-size) * 0.4)); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes slideInUp {
-    from { opacity: 0; transform: translateY(calc(var(--nav-size) * 0.25)); }
-    to { opacity: 1; transform: translateY(0); }
+@media (prefers-contrast: more) {
+  .settings-panel,
+  .settings-panel-head,
+  .settings-panel-foot,
+  .settings-photo,
+  .settings-font-preview,
+  .settings-details,
+  .settings-session,
+  .settings-toggle,
+  .settings-toggle:nth-child(odd),
+  .settings-chip {
+    background: var(--bg-1);
+  }
 }

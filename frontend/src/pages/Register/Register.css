@@ -2,6 +2,18 @@
 /* ── Register — vibrant editorial (docs/guides/FRONTEND_UI_STANDARD.md) ── */
 
 .register {
+  /* Page-local derivations, in the same shape as the shared closing CTA band
+     (components/Simple/SimpleCtaBand/SimpleCtaBand.css).
+
+     The page's own gradient is built from the --bg-* corners, which are pale in
+     light mode and deep in dark mode, so everything drawn on top of it — ink,
+     hairlines, washes — is derived from --text-color and follows the theme.
+     --text-color-inv is deliberately NOT used here: it is the ink for a *filled
+     gradient button*, not "the text colour for a gradient page", and it resolves
+     to a dark colour in dark mode (docs/guides/FRONTEND_UI_STANDARD.md). */
+  --register-ink: var(--text-color);
+  --register-ink-hairline: color-mix(in srgb, var(--text-color) 22%, transparent);
+  --register-on-ink: var(--bg-page);
   color: var(--text-color);
   min-height: 100vh;
   padding: calc(var(--nav-size) * 1.8) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.5);
@@ -85,8 +97,15 @@
   align-items: center;
 }
 .register-card {
-  background: color-mix(in srgb, var(--bg-1) 55%, transparent);
-  border: 1px solid var(--border-nav);
+  /* A solid, deliberately-tinted plane rather than a 55%-transparent film: over
+     a moving gradient, a translucent film takes on whatever hue the gradient is
+     showing (pink in light mode, maroon in dark), so the one surface holding the
+     form changed colour with the background animation. A wash of a single accent
+     over --bg-1 is the §5 recipe for a container, and it leaves the solid --bg-1
+     fields sitting *on* it legible as fields. The edge is a tone of the page ink,
+     not a neutral grey hairline. */
+  background: color-mix(in srgb, var(--fg-blue) 7%, var(--bg-1));
+  border: 1px solid var(--register-ink-hairline);
   border-radius: var(--border-radius-lg);
   box-shadow: var(--shadow-md);
   width: 100%;
@@ -131,6 +150,17 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--fg-blue) 22%, transparent);
 }
 .register-input.error { border-color: var(--red0); }
+/* The global `input:invalid { border-color: var(--red0) }` (index.css) flags a
+   required-but-empty field red the moment the page loads, so a brand-new visitor
+   lands on a sign-up form that already reads as broken — three fields deep in
+   "error" before they have typed anything. `Register.jsx` reports validation
+   failures as toasts and explains the password rule in the hint under the field,
+   so an untouched field keeps its neutral edge. */
+.register-input:invalid { border-color: var(--border-nav); }
+.register-input:invalid:focus {
+  border-color: var(--fg-blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--fg-blue) 22%, transparent);
+}
 .register-hint {
   font-size: var(--font-size-small);
   color: var(--text-color-accent);
@@ -138,7 +168,12 @@
   margin: 0;
 }
 
-/* Primary pill button */
+/* Primary pill button — the page's one loud control, painted in the page's own
+   ink so it inverts with the theme (deep navy in light mode, near-white in dark)
+   instead of staying a saturated slab in both. This is the same treatment the
+   shared CTA band's primary takes, and it is why the fill is restated on hover:
+   the global `button:hover:not(:disabled)` rule pipes in the site gradient
+   otherwise (§6 of the UI standard). */
 .register-submit {
   min-height: 0;
   font-family: inherit;
@@ -150,12 +185,18 @@
   padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.55);
   cursor: pointer;
   border: 1px solid transparent;
-  color: var(--text-color-inv);
-  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  color: var(--register-on-ink);
+  background: var(--register-ink);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   margin-top: calc(var(--nav-size) * 0.15);
 }
-.register-submit:hover:not(:disabled) { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.register-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  background: var(--register-ink);
+  color: var(--register-on-ink);
+}
+.register-submit:focus { outline: var(--focus-outline); outline-offset: var(--focus-outline-offset); }
 .register-submit:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* Secondary action */
@@ -166,7 +207,7 @@
   gap: calc(var(--nav-size) * 0.25);
   margin-top: calc(var(--nav-size) * 0.5);
   padding-top: calc(var(--nav-size) * 0.4);
-  border-top: 1px solid var(--border-nav);
+  border-top: 1px solid var(--register-ink-hairline);
 }
 .register-link {
   font-size: var(--font-size-base);
@@ -188,4 +229,9 @@
 @media (prefers-reduced-motion: reduce) {
   .register { animation: none; }
   .register-circle { animation: none; }
+  /* Stopping the keyframes is not enough — the hover/press transitions are
+     motion too, and they ran at full speed for motion-sensitive users. */
+  .register-input,
+  .register-submit,
+  .register-link span { transition: none; }
 }

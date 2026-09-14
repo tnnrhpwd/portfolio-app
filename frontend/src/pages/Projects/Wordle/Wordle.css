@@ -38,10 +38,6 @@
         var(--bg-page);
 }
 
-.footer-space {
-    background-color: transparent !important;
-}
-
 /* ---- Centered play area (keeps it tidy on large PC screens) ---- */
 .wordle-main {
     width: 100%;

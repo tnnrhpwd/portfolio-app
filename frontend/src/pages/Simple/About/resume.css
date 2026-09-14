@@ -51,7 +51,16 @@
 }
 .about-band--surface { background: transparent; }
 .about-band--tint { background: color-mix(in srgb, var(--fg-mint) 14%, transparent); }
-.about-band--cta { background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint)); color: var(--text-color-inv); }
+/* The contact band wears the page's own corner colors with normal theme ink —
+   pale in light mode, deep in dark — mirroring the shared closing CTA band
+   (components/Simple/SimpleCtaBand/SimpleCtaBand.css). The old --fg-blue/
+   --fg-mint fill was bright in BOTH themes: neon against the dark page, a heavy
+   dark slab against the light one. Now the fill follows the ink (--text-color
+   is dark in light mode, near-white in dark mode) instead of fighting it. */
+.about-band--cta {
+  background: linear-gradient(45deg, var(--bg-blue), var(--bg-mint));
+  color: var(--text-color);
+}
 .about-wrap { width: 100%; max-width: 1080px; }
 
 /* Hero */
@@ -141,9 +150,22 @@
   border-color: var(--border-nav);
 }
 .about-btn-outline:hover { background: color-mix(in srgb, var(--bg-1) 45%, transparent); box-shadow: none; }
-.about-btn-inv { background: var(--white0); color: var(--grey5); }
-.about-btn-ghost { background: var(--white1-transp); color: var(--text-color-inv); border-color: var(--text-color-inv); }
-.about-btn-ghost:hover { box-shadow: none; background: var(--white1-transp); }
+/* The two contact-band buttons are painted in the band's own ink, so they invert
+   with it: the primary is a solid ink pill, the secondary an outline of the same
+   ink. Neither uses --text-color-inv (the ink for a *filled gradient button*) or
+   the absolute --white0/--grey5 pair, which made the primary a white slab on
+   whichever theme's band it landed on. */
+.about-btn-inv { background: var(--text-color); color: var(--bg-page); }
+.about-btn-ghost {
+  background: transparent;
+  color: var(--text-color);
+  border-color: color-mix(in srgb, var(--text-color) 52%, transparent);
+}
+.about-btn-ghost:hover {
+  box-shadow: none;
+  border-color: var(--text-color);
+  background: color-mix(in srgb, var(--text-color) 10%, transparent);
+}
 
 /* Hero portrait */
 .about-hero-media { display: flex; justify-content: center; }
@@ -402,9 +424,6 @@
 
 /* CTA band */
 .about-band--cta .about-section-head { text-align: center; margin-left: auto; margin-right: auto; }
-.about-band--cta .about-eyebrow,
-.about-band--cta .about-heading,
-.about-band--cta .about-lead { color: var(--text-color-inv); }
 .about-cta-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: calc(var(--nav-size) * 0.3); }
 
 /* Footer */
