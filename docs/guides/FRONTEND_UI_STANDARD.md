@@ -53,6 +53,32 @@ All colors come from CSS custom properties defined in `frontend/src/index.css`.
   - `.dark-theme`
 - The header theme toggle (see `components/Header/Header.jsx` and `utils/theme.js`) swaps the class
   and persists the choice to `localStorage('theme')`.
+- `<body>` also carries `data-scheme` — one of the ids in `utils/scheme.js` — which decides *which* two
+  hues are the accent and the primary. It is device-local and independent of light/dark.
+
+### Both are painted before the first frame
+
+The mode class and the scheme attribute are applied by a small inline script at the top of
+`frontend/index.html`, before `index.jsx` (a deferred module) runs. React can't do it: both used to be
+applied in the shared header's **mount effect**, which lands *after* the first paint — so the page
+painted the default palette and then jumped to the visitor's, most visibly on a lazy route like `/net`,
+whose chunk is still being fetched while that first frame is on screen.
+
+Two things to know about that script:
+
+- **It is deliberately dumb, and it is not the authority.** It copies the storage shape and nothing else:
+  `theme` → the class (resolving `system` against the OS), `scheme` → `data-scheme`, plus the inline
+  `--scheme-hue-*` pair when the id is `custom`. `initTheme()` and `initScheme()` still run on mount and
+  settle everything — they validate the id and they own the repaint. Change the storage shape in
+  `utils/theme.js` / `utils/scheme.js` and change it there too.
+- **It writes the scheme id unvalidated**, because the id list lives in `utils/scheme.js` and must not be
+  copied into HTML. That is only safe because `body[data-scheme]` in `index.css` **seeds** the two
+  identity hues: an id no scheme is named for degrades to the theme's default pair instead of collapsing
+  the whole accent chain (see the note on that block).
+
+A visitor with **nothing stored** still gets one frame of the default palette — the script has no id to
+paint, so the default scheme only lands when `initScheme()` runs on mount. That is why the backdrop
+fallbacks in “Pages that *are* their own gradient” (_below_) are not decoration.
 
 ### Rules for theming
 
@@ -133,9 +159,12 @@ already written against them:
 
 - **`--fg-orange` is deliberately not aliased** — orange is the alert hue, the one colour that must not
   follow the decor. `--bg-orange` *is*, because it only appears in the decorative backdrop.
-- **The `-bg` fallback is not decoration.** `initScheme()` runs in the header's *mount effect*, a frame
-  after the first paint, so without it the entire `background` declaration is invalid on that frame and
-  the page flashes with no backdrop at all.
+- **The `-bg` fallback is not decoration.** `index.html` paints the stored scheme before the first frame
+  (§2), but that frame can still arrive with no `--scheme-backdrop-*` at all: a visitor with **nothing
+  stored** has no id to paint, so the default scheme only lands when `initScheme()` runs on mount — and a
+  browser where `localStorage` throws, or a stored id no scheme is named for, has the same problem.
+  Without the fallback the entire `background` declaration is invalid on that frame and the page flashes
+  with no backdrop at all.
 - **A scheme needs no account.** It is device-local — `utils/scheme.js` keeps it in `localStorage` and
   the shared `Header` paints it — so it applies on `/login` and `/register` exactly like light/dark.
 - **The primary is the scheme's ramp, at a pinned lightness** (`--login-btn-l-*`, and the same move the

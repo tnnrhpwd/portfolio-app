@@ -156,7 +156,13 @@ export function setScheme(id) {
 
 /** Paint whatever was chosen last, or the default. Called on mount by the
  *  header, which is on every page — the same place, and for the same reason, as
- *  the theme. Does not re-persist: reading is not choosing. */
+ *  the theme. Does not re-persist: reading is not choosing.
+ *
+ *  ⚠️ This is no longer the FIRST thing to paint the scheme. `index.html` paints
+ *  the stored one before React boots, because a mount effect lands a frame after
+ *  the first paint — and later still on a lazy route, whose chunk is fetched while
+ *  the default palette is already on screen. This stays the authority (it validates
+ *  the id, and it owns the repaint); the two must agree on the storage shape. */
 export function initScheme() {
   const stored = localStorage.getItem(STORAGE_KEY);
   paint(isScheme(stored) ? stored : DEFAULT_SCHEME);

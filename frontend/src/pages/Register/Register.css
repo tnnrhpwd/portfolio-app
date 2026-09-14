@@ -13,8 +13,9 @@
      from, only the shared header and footer. And it matters most HERE — `/login`
      and `/register` are usually a visitor's first, cold load of the site. That is
      also why no account is needed to see the right colours: a scheme is
-     device-local (`utils/scheme.js` keeps it in localStorage, the shared `Header`
-     paints it via `initScheme()`), exactly like the light/dark mode.
+     device-local (`utils/scheme.js` keeps it in localStorage; `index.html` paints
+     it before the first frame and the shared `Header` settles it via
+     `initScheme()`), exactly like the light/dark mode.
 
      ⚠️ `--fg-orange` is deliberately NOT aliased — orange is the ALERT hue, the
      one colour that must not follow the decor. */
@@ -25,11 +26,13 @@
      pale identity hue turns too light for a dark page (see the note in
      `index.css`). The backdrop pins its lightness per mode and takes only the hue.
 
-     The `-bg` fallback matters because `initScheme()` runs in the header's mount
-     effect — a frame AFTER the first paint. Without it the whole gradient
-     declaration is invalid on that first frame and the page flashes with no
-     backdrop at all; with it the pre-scheme frame is the fixed brand corner, i.e.
-     what the page looked like before this change. */
+     The `-bg` fallback is still load-bearing even though `index.html` paints the
+     stored scheme pre-paint: a visitor with NOTHING stored reaches that frame with
+     no `--scheme-backdrop-*` at all (the default scheme only lands when
+     `initScheme()` runs on mount), and so does a browser where localStorage throws.
+     Unfallback'd, the whole gradient declaration would be invalid on that frame and
+     the page would flash with no backdrop; with it, that frame is the fixed brand
+     corner — what the page looked like before this change. */
   --bg-orange: var(--scheme-backdrop-a, var(--scheme-accent-bg));
   --bg-pink: var(--scheme-backdrop-b, var(--scheme-primary-bg));
   --bg-blue: var(--scheme-backdrop-a, var(--scheme-accent-bg));

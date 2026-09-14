@@ -63,7 +63,12 @@ function setSystemColorMode() {
 }
 
 /** Paint whatever was chosen last, without re-persisting it: reading is not
- *  choosing. A first visit has nothing stored, which resolves to the OS. */
+ *  choosing. A first visit has nothing stored, which resolves to the OS.
+ *
+ *  ⚠️ `index.html` paints this same decision before the first frame (a mount
+ *  effect is a frame too late, and the visitor sees the wrong mode flash). That
+ *  script copies the two storage values and this resolver's shape; if the shape
+ *  changes here, change it there too. */
 function initTheme() {
   return { preference: getThemePreference(), applied: paint(resolve(localStorage.getItem(THEME_KEY))) };
 }

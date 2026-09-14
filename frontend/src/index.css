@@ -278,6 +278,21 @@ code {
    backdrop is pale on a light page and deep on a dark one — the same trick that
    makes `--admin-room-mix` work, and why neither needs a hand-authored pair. */
 body[data-scheme] {
+  /* ⚠️ These two are a SEED, not a scheme, and the scheme blocks below replace
+     them. They exist because `data-scheme` is an attribute-PRESENCE selector: any
+     value matches this block, including one no scheme is named for. Unseeded, the
+     derivation below would take its hue from an undefined token and collapse to
+     the guaranteed-invalid value — every accent on the page quietly disappears,
+     with no error. Seeded, an unrecognised id degrades to exactly what no
+     attribute at all gives: the theme's own default pair, which is what the
+     `.light-theme` / `.dark-theme` block above already aliases its accents to.
+
+     An unrecognised id is reachable: `index.html` paints the stored scheme before
+     React boots (so the first frame is the visitor's, not the default's), and it
+     does that WITHOUT validating — the id list lives in `src/utils/scheme.js` and
+     must not be copied into the HTML. This seed is what makes that safe. */
+  --scheme-hue-accent: var(--fg-mint);
+  --scheme-hue-primary: var(--fg-pink);
   --scheme-l: 0.52;
   --scheme-c: 0.125;
   --scheme-l-primary: var(--scheme-l);

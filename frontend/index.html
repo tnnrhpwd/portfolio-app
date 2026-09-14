@@ -76,6 +76,69 @@
     </script>
   </head>
   <body>
+    <!--
+      Paint the stored colour mode AND colour scheme before the first frame.
+
+      React applies both in the shared header's mount effect (`src/utils/theme.js`,
+      `src/utils/scheme.js`) — a frame after the first paint, and longer on a lazy
+      route such as `/net`, whose chunk is still being fetched while the default
+      palette is already on screen. Without this the page paints the theme's fixed
+      mint/pink accents and then jumps to the visitor's scheme. `index.jsx` is a
+      deferred module script, so this runs first, always.
+
+      Deliberately DUMB, and deliberately not the authority: a couple of storage reads
+      and two writes. `initTheme()` and `initScheme()` still run on mount and settle
+      everything — they resolve `system` against the OS, validate the id, and
+      repaint `custom`. Inline scripts are allowed (`netlify.toml`'s CSP keeps
+      `'unsafe-inline'`).
+
+      ⚠️ The scheme id is written UNVALIDATED, because the list of ids lives in
+      `src/utils/scheme.js` and is not duplicated here. That is safe only because
+      `body[data-scheme]` in `index.css` SEEDS the two identity hues: an id no
+      scheme is named for degrades to the theme's default pair instead of
+      collapsing the whole accent chain to the guaranteed-invalid value.
+    -->
+    <script>
+      (function () {
+        var LIGHT = 'light-theme';
+        var DARK = 'dark-theme';
+        var body = document.body;
+
+        var stored = null;
+        try {
+          stored = localStorage.getItem('theme');
+        } catch (e) {
+          /* Storage blocked (private mode, embedded webview) — follow the OS. */
+        }
+        var osDark =
+          window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var dark = stored === DARK || (stored !== LIGHT && osDark);
+        body.classList.add(dark ? DARK : LIGHT);
+
+        try {
+          var scheme = localStorage.getItem('scheme');
+          if (!scheme) return;
+          if (scheme === 'custom') {
+            /* Its own try: an unreadable pair costs the two hues, NOT the scheme.
+               `body[data-scheme='custom']` seeds its own pair in index.css, so the
+               frame is still the visitor's scheme rather than the default's. */
+            try {
+              var pair = JSON.parse(localStorage.getItem('schemeCustom') || 'null');
+              var hex = /^#[0-9a-f]{6}$/i;
+              if (pair && hex.test(pair.primary) && hex.test(pair.secondary)) {
+                body.style.setProperty('--scheme-hue-accent', pair.primary);
+                body.style.setProperty('--scheme-hue-primary', pair.secondary);
+              }
+            } catch (e) {
+              /* fall through to the attribute below */
+            }
+          }
+          body.dataset.scheme = scheme;
+        } catch (e) {
+          /* Storage blocked (private mode, embedded webview). */
+        }
+      })();
+    </script>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/index.jsx"></script>

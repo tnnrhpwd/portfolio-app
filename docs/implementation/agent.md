@@ -1941,10 +1941,12 @@ cold load — were the one place the scheme did not show.
 - ✅ **Backdrops, not tints.** A full-bleed field takes `--scheme-backdrop-*` — the pair that PINS its
   lightness per mode — because `--scheme-*-bg` is calibrated as a tint and a pale identity hue mixed to
   a page-relative lightness goes pale on a *dark* page (see the note in `index.css`).
-- ⚠️ **The fallback in `var(--scheme-backdrop-a, var(--scheme-accent-bg))` is load-bearing.** `Header`'s
-  `useEffect` calls `initScheme()`, a frame *after* the first paint, so without it the whole `background`
-  declaration is invalid on that frame and the page flashes with no backdrop at all. With it, that frame
-  is the pre-change brand corner.
+- ⚠️ **The fallback in `var(--scheme-backdrop-a, var(--scheme-accent-bg))` is load-bearing.** `index.html`
+  now paints the stored scheme before the first frame (§13.25), but a visitor with **nothing stored** has
+  no id to paint, so the default scheme still only lands when `Header`'s `useEffect` calls `initScheme()` —
+  and the same is true of a browser where `localStorage` throws. Without the fallback the whole
+  `background` declaration is invalid on that frame and the page flashes with no backdrop at all. With it,
+  that frame is the pre-change brand corner.
 - ✅ **The primary is the scheme's ramp at a pinned lightness** (`--login-btn-l-a/-b`, 0.46/0.36 light and
   0.80/0.70 dark), because a scheme's identity hues are chosen for contrast *on a page*: white on
   Cyberpunk's yellow at its page lightness does not read. `SimpleCtaBand` borrowed those same numbers for
@@ -2051,6 +2053,39 @@ whatever the visitor had picked — and one that had picked Crimson saw the site
   `Hype.css` / `Support.css` focus washes (0.2), `Polls.css` (0.35 ×2), and `Polls.css` / `Sit.css`'s
   `rgba(220, 0, 0, 0.12)` error washes. Same fix, one line each, when someone is in those files.
 - **No test run:** `index.css` is not read by any test file (checked); the change is 4 rules plus one token.
+
+### 13.25 The scheme is painted before the first frame (2026-09-14)
+
+Refreshing `/net` showed the **default** palette for a moment and then jumped to the visitor's scheme.
+Nothing was wrong with the scheme itself: `index.html` loaded `/src/index.jsx` as a deferred module and
+*everything* — the mode class and the `data-scheme` attribute — was applied in the shared header's mount
+effect (`initTheme()`, `initScheme()`), i.e. after the first paint. Worse on `/net` than elsewhere: the
+route is `lazy()`-loaded, so the browser paints that first frame while the chunk is still in flight.
+
+- ✅ **Both now paint pre-paint.** A small inline script at the top of `<body>` reads `theme` and `scheme`
+  from `localStorage` and writes the class + `data-scheme` (+ the inline `--scheme-hue-*` pair for
+  `custom`) before `index.jsx` runs. It is deliberately dumb and deliberately not the authority:
+  `initTheme()` / `initScheme()` still run on mount, resolve `system` against the OS, validate, and own
+  the repaint. Inline scripts are permitted — `netlify.toml`'s CSP keeps `script-src 'unsafe-inline'`.
+- ⚠️ **The script writes the scheme id UNVALIDATED, and that needed a CSS change to be safe.**
+  `isScheme()` exists in `scheme.js` because an unknown id leaves `data-scheme` pointing at a selector no
+  scheme matches — and `body[data-scheme]` is an attribute-PRESENCE selector, so the derivation block
+  still applies, takes its hue from an undefined token, and collapses to the guaranteed-invalid value:
+  every accent on the page quietly disappears, with no error. The id list lives in `scheme.js` and must
+  not be copied into HTML, so the robustness went to the CSS instead: `body[data-scheme]` now **seeds**
+  `--scheme-hue-accent`/`-primary` with the theme's own default pair, which every named scheme overrides
+  (equal specificity, later in the file — the same ordering rule the schemes already depend on).
+  An unrecognised id now degrades to exactly what no attribute at all gives.
+- ⚠️ **A first visit still gets one frame of the default palette** — with nothing stored the script has no
+  id to paint, so the default scheme only lands when `initScheme()` runs on mount. Left alone rather than
+  duplicating the default's id into the HTML; it is what makes the `-bg` backdrop fallbacks on `/login`,
+  `/register`, `/about` and the quizzes load-bearing (corrected that comment in all four places, plus the
+  note in `FRONTEND_UI_STANDARD.md` §2, which claimed a mount effect was the first paint).
+- **Verified:** the script's syntax and its two storage reads (and the theme resolver's `system` branch)
+  by inspection against `utils/theme.js` / `utils/scheme.js`; **not** eyeballed in a browser — the
+  Playwright window was in use by another session, and a one-frame flash is not something a screenshot
+  shows anyway. Worth a hard refresh on `/net` with a non-default scheme (e.g. crimson) to confirm.
+- **No test run:** no test file reads `index.html` (checked), and the CSS change is two declarations.
 
 ---
 
