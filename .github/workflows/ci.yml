@@ -142,7 +142,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: '18'
+          # Vite 7 declares engines ^20.19.0 || >=22.12.0, so Node 18 fails the
+          # build outright ("Vite requires Node.js version 20.19+"). This job did
+          # not run for a while — it needs lint/test-backend/test-frontend, and
+          # test-frontend was red — so the mismatch only surfaced once that was
+          # fixed. Keep this at 20+ (the backend and addon jobs already are).
+          node-version: '20'
           cache: 'npm'
 
       - name: Install frontend dependencies
