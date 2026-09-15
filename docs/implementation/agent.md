@@ -3031,4 +3031,100 @@ one glass panel per group in `PAGE_GROUPS` — panes of `--glass`, colour kept f
 
 ---
 
+## 21. `/net` is ONE chat app — people in the rail, the AI's frame for both
+
+Shipped 2026-09-15. The goal stated plainly: talking to a person should look identical to talking
+to the assistant, with other users sitting in the conversation list — an LLM chat and a human
+messenger that read as one app.
+
+### 21.1 One pane, two kinds of thread
+
+`/net?with=<userId>` used to render a **different component** (`DirectChat` with its own
+`.talk-dm-*` look) *instead of* the chat, so the rail vanished the moment you opened a person and
+the page felt like a second app that happened to share the URL. Now the chat hosts it:
+
+- **`SimpleChat` takes `peerId`** and swaps only the PANE — `{peerId ? <DirectChat/> : <ChatWindow/>}`
+  — with the rail mounted in both modes. That is the whole architectural move: the rail IS the AI's
+  (its conversation list, model picker, addon state, settings footer), so it cannot be rebuilt
+  per mode; the transcript can.
+- **The pane wears `ChatWindow`'s classes** (`chat-window`, `__header`, `__menu-btn`, `__messages`,
+  `__input-form`, `__input-wrapper`, `__input`, `__send-btn`) and `MessageBubble`'s row markup
+  (`message`, `message__row/avatar/content/bubble/meta/time`), so the two transcripts are the same UI
+  by construction. Their colours come from `.simple-root` (`SimpleTheme.css`) — the chat's own theme
+  scope, including its own `data-simple-theme` light/dark — which is exactly why the pane has to be
+  rendered *inside* `SimpleChat` rather than beside it.
+- **What is left out is the AI's tooling**: attach / mic / model controls, token and cost chips, the
+  report menu. The messenger carries plain text, and a control this conversation cannot honour is a
+  lie shaped like a button. The composer is the chat's own markup minus those three.
+- **⚠️ The header is ONE line.** The first version put an "Encrypted · no AI in this conversation"
+  sub-line under the name, which made the header **83.7px** against the assistant's **67.2px** — the
+  kind of 16px difference that makes two panes read as two apps. It is a `title` attribute now (plus
+  the empty state and the People row), and the measured heights match exactly.
+- **The day dividers went with it.** A person's transcript had `── Today ──` bands the AI's does not;
+  the stamp under each message now uses `MessageBubble`'s own format (time alone today, `Yesterday,
+  …`, else `Mar 3, …`), so dates survive without a band that only one of the two panes has.
+- The AI-only **mic-pause overlay is suppressed** while a person is open (`isInactive && !peerId`) —
+  it is about the assistant's listening and has no business covering a conversation.
+- Cost of one app: the addon-status probe (ports 3001/3002) now also runs while a person's thread is
+  open, because `SimpleChat` is what owns the rail. Harmless, and it is what keeps the rail's addon
+  row honest in both modes.
+
+### 21.2 People, in the rail
+
+`Sidebar` gained a **People** section — the same row recipe as the AI history above it (`.sidebar__conv`),
+with a face, the name, the last thing said and an unread count, each row a `Link` to
+`/net?with=<userId>` and highlighted when it is the open thread.
+
+- The messenger data is **handed in** (`messenger={{ token, activePeerId }}`) rather than fetched
+  inside the rail: the addon renderer shares this component, and with no `messenger` prop the section
+  does not render at all.
+- The directory is polled every 30s (unread counts and previews are the only things that move while
+  the rail sits open) and re-read when `activePeerId` changes, because opening a thread clears its
+  unread server-side.
+- People list the **left rail's own order**: `getMessengerDirectory` already sorts contacts by
+  `lastAt`, so the most recent conversation is at the top, exactly like the AI history beside it.
+- Faces come from `useAvatars` (cache-first, so a warm cache costs no request) and fall back to
+  initials. `Connections on Talk →` is the way to the page that manages them, and an empty rail
+  points at `/talk` rather than at nothing.
+
+### 21.3 The blocker underneath: opening a conversation was a 500
+
+The pane rendered, the rail filled — and the thread came back
+`Value provided in ExpressionAttributeNames unused in expressions: keys: {#createdAt}`.
+
+- **`listMessages` declared `#createdAt`/`:since` on every call**, but the FIRST page's key condition
+  is only `#id = :id` (the cursor is optional). DynamoDB rejects a request whose
+  `ExpressionAttributeNames`/`Values` holds a placeholder the expression never uses, so **the call
+  that opens a conversation always failed** while the 4s cursor poll — the only caller that uses
+  them — worked. A thread could be appended to and never read.
+- The names and values are now built with the key condition, so a first page declares neither. Fixed
+  in `backend/services/messengerService.js`.
+- **The test fake was half a fake, and that is why it shipped.** It modelled exactly this rule for
+  WRITES (a previous bug taught it) but not for queries. It now enforces it for
+  `KeyConditionExpression` too — names *and* values — which turns the existing first-page read in
+  `messengerService.test.js` into a real assertion: **35/35 pass with the fix, and the suite fails
+  without it.**
+- ⚠️ The backend runs under `npm run server` / `npm start` (**no watcher**), so this fix needs a
+  restart before the thread loads — `npm --prefix backend run dev` if you want reloads.
+- ⚠️ **A `null` body from a bare `node -e` script is not evidence of a bug.** Proving the fix against
+  the live table means calling `listMessages` directly, and that process decrypts nothing: the AES key
+  comes from `MESSAGE_ENCRYPTION_KEY` / `JWT_SECRET`, which `backend/.env` does **not** carry — the
+  running server fills them from Secrets Manager in its boot sequence (`server.js`). So a one-off
+  script returns `body: null` for every row, including the `lastPreview` the drawer displays happily.
+  Read the *count* from a script; read the *bodies* through the API.
+
+### 21.4 Verified
+
+- **The two panes measured identical**, live, one navigation apart: theme scope, header height
+  (67.207px both), header background/border/padding, messages container, input form, composer input
+  and send button — every computed value equal.
+- **The rail shows both kinds** while a person is open: `CONVERSATIONS 12` and `PEOPLE 1`
+  (`tnnrhpwd`, highlighted, `/net?with=6770a067c725cbceab958619`), signed in as the guest account.
+- `messengerService.test.js` **35/35**; frontend `llmProviderOptions.test.js` + `TalkAvatar.test.jsx`
+  **31/31** (the former scans `Sidebar.jsx` and asserts it still offers cloud models through the
+  shared picker — the section was added around it, not through it).
+- No test covers `DirectChat` or the rail's People section; neither had one before this change.
+
+---
+
 **Companion doc:** [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md) — threat model, trust boundaries, and the permissions matrix.

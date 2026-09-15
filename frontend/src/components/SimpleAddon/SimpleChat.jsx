@@ -3,6 +3,7 @@ import { useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
 import Sidebar from './Sidebar';
 import ChatWindow from './ChatWindow';
+import DirectChat from '../Simple/Talk/DirectChat.jsx';
 import AdvancedSettings from './AdvancedSettings';
 import { useSpeech } from '../../hooks/simpleAddon/useSpeech';
 import { useMicDevices } from '../../hooks/simpleAddon/useMicDevices';
@@ -204,6 +205,21 @@ function SimpleChat({
   addonStatus,
   remoteAddonStatus,
   user,
+  /**
+   * A person's userId — the `/net?with=<id>` conversation.
+   *
+   * Set, the PANE swaps to that conversation and not the app: the rail, the
+   * theme scope (`.simple-root` owns `--bg-primary`, the bubbles' tokens and
+   * the chat's own light/dark), the message rows and the composer are all the
+   * chat's own, so talking to a person is not a second app that happens to
+   * live on the same URL. Only the transcript and the composer change, which
+   * is the whole point of the merge — one chat app, two kinds of thread.
+   *
+   * The AI machinery stays mounted while a person is open (the rail IS the
+   * AI's: its conversation list, model picker, addon state and settings
+   * footer), so nothing about the rail may be torn down per mode.
+   */
+  peerId = null,
   portfolioLLMProviders,
   onPortfolioChat,
   onPortfolioChatStream,
@@ -2271,8 +2287,20 @@ function SimpleChat({
           onAddonEnableOptIn={onAddonEnableOptIn}
           addonCurrentVersion={addonCurrentVersion}
           addonRequiredVersion={addonRequiredVersion}
+          // The rail's People section is messenger data, and the addon renderer
+          // shares this component — so it is handed the token rather than
+          // reaching for one, and renders nothing without it.
+          messenger={user?.token ? { token: user.token, activePeerId: peerId } : null}
         />
 
+        {peerId ? (
+          <DirectChat
+            peerId={peerId}
+            user={user}
+            isSidebarOpen={sidebarOpen}
+            onToggleSidebar={() => setSidebarOpen(prev => !prev)}
+          />
+        ) : (
         <ChatWindow
           conversation={activeConversation}
           isGenerating={isGenerating}
@@ -2295,6 +2323,7 @@ function SimpleChat({
           onReportMessage={handleReportMessage}
           onCopyMessage={handleCopyMessage}
         />
+        )}
 
         <AdvancedSettings
           isOpen={showAdvancedSettings}
@@ -2323,7 +2352,9 @@ function SimpleChat({
           hasMessages={(activeConversation?.messages?.length || 0) > 0}
         />
 
-        {isInactive && (
+        {/* The mic-pause overlay is about the AI chat's listening, so it has no
+            business covering a conversation with a person. */}
+        {isInactive && !peerId && (
           <div className="simple-inactive-overlay" onClick={resumeActivity}>
             <div className="simple-inactive-overlay__content">
               <div className="simple-inactive-overlay__icon">💤</div>

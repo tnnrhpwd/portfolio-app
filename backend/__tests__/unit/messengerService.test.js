@@ -47,6 +47,32 @@ jest.mock('@aws-sdk/lib-dynamodb', () => {
         }
     }
 
+    // ⚠️ A QUERY is held to the same rule, for its names as well as its values,
+    // and that is the one that reached production: `listMessages` declared
+    // `#createdAt`/`:since` on every call, but the FIRST page's key condition is
+    // only `#id = :id`. Opening a conversation therefore returned a 500 while the
+    // cursor poll — the only caller that uses them — worked, so a thread could be
+    // appended to but never read. Modelling it here is what makes the first-page
+    // read below a real assertion instead of a coincidence.
+    if (input.KeyConditionExpression) {
+        const condition = String(input.KeyConditionExpression);
+        const usedNames = new Set(condition.match(/#[A-Za-z0-9_]+/g) || []);
+        const usedValues = new Set(condition.match(/:[A-Za-z0-9_]+/g) || []);
+        for (const [label, declared, used] of [
+            ['ExpressionAttributeNames', Object.keys(input.ExpressionAttributeNames || {}), usedNames],
+            ['ExpressionAttributeValues', Object.keys(input.ExpressionAttributeValues || {}), usedValues],
+        ]) {
+            const unused = declared.filter((name) => !used.has(name));
+            if (unused.length > 0) {
+                const error = new Error(
+                    `1 validation error detected: Value provided in ${label} unused in expressions: keys: {${unused.join(', ')}}`
+                );
+                error.name = 'ValidationException';
+                throw error;
+            }
+        }
+    }
+
     switch (command.constructor.name) {
       case 'GetCommand': {
         const item = rows.get(keyOf(input.Key));

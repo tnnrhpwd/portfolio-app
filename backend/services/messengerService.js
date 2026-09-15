@@ -816,13 +816,28 @@ async function listMessages(user, peerId, { since, limit } = {}) {
     const { me, convId } = await assertConversation(user, peerId);
     const pageSize = Math.min(Number(limit) > 0 ? Number(limit) : LIMITS.pageSize, 200);
 
+    // ⚠️ `#createdAt` and `:since` are declared ONLY when there is a cursor to
+    // compare against. DynamoDB rejects a request whose ExpressionAttributeNames
+    // or ExpressionAttributeValues holds an entry the expression never uses
+    // ("Value provided in ExpressionAttributeNames unused in expressions"), and
+    // naming the sort key up front made every FIRST page — the one call with no
+    // `since` — a 500. That is the call that opens a conversation, so the whole
+    // thread was unreadable while the poll (which always passes a cursor) was
+    // the only path that worked.
+    const names = { '#id': 'id' };
+    const values = { ':id': messagePartition(convId) };
+    let keyCondition = '#id = :id';
+    if (since) {
+        names['#createdAt'] = 'createdAt';
+        values[':since'] = String(since);
+        keyCondition += ' AND #createdAt > :since';
+    }
+
     const params = {
         TableName: TABLE,
-        KeyConditionExpression: since
-            ? '#id = :id AND #createdAt > :since'
-            : '#id = :id',
-        ExpressionAttributeNames: { '#id': 'id', '#createdAt': 'createdAt' },
-        ExpressionAttributeValues: since ? { ':id': messagePartition(convId), ':since': String(since) } : { ':id': messagePartition(convId) },
+        KeyConditionExpression: keyCondition,
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
         ScanIndexForward: false, // newest first, then reversed for display
         Limit: pageSize,
     };

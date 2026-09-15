@@ -1,5 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { getLocalModels, testAddonConnection, runAddonSingleClickUpdate } from '../../services/simpleAddonApi';
+import { getMessengerDirectory } from '../../services/messengerApi.js';
+import useAvatars from '../../hooks/useAvatars.js';
+import TalkAvatar from '../Simple/Talk/TalkAvatar.jsx';
 import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection';
 import { cloudModelChoicePatch, cloudProviderSummary } from '../../utils/llmProviderOptions.js';
 import { DEFAULT_LOCAL_PROVIDER, providerLabel } from '../../constants/aiModel.js';
@@ -37,6 +41,15 @@ function Sidebar({
   onAddonEnableOptIn,
   addonCurrentVersion,
   addonRequiredVersion,
+  /**
+   * The messenger's handle on this rail's People section — `{ token,
+   * activePeerId }`, or null.
+   *
+   * Handed in rather than fetched from inside, because the addon renderer's copy
+   * of this component must not grow a webapp-only list: with no `messenger`
+   * prop the section does not render at all.
+   */
+  messenger = null,
 }) {
   const [models, setModels] = useState([]);
   const [showSettings, setShowSettings] = useState(false);
@@ -89,6 +102,50 @@ function Sidebar({
   const agents = settings?.agents || [];
   const selectedAgentId = settings?.selectedAgentId || 'default';
   const isPortfolio = settings?.llmProvider === 'portfolio';
+
+  // ── People: the other half of the conversation list ───────────────────────
+  //
+  // The rail is ONE list of conversations with two kinds of thread in it: the
+  // assistant's (above) and a person's (here). A person's row carries what a
+  // chat list row always carries — face, name, the last thing said, how much is
+  // unread — and opens the same pane the assistant's does, at `/net?with=<id>`.
+  const messengerToken = messenger?.token || '';
+  const activePeerId = messenger?.activePeerId || '';
+  const [people, setPeople] = useState([]);
+  // People start OPEN, unlike the AI history: a person's thread is what this
+  // section is for, and it is short enough to show without asking.
+  const [showPeople, setShowPeople] = useState(true);
+  const peopleAvatars = useAvatars(
+    useMemo(() => people.map((person) => person.userId), [people]),
+    messengerToken,
+  );
+
+  useEffect(() => {
+    if (!messengerToken) {
+      setPeople([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const directory = await getMessengerDirectory(messengerToken);
+        if (!cancelled) setPeople(directory.contacts || []);
+      } catch {
+        // A rail that cannot list people is still a working chat: the AI side
+        // and whichever transcript is open are unaffected, and the next poll
+        // retries. Nothing here is worth a page-level error.
+      }
+    };
+
+    load();
+    // Unread counts and previews are the only things that move while the rail
+    // sits open, so this is a slow poll rather than a subscription.
+    const id = setInterval(load, 30000);
+    return () => { cancelled = true; clearInterval(id); };
+    // `activePeerId` is a dependency because opening a thread clears its unread
+    // on the server — the rail should show that without waiting for a reload.
+  }, [messengerToken, activePeerId]);
 
   // Fetch local models from addon when connected
   useEffect(() => {
@@ -171,6 +228,68 @@ function Sidebar({
             </div>
           )}
         </div>
+
+        {messengerToken && (
+          <div className="sidebar__conversations sidebar__people">
+            <button
+              className="sidebar__conversations-toggle"
+              onClick={() => setShowPeople(!showPeople)}
+              aria-expanded={showPeople}
+              aria-controls="sidebar-people-list"
+              title={showPeople ? 'Hide people' : 'Show people'}
+            >
+              <span
+                className={`sidebar__conversations-chevron ${showPeople ? 'sidebar__conversations-chevron--up' : ''}`}
+                aria-hidden="true"
+              >
+                ▾
+              </span>
+              People
+              {people.length > 0 && (
+                <span className="sidebar__conversations-count">{people.length}</span>
+              )}
+            </button>
+
+            {showPeople && (
+              <div className="sidebar__conversations-list" id="sidebar-people-list">
+                {people.length === 0 ? (
+                  <p className="sidebar__people-empty">
+                    No conversations with anyone yet.{' '}
+                    <Link className="sidebar__people-link" to="/talk">Find someone →</Link>
+                  </p>
+                ) : (
+                  people.map((person) => (
+                    <Link
+                      key={person.userId}
+                      className={`sidebar__conv sidebar__person ${person.userId === activePeerId ? 'sidebar__conv--active' : ''}`}
+                      to={`/net?with=${encodeURIComponent(person.userId)}`}
+                      onClick={onClose}
+                      title={person.nickname}
+                    >
+                      <TalkAvatar
+                        src={peopleAvatars[person.userId]}
+                        name={person.nickname}
+                        className="sidebar__person-avatar"
+                      />
+                      <span className="sidebar__person-body">
+                        <span className="sidebar__conv-title">{person.nickname}</span>
+                        {person.lastPreview && (
+                          <span className="sidebar__person-preview">{person.lastPreview}</span>
+                        )}
+                      </span>
+                      {person.unread > 0 && (
+                        <span className="sidebar__person-unread">{person.unread}</span>
+                      )}
+                    </Link>
+                  ))
+                )}
+                <Link className="sidebar__people-manage" to="/talk" onClick={onClose}>
+                  Connections on Talk →
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="sidebar__footer">
           {isAddonConnected && !showAddonPrompt && (

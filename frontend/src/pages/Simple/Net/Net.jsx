@@ -4,7 +4,6 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { compressData, getLLMProviders, getMembershipPricing, resetDataSlice } from '../../../features/data/dataSlice.js';
 import dataService from '../../../features/data/dataService.js';
 import SimpleChat from '../../../components/SimpleAddon/SimpleChat.jsx';
-import DirectChat from '../../../components/Simple/Talk/DirectChat.jsx';
 import LoginGate from '../../../components/Simple/LoginGate/LoginGate.jsx';
 import { useAddonDetection } from '../../../hooks/simpleAddon/useAddonDetection.js';
 import './Net.css';
@@ -233,11 +232,12 @@ function Net() {
               title="Sign in to Net AI Chat"
               subtitle="Your AI-powered assistant for automation, coding, and more."
             />
-          ) : peerId ? (
-            /* A conversation with a person, not with the assistant. */
-            <DirectChat peerId={peerId} user={user} />
           ) : (
           <SimpleChat
+            // A person's thread (`/net?with=<id>`) is rendered by the chat
+            // itself, in the pane beside the same rail — not by a second
+            // component that replaces the whole app. See SimpleChat's note.
+            peerId={peerId}
             addonStatus={addonStatus}
             remoteAddonStatus={remoteAddonStatus}
             user={user}
