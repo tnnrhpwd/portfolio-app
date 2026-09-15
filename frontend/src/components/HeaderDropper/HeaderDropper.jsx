@@ -66,17 +66,20 @@ function HeaderDropper(props) {
       <ul ref={insideComponentRef} className="dropper-box">
         {user ? (
           <li className="dropper-group">
+            <span className="dropper-label">Account</span>
             <Link className="dropper-link" to="/profile" onClick={closeMenu}>Profile</Link>
             <button className="dropper-link" type="button" onClick={handleLogout}>Log out</button>
           </li>
         ) : (
           <li className="dropper-group">
+            <span className="dropper-label">Account</span>
             <Link className="dropper-link" to="/login" onClick={closeMenu}>Log in</Link>
             <Link className="dropper-link" to="/register" onClick={closeMenu}>Create account</Link>
           </li>
         )}
 
         <li className="dropper-group">
+          <span className="dropper-label">Explore</span>
           <Link className="dropper-link" to="/projects" onClick={closeMenu}>Projects</Link>
           <Link className="dropper-link" to="/about" onClick={closeMenu}>About</Link>
           <Link className="dropper-link" to="/support" onClick={closeMenu}>Support</Link>
@@ -85,24 +88,32 @@ function HeaderDropper(props) {
 
         {user && (
           <li className="dropper-group">
-            <Link className="dropper-link" to="/net" onClick={closeMenu}>Net</Link>
+            <span className="dropper-label">Workspace</span>
+            {/* The three front doors into Simple, and only those: Goals
+                (/plans) and Market (/market) are rooms INSIDE the product, one
+                tap away from `SimpleNav` on every Simple surface, so listing
+                them here made the drawer a second switcher. The full list of
+                every page lives on /all, for the accounts that can see it. */}
             {/* A member conversation also lives on /net (`?with=…`), so the
                 dropper's entry points at the front door — Talk is where you
                 connect and see who you can talk to. */}
+            <Link className="dropper-link" to="/net" onClick={closeMenu}>Net</Link>
             <Link className="dropper-link" to="/talk" onClick={closeMenu}>Talk</Link>
             {/* Also the phone route into Control, where the header switcher is
                 hidden for lack of room. */}
             <Link className="dropper-link" to="/simple" onClick={closeMenu}>Simple</Link>
-            <Link className="dropper-link" to="/plans" onClick={closeMenu}>Plans</Link>
-            {/* Same word the header switcher uses for this room. */}
-            <Link className="dropper-link" to="/market" onClick={closeMenu}>Market</Link>
           </li>
         )}
 
         {(isAdmin || isMuseVisitor) && (
           <li className="dropper-group">
+            <span className="dropper-label">Staff</span>
             {isAdmin && <Link className="dropper-link" to="/admin" onClick={closeMenu}>Admin</Link>}
             {isMuseVisitor && <Link className="dropper-link" to="/muse" onClick={closeMenu}>Muse</Link>}
+            {/* The index of every page in the app. Same gate as the console
+                itself (`canUseAdminConsole`: admin or a Special account) and
+                the same gate the page applies to its own contents. */}
+            {isAdmin && <Link className="dropper-link" to="/all" onClick={closeMenu}>All pages</Link>}
           </li>
         )}
 

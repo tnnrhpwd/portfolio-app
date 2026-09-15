@@ -90,6 +90,20 @@
 }
 .dropper-group--theme { margin-top: auto; }
 
+/* A group's label is an EYEBROW, not a heading: it names the section for a
+   reader who is scanning, and gets out of the way of the links — which is why
+   it sits at the small size, tracked out, in the muted ink, and takes no room
+   of its own beyond one line. */
+.dropper-label {
+  padding: 0 calc(var(--nav-size) * 0.24);
+  margin-bottom: calc(var(--nav-size) * 0.04);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+
 /* Links */
 .dropper-link {
   font-family: inherit;

@@ -1,81 +1,16 @@
-import React, { Suspense, lazy, useEffect } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import { loadFontSizeScale } from './utils/theme';
 import { trackPageView } from './utils/pageViews';
+// The page manifest is the routing table (constants/pages.js). Every <Route>
+// below is built from it, and `/all` renders the same list as its index — so a
+// page that is reachable is a page that is listed, and the two cannot drift.
+import { PAGES, NOT_FOUND } from './constants/pages';
 
-// ── Eagerly loaded (critical path – always needed on first paint) ──
-import Home from './pages/Home/Home';
-
-// ── Lazy-loaded routes (loaded on demand) ──────────────────────────
-const Admin = lazy(() => import('./pages/Admin/AdminLayout'));
-const AdminDashboard = lazy(() => import('./pages/Admin/Dashboard'));
-const AdminUsers = lazy(() => import('./pages/Admin/Users'));
-const AdminBugs = lazy(() => import('./pages/Admin/Bugs'));
-const AdminMap = lazy(() => import('./pages/Admin/VisitorMapPage'));
-const AdminReviews = lazy(() => import('./pages/Admin/Reviews'));
-const AdminData = lazy(() => import('./pages/Admin/DataExplorer'));
-const AdminHomeTitle = lazy(() => import('./pages/Admin/HomeTitle'));
-const AdminFunnelTester = lazy(() => import('./pages/Admin/FunnelTester'));
-const AdminPageRankings = lazy(() => import('./pages/Admin/PageRankings'));
-const Annuities = lazy(() => import('./pages/Projects/Annuities/Annuities'));
-const Chess = lazy(() => import('./pages/Chess/Chess'));
-const Coliseum = lazy(() => import('./pages/Projects/Coliseum/Coliseum'));
-const Rocket = lazy(() => import('./pages/Projects/Rocket/Rocket'));
-const DeepStorage = lazy(() => import('./pages/DeepStorage/DeepStorage'));
-const Ethanol = lazy(() => import('./pages/Projects/Ethanol/Ethanol'));
-const Fit = lazy(() => import('./pages/Fit/Fit'));
-const Fluid = lazy(() => import('./pages/Projects/Fluid/Fluid'));
-const ForgotPassword = lazy(() => import('./pages/ForgotPassword/ForgotPassword.jsx'));
-const Game2048 = lazy(() => import('./pages/Projects/Game2048/Game2048'));
-const Halfway = lazy(() => import('./pages/Projects/Halfway/Halfway'));
-const Hype = lazy(() => import('./pages/Hype/Hype'));
-const IQTest = lazy(() => import('./pages/Projects/IQTest/IQTest'));
-const Quizzes = lazy(() => import('./pages/Projects/Quizzes/Quizzes'));
-const QuizMBTI = lazy(() => import('./pages/Projects/Quizzes/pages/MBTI'));
-const QuizBigFive = lazy(() => import('./pages/Projects/Quizzes/pages/BigFive'));
-const QuizEnneagram = lazy(() => import('./pages/Projects/Quizzes/pages/Enneagram'));
-const QuizAutism = lazy(() => import('./pages/Projects/Quizzes/pages/AutismScreening'));
-const QuizAdhd = lazy(() => import('./pages/Projects/Quizzes/pages/AdhdScreening'));
-const QuizAttachment = lazy(() => import('./pages/Projects/Quizzes/pages/AttachmentStyle'));
-const QuizLoveLanguages = lazy(() => import('./pages/Projects/Quizzes/pages/LoveLanguages'));
-const QuizValuesAlignment = lazy(() => import('./pages/Projects/Quizzes/pages/ValuesAlignment'));
-const QuizThirtySix = lazy(() => import('./pages/Projects/Quizzes/pages/ThirtySixQuestions'));
-const MicTest = lazy(() => import('./pages/MicTest/MicTest'));
-const Muse = lazy(() => import('./pages/Muse/Muse'));
-const Music = lazy(() => import('./pages/Music/Music'));
-const PassGen = lazy(() => import('./pages/Projects/PassGen/PassGen'));
-const Pets = lazy(() => import('./pages/Pets/Pets'));
-const Projects = lazy(() => import('./pages/Projects/Projects/Projects.jsx'));
-const ResetPassword = lazy(() => import('./pages/ResetPassword/ResetPassword.jsx'));
-const SleepAssist = lazy(() => import('./pages/Projects/SleepAssist/SleepAssist'));
-const Sonic = lazy(() => import('./pages/Projects/Sonic/Sonic'));
-const Strip = lazy(() => import('./pages/Strip/Strip.jsx'));
-const TypeTest = lazy(() => import('./pages/TypeTest/TypeTest'));
-const UIMapper = lazy(() => import('./pages/UIMapper/UIMapper'));
-const Wordle = lazy(() => import('./pages/Projects/Wordle/Wordle'));
-const WordleSolver = lazy(() => import('./pages/Projects/WordleSolver/WordleSolver'));
-const Login = lazy(() => import('./pages/Login/Login.jsx'));
-const NotFound = lazy(() => import('./pages/NotFound/NotFound.jsx'));
-const Net = lazy(() => import('./pages/Simple/Net/Net.jsx'));
-const Market = lazy(() => import('./pages/Simple/Market/Market.jsx'));
-const Pay = lazy(() => import('./pages/Simple/Pay/Pay.jsx'));
-const Plans = lazy(() => import('./pages/Simple/Plans/Plans.jsx'));
-const GoalDetail = lazy(() => import('./pages/Simple/Plans/GoalDetail.jsx'));
-const Polls = lazy(() => import('./pages/Simple/Polls/Polls.jsx'));
-const About = lazy(() => import('./pages/Simple/About/About.jsx'));
-const Simple = lazy(() => import('./pages/Simple/Simple/SimplePage.jsx'));
-const Pricing = lazy(() => import('./pages/Pricing/Pricing.jsx'));
-const Profile = lazy(() => import('./pages/Profile/Profile.jsx'));
-const Register = lazy(() => import('./pages/Register/Register.jsx'));
-const Settings = lazy(() => import('./pages/Settings/Settings.jsx'));
-const Sit = lazy(() => import('./pages/Sit/Sit.jsx'));
-const Talk = lazy(() => import('./pages/Simple/Talk/Talk.jsx'));
-const UserProfile = lazy(() => import('./pages/UserProfile/UserProfile.jsx'));
-const Support = lazy(() => import('./pages/Support/Support.jsx'));
-const Privacy = lazy(() => import('./pages/Privacy/Privacy.jsx'));
-const Terms = lazy(() => import('./pages/Terms/Terms.jsx'));
+// Every page — and its chunk — is declared in the manifest, so there is no
+// second list here to keep in step when a route is added or renamed.
 
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
@@ -113,6 +48,49 @@ function PageViewTracker() {
   return null;
 }
 
+// ── Routes, built from the manifest ────────────────────────────────
+//
+// One entry in `constants/pages.js` produces every route it needs here: the
+// route itself, one per alias, a nested block when the page has children (the
+// admin console), or a `<Navigate>` when it is a redirect.
+//
+// Building them rather than listing them is what keeps the router and the `/all`
+// index honest — there is no second list to forget, and no way for the index to
+// advertise a page the router does not serve.
+function routesForPage(page) {
+  const Element = page.element;
+
+  if (page.redirect) {
+    return [
+      <Route key={page.path} path={page.path} element={<Navigate to={page.redirect} replace />} />,
+    ];
+  }
+
+  const routes = page.children?.length
+    ? [
+      <Route key={page.path} path={page.path} element={<Element />}>
+        {page.children.map((child) => {
+          const Child = child.element;
+          // `''` is the parent's own index (`/admin` → the dashboard).
+          return child.segment
+            ? <Route key={child.segment} path={child.segment} element={<Child />} />
+            : <Route key="index" index element={<Child />} />;
+        })}
+      </Route>,
+    ]
+    : [<Route key={page.path} path={page.path} element={<Element />} />];
+
+  // An alias renders the same page at its own URL (`/home`, `/Coliseum`) rather
+  // than redirecting, so the address a visitor typed is the one they keep.
+  for (const alias of page.aliases || []) {
+    routes.push(<Route key={alias} path={alias} element={<Element />} />);
+  }
+
+  return routes;
+}
+
+const NotFound = NOT_FOUND.element;
+
 function App() {
   return (
     <Router>
@@ -121,81 +99,13 @@ function App() {
         <div className="App">
           <Suspense fallback={<RouteSpinner />}>
             <Routes>
-              <Route path='/' element={<Home/>} />
-              <Route path='/home' element={<Home/>} />
-              <Route path='/about' element={<About />} />
-              <Route path='/admin' element={<Admin />}>
-                <Route index element={<AdminDashboard />} />
-                <Route path='users' element={<AdminUsers />} />
-                <Route path='bugs' element={<AdminBugs />} />
-                <Route path='map' element={<AdminMap />} />
-                <Route path='reviews' element={<AdminReviews />} />
-                <Route path='data' element={<AdminData />} />
-                <Route path='home-title' element={<AdminHomeTitle />} />
-                <Route path='funnel-tester' element={<AdminFunnelTester />} />
-                <Route path='rankings' element={<AdminPageRankings />} />
-              </Route>
-              <Route path="/annuities" element={<Annuities/>} />
-              <Route path="/contact" element={<Navigate to="/support?tab=contact" replace />} />
-              <Route path='/deepstorage' element={<DeepStorage />} />
-              <Route path="/ethanol" element={<Ethanol/>} />
-              <Route path="/fit" element={<Fit/>} />
-              <Route path="/fluid" element={<Fluid/>} />
-              <Route path='/forgot-password' element={<ForgotPassword />} />
-              <Route path="/2048" element={<Game2048/>} />
-              <Route path="/coliseum" element={<Coliseum/>} />
-              <Route path="/Coliseum" element={<Coliseum/>} />
-              <Route path="/rocket" element={<Rocket/>} />
-              <Route path="/Rocket" element={<Rocket/>} />
-              <Route path="/chess" element={<Chess/>} />
-              <Route path="/halfway" element={<Halfway/>} />
-              <Route path='/hype' element={<Hype />} />
-              <Route path="/iq" element={<IQTest/>} />
-              <Route path="/quizzes" element={<Quizzes />} />
-              <Route path="/mbti" element={<QuizMBTI />} />
-              <Route path="/big-five" element={<QuizBigFive />} />
-              <Route path="/enneagram" element={<QuizEnneagram />} />
-              <Route path="/autism-screening" element={<QuizAutism />} />
-              <Route path="/adhd-screening" element={<QuizAdhd />} />
-              <Route path="/attachment-style" element={<QuizAttachment />} />
-              <Route path="/love-languages" element={<QuizLoveLanguages />} />
-              <Route path="/values-alignment" element={<QuizValuesAlignment />} />
-              <Route path="/36-questions" element={<QuizThirtySix />} />
-              <Route path='/login' element={<Login />} />
-              <Route path='/muse' element={<Muse />} />
-              <Route path='/music' element={<Music />} />
-              <Route path='/net' element={<Net />} />
-              <Route path='/market' element={<Market />} />
-              <Route path='/mic-test' element={<MicTest />} />
-              <Route path='/simple' element={<Simple />} />
-              <Route path='/pay' element={<Pay />} />
-              <Route path="/passgen" element={<PassGen/>} />
-              <Route path="/pets" element={<Pets/>} />
-              <Route path='/projects' element={<Projects />} />
-              <Route path='/plans' element={<Plans />} />
-              <Route path='/plans/goal/:id' element={<GoalDetail />} />
-              <Route path='/polls' element={<Polls />} />
-              <Route path='/pricing' element={<Pricing />} />
-              <Route path='/privacy' element={<Privacy />} />
-              <Route path='/profile' element={<Profile />} />
-              <Route path='/register' element={<Register />} />
-              <Route path='/reset-password' element={<ResetPassword />} />
-              <Route path='/sit' element={<Sit />} />
-              <Route path='/settings' element={<Settings />} />
-              <Route path="/sleepassist" element={<SleepAssist/>} />
-              <Route path="/sonic" element={<Sonic/>} />
-              <Route path='/strip' element={<Strip />} />
-              <Route path='/support' element={<Support />} />
-              <Route path='/talk' element={<Talk />} />
-              {/* A member's public page. `/u/<username>`, open to anyone with the
-                  link — which is what makes it worth sharing. */}
-              <Route path='/u/:username' element={<UserProfile />} />
-              <Route path='/type' element={<TypeTest/>} />
-              <Route path="/uimapper" element={<UIMapper />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/wordle" element={<Wordle/>} />
-              <Route path="/wordlesolver" element={<WordleSolver/>} />
-              <Route path="*" element={<NotFound />} />
+              {/* Every route, its aliases and the admin console's nesting come
+                  from the manifest. Arrays are fine as children here — Routes
+                  flattens them when it builds the tree. */}
+              {PAGES.flatMap(routesForPage)}
+              {/* The catch-all is deliberately NOT in the manifest: nobody has a
+                  link to it, so it has no place in the index on `/all`. */}
+              <Route path={NOT_FOUND.path} element={<NotFound />} />
             </Routes>
           </Suspense>
         </div>

@@ -1,0 +1,389 @@
+/* ===========================================================================
+   All pages — the index of every route in the app (staff only)
+   ---------------------------------------------------------------------------
+   A SERVICE PAGE (FRONTEND_UI_STANDARD.md §5.7). It shares the palette, the
+   tokens and the typography with the rest of the site, but none of the band
+   stack: this is a tool for finding a URL, not a story about one.
+
+     · The shared ambient ROOM (`.service-room`, worn by the page root) for a
+       ground — no bands, no floating circles, no reveals, no stagger.
+     · A ROW at the top: the room's name, its live state (how many pages, how
+       many are staff-only, how many the filter is showing) and the actions.
+     · A DENSE PANEL GRID, one panel per group in `PAGE_GROUPS`, with each
+       panel's rows flowing into two columns. 68 rows one per line is a page
+       you scroll for a minute; an index should be visible at a glance.
+     · Copy is labels, not sentences; a row is one line wherever it can be.
+
+   MATERIAL: panes of glass on the room — `--glass`, `--glass-radius`,
+   `--glass-shadow`, no borders. Colour is SIGNAL here (a badge, a chip), never
+   decoration: seven equal panels with seven hues would say nothing about which
+   one matters, so a panel has no hue of its own and the badge carries the
+   colour. Rows are separated by an alternating tint rather than a hairline
+   under each one (§5).
+   =========================================================================== */
+
+.all-page {
+  /* ── Follow the site-wide colour scheme ───────────────────────────────
+   * `--fg-blue` is this page's interaction hue (links, focus) and `--fg-mint`
+   * its emphasis hue (the row's gradient hairline) — the two ROLES a scheme
+   * defines, so the page follows the visitor's pick like every converted page.
+   * `--fg-pink` and `--fg-orange` are deliberately NOT aliased: orange is the
+   * alert hue and pink belongs to the signals that own them (§2). */
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
+
+  /* Muted (secondary) text. `--plane-muted` is the shared service-page token —
+   * `--text-color-accent` nudged toward the body text, which survives sitting on
+   * a pane over the room where a token tuned for `--bg-page` would not. */
+  --all-muted: var(--plane-muted);
+
+  position: relative;
+  min-height: 100vh;
+  min-height: 100svh;
+  /* No `overflow-x: hidden`: nothing overflows, and making this element a scroll
+     container is a side effect with no upside. */
+  padding: calc(var(--nav-size) * 1.15) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.6);
+  color: var(--text-color);
+  /* ⚠️ NO background here, deliberately: `.service-room` (worn by this element)
+     paints the page with two fixed layers at `z-index: -1`, and an opaque fill on
+     this box would cover both. The room paints `--bg-page` itself. */
+}
+
+.all-shell {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+/* ── Row — the name, the live state and the actions, in the flow ──────────── */
+
+.all-bar {
+  /* NOT sticky: the site header is the only thing that stays at the top of the
+     page, and a second pinned bar would cost this list a strip of the viewport
+     on the surface whose whole job is density. */
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.25);
+  margin-bottom: calc(var(--nav-size) * 0.25);
+  /* Horizontal padding is the PANEL padding, so the room's name sits on the same
+     left edge as every panel title and every row below it. */
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.3);
+  background: var(--glass);
+  /* A PANE's radius, so the row reads as the topmost surface of the room rather
+     than a square slab laid over it. */
+  border-radius: var(--glass-radius);
+}
+
+/* The one piece of brand on the page: an accent rule under the row. Inset by the
+   row's own radius so it ends where the corner curve begins — never clipped,
+   never poking past the curve. */
+.all-bar::after {
+  content: '';
+  position: absolute;
+  left: calc(var(--glass-radius) * 0.7);
+  right: calc(var(--glass-radius) * 0.7);
+  bottom: 2px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint) 42%, transparent 72%);
+  pointer-events: none;
+}
+
+.all-bar-title {
+  margin: 0;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+}
+
+.all-bar-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--all-muted);
+}
+.all-bar-readout strong {
+  color: var(--text-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.all-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.18);
+  margin-left: auto;
+}
+
+/* A label above its input would cost the row a line; the label is here for the
+   screen reader and the placeholder carries the hint for everyone else. */
+.all-search { display: flex; align-items: center; }
+.all-search-label {
+  position: absolute;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* An input on a tinted pane takes a solid `--bg-1` fill and an edge mixed from
+   its own accent, not the neutral grey — the edge is functional, so it is a
+   colour like everything else (§5). */
+.all-search-input {
+  font-family: inherit;
+  font-size: var(--font-size-small);
+  min-width: calc(var(--nav-size) * 3);
+  padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.24);
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--fg-blue) 30%, transparent);
+  background: var(--bg-1);
+  color: var(--text-color);
+}
+/* `index.css` paints every invalid input red, and a `type="search"` field is
+   never invalid — but the shared rule is worth keeping in view for this row. */
+.all-search-input::placeholder { color: var(--all-muted); }
+
+/* ── Actions ── */
+
+.all-btn {
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.32);
+  border-radius: 999px;
+  /* The page's one piece of brand is the accent rule under this row, so the
+     control beside it stays QUIET: an outline, not the action ramp. It used to
+     wear the global `button` fill, which made the least-used control on the
+     page the loudest thing on it (§5.7 — one small piece of brand). */
+  background: transparent;
+  color: var(--text-color);
+  border: 1px solid color-mix(in srgb, var(--text-color) 30%, transparent);
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+/* ⚠️ `:not(:disabled)`, because the global `button:hover:not(:disabled)` is more
+   specific and would repaint this with the action ramp (§6). */
+.all-btn:hover:not(:disabled),
+.all-btn:focus-visible {
+  background: var(--bg-accent);
+  border-color: color-mix(in srgb, var(--text-color) 55%, transparent);
+}
+
+/* ── The groups — one panel each, stacked so the page reads as a sitemap ─── */
+
+.all-section + .all-section { margin-top: calc(var(--nav-size) * 0.22); }
+
+.all-panel {
+  overflow: hidden;
+  border-radius: var(--glass-radius);
+  background: var(--glass);
+  box-shadow: var(--glass-shadow);
+}
+
+/* The head is a stronger tone ON the pane, mixed from the text colour rather
+   than from a hue — on this material colour is reserved for the badges, and a
+   panel has no hue of its own to declare (§5.7, the /settings reversal). */
+.all-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--nav-size) * 0.2);
+  padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.26);
+  background: var(--glass-sheen);
+}
+
+/* A group's name is an EYEBROW over its list, not a heading competing with the
+   row names: at the panel-title size a 24-row panel read as a page inside the
+   page, and the list lost the hierarchy it needs to be scannable. */
+.all-panel-title {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+.all-panel-count {
+  font-size: var(--font-size-xs);
+  color: var(--all-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Rows ────────────────────────────────────────────────────────────────── */
+
+.all-rows {
+  list-style: none;
+  margin: 0;
+  /* Two columns, once there is room for them. 68 rows one per line is a page
+     you scroll for a minute; this is an index, and the whole point of an index
+     is that you can take it in at a glance.
+
+     A row-flow GRID rather than `column-count`: balancing into tall columns
+     puts the second half of the list *below* the first, so DOM order (and the
+     tab order that follows it) stops matching what the eye sees. Filling the
+     rows left-to-right keeps the two in step — and it is what lets the zebra
+     stripe below line up across a pair. */
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.12);
+}
+
+.all-row {
+  border-radius: var(--border-radius);
+  transition: background 0.18s ease;
+}
+/* Rows are separated by a tint, not a hairline under each one (§5) — and the
+   stripe takes a whole grid ROW (`4n+1, 4n+2` = the pair), so it reads as one
+   band across the two columns instead of a staircase. */
+.all-row:nth-child(4n + 1),
+.all-row:nth-child(4n + 2) { background: var(--glass-row); }
+.all-row:hover { background: var(--glass-row-strong); }
+
+/* The WHOLE row is the hit area — an index this long is clicked fast, and a
+   four-word link is a small thing to hit. Three columns, so the paths line up
+   down the list and the badges make one clean right edge. */
+.all-row-hit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.12);
+  padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.16);
+  color: var(--text-color);
+  text-decoration: none;
+}
+a.all-row-hit { cursor: pointer; }
+
+.all-row-name {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The row is the target, so the hover that names a colour lives on the row.
+   ⚠️ It must name one: the global `a:hover` is `(0,1,1)` and paints every
+   anchor the scheme's partner hue (§6). */
+a.all-row-hit:hover .all-row-name { color: var(--fg-blue); }
+
+.all-row-meta {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.1);
+  min-width: 0;
+  flex-wrap: wrap;
+  /* A path may clip rather than push the badge column around: the columns are
+     the alignment here, and a wandering edge would undo it. */
+  overflow: hidden;
+}
+
+.all-row-path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--font-size-xs);
+  color: var(--all-muted);
+  white-space: nowrap;
+}
+
+.all-chip {
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  padding: 0 calc(var(--nav-size) * 0.1);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--all-muted);
+  white-space: nowrap;
+}
+.all-chip--alias { opacity: 0.8; }
+
+/* ── Badges — who the page is for, as a wash rather than a fill ──────────── */
+
+.all-badge {
+  justify-self: end;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  padding: 0 calc(var(--nav-size) * 0.12);
+  border-radius: 999px;
+  /* ⚠️ The ink stays `--text-color` on every badge. Painting an accent-coloured
+     label on a wash of its OWN hue loses about a stop — the lesson `/login`
+     measured at 4.38:1 — so the badge's colour is in the wash, never in the
+     words. */
+  color: var(--text-color);
+  white-space: nowrap;
+}
+/* Four levels as three hues plus a neutral, so a restricted badge reads as a
+   different KIND of thing rather than a stronger version of the same one. */
+.all-badge--public { background: color-mix(in srgb, var(--text-color) 10%, transparent); }
+.all-badge--member { background: color-mix(in srgb, var(--scheme-accent) 18%, transparent); }
+.all-badge--staff { background: color-mix(in srgb, var(--scheme-primary) 22%, transparent); }
+.all-badge--muse { background: color-mix(in srgb, var(--fg-pink) 20%, transparent); }
+
+/* ── Empty state and foot ────────────────────────────────────────────────── */
+
+.all-empty {
+  margin: calc(var(--nav-size) * 0.4) 0;
+  font-size: var(--font-size-base);
+  color: var(--all-muted);
+}
+.all-empty-btn {
+  font-size: inherit;
+  padding: 0;
+  min-height: 0;
+  border: none;
+  background: none;
+  color: var(--fg-blue);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.all-foot {
+  margin: calc(var(--nav-size) * 0.4) 0 calc(var(--nav-size) * 0.4);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-relaxed);
+  color: var(--all-muted);
+}
+.all-foot code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: var(--glass-sunken);
+  padding: 0 calc(var(--nav-size) * 0.06);
+  border-radius: var(--border-radius-sm);
+}
+
+@media (max-width: 900px) {
+  /* Two columns of ~430px start ellipsing names, which is worse than a longer
+     page. One column until there is room for two real ones — and with one
+     column the stripe is every other ROW, not every other pair. */
+  .all-rows { grid-template-columns: minmax(0, 1fr); }
+  .all-row:nth-child(4n + 1),
+  .all-row:nth-child(4n + 2) { background: transparent; }
+  .all-row:nth-child(odd) { background: var(--glass-row); }
+}
+
+@media (max-width: 620px) {
+  /* The row becomes two lines — name and badge, then the path beneath — rather
+     than three columns crushed into a phone's width, which ellipsed every
+     name. It is still one row, and still one hit area. */
+  .all-row-hit {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'name badge'
+      'meta meta';
+    row-gap: calc(var(--nav-size) * 0.04);
+  }
+  .all-row-name { grid-area: name; }
+  .all-row-meta { grid-area: meta; }
+  .all-badge { grid-area: badge; }
+
+  .all-bar-readout { width: 100%; }
+  .all-bar-actions { width: 100%; margin-left: 0; }
+  .all-search { flex: 1 1 auto; }
+  .all-search-input { width: 100%; min-width: 0; }
+}
