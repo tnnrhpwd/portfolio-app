@@ -97,6 +97,7 @@ describe('repoAgentService.REPO_TOOL_SCHEMAS', () => {
       'repo_list_files',
       'repo_read_file',
       'repo_write_file',
+      'repo_edit_file',
       'repo_git_status',
       'repo_git_diff',
       'repo_commit_changes',
@@ -118,6 +119,27 @@ describe('repoAgentService tool admin gating', () => {
       { isAdmin: false }
     );
     expect(result).toMatch(/restricted to the administrator/);
+  });
+
+  test('repo_edit_file is restricted for non-admins', async () => {
+    const result = await repoAgent.REPO_TOOL_EXECUTORS.repo_edit_file(
+      { path: 'frontend/src/App.js', old_string: 'a', new_string: 'b' },
+      { isAdmin: false }
+    );
+    expect(result).toMatch(/restricted to the administrator/);
+  });
+
+  test('repo_edit_file validates its arguments before touching the disk', async () => {
+    const admin = { isAdmin: true };
+    expect(await repoAgent.REPO_TOOL_EXECUTORS.repo_edit_file(
+      { path: '../evil.js', old_string: 'a', new_string: 'b' }, admin
+    )).toBe('Error: invalid file path.');
+    expect(await repoAgent.REPO_TOOL_EXECUTORS.repo_edit_file(
+      { path: 'frontend/src/App.js', old_string: '', new_string: 'b' }, admin
+    )).toMatch(/old_string must be a non-empty string/);
+    expect(await repoAgent.REPO_TOOL_EXECUTORS.repo_edit_file(
+      { path: 'frontend/src/App.js', old_string: 'same', new_string: 'same' }, admin
+    )).toMatch(/identical/);
   });
 
   test('repo_commit_changes is restricted for non-admins', async () => {

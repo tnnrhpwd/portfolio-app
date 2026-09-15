@@ -18,6 +18,8 @@ import WorkspaceProfilesManager from './WorkspaceProfilesManager.jsx';
 import ShortcutsManager from './ShortcutsManager.jsx';
 import GoalManager from './GoalManager.jsx';
 import PermissionsManager from './PermissionsManager.jsx';
+import { SCHEMES, CUSTOM_SCHEME, initScheme, setScheme, getCustomColors } from '../../utils/scheme.js';
+import { syncSchemeToAddon } from '../../utils/schemeSync.js';
 
 const TABS = [
   { id: 'general', label: '⚙ General' },
@@ -31,6 +33,16 @@ const TABS = [
 
 function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnline, speech, micDevices, user, cloudSyncStatus, addonConnected, isAddonOutdated, initialTab, portfolioLLMProviders, onSendMessage, onExportChat, hasMessages }) {
   const [activeTab, setActiveTab] = useState('general');
+  /* The site's colour SCHEME — deliberately NOT a key in `settings`. It is one
+     setting that belongs to the visitor, not to the chat, so this reads it off
+     the body (where `utils/scheme.js` puts it) and writes it back through the
+     same `setScheme()`. Keeping a copy in the addon's settings is exactly what
+     used to let the modal and the page disagree about the colours. */
+  const [colorScheme, setColorScheme] = useState(() => document.body.dataset.scheme || initScheme());
+  /* Only the two mode values are chat settings any more. A scheme NAME left in
+     storage by the old ten-item theme list resolves to "follow the site" — there
+     is no per-chat palette for it to select now. */
+  const chatMode = settings.theme === 'light' || settings.theme === 'dark' ? settings.theme : 'system';
   const [workspaceSubTab, setWorkspaceSubTab] = useState('profiles');
   const [behaviors, setBehaviors] = useState([]);
   const [memoryFiles, setMemoryFiles] = useState([]);
@@ -117,6 +129,15 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
       autoSave(newSettings);
     }
   }, [settings, autoSave, onSettingsChange]);
+
+  /* Same three steps as the picker on /profile, and for the same reasons: apply
+     it, repaint the modal's own select, and hand the identity to the desktop
+     addon — whose window wears the same scheme (`utils/schemeSync.js`). */
+  const handleSchemeChange = useCallback((event) => {
+    const next = setScheme(event.target.value);
+    setColorScheme(next);
+    syncSchemeToAddon({ scheme: next, custom: getCustomColors() });
+  }, []);
 
   // ── Quick voice-to-message (moved here from the chat header) ────────────
   const toggleVoiceMessage = useCallback(() => {
@@ -424,27 +445,38 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
               <div className="adv-group">
                 <div className="adv-group__row">
                   <div>
-                    <label className="adv-group__label">Theme</label>
-                    <p className="adv-group__desc">Application color scheme</p>
+                    <label className="adv-group__label" htmlFor="adv-chat-mode">Theme</label>
+                    <p className="adv-group__desc">How the chat is lit — the colours come from the scheme below</p>
                   </div>
                   <select
                     className="adv-select"
-                    value={settings.theme || 'system'}
+                    id="adv-chat-mode"
+                    value={chatMode}
                     onChange={e => updateSetting('theme', e.target.value)}
                   >
-                    <option value="dark">🌑 Dark</option>
+                    <option value="system">💻 Follow the site</option>
                     <option value="light">☀️ Light</option>
-                    <option value="system">💻 System (matches site theme)</option>
-                    <option value="crimson">❤️ Crimson</option>
-                    <option value="emerald">💎 Emerald</option>
-                    <option value="sakura">🌸 Sakura</option>
-                    <option value="midnight">🌃 Midnight Blue</option>
-                    <option value="sunset">🌅 Sunset</option>
-                    <option value="ocean">🌊 Ocean</option>
-                    <option value="usa">🇺🇸 USA</option>
-                    <option value="cyberpunk">🔮 Cyberpunk</option>
-                    <option value="forest">🌲 Forest</option>
-                    <option value="monokai">🖥️ Monokai</option>
+                    <option value="dark">🌑 Dark</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="adv-group">
+                <div className="adv-group__row">
+                  <div>
+                    <label className="adv-group__label" htmlFor="adv-color-scheme">Color scheme</label>
+                    <p className="adv-group__desc">The same setting as Profile — the chat cannot disagree with the page</p>
+                  </div>
+                  <select
+                    className="adv-select"
+                    id="adv-color-scheme"
+                    value={colorScheme}
+                    onChange={handleSchemeChange}
+                  >
+                    {SCHEMES.map((s) => (
+                      <option key={s.id} value={s.id}>{s.label}</option>
+                    ))}
+                    <option value={CUSTOM_SCHEME}>🎨 Custom</option>
                   </select>
                 </div>
               </div>

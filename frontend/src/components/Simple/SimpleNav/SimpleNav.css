@@ -11,17 +11,29 @@
   padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.3) 0;
 }
 
+/* ── The control ──────────────────────────────────────────────────────────
+ * One recessed TRACK holding the rooms, with the current one raised out of it.
+ *
+ * A container gets a tone, never an outline (§5). The `--border-nav` hairline
+ * this used to wear resolves to a mid-grey in BOTH modes, which is why the pill
+ * read as a wireframe in dark; the tone difference does that job here, and its
+ * `--shadow-sm` went with it — a groove does not float.
+ *
+ * ⚠️ The track stays a SURFACE (`--bg-1`), not a film of the ink. An ink wash is
+ * cheaper and reads well on a dark header, but the header is transparent and
+ * /net's room paints a scheme-tinted backdrop underneath it: a translucent
+ * control takes on that tint whole, and in light mode the pill went from a grey
+ * control to a saturated cyan bar whose track out-shouted its own selected
+ * segment. Controls keep `--bg-1` (§5.7) — this is why. */
 .snav-inner {
   display: flex;
   align-items: center;
-  gap: calc(var(--nav-size) * 0.2);
+  gap: calc(var(--nav-size) * 0.18);
   width: 100%;
   max-width: 880px;
-  padding: calc(var(--nav-size) * 0.1);
+  padding: calc(var(--nav-size) * 0.06);
   background: color-mix(in srgb, var(--bg-1) 88%, transparent);
-  border: 1px solid var(--border-nav);
   border-radius: 999px;
-  box-shadow: var(--shadow-sm);
 }
 
 .snav-brand {
@@ -38,47 +50,79 @@
 .snav-links {
   display: flex;
   align-items: center;
-  gap: calc(var(--nav-size) * 0.06);
+  gap: calc(var(--nav-size) * 0.05);
   margin: 0;
   padding: 0;
   list-style: none;
   flex: 1;
   min-width: 0;
 }
+/* ⚠️ Load-bearing, and not obvious. An `inline-flex` link inside a block-level
+   `<li>` sits on a line box, so the `<li>` is ~5px TALLER than the link it
+   contains (the descender space under the baseline). That phantom height was
+   setting the pill's height — not the segments — which is why the control
+   looked padded-out with small labels. Making the `<li>` a flex box removes the
+   line box entirely, so the segments define the height. */
+.snav-links > li { display: flex; }
 
+/* A segment. `--font-size-small` in both variants: this is the header's primary
+   navigation and it was rendering at `--font-size-xs` compact — 10.5px, the
+   smallest label anywhere in the chrome.
+   The ink is the MUTED tone: four labels at full strength compete with the logo
+   and with the page, and it leaves the current room the only one at full ink.
+   That is the second cue — the fill alone is faint in light mode, where an ink
+   wash and a near-white tint are close in luminance. */
 .snav-link {
   display: inline-flex;
   align-items: center;
-  gap: calc(var(--nav-size) * 0.1);
-  padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.3);
+  padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.34);
   border-radius: 999px;
-  color: var(--text-color);
+  color: var(--text-color-accent);
   font-size: var(--font-size-small);
   font-weight: var(--font-weight-semibold);
   text-decoration: none;
   white-space: nowrap;
   transition: background 0.18s ease, color 0.18s ease;
 }
-.snav-link:hover { background: var(--bg-accent); }
-/* The active pill is the header's one filled accent surface, so it follows the
-   colour SCHEME — the header renders outside the page root and would otherwise
-   keep the theme's fixed brand blue/teal while the page below it followed the
-   picker. Ink is the house `--text-color-inv`, the same pairing every other
-   filled gradient control on the site uses. */
-.snav-link.is-active {
-  background: linear-gradient(135deg, var(--scheme-accent), var(--scheme-primary));
-  color: var(--text-color-inv);
+/* ⚠️ The ink is restated HERE because the global `a:hover` is `(0,1,1)` and
+   paints every anchor in the scheme's PARTNER hue. On the active segment that
+   would put that hue on a tint of the same hue. */
+.snav-link:hover {
+  background: color-mix(in srgb, var(--text-color) 10%, var(--bg-1));
+  color: var(--text-color);
 }
-.snav-link-icon { font-size: var(--font-size-base); line-height: 1; }
+/* ⚠️ The current room is a PLACE, not an action — so it is NOT the action ramp.
+   It used to wear `linear-gradient(scheme-accent, scheme-primary)`, the fill the
+   house style reserves for "press this", which made the page you were already
+   standing on look like the button that takes you there (and left the one
+   surface the header owns as the brightest thing in it). `/plans` had already
+   settled this for its own switcher — a tint of the scheme's emphasis hue on a
+   solid surface, inked with plain `--text-color` — so the header now uses that
+   same recipe and the two agree. The scheme still drives it; only the fill's
+   KIND changed. 40% rather than `/plans`' 20%: this track is translucent and it
+   sits over the page, so the tint has less to sit on — at 20% the selected room
+   was only ~1.2:1 from the track in light mode, i.e. a hue difference nobody
+   would notice. It is still a TINT, not the ramp: no gradient, and the ink stays
+   `--text-color`. */
+.snav-link.is-active {
+  background: color-mix(in srgb, var(--scheme-primary) 40%, var(--bg-1));
+  color: var(--text-color);
+}
+.snav-link.is-active:hover {
+  background: color-mix(in srgb, var(--scheme-primary) 48%, var(--bg-1));
+  color: var(--text-color);
+}
 
-/* Live addon state — the same answer on every surface. */
+/* Live addon state — the same answer on every surface. A readout INSIDE the
+   track, so it is a step down from the segments rather than a control of its
+   own. */
 .snav-agent {
   display: inline-flex;
   align-items: center;
   gap: calc(var(--nav-size) * 0.12);
   padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.28);
   border-radius: 999px;
-  background: var(--bg-accent);
+  background: color-mix(in srgb, var(--text-color) 9%, transparent);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--text-color);
@@ -118,21 +162,10 @@
 
 .snav--compact { padding: 0; width: auto; }
 
-.snav--compact .snav-inner {
-  width: auto;
-  padding: calc(var(--nav-size) * 0.06);
-  background: color-mix(in srgb, var(--bg-1) 80%, transparent);
-  box-shadow: none;
-}
-
-.snav--compact .snav-link {
-  padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.26);
-  font-size: var(--font-size-xs);
-}
-.snav--compact .snav-link-icon { font-size: var(--font-size-small); }
+.snav--compact .snav-inner { width: auto; }
 
 .snav--compact .snav-agent {
-  padding: calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.2);
+  padding: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.26);
   max-width: 130px;
 }
 

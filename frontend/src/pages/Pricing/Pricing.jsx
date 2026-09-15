@@ -23,9 +23,9 @@ import PurchaseGateNotice from '../../components/PurchaseGateNotice/PurchaseGate
 import useScrollReveal from '../../hooks/useScrollReveal';
 import usePurchaseGate from '../../hooks/usePurchaseGate';
 import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection.js';
-import perceiveImg from '../../assets/art/simple-perceive.png';
-import actImg from '../../assets/art/simple-act.png';
-import repeatImg from '../../assets/art/simple-repeat.png';
+import perceiveImg from '../../assets/art/simple-perceive.jpg';
+import actImg from '../../assets/art/simple-act.jpg';
+import repeatImg from '../../assets/art/simple-repeat.jpg';
 import './Pricing.css';
 
 /** Yearly-vs-monthly saving, derived so the badge can't drift from the prices. */

@@ -21,10 +21,13 @@
 
 /** `accent` is the console-ish hue (links, focus, interaction, the room).
  *  `primary` is the emphasis hue (the one action per view, the headline figure).
- *  Roles, not positions. The ten named themes are the SimpleAddon's, copied from
- *  `SimpleTheme.css` so `/net` and `/profile` offer the same choices under the
- *  same names. `ocean` leads the list because it is the DEFAULT — the first thing
- *  the picker offers is the one a new visitor is already looking at. */
+ *  Roles, not positions. The names are shared with the desktop addon, whose own
+ *  appearance list (`simple-addon/renderer/appearance/appearance.js`) is a mirror
+ *  of this one — so `/net`, `/profile` and the addon's window offer the same
+ *  choices under the same names. (The web chat used to keep a second, rival list
+ *  of full palettes under these names; it is gone — see `SimpleTheme.css`.)
+ *  `ocean` leads the list because it is the DEFAULT — the first thing the picker
+ *  offers is the one a new visitor is already looking at. */
 export const SCHEMES = [
   { id: 'ocean', label: '🌊 Ocean', accent: '#06b6d4', primary: '#3b82f6' },
   { id: 'aurora', label: 'Aurora', accent: '#00c1c1', primary: '#ff379b' },

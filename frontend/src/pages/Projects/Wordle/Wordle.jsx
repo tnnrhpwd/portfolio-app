@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 import Header from '../../../components/Header/Header';
 import Footer from '../../../components/Footer/Footer';
 import SEO from '../../../components/SEO/SEO.jsx';
-import url from "./../WordleSolver/Dictionary.txt";
+import { loadWords, getLoadedWords } from '../WordleSolver/loadDictionary.js';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom'              // page redirects
 import { getData } from '../../../features/data/dataSlice.js';
@@ -85,7 +85,11 @@ function Wordle() {
   
   // State management
   const [keys, setKeys] = useState(initialKeys);
+  // Words for the CURRENT word length only (see loadDictionary.js). `dictionarySet`
+  // holds the same words as a Set because guess validation is a membership test on
+  // the hot path, and `Array.includes` over a length's words is an O(n) scan per guess.
   const [dictionary, setDictionary] = useState([]);
+  const [dictionarySet, setDictionarySet] = useState(() => new Set());
   const [guesses, setGuesses] = useState([]);
   const [currentGuess, setCurrentGuess] = useState([]);
   const [wordLength, setWordLength] = useState(0);
@@ -106,7 +110,6 @@ function Wordle() {
   const [gameActive, setGameActive] = useState(false);
   
   const keyListenerRef = useRef(null);
-  const isDictionaryLoadedRef = useRef(false);
   const rootStyle = window.getComputedStyle(document.body);
   const toastDuration = parseInt(rootStyle.getPropertyValue('--toast-duration'), 10);
 
@@ -157,13 +160,18 @@ function Wordle() {
     setGameActive(false);
   }, []);
 
-  const getActiveDictionary = useCallback(() => {
+  const getActiveDictionary = useCallback((wordLength) => {
     if (useCurseWords) return curseWords;
-    return useFullDictionary ? dictionary : simpleWords;
+    if (useFullDictionary) {
+      // Prefer the freshly-loaded words: after `await loadWords(n)` in
+      // newGameButton the `dictionary` state has not re-rendered in this tick.
+      return getLoadedWords(wordLength) || dictionary;
+    }
+    return simpleWords;
   }, [useFullDictionary, useCurseWords, dictionary]);
 
   const getRandomWordFromDictionary = useCallback((wordLength) => {
-    const activeDictionary = getActiveDictionary();
+    const activeDictionary = getActiveDictionary(wordLength);
     const wordsOfLength = activeDictionary.filter(word => word.length === wordLength);
     
     if (wordsOfLength.length === 0) {
@@ -243,7 +251,7 @@ function Wordle() {
     setAnswerVisibility(false);
     setIsCreditsExpanded(false);
     resetTimer();
-    // Note: Don't reset isDictionaryLoaded or isKeyboardListening as they should persist
+    // Note: the loaded word list and the keyboard listener must persist across games.
 
     // Reset keyboard visual state
     Object.keys(initialKeys).forEach(key => {
@@ -269,27 +277,15 @@ function Wordle() {
     }
   }, [resetTimer]);
 
-  // Dictionary loading
-  const fetchDictionary = useCallback(async () => {
-    if (isDictionaryLoadedRef.current) {
-      return; // Already loaded, don't reload
-    }
-    
-    try {
-      const response = await fetch(url);
-      const data = await response.text();
-      let dictionaryArray = data.toUpperCase();
-      dictionaryArray = dictionaryArray.split('\r\n');
-      if(!(dictionaryArray[0] === "AA")){                    
-        dictionaryArray = dictionaryArray[0].split("\n");
-      }
-      setDictionary(dictionaryArray);
-      isDictionaryLoadedRef.current = true;
-    } catch (err) {
-      console.error("Error loading dictionary:", err);
-      toast.error("Failed to load dictionary", { autoClose: toastDuration });
-    }
-  }, [toastDuration]);
+  // Word list loading
+  // Fetches only the current length's words and RETURNS them, so the caller can
+  // use them immediately — a `setDictionary` would not have re-rendered yet.
+  const loadDictionaryFor = useCallback(async (wordLength) => {
+    const words = await loadWords(wordLength);
+    setDictionary(words);
+    setDictionarySet(new Set(words));
+    return words;
+  }, []);
 
   // API functions
   const getMyData = useCallback(async () => {
@@ -373,7 +369,7 @@ function Wordle() {
     
     // GUARD CLAUSE - not a word (check both simple words AND full dictionary for all guesses)
     const isValidWord = simpleWords.includes(guessString) || 
-                       dictionary.includes(guessString) || 
+                       dictionarySet.has(guessString) || 
                        curseWords.includes(guessString) ||
                        guessString.toLowerCase() === secretWord.toLowerCase();
     
@@ -431,7 +427,7 @@ function Wordle() {
     // Update game state
     setGuesses(prev => [...prev, processedGuess]);
     setCurrentGuess([]);
-  }, [currentGuess, wordLength, guesses.length, secretWord, toastDuration, countLetters, endOfGame, dictionary, triggerShake]);
+  }, [currentGuess, wordLength, guesses.length, secretWord, toastDuration, countLetters, endOfGame, dictionarySet, triggerShake]);
 
   const keyPress = useCallback((key, fromVirtualKeyboard = false) => {
     switch(key){
@@ -538,6 +534,18 @@ function Wordle() {
 
     const newWordLength = parseFloat(settingMenuText);
 
+    // Load this length's words BEFORE touching game state: guess validation needs
+    // them, and full-dictionary mode picks its answer from them below. Loading here
+    // also means a failure leaves the previous game intact rather than starting a
+    // game that cannot validate a single guess.
+    try {
+      await loadDictionaryFor(newWordLength);
+    } catch (error) {
+      console.error("Error loading dictionary:", error);
+      toast.error("Failed to load dictionary", { autoClose: toastDuration });
+      return;
+    }
+
     resetInitialValues();
     setOutputMessage("");
     setButtonPressNum(prev => prev + 1);
@@ -598,7 +606,7 @@ function Wordle() {
       console.error('Error setting up new game:', error.message);
       setOutputMessage('Error setting up new game. Please try again.');
     }
-  }, [settingMenuText, resetInitialValues, fetchRandomWordFromBackend, useFullDictionary, useCurseWords, getRandomWordFromDictionary, fetchDefinition, startTimer, user]);
+  }, [settingMenuText, resetInitialValues, loadDictionaryFor, toastDuration, fetchRandomWordFromBackend, useFullDictionary, useCurseWords, getRandomWordFromDictionary, fetchDefinition, startTimer, user]);
 
   const toggleSettings = useCallback(() => {
     setSettingMenu(prev => prev + 1);
@@ -649,24 +657,9 @@ function Wordle() {
     return grid;
   }, [wordLength, guesses, updateKeyGuessCount]);
 
-  // Effects - Initialize dictionary and setup keyboard listener
-  useEffect(() => {
-    let cleanup;
-    
-    const launchTimer = setTimeout(async () => {
-      if (!isDictionaryLoadedRef.current) {
-        await fetchDictionary();
-      }
-    }, 50);
-  
-    return () => {
-      clearTimeout(launchTimer);
-      if (cleanup) {
-        cleanup();
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Intentionally empty - we want this to run only once on mount
+  // The word list used to be fetched here on mount — all 455 KB gzip of every word
+  // from 2 to 15 letters, before the player had even chosen a length. It is now
+  // loaded by newGameButton for the chosen length alone (23 KB gzip at 5 letters).
 
   // Separate effect for keyboard listener that updates when dependencies change
   useEffect(() => {

@@ -15,6 +15,7 @@ const { TOOL_SCHEMAS, executeTool } = require('./netTools.js');
 const { buildWorkspaceContext } = require('./workspaceContext.js');
 const { buildToolContext } = require('./netChatContext.js');
 const { filterToolSchemas, canUseTool } = require('./toolScopes.js');
+const { describeToolActivity } = require('./toolProgress.js');
 const { buildRoutingEvent, recordRoutingEvent } = require('./routingTelemetry.js');
 
 // Constants for user context loading
@@ -251,7 +252,8 @@ function stripImagesFromUserInput(userInput) {
 function repoSystemInstructions() {
     return [
         'REPOSITORY EDITING (administrator only): You can modify this website\'s code repository using the repo_* tools.',
-        'To change code: repo_list_files and repo_read_file to investigate, repo_write_file to edit files in the working tree, repo_git_status and repo_git_diff to review, then repo_commit_changes to stage and commit.',
+        'To change code: repo_list_files and repo_read_file to investigate, then repo_edit_file for ANY change to a file that already exists (read it first and copy the exact snippet you want replaced), then repo_git_status and repo_git_diff to review, then repo_commit_changes to stage and commit.',
+        'PREFER repo_edit_file over repo_write_file: a full rewrite has to re-emit the entire file, and a large one can exceed the per-call output limit and come back cut off. Use repo_write_file only to create a new file (or for a rewrite you genuinely need).',
         'CRITICAL PUSH RULE: NEVER call repo_push in the same turn you commit changes. After repo_commit_changes, reply to the user summarizing exactly what changed and ASK whether they want to push to GitHub. Only call repo_push after the user replies with an explicit confirmation (e.g. "yes, push it"). repo_push will refuse to run otherwise.',
     ].join(' ');
 }
@@ -559,10 +561,13 @@ async function executeToolCall(toolCall, toolContext) {
     const fnName = toolCall.function?.name || 'unknown';
     const { args: fnArgs, truncated } = parseToolArguments(toolCall);
     if (truncated) {
+        const repoHint = fnName === 'repo_write_file'
+            ? ' For a repository change, use repo_edit_file (an exact old_string → new_string snippet) instead of re-emitting the whole file.'
+            : '';
         return {
             fnName,
             fnArgs,
-            result: `Error: the arguments for "${fnName}" were empty or cut off (invalid JSON) — this usually means the output hit the length limit. Please retry with a smaller batch (for save_goals, split into a few goals per call).`,
+            result: `Error: the arguments for "${fnName}" were empty or cut off (invalid JSON) — this usually means the output hit the length limit. Please retry with a smaller batch (for save_goals, split into a few goals per call).${repoHint}`,
         };
     }
     logger.debug(`🔧 Executing tool: ${fnName}`, JSON.stringify(fnArgs));
@@ -571,8 +576,37 @@ async function executeToolCall(toolCall, toolContext) {
     return { fnName, fnArgs, result };
 }
 
-/** Max tool-call rounds per turn (prevents runaway loops). */
-const MAX_TOOL_ROUNDS = 3;
+/**
+ * Max tool-call rounds per turn (prevents runaway loops).
+ *
+ * Was 3 — too tight for the repo-editing workflow a /net chat can run. 8 still
+ * came up short: a live run spent every round on legitimate work (list files →
+ * read ×3 → two failed snippet edits → a successful edit → diff) and had to be
+ * cut off before it could answer. 12 leaves room to investigate, edit, verify
+ * and reply, and matches the goal agent's own loop. A round is only spent when
+ * the model actually asks for a tool, so a normal chat turn costs nothing extra.
+ */
+const MAX_TOOL_ROUNDS = 12;
+
+/**
+ * Appended to the system prompt when a turn has spent every tool round, so the
+ * next call comes back as prose instead of another tool request.
+ */
+const TOOL_LIMIT_NOTICE = '\n\nTOOL LIMIT REACHED: you have used every tool round available for this turn. Reply to the user NOW in plain text — say what you changed, what could not be completed and why, and what to do next. Do not call any more tools, and do not output tool-call syntax, JSON, bracketed tool notes, or file contents.';
+
+/**
+ * Output-token ceiling for a turn that has tools in play.
+ *
+ * The per-tier cap (1-4K) is sized for chat prose, but a tool call's ARGUMENTS
+ * come out of the same output budget — and `repo_write_file` takes an entire
+ * file as one argument. At 4096 the arguments for a 17 KB file (≈5K tokens) were
+ * cut off mid-JSON on every attempt, so the write never happened, the model
+ * retried the same doomed call, and the turn burned every round (observed live
+ * 2026-09-14). Haiku 4.5 allows up to 64K output; 16K covers roughly a 60 KB
+ * file. Anything larger should go through `repo_edit_file`, which needs only a
+ * snippet instead of the whole file.
+ */
+const TOOL_TURN_MAX_TOKENS = 16384;
 
 /**
  * Run the LLM tool-call loop: initial call → execute requested tools → feed the
@@ -683,9 +717,9 @@ async function callLLMApi(provider, model, userInput, goalsSummary = null, toolC
     if (useTools) {
         llmOptions.tools = toolsForContext(toolContext);
         llmOptions.tool_choice = 'auto';
-        // Tool-call arguments can be large (e.g. save_goals with many goals);
-        // give the model headroom so its JSON isn't cut off at the text budget.
-        llmOptions.maxTokens = Math.max(llmOptions.maxTokens, 4096);
+        // Tool-call arguments can be large (e.g. repo_write_file with a whole
+        // file); give the model headroom so its JSON isn't cut off mid-call.
+        llmOptions.maxTokens = Math.max(llmOptions.maxTokens, TOOL_TURN_MAX_TOKENS);
     }
 
     // Initial call + bounded tool-call loop (shared with the streaming path —
@@ -1068,19 +1102,42 @@ async function streamCompressionRequest(req, res, dynamodb) {
     if (useTools) {
         llmOptions.tools = toolsForContext(toolContext);
         llmOptions.tool_choice = 'auto';
-        // Tool-call arguments can be large (e.g. save_goals with many goals);
-        // give the model headroom so its JSON isn't cut off at the text budget.
-        llmOptions.maxTokens = Math.max(llmOptions.maxTokens, 4096);
+        // Tool-call arguments can be large (e.g. repo_write_file with a whole
+        // file); give the model headroom so its JSON isn't cut off mid-call.
+        llmOptions.maxTokens = Math.max(llmOptions.maxTokens, TOOL_TURN_MAX_TOKENS);
     }
+
+    // ── Live progress over SSE ──────────────────────────────────────────────
+    // Everything above this point (usage limits, tier checks) still fails as a
+    // normal JSON response, because the SSE headers are opened LAZILY. But the
+    // moment tool work starts — the part that takes seconds to minutes — the
+    // client gets a line about what is happening instead of an unexplained
+    // spinner (users read that as "it has frozen").
+    let sseOpen = false;
+    const openSse = () => {
+        if (sseOpen) return;
+        sseOpen = true;
+        res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no',
+        });
+    };
+    const emitProgress = (label, extra = {}) => {
+        openSse();
+        res.write(`data: ${JSON.stringify({ type: 'progress', label, ...extra })}\n\n`);
+    };
 
     // ── Tool-call phase (non-streamed, same as before) ─────────────────────
     // We must resolve tools before streaming the final answer
-    const MAX_TOOL_ROUNDS = 3;
+    const MAX_TOOL_ROUNDS = 12; // same cap as runToolLoop (see MAX_TOOL_ROUNDS above)
     let round = 0;
     const toolResults = [];
     let needsStreaming = true;
 
     if (useTools) {
+        emitProgress('Looking into it', { step: 0, maxSteps: MAX_TOOL_ROUNDS });
         // Do an initial non-streaming call to check for tool calls
         const initResponse = await makeLLMCall(provider, model, messages, llmOptions);
         let choice = initResponse?.choices?.[0];
@@ -1090,6 +1147,13 @@ async function streamCompressionRequest(req, res, dynamodb) {
             messages.push(choice.message);
 
             for (const toolCall of choice.message.tool_calls) {
+                // Announce BEFORE running: a file read or write takes seconds, and
+                // that silent gap is exactly what looks like a freeze.
+                const announced = toolCall.function?.name;
+                emitProgress(
+                    describeToolActivity(announced, parseToolArguments(toolCall).args),
+                    { tool: announced, step: round, maxSteps: MAX_TOOL_ROUNDS },
+                );
                 // Same execution helper as the non-streaming loop — see
                 // executeToolCall above.
                 const { fnName, fnArgs, result } = await executeToolCall(toolCall, toolContext);
@@ -1112,12 +1176,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
                 await saveCompressedData(dynamodb, req.user.id, userInput, cleanedContent, updateId);
 
                 // Send as SSE
-                res.writeHead(200, {
-                    'Content-Type': 'text/event-stream',
-                    'Cache-Control': 'no-cache',
-                    'Connection': 'keep-alive',
-                    'X-Accel-Buffering': 'no',
-                });
+                openSse();
                 if (toolResults.length > 0) {
                     res.write(`data: ${JSON.stringify({ type: 'tools', tools: toolResults.map(t => ({ tool: t.tool, args: t.args, success: !t.result.startsWith('Error') })) })}\n\n`);
                 }
@@ -1144,50 +1203,96 @@ async function streamCompressionRequest(req, res, dynamodb) {
 
     if (!needsStreaming) return;
 
+    // ── Wrap-up phase: rounds spent, but the model was still asking for tools ──
+    // Ask for the answer with a NON-streamed call that keeps `tools` (and so its
+    // `toolConfig`). Keeping the tools is what makes this safe: the history's
+    // tool turns stay structured blocks instead of being flattened to text that
+    // the model then continues as its own words — observed live 2026-09-14,
+    // where the reply contained the flattened marker "[used tool: repo_git_diff]".
+    // Only if this call yields no text do we fall through to the flattened
+    // streaming leg below (still a valid request, see bedrockService).
+    let wrapUpText = null;
+    let wrapUpUsage = null;
+    if (useTools && round >= MAX_TOOL_ROUNDS) {
+        const systemMessage = messages.find((m) => m.role === 'system');
+        if (systemMessage) systemMessage.content += TOOL_LIMIT_NOTICE;
+        emitProgress('Finishing up', { step: round, maxSteps: MAX_TOOL_ROUNDS });
+        try {
+            const wrapUp = await makeLLMCall(provider, model, messages, llmOptions);
+            const choice = wrapUp?.choices?.[0];
+            const stillWantsTools = Array.isArray(choice?.message?.tool_calls) && choice.message.tool_calls.length > 0;
+            const text = typeof choice?.message?.content === 'string' ? choice.message.content : '';
+            // Only a call that actually stopped asking for tools counts as the
+            // answer — a "let me look at that file" preamble attached to another
+            // tool request is not one, and would be shown as if it were.
+            if (!stillWantsTools && text.trim()) {
+                wrapUpText = text;
+                wrapUpUsage = wrapUp.usage || null;
+            }
+        } catch (e) {
+            logger.warn('[llmService] wrap-up call failed — falling back to the flattened stream leg:', e.message);
+        }
+    }
+
     // ── Streaming phase ──────────────────────────────────────────────────
-    res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'X-Accel-Buffering': 'no',
-    });
+    openSse();
 
     // Send tool results first if any
     if (toolResults.length > 0) {
         res.write(`data: ${JSON.stringify({ type: 'tools', tools: toolResults.map(t => ({ tool: t.tool, args: t.args, success: !t.result.startsWith('Error') })) })}\n\n`);
     }
 
-    // Remove tools for the streaming call (tools don't work with streaming)
+    // Remove tools for the streaming call: the streaming parser only reads text
+    // deltas, so a tool call here would be silently dropped.
+    //
+    // `messages` can still carry the tool-call/tool-result turns from the loop
+    // above (and always does when the loop exhausted MAX_TOOL_ROUNDS with the
+    // model still asking for tools). Bedrock's Converse API rejects tool blocks
+    // that arrive without a `toolConfig` — "The toolConfig field must be defined
+    // when using toolUse and toolResult content blocks" — which surfaced to
+    // users as a bare **Error:** in the /net chat. bedrockService now flattens
+    // those turns to plain text whenever no tools are offered, so this leg is
+    // valid and the model can still see everything the tools returned.
     const streamOptions = { maxTokens, temperature: 0.7 };
 
     let fullContent = '';
     let chunkCount = 0;
     let streamUsage = null;
 
-    try {
-        const streamGenerator = streamLLMCall(provider, model, messages, streamOptions);
-        let next = await streamGenerator.next();
-        while (!next.done) {
-            const { text } = next.value;
-            fullContent += text;
-            chunkCount++;
-            res.write(`data: ${JSON.stringify({ type: 'token', text })}\n\n`);
-            next = await streamGenerator.next();
+    if (wrapUpText !== null) {
+        // The wrap-up call already produced the answer — send it as a single
+        // token event so the client renders it exactly like a streamed reply,
+        // and skip a redundant second model call.
+        fullContent = wrapUpText;
+        chunkCount = 1;
+        streamUsage = wrapUpUsage;
+        res.write(`data: ${JSON.stringify({ type: 'token', text: wrapUpText })}\n\n`);
+    } else {
+        try {
+            const streamGenerator = streamLLMCall(provider, model, messages, streamOptions);
+            let next = await streamGenerator.next();
+            while (!next.done) {
+                const { text } = next.value;
+                fullContent += text;
+                chunkCount++;
+                res.write(`data: ${JSON.stringify({ type: 'token', text })}\n\n`);
+                next = await streamGenerator.next();
+            }
+            streamUsage = next.value?.usage || null;
+        } catch (e) {
+            if (e.code === 'BEDROCK_THROTTLED') {
+                res.write(`data: ${JSON.stringify({ type: 'error', error: 'Bedrock is rate limited right now — please try again shortly.' })}\n\n`);
+            } else if (e.code === 'BEDROCK_ACCESS_DENIED') {
+                res.write(`data: ${JSON.stringify({ type: 'error', error: 'Bedrock model access not enabled for this AWS account/region.' })}\n\n`);
+            } else if (e.code === 'BEDROCK_USE_CASE_NOT_SUBMITTED') {
+                res.write(`data: ${JSON.stringify({ type: 'error', error: 'Anthropic requires a one-time "use case details" form before this AWS account can invoke Claude models on Bedrock. Submit it in the Bedrock console model catalog, then retry in a few minutes.' })}\n\n`);
+            } else {
+                res.write(`data: ${JSON.stringify({ type: 'error', error: e.message })}\n\n`);
+            }
+            res.write('data: [DONE]\n\n');
+            res.end();
+            return;
         }
-        streamUsage = next.value?.usage || null;
-    } catch (e) {
-        if (e.code === 'BEDROCK_THROTTLED') {
-            res.write(`data: ${JSON.stringify({ type: 'error', error: 'Bedrock is rate limited right now — please try again shortly.' })}\n\n`);
-        } else if (e.code === 'BEDROCK_ACCESS_DENIED') {
-            res.write(`data: ${JSON.stringify({ type: 'error', error: 'Bedrock model access not enabled for this AWS account/region.' })}\n\n`);
-        } else if (e.code === 'BEDROCK_USE_CASE_NOT_SUBMITTED') {
-            res.write(`data: ${JSON.stringify({ type: 'error', error: 'Anthropic requires a one-time "use case details" form before this AWS account can invoke Claude models on Bedrock. Submit it in the Bedrock console model catalog, then retry in a few minutes.' })}\n\n`);
-        } else {
-            res.write(`data: ${JSON.stringify({ type: 'error', error: e.message })}\n\n`);
-        }
-        res.write('data: [DONE]\n\n');
-        res.end();
-        return;
     }
 
     // Process memory saves and finalize

@@ -157,12 +157,15 @@
   margin-bottom: 20px;
 }
 
+/* The mark itself, not a square tile: the size comes from the component, and there is
+   deliberately no border-radius — the artwork is a ring on a transparent field, so a
+   rounded box would be invisible shape with a very visible effect.
+
+   ⚠️ `drop-shadow`, not `box-shadow`. A box-shadow is drawn around the element's
+   BORDER BOX, so on a circular mark with a transparent background it renders a square
+   glow. drop-shadow follows the painted alpha, which is the silhouette. */
 .chat-window__empty-logo {
-  width: 64px;
-  height: 64px;
-  border-radius: 16px;
-  object-fit: contain;
-  box-shadow: 0 8px 32px color-mix(in srgb, var(--accent) 30%, transparent);
+  filter: drop-shadow(0 8px 24px color-mix(in srgb, var(--accent) 45%, transparent));
 }
 
 .chat-window__empty h2 {
@@ -224,14 +227,15 @@
 .chat-window__typing-avatar {
   width: 28px;
   height: 28px;
-  background: linear-gradient(135deg, var(--accent), #3b82f6);
+  /* Same scheme gradient as the message avatar — see MessageBubble.css. */
+  background: var(--accent-fill);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 12px;
-  color: white;
+  color: var(--accent-text);
   font-family: monospace;
   flex-shrink: 0;
 }
@@ -278,6 +282,22 @@
 @keyframes typing {
   0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
   30% { opacity: 1; transform: scale(1); }
+}
+
+/* "What is happening" line for the desktop-agent path, next to the dots. */
+.chat-window__typing-note {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-style: italic;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  /* Let the note wrap instead of being clipped on a phone. */
+  .chat-window__typing-note { white-space: normal; }
 }
 
 /* Input form */
@@ -477,8 +497,8 @@
 }
 
 .chat-window__send-btn {
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-fill);
+  color: var(--accent-text);
   padding: 0 14px;
   font-size: 13px;
   font-weight: 600;
@@ -490,7 +510,7 @@
 }
 
 .chat-window__send-btn:hover:not(:disabled) {
-  background: var(--accent-hover);
+  background: var(--accent-fill-hover);
 }
 
 .chat-window__send-btn:disabled {

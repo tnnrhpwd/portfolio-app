@@ -160,7 +160,7 @@
 }
 
 .confirmation-panel__option:hover .confirmation-panel__option-key {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--accent-text);
   border-color: var(--accent);
 }

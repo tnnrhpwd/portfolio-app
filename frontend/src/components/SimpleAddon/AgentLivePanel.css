@@ -281,7 +281,7 @@
   font: inherit;
   font-size: 12px;
   font-weight: 600;
-  color: #2563eb;
+  color: var(--accent);
   background: none;
   border: none;
   padding: 0 0;
@@ -413,7 +413,7 @@
 }
 
 .agent-live__link {
-  color: #2563eb;
+  color: var(--accent);
   font-weight: 600;
   text-decoration: none;
 }
@@ -539,13 +539,13 @@
 }
 
 .agent-live--sidebar .agent-live__btn--start {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--accent-text);
   border-color: var(--accent);
 }
 
 .agent-live--sidebar .agent-live__btn--start:hover:not(:disabled) {
-  background: var(--accent-hover);
+  background: var(--accent-fill-hover);
 }
 
 .agent-live--sidebar .agent-live__btn--stop {

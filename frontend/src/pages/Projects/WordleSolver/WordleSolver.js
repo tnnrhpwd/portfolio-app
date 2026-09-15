@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import url from './Dictionary.txt';
 
 import Footer from '../../../components/Footer/Footer';
 import Header from '../../../components/Header/Header';
 import SEO from '../../../components/SEO/SEO.jsx';
+import { loadWords } from './loadDictionary.js';
+import { MIN_LEN, MAX_LEN, DEFAULT_LEN } from './wordList.js';
 import './WordleSolver.css';
 
 // Tile colour states
@@ -13,9 +14,8 @@ const PRESENT = 1;  // yellow - letter in the word, wrong spot
 const CORRECT = 2;  // green - letter in the word, right spot
 
 const MAX_ROWS = 6;
-const MIN_LEN = 3;
-const MAX_LEN = 8;
-const DEFAULT_LEN = 5;
+// MIN_LEN / MAX_LEN / DEFAULT_LEN live in ./wordList.js — the same bounds the
+// split dictionary parts are generated against.
 const RESULT_LIMIT = 400; // cap how many chips we render for performance
 
 const KEYBOARD_ROWS = [
@@ -23,15 +23,6 @@ const KEYBOARD_ROWS = [
   ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
   ['DEL', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', 'ENTER'],
 ];
-
-// Loads and normalises the dictionary text file into an array of upper-case words.
-function parseDictionary(text) {
-  let words = text.toUpperCase().split('\r\n');
-  if (words[0] !== 'AA') {
-    words = words[0].split('\n');
-  }
-  return words.map((w) => w.trim()).filter(Boolean);
-}
 
 /**
  * Returns true when `candidate` is consistent with a single scored guess.
@@ -125,39 +116,49 @@ function buildLetterStatus(rows) {
 function WordleSolver() {
   const navigate = useNavigate();
 
-  const [dictionary, setDictionary] = useState([]);
+  // Words for the CURRENT length only. The word list is split by length (see
+  // loadDictionary.js), so there is no reason to hold every length at once. The
+  // length is kept alongside the words so an in-flight load for a length the user
+  // has already switched away from can never be pooled as if it were current.
+  const [wordPool, setWordPool] = useState({ length: 0, words: [] });
   const [wordLength, setWordLength] = useState(DEFAULT_LEN);
   const [rows, setRows] = useState([]);           // committed guesses: {letters, states}
   const [current, setCurrent] = useState({ letters: [], states: [] }); // active row
   const [results, setResults] = useState(null);   // null = not solved yet
   const [message, setMessage] = useState('');
 
-  const dictionaryLoadedRef = useRef(false);
-
-  // ---- Dictionary load ----
+  // ---- Word list load (one length at a time) ----
+  // Previously this fetched the entire 1.7 MB list once on mount and then filtered
+  // it by length on every solve: 455 KB gzip to use a ~23 KB slice. Reloading on a
+  // length change is cheap because loadWords() memoises per length.
   useEffect(() => {
-    if (dictionaryLoadedRef.current) return;
-    fetch(url)
-      .then((res) => res.text())
-      .then((text) => {
-        setDictionary(parseDictionary(text));
-        dictionaryLoadedRef.current = true;
+    let cancelled = false;
+    loadWords(wordLength)
+      .then((words) => {
+        if (!cancelled) setWordPool({ length: wordLength, words });
       })
       .catch((err) => {
+        if (cancelled) return;
         console.error('Failed to load dictionary', err);
+        setWordPool({ length: wordLength, words: [] });
         setMessage('Could not load the dictionary. Please refresh the page.');
       });
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [wordLength]);
 
   // ---- Core solver: recompute possibilities from every committed row ----
   const solve = useCallback((committedRows) => {
-    if (dictionary.length === 0) return [];
-    let pool = dictionary.filter((w) => w.length === wordLength);
+    // Guard on the length tag, not just emptiness: while a new length is loading
+    // the pool still holds the previous length's words.
+    if (wordPool.length !== wordLength || wordPool.words.length === 0) return [];
+    let pool = wordPool.words;
     committedRows.forEach(({ letters, states }) => {
       pool = pool.filter((word) => candidatePassesRow(word, letters, states));
     });
     return rankByInformationValue(pool);
-  }, [dictionary, wordLength]);
+  }, [wordPool, wordLength]);
 
   // ---- Input handlers ----
   const addLetter = useCallback((letter) => {

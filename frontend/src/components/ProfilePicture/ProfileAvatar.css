@@ -22,6 +22,13 @@
   background: var(--bg-page);
 }
 
+/* The default face. A static raster on purpose — see the note in ProfileAvatar.jsx and
+   docs/guides/LOGO_SYSTEM.md §5. `contain`, not `cover`: the mark is a circle inside a
+   square with transparent corners, so cover would crop the ring to fit the frame. */
+.profile-avatar__mark {
+  object-fit: contain;
+}
+
 .profile-avatar--sm {
   width: calc(var(--nav-size) * 0.9);
   height: calc(var(--nav-size) * 0.9);

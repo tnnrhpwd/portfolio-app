@@ -18,7 +18,7 @@ import artHype from '../assets/art/project-hype.jpg';
 import artNet from '../assets/art/project-net.jpg';
 import artAnnuities from '../assets/art/project-annuities.jpg';
 import artHalfway from '../assets/art/project-halfway.jpg';
-import artQuizzes from '../assets/art/project-quizzes.png';
+import artQuizzes from '../assets/art/project-quizzes.jpg';
 import artPassGen from '../assets/art/project-passgen.jpg';
 import artSleepAssist from '../assets/art/project-sleepassist.jpg';
 import artSit from '../assets/art/project-sit.jpg';
@@ -26,7 +26,7 @@ import artWordleSolver from '../assets/art/project-wordlesolver.jpg';
 import artPets from '../assets/art/project-pets.jpg';
 import artRocket from '../assets/art/project-rocket.jpg';
 import artUIMapper from '../assets/art/project-uimapper.jpg';
-import artSimple from '../assets/art/simple-hero.png';
+import artSimple from '../assets/art/simple-hero.jpg';
 
 export const PROJECTS = [
   {

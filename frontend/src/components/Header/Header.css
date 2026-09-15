@@ -96,16 +96,56 @@
   margin-right: auto;
   color: var(--text-color);
 }
-#planit-header-logo-img{
-  height: calc(var(--nav-size)*0.8);
-  width: calc(var(--nav-size)*0.8);
+/* The logo is the light/dark switch, and it is a real <button> now rather than an
+   <img onClick> — so the global button chrome has to be handed back. `button` in
+   index.css paints the scheme's action ramp, a 2px border and min-height:44px; none
+   of that belongs on a logo. */
+.planit-header-logo-btn{
   margin: calc(var(--nav-size)*0.1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  min-height: 0;
+  line-height: 0;
   vertical-align: middle;
   cursor: pointer;
+  transition: transform 0.2s ease;
 }
-#planit-header-logo-img:hover {
-  filter: brightness(1.2);
+/* ⚠️ `:not(:disabled)` is not decoration. The global `button:hover:not(:disabled)` is
+   (0,2,1) — more specific than a bare `.planit-header-logo-btn:hover` — so it would
+   repaint this control with the action ramp the moment a pointer touched it. Matching
+   its shape is how the reset survives. */
+.planit-header-logo-btn:hover:not(:disabled) {
+  background: none;
   transform: scale(1.1);
+}
+.planit-header-logo-btn:hover:not(:disabled) .brand-mark { filter: brightness(1.15); }
+
+/* ⚠️ TWO RULES, AND THE ORDER MATTERS — the second must come after the first.
+ *
+ * `index.css` opens with `*:focus { outline: var(--focus-outline) }`, which matches on a
+ * MOUSE click as well as on a keyboard Tab. That was invisible on the old logo because
+ * the control used to be an <img>, and an <img> cannot take focus. Now that it is a real
+ * button, every click on the mark came with a 3px ring — and because the button is
+ * `border-radius: 50%`, the browser draws that ring as a CIRCLE hovering around the
+ * artwork, which reads as a stray selection rather than as focus.
+ *
+ * So this control opts out of pointer focus and keeps keyboard focus. `:focus-visible` is
+ * exactly that distinction — Chrome does not match it for a mouse click on a button — and
+ * being more specific than `*:focus` (0,2,0 vs 0,1,0) it wins without `!important`.
+ *
+ * ⚠️ Don't simplify this to a single `outline: none`. The mark is the theme switch and
+ * the only way to reach it from a keyboard is this ring. */
+.planit-header-logo-btn:focus {
+  outline: none;
+}
+.planit-header-logo-btn:focus-visible {
+  outline: 2px solid var(--scheme-accent);
+  outline-offset: 2px;
 }
 a{
   text-decoration: none;

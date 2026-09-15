@@ -319,7 +319,7 @@ const REPO_TOOL_SCHEMAS = [
     type: 'function',
     function: {
       name: 'repo_write_file',
-      description: 'Write (create or overwrite) a file in the repository working tree on the server. This does NOT commit — review with repo_git_diff, then commit with repo_commit_changes. Pass the FULL new file content. Administrators only.',
+      description: 'Write (create or overwrite) a file in the repository working tree on the server. Use this to CREATE a file, or to rewrite one completely. To change part of an EXISTING file prefer repo_edit_file — a full rewrite of a large file can exceed the per-call output limit and come back cut off. This does NOT commit — review with repo_git_diff, then commit with repo_commit_changes. Pass the FULL new file content. Administrators only.',
       parameters: {
         type: 'object',
         properties: {
@@ -327,6 +327,23 @@ const REPO_TOOL_SCHEMAS = [
           content: { type: 'string', description: 'Full new content of the file' },
         },
         required: ['path', 'content'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'repo_edit_file',
+      description: 'Make a targeted edit to an EXISTING repository file: replaces old_string with new_string. Prefer this for any change to a file that already exists — it only needs the changed snippet, so it cannot be cut off the way a full rewrite of a large file can. Read the file first (repo_read_file) and copy old_string EXACTLY, including indentation. old_string must appear exactly once unless replace_all is true. This does NOT commit — review with repo_git_diff, then commit with repo_commit_changes. Administrators only.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Repo-relative file path to edit' },
+          old_string: { type: 'string', description: 'Exact existing snippet to replace (include enough surrounding lines to be unique)' },
+          new_string: { type: 'string', description: 'Snippet to replace it with' },
+          replace_all: { type: 'boolean', description: 'Replace every occurrence (default false — refuses when old_string is ambiguous)' },
+        },
+        required: ['path', 'old_string', 'new_string'],
       },
     },
   },
@@ -434,6 +451,51 @@ const REPO_TOOL_EXECUTORS = {
       return `Wrote "${rel}" (${Buffer.byteLength(args.content, 'utf-8')} bytes) to the working tree. NOT committed yet — review with repo_git_diff, then commit with repo_commit_changes.`;
     } catch (err) {
       return `Error writing "${rel}": ${err.message}`;
+    }
+  },
+
+  async repo_edit_file(args, ctx) {
+    if (!isAdminContext(ctx)) return 'Error: repository edits are restricted to the administrator.';
+    const rel = sanitizeRepoPath(args?.path);
+    if (!rel) return 'Error: invalid file path.';
+    const oldString = args?.old_string;
+    const newString = args?.new_string;
+    if (typeof oldString !== 'string' || oldString.length === 0) {
+      return 'Error: old_string must be a non-empty string.';
+    }
+    if (typeof newString !== 'string') return 'Error: new_string must be a string.';
+    if (oldString === newString) return 'Error: old_string and new_string are identical — nothing to change.';
+    const abs = absRepoPath(rel);
+    if (!abs) return 'Error: repository not available on this server.';
+    try {
+      let current;
+      try {
+        current = await fsp.readFile(abs, 'utf-8');
+      } catch {
+        return `Error: "${rel}" does not exist — create it with repo_write_file instead.`;
+      }
+
+      const occurrences = current.split(oldString).length - 1;
+      if (occurrences === 0) {
+        return `Error: old_string was not found in "${rel}". Read it with repo_read_file and copy the snippet exactly, including whitespace.`;
+      }
+      const replaceAll = args?.replace_all === true;
+      if (occurrences > 1 && !replaceAll) {
+        return `Error: old_string appears ${occurrences} times in "${rel}" — include more surrounding context to make it unique, or pass replace_all: true.`;
+      }
+
+      // Function replacement form: `$&`/`$1` in new_string must stay literal.
+      const updated = replaceAll
+        ? current.split(oldString).join(newString)
+        : current.replace(oldString, () => newString);
+      if (Buffer.byteLength(updated, 'utf-8') > MAX_FILE_BYTES) {
+        return `Error: the edited file would be too large (max ${MAX_FILE_BYTES} bytes).`;
+      }
+
+      await fsp.writeFile(abs, updated, 'utf-8');
+      return `Edited "${rel}" (${occurrences} replacement${occurrences === 1 ? '' : 's'}). NOT committed yet — review with repo_git_diff, then commit with repo_commit_changes.`;
+    } catch (err) {
+      return `Error editing "${rel}": ${err.message}`;
     }
   },
 

@@ -8,10 +8,10 @@ import useCountUp from '../../../hooks/useCountUp';
 import usePointerTilt from '../../../hooks/usePointerTilt';
 import { hasFinePointer, prefersReducedMotion } from '../../../hooks/scrollEngine';
 import headshot from '../../../assets/1788391647406.jpg';
-import artSummary from '../../../assets/art/about-summary-art.png';
-import artJourney from '../../../assets/art/about-journey-art.png';
-import artFactory from '../../../assets/art/about-factory-art.png';
-import artAscent from '../../../assets/art/about-ascent-art.png';
+import artSummary from '../../../assets/art/about-summary-art.jpg';
+import artJourney from '../../../assets/art/about-journey-art.jpg';
+import artFactory from '../../../assets/art/about-factory-art.jpg';
+import artAscent from '../../../assets/art/about-ascent-art.jpg';
 import './resume.css';
 
 const EMAIL = 'Steven.T.Hopwood@gmail.com';

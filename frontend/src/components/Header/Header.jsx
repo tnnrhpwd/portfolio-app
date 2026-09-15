@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import HeaderDropper from './../HeaderDropper/HeaderDropper.jsx';
-import HeaderLogo from '../../../src/assets/Checkmark512.png';
+import BrandMark from '../BrandMark/BrandMark.jsx';
 import { initTheme, setDarkMode, setLightMode, watchSystemTheme } from '../../utils/theme.js';
 import { initScheme } from '../../utils/scheme.js';
 import './Header.css';
@@ -41,12 +41,19 @@ function Header({ center }) {
     <>
       <div className="planit-header unclickable-background">
         <div className="planit-header-logo unclickable-background">
-          <img
-            id="planit-header-logo-img"
-            src={HeaderLogo}
+          {/* The mark doubles as the light/dark switch. It used to be an <img
+              onClick>, which is invisible to the keyboard and to a screen reader and
+              carries no accessible name; a real <button> keeps the gesture and gains
+              both. The mark inside is decorative — the button holds the name. */}
+          <button
+            type="button"
+            className="planit-header-logo-btn"
             onClick={handleThemeToggle}
-            alt="STHopwood logo"
-          />
+            aria-label="Switch between light and dark theme"
+            title="Switch theme"
+          >
+            <BrandMark />
+          </button>
           <Link
             className='planit-header-logo-format'
             to="/"

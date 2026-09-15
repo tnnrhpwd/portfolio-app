@@ -58,8 +58,12 @@
 }
 .gm__btn:hover:not(:disabled) { background: var(--bg-hover); }
 .gm__btn:disabled { opacity: 0.5; cursor: default; }
-.gm__btn--primary { background: #2563eb; color: #fff; border-color: #2563eb; }
-.gm__btn--primary:hover:not(:disabled) { background: #1d4ed8; }
+/* The one action per card, so it takes the scheme's PAIR — `--accent-fill`, the
+   interaction hue into the emphasis hue — and the chat's own ink-on-accent.
+   `--run` stays green: it is a STATE ("this runs on your PC"), the same role
+   `--success` plays elsewhere. */
+.gm__btn--primary { background: var(--accent-fill); color: var(--accent-text); border-color: var(--accent); }
+.gm__btn--primary:hover:not(:disabled) { background: var(--accent-fill-hover); }
 .gm__btn--run { background: #16a34a; color: #fff; border-color: #16a34a; }
 .gm__btn--run:hover:not(:disabled) { background: #15803d; }
 .gm__btn--muted { opacity: 0.7; }

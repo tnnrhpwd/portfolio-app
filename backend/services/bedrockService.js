@@ -135,34 +135,66 @@ function toBedrockUserContent(content) {
  * array (`[{type:'text',...},{type:'image_url',image_url:{url:'data:...'}}]`),
  * used by the addon's vision/screenshot/webcam call sites (proxied through
  * `/api/data/csimple/agent-vision`).
+ *
+ * @param {Array} messages - OpenAI-style messages (system/user/assistant/tool).
+ * @param {Object} [options] - { allowToolBlocks } — set to `false` when this call
+ *   offers NO tools, so tool-call/result turns are flattened to text instead of
+ *   being emitted as `toolUse`/`toolResult` blocks (which Converse rejects
+ *   without a `toolConfig`).
  */
-function toBedrockMessages(messages) {
+function toBedrockMessages(messages, options = {}) {
+    // Converse rejects `toolUse`/`toolResult` content blocks unless a `toolConfig`
+    // is ALSO present ("The toolConfig field must be defined when using toolUse and
+    // toolResult content blocks") — and a toolConfig only makes sense when the
+    // caller is actually offering tools. The one caller that keeps a tool-bearing
+    // history while deliberately offering NO tools is llmService's streaming
+    // "final answer" leg (tools are stripped there so the model replies in text).
+    // Rendering those turns as plain text keeps the model's full trace while
+    // keeping the request valid — pass `{ allowToolBlocks: false }` for that case.
+    const allowToolBlocks = options.allowToolBlocks !== false;
     const bedrockMessages = [];
+    // The user turn currently collecting tool results, so consecutive results
+    // (one per call in a round) merge into a single turn as Converse requires.
+    let toolResultsTurn = null;
 
     for (const msg of messages) {
         if (msg.role === 'system') continue;
 
         if (msg.role === 'tool') {
-            const toolResultBlock = {
-                toolResult: {
-                    toolUseId: msg.tool_call_id,
-                    content: [{ text: String(msg.content ?? '') }],
-                },
-            };
-            const last = bedrockMessages[bedrockMessages.length - 1];
-            if (last && last.role === 'user' && last.content.every((c) => c.toolResult)) {
-                last.content.push(toolResultBlock);
+            const block = allowToolBlocks
+                ? {
+                    toolResult: {
+                        toolUseId: msg.tool_call_id,
+                        content: [{ text: String(msg.content ?? '') }],
+                    },
+                }
+                : { text: `[tool result] ${String(msg.content ?? '')}` };
+            if (toolResultsTurn) {
+                toolResultsTurn.push(block);
             } else {
-                bedrockMessages.push({ role: 'user', content: [toolResultBlock] });
+                toolResultsTurn = [block];
+                bedrockMessages.push({ role: 'user', content: toolResultsTurn });
             }
             continue;
         }
+
+        toolResultsTurn = null;
 
         if (msg.role === 'assistant') {
             const content = [];
             if (msg.content) content.push({ text: msg.content });
             if (Array.isArray(msg.tool_calls)) {
                 for (const tc of msg.tool_calls) {
+                    if (!allowToolBlocks) {
+                        // Tool NAME only — never the arguments. Re-emitting the raw
+                        // arguments JSON here lets the model treat it as its own
+                        // previous text and simply continue it: observed 2026-09-14,
+                        // when a /net turn echoed a whole repo_write_file payload
+                        // into the chat. The results still follow as their own turn,
+                        // which is what the model needs in order to answer.
+                        content.push({ text: `[used tool: ${tc.function?.name}]` });
+                        continue;
+                    }
                     let input = {};
                     try { input = JSON.parse(tc.function?.arguments || '{}'); } catch { /* leave as {} */ }
                     content.push({
@@ -190,6 +222,76 @@ function toBedrockMessages(messages) {
     }
 
     return bedrockMessages;
+}
+
+/**
+ * True when an OpenAI-shaped history already contains tool-call turns and/or
+ * tool-result turns. Converse rejects those unless the SAME request carries a
+ * `toolConfig`, so call sites that offer no tools must flatten them
+ * (`toBedrockMessages(messages, { allowToolBlocks: false })`) — see that function.
+ */
+function hasToolHistory(messages) {
+    return (Array.isArray(messages) ? messages : []).some((m) => m.role === 'tool'
+        || (m.role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.length > 0));
+}
+
+/** Tool names referenced by the history's assistant `tool_calls` turns. */
+function collectHistoryToolNames(messages) {
+    const names = new Set();
+    for (const msg of Array.isArray(messages) ? messages : []) {
+        if (msg?.role !== 'assistant' || !Array.isArray(msg.tool_calls)) continue;
+        for (const tc of msg.tool_calls) {
+            const name = tc?.function?.name;
+            if (name) names.add(name);
+        }
+    }
+    return names;
+}
+
+/**
+ * Build the two halves of a Converse request that have to agree with each other:
+ * the `messages` turns and the `toolConfig`. This is the ONLY place that decides
+ * whether tool blocks may be emitted, so no call site can send a combination
+ * Converse rejects:
+ *
+ *   1. `toolUse`/`toolResult` blocks require a `toolConfig` in the same request
+ *      ("The toolConfig field must be defined when using toolUse and toolResult
+ *      content blocks") — the exact error a /net repo edit used to die on.
+ *   2. A `toolUse` block should name a tool the `toolConfig` actually defines.
+ *
+ * When either rule can't be met the history's tool turns are flattened to text
+ * instead (`toBedrockMessages`) — the model still sees every call and result.
+ * Tools that ARE offered still reach the model as real tool blocks.
+ *
+ * @param {Array} messages - OpenAI-shaped conversation.
+ * @param {Object} [options] - { tools, tool_choice } — same as the entry points.
+ * @returns {{messages: Array, toolConfig: Object|undefined, toolBlocksAllowed: boolean}}
+ */
+function buildConverseRequestParts(messages, options = {}) {
+    const toolConfig = toBedrockToolConfig(options.tools, options.tool_choice);
+    const offeredNames = new Set(toolConfig ? toolConfig.tools.map((t) => t.toolSpec.name) : []);
+    const everyHistoryToolOffered = [...collectHistoryToolNames(messages)]
+        .every((name) => offeredNames.has(name));
+    const toolBlocksAllowed = !!toolConfig && everyHistoryToolOffered;
+
+    return {
+        messages: toBedrockMessages(messages, { allowToolBlocks: toolBlocksAllowed }),
+        toolConfig,
+        toolBlocksAllowed,
+    };
+}
+
+/**
+ * One debug line when a request had to flatten tool history — the signature of
+ * "a tool loop ran, and this call deliberately offers no tools". Without it, a
+ * flattened turn looks like a plain call in the logs.
+ */
+function logToolBlockPolicy(label, messages, toolBlocksAllowed, toolConfig) {
+    if (toolBlocksAllowed || !hasToolHistory(messages)) return;
+    const why = toolConfig
+        ? "the history references a tool this call's toolConfig does not define"
+        : 'no tools were offered for this call';
+    logger.debug(`🪨 ${label}: flattened the history's tool call/result turns to text (${why}).`);
 }
 
 /**
@@ -306,16 +408,20 @@ async function createBedrockCompletion(messages, options = {}) {
 
     const systemText = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
 
+    const requestParts = buildConverseRequestParts(messages, options);
+
     const command = new ConverseCommand({
         modelId: BEDROCK_MODEL_ID,
         system: systemText ? [{ text: systemText }] : undefined,
-        messages: toBedrockMessages(messages),
+        messages: requestParts.messages,
         inferenceConfig: {
             maxTokens: options.maxTokens || options.max_tokens || 1000,
             temperature: options.temperature ?? 0.7,
         },
-        toolConfig: toBedrockToolConfig(options.tools, options.tool_choice),
+        toolConfig: requestParts.toolConfig,
     });
+
+    logToolBlockPolicy('Converse', messages, requestParts.toolBlocksAllowed, requestParts.toolConfig);
 
     logger.debug(`🪨 Bedrock Converse call: ${BEDROCK_MODEL_ID}${options.tools ? ` [${options.tools.length} tools]` : ''}`);
     const startTime = Date.now();
@@ -340,16 +446,25 @@ async function* streamBedrockCompletion(messages, options = {}) {
 
     const systemText = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n');
 
+    // Same rule as createBedrockCompletion: no tools offered ⇒ no toolConfig ⇒
+    // the history's tool turns must be flattened to text. This is the leg that
+    // used to blow up with "The toolConfig field must be defined when using
+    // toolUse and toolResult content blocks" on any /net turn whose tool loop ran
+    // out of rounds (see llmService.streamCompressionRequest).
+    const requestParts = buildConverseRequestParts(messages, options);
+
     const command = new ConverseStreamCommand({
         modelId: BEDROCK_MODEL_ID,
         system: systemText ? [{ text: systemText }] : undefined,
-        messages: toBedrockMessages(messages),
+        messages: requestParts.messages,
         inferenceConfig: {
             maxTokens: options.maxTokens || options.max_tokens || 1000,
             temperature: options.temperature ?? 0.7,
         },
-        toolConfig: toBedrockToolConfig(options.tools, options.tool_choice),
+        toolConfig: requestParts.toolConfig,
     });
+
+    logToolBlockPolicy('ConverseStream', messages, requestParts.toolBlocksAllowed, requestParts.toolConfig);
 
     let fullText = '';
     let usage = null;
@@ -389,6 +504,9 @@ module.exports = {
     classifyBedrockError,
     createBedrockCompletion,
     streamBedrockCompletion,
+    buildConverseRequestParts,
+    collectHistoryToolNames,
+    hasToolHistory,
     toBedrockMessages,
     toBedrockUserContent,
     toBedrockToolConfig,

@@ -584,7 +584,15 @@ arrays, so imagery can be swapped without touching markup. Image rules:
 
 - `aspect-ratio: 4 / 3` with `object-fit: cover` so every block crops consistently.
 - `border-radius: var(--border-radius-2xl)` on the media itself (rounded image, not a bordered card).
-- `loading="lazy"` and `alt=""` when decorative.
+- `loading="lazy"` and `alt=""` when decorative. Note that lazy loading only helps a grid taller
+  than the browser's ~1250px look-ahead window — a 4-column desktop grid is ~1100px, so on
+  `/projects` it defers almost nothing. Fewer bytes beats a smarter schedule.
+- **Cap the long edge at 1200px** (`hero.jpg` may use 1920px). A card renders ~270px wide, so a
+  2400×1792 source is roughly 20× the pixels the layout can show. Oversized art is by far the
+  biggest first-visit cost on `/projects`: shipping 2400px files put ~11 MB into the first two rows
+  alone (~59s at 1.5 Mbps). `node scripts/optimize-art.js` reports the damage and `--apply` fixes it.
+  This is not a caching problem — `/assets/*` is already `immutable` on Netlify and `sw.js` caches
+  it cache-first, so repeat visits were always fast. Only the first visit pays.
 
 **A full-bleed hero image needs a scrim.** Low opacity alone is not enough: a bright photo still
 competes with the headline, and legibility flips between themes. Layer a radial pool of the page color
@@ -623,8 +631,11 @@ node backend/scripts/generate-project-art.js pets     # or just these slugs
 
 Rules that keep generated art consistent with the existing set:
 
-- The generator returns **PNG**; `frontend/src/assets/art/` is all **`.jpg`**. Convert
-  (`sharp`, quality ~90, `mozjpeg`) and delete the PNG before checking in.
+- The generator returns a **full-resolution PNG**. Do not check that in directly. Run
+  `node scripts/optimize-art.js --apply --prune --only <slug>` — it resizes to a 1200px long edge,
+  encodes mozjpeg q82, converts the PNG to `.jpg`, and removes the PNG. Repoint the import if the
+  extension changed. **The resize is the load-bearing part:** converting a 2400px PNG at quality 90
+  still yields a 2–4 MB file, which is exactly how the oversized set reached production.
 - Prompt for a **glossy 3D render / product mockup**, shallow depth of field, blurred
   bokeh in the site palette (**mint/cyan, hot pink, orange, blue**).
 - End every prompt with **`no text`** — Stability garbles words, and the existing art is
@@ -876,6 +887,58 @@ to one short line plus the action that fixes them.
 - Everything else stands: tokens for every color, `calc(var(--nav-size) * N)` for sizing,
   visible focus rings, and a `prefers-reduced-motion` reset.
 
+### The app shell — the one surface that behaves like an app
+
+`/net` is the exception to this section's "a scrolling page of panels": it is a **fixed-height
+shell**, exactly one viewport tall, with the conversation scrolling *inside* it. A chat has one job
+and one control, and a document that scrolls a composer off the bottom is the thing that most makes
+it read as a website. So `.planit-nnet` (`pages/Simple/Net/Net.css`) is the reference for any future
+surface of this shape.
+
+- **No `Footer`.** `/net` is deliberately the one page without one — the links live in the header's
+  dropper. Under a composer, a footer is a strip of marketing chrome on the only screen the user has.
+- **The height is a four-declaration ladder, and every rung is load-bearing.** No single viewport
+  unit is right on a phone: `vh` is the height with the browser's bars *retracted* (so the composer
+  sits under them), `svh` never covers but leaves the shell short once they retract, and `dvh`
+  tracks the bars but **not the soft keyboard** — a keyboard is not a "dynamic toolbar" to the
+  viewport units, so `dvh` still puts the composer behind it.
+
+  ```css
+  .foo-shell {
+    height: 100vh;   /* fallback for browsers older than svh */
+    height: 100svh;  /* bars expanded: never covered, but a fixed value */
+  }
+  /* ⚠️ Guarded. `height: var(--foo-app-height, 100dvh)` listed with the two above
+     is invalid at COMPUTED-value time in a browser that has var() but no dvh — and
+     that discards EVERY other height for the element, collapsing the shell to
+     `auto`. dvh and svh shipped together, so the browsers this excludes are exactly
+     the ones the 100svh line is for. */
+  @supports (height: 1dvh) {
+    .foo-shell { height: var(--foo-app-height, 100dvh); }
+  }
+  ```
+
+  `--foo-app-height` is written by the page from `visualViewport.height` (see `Net.jsx`) — the only
+  measure that excludes the bars **and** the keyboard. Coalesce the listener to a frame (`scroll` on
+  the visual viewport fires per pixel) and **skip the update while `visualViewport.scale !== 1`**, or
+  the shell fights a pinch-zoom.
+- ⚠️ **Never restate the shell's `height` in a responsive block.** A `@media` rule of the *same
+  specificity* placed later in the file beats the guarded rule, and it will look fine on a desktop
+  check. The child below it is `flex: 1`, so it tracks whatever height the shell has — pinning it to
+  a viewport unit instead is what pushes the composer off-screen the moment the two disagree.
+- **Touch behaviour, on the shell only:**
+  `touch-action: manipulation` (drops the double-tap-zoom delay, keeps pan and pinch),
+  `-webkit-tap-highlight-color: transparent` (no grey flash on tap), and
+  `overscroll-behavior: none` — nothing scrolls here by design, so this only ever stops the
+  *browser's* rubber-band and pull-to-refresh, both of which slide the browser's bars and move the
+  layout under the thumb.
+- **`padding-bottom: env(safe-area-inset-bottom, 0px)`** keeps the composer above the home indicator
+  / gesture bar. The other three insets are deliberately *not* applied: `--nav-size` sizes the fixed
+  header, so insetting only the shell would put the two out of step in landscape on a notched phone.
+- **Verify** at 320×568, 390×844 and 844×390 (drawer *closed* — it opens as an overlay), then shrink
+  the visual viewport to ~300px and confirm the composer is still fully on screen. Present ratio, no
+  horizontal spill, `document.documentElement.scrollHeight === innerHeight`.
+
 ### Verifying one
 
 Signed-out is not the service page — it's a gate — so **log in before judging one**. Use the shared
@@ -1067,6 +1130,38 @@ clickable), so it never widens the header or pushes the page down. **Prefer this
 a second nav row** — a stacked bar costs ~57px on every page and reads as a second
 header. It hides below `820px`, so anything placed there must also be reachable from
 `HeaderDropper` on phones.
+
+### Segmented control — a switcher of places
+
+`SimpleNav` (the header's room switcher) and `/plans`' view switch are the same
+control: a track with the current item raised out of it. Four rules make it read as
+one control rather than a row of links with one highlighted.
+
+- **The active segment is a PLACE, not an action.** It must not wear the action ramp
+  — a page you are already on is not a button to press, and it makes the current
+  location the loudest thing in the chrome. Use a tint of `--scheme-primary` over
+  `--bg-1` with plain `--text-color` ink:
+  `.plans-switch-btn.is-active { background: color-mix(in srgb, var(--scheme-primary) 20%, var(--bg-1)); }`.
+  The header switcher uses 40% instead of 20%, because its track is translucent and
+  sits over a tinted room — at 20% the step from the track was ~1.2:1 in light mode.
+- **Muted ink for the items you are not on** (`--text-color-accent`), full ink for
+  the current one. The fill alone is not reliable: a near-white track and a light
+  tint can be within 1.8:1 of each other.
+- **The track is a surface (`--bg-1`), never a film of the ink.** The header is
+  transparent and `/net`'s room paints a scheme-tinted backdrop behind it, so a
+  translucent control takes on that tint whole — in light mode the pill went from a
+  grey control to a saturated cyan bar whose track out-shouted its own selected
+  segment. Controls keep `--bg-1` (§5.7). The track gets no border and no shadow: a
+  groove is a tone difference, and it does not float (§5).
+- ⚠️ **An `inline-flex` item inside a block-level `<li>` carries ~5px of phantom
+  height.** The `<li>` gets a line box, so it is taller than the link it contains by
+  the descender space under the baseline — enough that the *container* was setting
+  the control's height rather than its segments (41px of pill around 10.5px labels).
+  `li { display: flex }` removes the line box. Same trap for any inline-level box in
+  a block parent.
+- ⚠️ **Restate the ink on your `:hover`.** The global `a:hover` is `(0,1,1)` and
+  paints every anchor in the scheme's *partner* hue — on an active segment (a tint of
+  the scheme) that is one hue on a tint of itself.
 
 ---
 

@@ -113,4 +113,73 @@ describe('repoAgentService git integration (temp repo, no GitHub)', () => {
     );
     expect(result).toMatch(/No changes to commit/);
   });
+
+  test('repo_edit_file replaces a snippet in an existing file without a full rewrite', async () => {
+    fs.writeFileSync(path.join(tmp, 'src/edit-target.jsx'), [
+      'export default function GoalManager() {',
+      '  const LIMIT = 500;',
+      '}',
+    ].join('\n'));
+
+    const result = await repoAgent.REPO_TOOL_EXECUTORS.repo_edit_file(
+      { path: 'src/edit-target.jsx', old_string: 'const LIMIT = 500;', new_string: 'const LIMIT = 4000;' },
+      admin
+    );
+
+    expect(result).toMatch(/Edited "src\/edit-target.jsx" \(1 replacement\)/);
+    expect(fs.readFileSync(path.join(tmp, 'src/edit-target.jsx'), 'utf-8')).toContain('const LIMIT = 4000;');
+  });
+
+  test('repo_edit_file refuses an ambiguous snippet unless replace_all is set', async () => {
+    fs.writeFileSync(path.join(tmp, 'src/ambiguous.js'), 'let x = 1;\nlet y = 1;\n');
+
+    const refused = await repoAgent.REPO_TOOL_EXECUTORS.repo_edit_file(
+      { path: 'src/ambiguous.js', old_string: '= 1;', new_string: '= 2;' },
+      admin
+    );
+    expect(refused).toMatch(/appears 2 times/);
+    expect(fs.readFileSync(path.join(tmp, 'src/ambiguous.js'), 'utf-8')).toBe('let x = 1;\nlet y = 1;\n');
+
+    const all = await repoAgent.REPO_TOOL_EXECUTORS.repo_edit_file(
+      { path: 'src/ambiguous.js', old_string: '= 1;', new_string: '= 2;', replace_all: true },
+      admin
+    );
+    expect(all).toMatch(/2 replacements/);
+    expect(fs.readFileSync(path.join(tmp, 'src/ambiguous.js'), 'utf-8')).toBe('let x = 2;\nlet y = 2;\n');
+  });
+
+  test('repo_edit_file never invents a snippet that is not in the file', async () => {
+    fs.writeFileSync(path.join(tmp, 'src/present.js'), 'hello\n');
+
+    const missing = await repoAgent.REPO_TOOL_EXECUTORS.repo_edit_file(
+      { path: 'src/present.js', old_string: 'nope', new_string: 'yes' },
+      admin
+    );
+    expect(missing).toMatch(/was not found/);
+    expect(fs.readFileSync(path.join(tmp, 'src/present.js'), 'utf-8')).toBe('hello\n');
+
+    const absent = await repoAgent.REPO_TOOL_EXECUTORS.repo_edit_file(
+      { path: 'src/never-created.js', old_string: 'a', new_string: 'b' },
+      admin
+    );
+    expect(absent).toMatch(/does not exist/);
+  });
+
+  test('repo_edit_file edits a file too large to rewrite as a tool argument', async () => {
+    // ~12 KB of filler: the size at which repo_write_file's arguments came back
+    // truncated, so the write never landed at all.
+    const filler = Array.from({ length: 400 }, (_, i) => `// filler line ${i}`).join('\n');
+    const target = path.join(tmp, 'src/big.jsx');
+    fs.writeFileSync(target, `${filler}\nconst LIMIT = 500;\n`);
+
+    const result = await repoAgent.REPO_TOOL_EXECUTORS.repo_edit_file(
+      { path: 'src/big.jsx', old_string: 'const LIMIT = 500;', new_string: 'const LIMIT = 4000;' },
+      admin
+    );
+
+    expect(result).toMatch(/Edited/);
+    const after = fs.readFileSync(target, 'utf-8');
+    expect(after).toContain('const LIMIT = 4000;');
+    expect(after).toContain('// filler line 399');
+  });
 });

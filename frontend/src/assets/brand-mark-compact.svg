@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The Simple brand mark — MASTER ARTWORK (compact variant).
+
+  ⚠️ THIS VARIANT IS RASTER-ONLY, AND THAT IS ON PURPOSE.
+
+  Below ~24px the full mark is three elements competing for 256 pixels: a 4px ring,
+  a 5px gap and a 8.5px glyph all collapse into a smudge. So the compact drops the
+  ring and INVERTS the mark — a solid disc in the accent, with the check knocked out
+  in the field colour. Two elements, and the check reads as a check.
+
+  It is deliberately NOT a React variant. Its only consumers are the favicon and the
+  addon's tray icon, both of which are static rasters generated once by
+  `scripts/generate-logo-assets.js` — so it lives here as artwork and nowhere as code.
+  Adding it to the component would mean a second copy of this geometry in JS for no
+  caller.
+
+  ⚠️ KEEP THIS IN STEP with `brand-mark.svg`: the check is the SAME path, only
+  centred and scaled (0.84) so it sits inside the enlarged disc. If the full mark's
+  check is retuned, retune this one's transform too.
+
+  Fill note: the two hexes are Ocean's accent and a light field, i.e. the fixed
+  colourway these static surfaces ship in. They do not theme - see LOGO_SYSTEM.md §6. -->
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 64 64"
+     width="256"
+     height="256"
+     role="img"
+     aria-label="Simple">
+    <title>Simple</title>
+    <!-- The disc, at the ring's OUTER radius (27.46 + 4.25/2 = 29.585) so the compact
+       mark fills the same footprint the full one does. -->
+    <circle cx="32"
+            cy="32"
+            r="29.59"
+            fill="#06b6d4" />
+    <!-- The same check, recentred on (32,32) and scaled to 0.84 — the largest scale at
+       which the glyph's furthest corner (the tip, 31.44 from the check's centre) still
+       clears the disc's 29.59 radius with ~3 units to spare. The transform carries the
+       stroke width with it, so the glyph stays proportional. -->
+    <path d="M14.8 29.28 L27.67 44.14 L59.44 5.96"
+          fill="none"
+          stroke="#ffffff"
+          stroke-width="8.51"
+          stroke-linecap="butt"
+          stroke-linejoin="miter"
+          transform="translate(32 32) scale(0.84) translate(-37.13 -26.97)" />
+</svg>

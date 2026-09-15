@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom';
 import MessageBubble from './MessageBubble';
 import ConfirmationPanel from './ConfirmationPanel';
+import BrandMark from '../BrandMark/BrandMark.jsx';
 import { goalSlugFromConversation } from '../../utils/simpleAddon/goalChat';
 import './ChatWindow.css';
 
@@ -63,7 +64,7 @@ function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneration, onToggleSidebar, isOnline, agent, speech, sttEnabled, settings, pendingConfirmation, onConfirmOption, onDismissConfirmation, isConfirming, isAddonConnected, isAddonOutdated, onReportMessage, onCopyMessage, isSidebarOpen }) {
+function ChatWindow({ conversation, isGenerating, progressNote, onSendMessage, onStopGeneration, onToggleSidebar, isOnline, agent, speech, sttEnabled, settings, pendingConfirmation, onConfirmOption, onDismissConfirmation, isConfirming, isAddonConnected, isAddonOutdated, onReportMessage, onCopyMessage, isSidebarOpen }) {
   const [input, setInput] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [dragActive, setDragActive] = useState(false);
@@ -268,7 +269,7 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
               {safeAvatarUrl(agent?.avatarUrl) ? (
                 <img className="chat-window__empty-avatar-img" src={safeAvatarUrl(agent.avatarUrl)} alt="" />
               ) : (
-                <img className="chat-window__empty-logo" src="/simple_logo.png" alt="Simple" />
+                <BrandMark className="chat-window__empty-logo" size="64px" />
               )}
             </div>
             <h2>{agent?.name || 'Simple AI'} Chat</h2>
@@ -312,6 +313,13 @@ function ChatWindow({ conversation, isGenerating, onSendMessage, onStopGeneratio
               <span />
               <span />
             </div>
+            {/* The desktop agent gives no token stream — name the step it is on
+                so a long run does not look like a frozen chat. */}
+            {progressNote && (
+              <div className="chat-window__typing-note" role="status" aria-live="polite">
+                {progressNote}
+              </div>
+            )}
           </div>
         )}
 

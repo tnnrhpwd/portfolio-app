@@ -234,12 +234,12 @@ code {
    `!important`. `body.dark-theme[data-scheme]` is (0,2,1), and the mode blocks sit
    below the scheme blocks for the same later-wins reason.
 
-   ⚠️ The ten named themes are the SimpleAddon's, copied from `SimpleTheme.css` so
-   `/net` and `/profile` offer the visitor the same choices under the same names.
-   They are hue PAIRS here, not the addon's full palettes: an addon theme defines a
-   whole surface — background, text, borders — while a site scheme only decides the
-   two roles. What carries across is each theme's identity hue plus a partner that
-   suits it, and where the addon already HAD a second hue (Monokai's cyan bubble,
+   ⚠️ The names are shared with the desktop addon, whose own appearance list
+   mirrors `utils/scheme.js`, so `/net`, `/profile` and the addon's window offer the
+   same choices under the same names. A scheme here is a hue PAIR, not a whole
+   palette: it decides only the two roles. What carries across from the addon's
+   themes is each theme's identity hue plus a partner that suits it, and where the
+   addon already HAD a second hue (Monokai's cyan bubble,
    USA's navy, Cyberpunk's magenta) that IS the partner, so those three are faithful
    rather than invented.
 

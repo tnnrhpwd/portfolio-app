@@ -945,6 +945,182 @@ what unlocks `repo_push`.
   env, never embedded in the remote URL or commit message), reusing the existing
   `GITHUB_TOKEN` secret already seeded via `backend/scripts/seed-secrets.js`.
 
+### 14.5 Two limits that stopped a repo edit mid-turn (fixed 2026-09-14)
+
+A real run of *"remove the footer from the /net page"* died with a bare
+`**Error:** The toolConfig field must be defined when using toolUse and
+toolResult content blocks.` — no diff, no explanation. Two separate limits were
+responsible; a repo edit now survives both.
+
+**1. The streaming leg sent tool *history* with no tools.** `/net` streams via
+`POST /api/compress/stream` → `streamCompressionRequest()`. That function
+resolves tools with non-streamed calls, then deliberately drops them for the
+final streaming call — the SSE reader only consumes text deltas, so a tool call
+in that leg would be silently discarded. But `messages` still carried the loop's
+`tool_calls`/`tool` turns, and Bedrock's Converse API rejects `toolUse`/
+`toolResult` content blocks that arrive without a `toolConfig`. That is an AWS
+`ValidationException`, so it reached the user verbatim, as-is.
+
+Fixed in the adapter, where no call site can re-create it: `toBedrockMessages()`
+takes `{ allowToolBlocks: false }` and renders those turns as `[tool call] …` /
+`[tool result] …` text. Both `createBedrockCompletion` and
+`streamBedrockCompletion` choose it automatically whenever the request offers no
+tools, so tool blocks are only ever emitted alongside the matching `toolConfig`.
+
+**2. Three tool rounds is fewer than a repo edit needs.** `MAX_TOOL_ROUNDS` was
+3 in both the shared `runToolLoop()` and the streaming loop. The failing run
+spent all three investigating (list files → read → read), then asked to write the
+edit as round 4 — and was cut off there. Now 8, which fits investigate → write →
+status/diff → commit → answer even at roughly one tool per round. A round is only
+spent when the model actually asks for a tool, so ordinary chat turns are
+unaffected.
+
+Diagnostic: when the adapter flattens a history it logs `🪨 … flattened the
+history's tool call/result turns to text`. That line means a tool-free call
+arrived carrying tool history — i.e. a tool loop had just run.
+
+**Verified live (2026-09-14).** Driving `POST /api/data/compress/stream` as the
+`ADMIN_USER_ID` account: HTTP 200, `repo_write_file` executed, the file appeared in
+the working tree, and the reply confirmed it — no `toolConfig` error, no branch
+change (it was told not to commit). The same request as a non-admin session also
+returns 200, with no repo tools offered at all and a model reply saying it has no
+repository access — that is §14.4's admin gate working as intended, not a bug.
+
+Two operational notes worth knowing when testing this by hand:
+
+- **Sign in as the admin account.** `/net` has no repo ability as a guest or any
+  other account; `toolContext.isAdmin` is a strict `req.user.id === ADMIN_USER_ID`
+  compare, so the failure mode there is "the model says it can't", not an error.
+- **A connected desktop addon gets first refusal.** `messageRouter.js` sends
+  anything the addon might act on to the addon's local agent (`kind: 'agent'`)
+  before the cloud is considered — the addon's own classifier decides, and only a
+  "not actionable" verdict falls through to the cloud repo agent. A repo-edit
+  request typed with the addon running may therefore be handled (or mis-handled)
+  locally. Call the endpoint directly, or test with the addon stopped, to
+  exercise this section's workflow. Site/repo *source* requests are exempt:
+  `isCloudOnlyIntent()` treats them as cloud-only, because the addon has no
+  repository tools at all (a live run classified one `action` and spent 56 steps
+  taking screenshots before it was stopped).
+
+### 14.6 Making a small change to a big file (fixed 2026-09-14, later that day)
+
+The first real "improve the site" prompt — *"increase the context length for the
+net goal description input …"* — still went wrong, for two more reasons.
+
+**1. Tool arguments share the output-token budget.** `repo_write_file` takes a
+whole file as one argument, and tool turns were capped at 4096 output tokens.
+`GoalManager.jsx` is 17 KB ≈ 5K tokens, so the arguments came back truncated on
+*every* attempt: invalid JSON, "arguments were empty or cut off", retry, repeat
+until the rounds ran out. Two fixes:
+
+- **`repo_edit_file`** (new, `repo:write`) — an exact `old_string` → `new_string`
+  replacement for *existing* files. A small change now needs a small snippet
+  instead of a whole-file re-emission. It refuses an ambiguous snippet (reports
+  the occurrence count) or a snippet it cannot find, and `replace_all: true`
+  opts into replacing every occurrence. The system prompt tells the model to
+  prefer it; `repo_write_file` is now documented as "create, or rewrite
+  completely".
+- **`TOOL_TURN_MAX_TOKENS = 16384`** — the per-tier cap (1-4K) is sized for chat
+  prose. Haiku 4.5 allows 64K output; 16K covers roughly a 60 KB file, and
+  anything larger should go through `repo_edit_file`.
+
+**2. The flattened fallback invited the model to continue its own text.** The
+tool-free final leg rendered the history's tool turns as `[tool call] name(args)`
+plus the results. The model treated that as its own last message and *continued*
+it — a live reply was a wall of `repo_write_file` JSON, and even after switching
+to a name-only `[used tool: …]` marker the reply still ended with
+`[used tool: repo_git_diff]`. Fixes, in order of preference:
+
+- **A wrap-up call instead of a tool-free leg.** When the rounds are spent while
+  the model still wants tools, the streaming path now appends `TOOL_LIMIT_NOTICE`
+  to the system prompt and makes one *non-streamed* call **with the tools still
+  offered** — so the history stays structured tool blocks (legal, thanks to
+  §14.5's `toolConfig` pairing) and no flattening is needed. Its text is sent as
+  a single `token` event, so the client renders it like any streamed reply. Only
+  a wrap-up that *still* asks for a tool (i.e. no prose) falls through to the
+  flattened leg.
+- **Never re-emit arguments when flattening.** The last-resort path renders tool
+  turns as `[used tool: <name>]` and `[tool result] <content>` — names only, no
+  arguments, so there is no JSON for the model to continue.
+- **`MAX_TOOL_ROUNDS` 8 → 12.** The first fixed run used all 8 rounds on
+  legitimate work (list → read ×3 → two failed snippet edits → edit → diff) and
+  was cut off before it could reply or verify. 12 matches the goal agent's loop.
+
+Verified live with the user's exact prompt after these changes: `repo_edit_file`
+landed a one-line change (`slice(0, 2000)` → `slice(0, 30000)` in the goal save
+path — the textarea has no `maxLength`, so that was the only cap), and the reply
+was plain prose. It cost 2 extra rounds re-reading after wrong snippet guesses,
+which is why the round budget matters.
+
+### 14.7 Progress feedback while the agent works (added 2026-09-14)
+
+Tool work happens BEFORE anything is streamed — `streamCompressionRequest()`
+resolves every tool call first — so a repo task was an empty bubble for up to a
+minute. Users read that as a freeze ("it is still stuck loading, no output"), and
+on the desktop-agent path a stuck run took 56 screen captures before anyone
+noticed. Both paths now say what they are doing.
+
+- **Backend:** `services/toolProgress.js` (`describeToolActivity`) turns a tool
+  call into a few words — "Editing Net.css…", "Checking git status…". Labels name
+  a file's basename only and never include arguments. The streaming route emits
+  `{type:'progress', label, tool, step, maxSteps}` over SSE *before* each tool
+  runs, plus "Looking into it" when the turn starts and "Finishing up" when the
+  round cap is hit. SSE headers are opened lazily, so usage-limit/tier failures
+  (402/403) still come back as JSON with a real status code.
+- **Cloud path (`/net` chat):** `Net.jsx` forwards `progress` →
+  `SimpleChat` stores the label on the streaming placeholder message
+  (`progressNote`) and clears it on the first token → `MessageBubble` renders a
+  pulsing `role="status"` line inside the bubble.
+- **Desktop-agent path:** no token stream exists there at all, so `SimpleChat`
+  polls `getAgentStatus()` every 2 s while the addon works and shows
+  "Step N — <tool>…" beside the typing dots (`ChatWindow`'s `progressNote` prop),
+  cleared in a `finally` when the run returns.
+- **Tests:** `backend/__tests__/unit/toolProgress.test.js`; the progress order and
+  labels in `llmServiceStreamingTools.test.js`; four render cases in
+  `frontend/src/components/SimpleAddon/MessageBubble.test.jsx`.
+
+Verified live: the SSE sequence is `progress → progress → tools → content` with
+labels `Looking into it` / `Reading GoalManager.jsx…`, and the desktop-agent note
+("Working on it…") renders in the DOM while the addon runs.
+
+### 14.8 Two more /net chat-state bugs (fixed 2026-09-14)
+
+Both were found while verifying §14.7 in the real UI.
+
+**1. Questions about the user's own cloud data went to the desktop agent.** Asking
+*"what goals do I have saved right now?"* was classified `action` by the addon and
+started a local worker that took screenshots of the screen looking for the goals.
+The desktop addon has no access to goals, notes, memory or tickets — the cloud
+tools (`get_my_goals`, `get_my_notes`, `submit_support_ticket`) own all of it — so
+`isCloudOnlyIntent()` now treats them as cloud-only via `isCloudDataIntent()`:
+a question/read shape (`what`, `which`, `how many`, `list`, `show`, `tell me`,
+`do i have`) plus a cloud-data noun, or a bug report / support request. Still
+addon work: "open notepad", "open edge on my pc", "close all my browser windows".
+
+**2. Cloud sync could delete a message the user had just sent.** The conversation
+adoption replaced local state with the server's list, keeping only *empty* local
+conversations. But the sync poll runs *while a turn is in flight*, and a
+conversation's user message exists only locally until the backend saves the
+finished turn — so the poll's (stale) snapshot dropped it. Worse, if the active
+conversation's id vanished from the list, the "active conversation is missing"
+effect fell back to `conversations[0]`, which is how the view appeared to jump to
+an unrelated older chat. Reproduced: two sent messages disappeared from
+`csimple_chats` entirely.
+
+The merge now lives in `frontend/src/utils/simpleAddon/chatStore.js`
+(`adoptSyncedConversations`, unit-tested): same-id conversations are **merged**
+(messages unioned by id, longest body wins) instead of replaced, a local
+conversation the server hasn't acknowledged yet is **kept** unless the tombstone
+set says it was deleted, and `SimpleChat` passes the merge response's
+`deletedIds` straight into it. Regression tests assert the exact failure shapes —
+"keeps a local message the server has not saved yet", "keeps a locally-created
+conversation that is not on the server yet", "a vanished active conversation is
+the case this prevents".
+
+Verified live after both fixes: the same goals question produced **no** desktop
+worker (`workersRunning: 0`), the cloud call returned 200, and the user message
+plus reply stayed in the same conversation with the active id unchanged.
+
 ---
 
 ## 15. How /net chat messages are routed (reference)
@@ -1121,19 +1297,36 @@ job to do well.
 This is the part that used to be missing: `/net`, `/simple` and `/plans` are three
 rooms of one product, but nothing in the UI said so, and `/net` and `/simple` didn't
 link to each other at all. They are now bound by a shared
-`components/Simple/SimpleNav/SimpleNav.jsx` switcher — **💬 Chat → 🎛️ Control → 🎯 Goals** —
-that appears on all three surfaces plus `/plans/goal/:id`, carries the live addon
+`components/Simple/SimpleNav/SimpleNav.jsx` switcher — **Chat → Control → Goals → Market** —
+that appears on all of them plus `/plans/goal/:id`, carries the live addon
 badge (so "is my PC agent reachable?" has one answer everywhere), and marks the
 current surface with `aria-current`.
+
+⚠️ **The pills are text only** (2026-09-14). They used to lead with an emoji, and in a
+48px band four glyphs beside four words read as decoration arguing with the type — the
+words were doing the work on their own. `SIMPLE_NAV_SURFACES` still carries an `icon`
+field, but that belongs to the closing CTA band on `/home` and `/projects`, where a card
+has room for one; the band kept its marks. What the two surfaces must share is the
+**words** — `SimpleCtaBand.test.jsx` asserts they match — because that parity is the whole
+reason the switcher reads as a landmark rather than as a fourth thing to learn.
+
+⚠️ **The current room is a PLACE, not an action** (2026-09-14, `SimpleNav.css`). It used
+to wear the action ramp — `linear-gradient(scheme-accent, scheme-primary)` — the fill the
+house style reserves for "press this", so the page you were already standing on looked
+like the button that takes you there. It is now a 40% tint of `--scheme-primary` over
+`--bg-1`, inked with plain `--text-color`, which is the recipe `/plans` had already
+settled for its own switcher. The rooms you are *not* in carry `--text-color-accent`, so
+full ink is a second cue — the fill alone is faint in light mode. See §13.29.
 
 It renders **inside the fixed site header** via `<Header center={<SimpleNav compact />} />`,
 so it costs zero vertical space. Do not stack it as its own row: that adds ~57px on
 every page and reads as a second header.
 
 ```
-💬 Chat (/net)      say what you want, in words (or voice)
-🎛️ Control (/simple) watch it work · decide how far it may go · stop it
-🎯 Goals (/plans)    where intent lives — goals, plans, actions, notes, lessons
+Chat    (/net)     say what you want, in words (or voice)
+Control (/simple)  watch it work · decide how far it may go · stop it
+Goals   (/plans)   where intent lives — goals, plans, actions, notes, lessons
+Market  (/market)  skills and goals other people shared, ready to save
 ```
 
 A goal is the object that flows between all three: you *describe* it on `/net`, it
@@ -2086,6 +2279,183 @@ route is `lazy()`-loaded, so the browser paints that first frame while the chunk
   Playwright window was in use by another session, and a one-frame flash is not something a screenshot
   shows anyway. Worth a hard refresh on `/net` with a non-default scheme (e.g. crimson) to confirm.
 - **No test run:** no test file reads `index.html` (checked), and the CSS change is two declarations.
+
+### 13.26 The `/net` chat wears the site's scheme instead of a palette of its own (2026-09-14)
+
+The chat's *accents* already read `--scheme-accent` / `--scheme-primary`, but its **surfaces** did not: a
+fixed indigo/navy set (`#0f0f1a`, `#1a1a2e`, `#2d2d5e`) that no scheme and no mode contains. Measured on a
+dark site with `sunset` selected: the chat's `--bg-primary` was `#0f0f1a` while the page around it was
+`#151516`, and the panel stayed navy whichever colour the visitor had chosen. Ten more blocks,
+`[data-simple-theme="<scheme>"]`, restated a whole surface *under the same names as the site's schemes* —
+so `/net` and `/profile` offered the same ten words for two different settings, and both screens could
+honestly claim to be on "Sunset".
+
+- ✅ **The surfaces come from the site's primitives.** `SimpleTheme.css` now builds them from the
+  mode-INDEPENDENT values in `:root` (`--grey5`, `--grey4`, `--input-bg-dark-accessible`, `--white0`,
+  `--dark-blue0`, `--grey3-accessible`, `--grey0`), with fallbacks. They have to be the mode-independent
+  ones, because the chat's light/dark is its own setting: each of the two blocks must name every value
+  rather than read a mode-aware token. Where the two modes agree, the chat resolves to exactly the colours
+  the page is using. The ten named palettes are deleted.
+- ⚠️ **The light block's selector needs `:not([data-simple-theme="dark"])`, and it is not tidiness.** It
+  and the (now removed) `[data-simple-theme="dark"]` block share specificity, so a light site would
+  repaint an explicitly-dark chat light purely because the light rule sits later in the file. Excluding
+  the dark case is what lets the base `.simple-root` block be the one unconditional dark default.
+- ⚠️ **`--text-color-accent-dark-strong` is NOT mode-independent — it only looks it.** `.light-theme`
+  re-points it to the *light* ink (`index.css` L432), so referencing it from the chat's dark block gave a
+  dark surface the light ink (`#4a4a4d` on `#151516`, measured). It is mirrored as a literal in the dark
+  block with the reason written next to it — the same "CSS cannot read across those two blocks at once"
+  problem `utils/scheme.js` has with the scheme hues. The light block uses `--grey3-accessible`, which is
+  a genuine `:root` constant.
+- ✅ **The picker writes the site's setting, not a copy of it.** The Theme select is now mode-only
+  (Follow the site / Light / Dark) and a **Color scheme** select beside it lists `SCHEMES` and calls the
+  same `setScheme()` + `syncSchemeToAddon()` `/profile` calls — so the chat has no palette to disagree
+  with. `SimpleChat`'s resolver maps a stored scheme name (from the old list) to `system` rather than to a
+  palette that no longer exists.
+- ✅ **The remaining fixed brand hues went with it:** the `linear-gradient(135deg, var(--accent), #3b82f6)`
+  second stop (message avatar, typing avatar, agent avatar) → `--user-bubble`, i.e. the same
+  accent→primary ramp `SimpleNav`'s active pill uses; `#60a5fa`/`#93bbfc`, `#5b52ff`, two `#2563eb` links
+  and `GoalManager`'s `#2563eb`/`#1d4ed8` → `--accent` / `--accent-hover`.
+- ⚠️ **White ink on an accent fill was a bug waiting for a light-hued scheme.** The accent is re-pinned
+  per *chat* mode, so a dark chat's accent is `0.78` lightness, where white measured **~2:1** (1.5:1 on
+  Cyberpunk's yellow). Every accent-filled control (send button, download/action buttons, modal buttons,
+  avatars, goal buttons) now takes `--accent-text` — the ink that fill was tuned against — and the two
+  hover rules that set only a `background` restate the ink, because `index.css`'s
+  `button:hover:not(:disabled)` forces `--text-color-inv`: an ink that follows the **site's** mode while
+  the fill follows the **chat's**, so the two disagree whenever the modes do.
+- **Deliberately left alone:** the state triads (the addon test badge's green/red/in-progress blue),
+  `--success` / `--warning` / `--error`, and the per-category event-icon hues in `AgentLivePanel`. Those
+  are signals and legends, not the page's identity — the same rule that keeps `--fg-orange` out of a
+  scheme.
+- **Verified in the browser** (signed in as the guest account): probed the computed tokens on a dark site
+  with `sunset` and `cyberpunk` and on a light site; changed the scheme from *inside the chat* and
+  confirmed `data-scheme`, the stored id, the body class and the chat all moved together; forced the
+  mode-mismatch case (light site, chat explicitly dark) to exercise the `:not()` guard; contrast measured
+  compositing the alpha — worst visible pair **5.09:1**, avatar ink **8.66–9.23:1** against the two
+  gradient stops (was ~2:1 with white).
+- **Test:** `frontend/src/components/SimpleAddon/MessageBubble.test.jsx` — 7/7. `SimpleChat` and
+  `AdvancedSettings` have no test file.
+
+### 13.27 `/net` becomes an app shell: no footer, and a height that survives phone chrome (2026-09-14)
+
+`/net` was a page with a chat in it. It is now a **fixed-height shell** — exactly one viewport, with the
+conversation scrolling *inside* — which is what a chat has to be before it stops reading as a website.
+
+- ✅ **The `Footer` is gone from `/net`** (and its import), the one page without one. Under a composer it
+  was a strip of marketing chrome on the only screen the user has, and its bottom edge was the last thing
+  between the page and the viewport. Measured after: `documentElement.scrollHeight === innerHeight`, the
+  document does not scroll at all, and the composer's bottom is flush with the viewport. The links live in
+  the header's dropper, so nothing became unreachable.
+- ⚠️ **Trade-off, deliberately taken:** the About/Privacy/Terms links are now absent from the signed-out
+  gate too, since the gate renders inside the same shell. If that has to change for legal reasons, it is a
+  conditional inside `Net.jsx` rather than a return of the footer.
+- ⚠️ **No single viewport unit is correct on a phone, which is the whole reason for the ladder.**
+  `vh`/`lvh` is the height with the browser's bars *retracted*, so the composer sits under them; `svh`
+  never covers but is a fixed value, so the shell is short once they retract; `dvh` tracks the bars but
+  **not the soft keyboard** — a keyboard is not a "dynamic toolbar" to the viewport units, so `dvh` still
+  hides the composer behind it. So `height` is `100vh` → `100svh` → (guarded) `dvh` → `--net-app-height`,
+  written from `visualViewport.height` in `Net.jsx`: the only measure that excludes all three.
+- ⚠️ **`var(--net-app-height, 100dvh)` cannot be listed with the other three declarations.** A `var()`
+  whose fallback is an unsupported unit is invalid at *computed*-value time, and that discards **every**
+  `height` declaration for the element — not just its own — collapsing the shell to `auto`. It lives in
+  `@supports (height: 1dvh)` instead. `dvh` and `svh` shipped together (Chrome 108 / Safari 15.4), so the
+  browsers the guard excludes are exactly the ones the `100svh` line exists for.
+- ⚠️ **The responsive block used to beat it.** `@media (max-width: 768px)` restated
+  `.planit-nnet { height: 100svh }` — equal specificity, later in the file, so the *phone* rule (the one
+  that matters) silently overrode the shell's own height, and a desktop check would never show it. That
+  block no longer touches `height`, and `.net-hero-section`'s `calc(100svh - var(--nav-size))` went with
+  it: the element is `flex: 1` in a column flex container, so it tracks whatever height the shell has.
+  Pinning it to a viewport unit is what would push the composer off-screen as soon as the two disagreed.
+- ✅ **Touch behaviour, scoped to the shell:** `touch-action: manipulation` (drops the double-tap-zoom
+  delay, keeps pan and pinch), `-webkit-tap-highlight-color: transparent`, and `overscroll-behavior: none`
+  — nothing scrolls there by design, so it only stops the *browser's* rubber-band and pull-to-refresh,
+  both of which slide the browser's bars and move the layout under the thumb.
+- ✅ **`padding-bottom: env(safe-area-inset-bottom, 0px)`** for the home indicator / gesture bar; the other
+  three insets are deliberately not applied, because `--nav-size` sizes the *fixed* header and insetting
+  only the shell would put the two out of step in landscape on a notched phone. It resolves to 0 today —
+  the viewport meta has no `viewport-fit=cover` — and is there to be already correct if that changes.
+- **Verified in the browser:** the shell fills exactly and the composer is flush at 320×568, 390×844 and
+  844×390 (drawer closed; it opens as an overlay, `translateX(-280px)`, and does not default open), no
+  document scroll and no horizontal spill at any of them. The keyboard case was exercised by shadowing
+  `visualViewport.height` and dispatching `resize`: at 420px and at 300px the shell follows the var and the
+  composer stays fully on screen (91px tall, bottom == the simulated height), then returns to 1134px. The
+  desktop check is unchanged (`--net-app-height` = `innerHeight`, composer flush).
+- **Not done, on purpose:** `interactive-widget=resizes-content` in the viewport meta would make the
+  keyboard resize the *layout* viewport on Chrome/Android too, but it is a site-wide behaviour change and
+  the `visualViewport` binding already covers the chat without it.
+- **No test run:** no test file covers `Net.jsx` (`front.test.js` mocks it) and none asserted a footer on
+  `/net`; the change is one element plus CSS. `docs/guides/FRONTEND_UI_STANDARD.md` §5.7 gains "The app
+  shell" as the reference for the next surface of this shape.
+
+### 13.28 The surface switcher's pills are text only (2026-09-14)
+
+- ✅ **The emoji went from the four `SimpleNav` pills** (`Chat`, `Control`, `Goals`, `Market`), which
+  is the header on `/net`, `/simple`, `/plans` and `/market` (plus `/plans/goal/:id`). In a 48px band
+  four glyphs sitting beside four words read as decoration arguing with the type — the labels were
+  already doing all the work.
+- ⚠️ **Only the renderer changed, and that is the point.** `SIMPLE_SURFACES` / `SIMPLE_NAV_SURFACES`
+  still carry their `icon` fields, because the closing CTA band (`SimpleCtaBand`, on `/home` and
+  `/projects`) renders them on cards, where there IS room for one. Deleting the field would have
+  stripped the band too — checked on `/home` after the change that its 💬 / 🎛️ / 🎯 are intact. The
+  `icon` notes in `simpleSurfaces.js` and `SimpleNav.jsx` now say which surface owns it, so the next
+  person does not "tidy up" the unused field.
+- **The words still have to match.** `SimpleCtaBand.test.jsx` asserts the switcher's labels equal the
+  band's cards word for word — that parity is what keeps the switcher a landmark — and it reads
+  `.snav-link-label`, which this change kept, so the assertion still holds.
+- **CSS:** `.snav-link-icon` and its `.snav--compact` override deleted, and `gap` removed from
+  `.snav-link` — the label is the pill's only child now.
+- **Verified:** all four routes render `Chat | Control | Goals | Market` with no emoji text node and no
+  `.snav-link-icon`; pills measure 47 / 61 / 51 / 59px and the nav's right edge is 792px of a 1276px
+  viewport (no overflow, no wrap). Test: `SimpleCtaBand.test.jsx` — 5/5.
+- §16.1 below is the current-state description of this switcher and was updated with it; the sections
+  that still show 💬/🎛️/🎯 are either the CTA band (unchanged) or other UI (the 🌟 Board tab, the
+  conversation rail's 🎯 badge).
+
+### 13.29 The surface switcher becomes a segmented control (2026-09-14)
+
+Follow-up to §13.28: with the emoji gone the pill was plain, and looking at it closely it was two
+things wrong at once — a control dressed as a row of links, and a fragment of dead height nobody had
+noticed.
+
+- 🐛 **The `<li>` was setting the pill's height, not the segments.** An `inline-flex` link inside a
+  block-level `<li>` sits on a line box, so the `<li>` was ~5px taller than the link it contains (the
+  descender space under the baseline). The pill was therefore padded-out around small labels.
+  `.snav-links > li { display: flex }` removes the line box, and the height then falls from 41px to
+  40px *while the labels grow* — `--font-size-xs` (10.5px, the smallest label anywhere in the chrome)
+  → `--font-size-small` (15.4px, which the base rule already used; only the compact override shrank
+  it). Same trap as any inline-level box in a block parent.
+- ✅ **The current room stopped wearing the action ramp.** `.snav-link.is-active` was
+  `linear-gradient(135deg, var(--scheme-accent), var(--scheme-primary))` — the fill reserved for
+  "press this" — so the page you were already on read as the button to press. `/plans` had already
+  settled this for `.plans-switch-btn.is-active` ("a tab marks a PLACE, not an action"), so the header
+  now uses that recipe: a tint of `--scheme-primary` over `--bg-1`, inked with `--text-color`. The
+  scheme still drives it; only the fill's *kind* changed.
+- ✅ **Muted ink for the rooms you are not in** (`--text-color-accent`), so full ink is a second cue.
+  It is needed: the fill step alone is 1.79:1 in light mode, where a near-white track and a light tint
+  are close in luminance.
+- ✅ **The track is a surface (`--bg-1`), not a film of the ink.** The first attempt used a 9% ink
+  wash, which reads well on a dark header — but the header is transparent and `/net`'s room paints a
+  scheme-tinted backdrop underneath, so the pill took that tint whole: in light mode it went from a
+  grey control to a saturated cyan bar whose *track* out-shouted its own selected segment. Controls
+  keep `--bg-1` (§5.7). The `--border-nav` hairline and the `--shadow-sm` went instead — a groove is a
+  tone, not an outline, and it does not float (§5).
+- **Measured, 6 schemes × 2 modes** (real reloads — see the gotcha below): worst active ink **4.68:1**
+  (`neutral`/dark), worst idle ink **5.93:1**, fill step 1.79–2.9:1. All clear AA. The 40% tint is
+  higher than `/plans`' 20% because a translucent track on a tinted room leaves less to sit on; at 20%
+  the step was ~1.2:1 in light mode, i.e. a hue difference nobody would notice.
+- ⚠️ **`getComputedStyle` on a `color-mix()` whose input is a relative-colour custom property returns
+  a STALE value when you mutate `data-scheme` and read it in the same task** — a first sweep reported
+  every scheme as identical, and a second (with `void el.offsetHeight` between) reported impossible
+  mixes, because the mix had resolved against the *previous* scheme's `--scheme-primary`. Setting the
+  attribute, awaiting two frames and reading gave the right answer, but the numbers that went into the
+  table above came from **real reloads** with `localStorage` set. A colour probe that mutates and reads
+  in one go does not prove anything here.
+- **Verified:** pill height 40px in the 48px header band (4px clear above and below), nav 394px wide so
+  it fits the 58% center slot at the 820px hide breakpoint, no wrap or overflow, and the four segments
+  are 65/85/71/82px. Test: `SimpleCtaBand.test.jsx` — 5/5 (it selects `.snav-link-label`, which is
+  unchanged).
+- **Not touched:** the `@media (max-width: 640px)` block in `SimpleNav.css` is effectively dead — the
+  compact switcher lives in the header's center slot, which is `display: none` below 820px, so those
+  rules only ever apply to the non-compact standalone bar that nothing renders today.
 
 ---
 

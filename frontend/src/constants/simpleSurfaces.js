@@ -16,8 +16,11 @@
  * the CTA card says something else, the switcher stops being a familiar
  * landmark and becomes a fourth thing to learn.
  *
- * `desc` is the CTA card's one-line explanation; the switcher only uses the
- * icon + label.
+ * `desc` is the CTA card's one-line explanation, and `icon` is the card's mark —
+ * the header switcher (`SimpleNav`) renders the LABEL only, on purpose. The two
+ * lists share this file so the *words* cannot drift apart, which is the part that
+ * matters: a switcher that says "Control" while a card says something else stops
+ * being a landmark.
  */
 export const SIMPLE_SURFACES = [
   {

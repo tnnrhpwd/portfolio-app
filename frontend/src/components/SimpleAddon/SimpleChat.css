@@ -76,8 +76,8 @@
   padding: 10px 28px;
   border-radius: 8px;
   border: none;
-  background: var(--accent, #2196f3);
-  color: #fff;
+  background: var(--accent-fill, #2196f3);
+  color: var(--accent-text);
   font-size: var(--font-size-base);
   font-weight: 500;
   cursor: pointer;
@@ -85,7 +85,7 @@
 }
 
 .simple-inactive-overlay__btn:hover {
-  background: var(--accent-hover, #1976d2);
+  background: var(--accent-fill-hover, #1976d2);
 }
 
 @keyframes simpleFadeIn {

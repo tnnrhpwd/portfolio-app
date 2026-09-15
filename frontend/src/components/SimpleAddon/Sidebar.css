@@ -406,7 +406,7 @@
 }
 
 .sidebar__network-link:hover {
-  color: #5b52ff;
+  color: var(--accent-hover);
   text-decoration: underline;
 }
 
@@ -618,8 +618,8 @@
 .sidebar__addon-notice__btn {
   padding: 3px 8px;
   border-radius: 4px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-fill);
+  color: var(--accent-text);
   text-decoration: none;
   font-size: 11px;
   font-weight: 500;
@@ -633,6 +633,9 @@
 }
 
 .sidebar__addon-notice__btn:hover {
+  /* Ink restated: this is an anchor, so `index.css`'s `a:hover` would otherwise
+     repaint it in the scheme's partner hue at the SITE's lightness (§6). */
+  color: var(--accent-text);
   opacity: 0.85;
 }
 

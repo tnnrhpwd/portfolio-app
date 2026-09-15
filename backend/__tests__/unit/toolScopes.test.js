@@ -17,6 +17,7 @@ describe('toolScopes.requiredScope', () => {
   test('returns the declared capability for privileged tools', () => {
     expect(requiredScope('repo_read_file')).toBe('repo:read');
     expect(requiredScope('repo_write_file')).toBe('repo:write');
+    expect(requiredScope('repo_edit_file')).toBe('repo:write');
     expect(requiredScope('repo_push')).toBe('repo:push');
   });
 

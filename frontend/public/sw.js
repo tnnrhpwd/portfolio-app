@@ -3,8 +3,15 @@
  * Navigations are network-first so a bad deploy can never brick the site;
  * same-origin static assets are cache-first (populating the cache on first
  * load) so repeat visits work offline.
+ *
+ * ⚠️ BUMP THE VERSION whenever a static file under `public/` changes, because
+ * cache-first is exactly as sticky as it sounds. The v2 -> v3 bump carried the
+ * reworked brand mark: `Checkmark192.ico` (the tab icon) and `STHlogo192.png`
+ * (the apple-touch icon) would otherwise have kept serving the previous logo to
+ * every returning visitor indefinitely. `/assets/*` is hashed and self-busting;
+ * `public/` is not.
  */
-const CACHE = 'sthopwood-v2';
+const CACHE = 'sthopwood-v3';
 
 self.addEventListener('install', () => {
   self.skipWaiting();

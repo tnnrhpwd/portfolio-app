@@ -29,8 +29,14 @@
 }
 
 .message__avatar--assistant {
-  background: linear-gradient(135deg, var(--accent), #3b82f6);
-  color: white;
+  /* The site's own scheme gradient (`SimpleNav`'s active pill plays the same
+     trick): the interaction hue into the emphasis hue. The second stop used to
+     be a hardcoded #3b82f6, so every scheme's mark ended in the same blue. */
+  background: var(--accent-fill);
+  /* ⚠️ NOT white. The accent is re-pinned per chat mode, so it is ~0.78
+     lightness on a dark chat — white scored 2.2:1 on it. `--accent-text` is the
+     ink the fill was tuned against, in both modes. */
+  color: var(--accent-text);
   font-family: monospace;
 }
 
@@ -86,6 +92,45 @@
   display: inline;
   animation: blink-cursor 0.7s step-end infinite;
   color: var(--text-secondary, #a0aec0);
+}
+
+/* Live progress while the agent works. The backend resolves every tool call
+   before it streams a token, so without this the bubble is empty for a minute
+   and reads as a freeze. */
+.message__progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  color: var(--text-secondary, #a0aec0);
+  font-size: 0.85em;
+  font-style: italic;
+}
+
+.message__progress-dots {
+  display: inline-flex;
+  gap: 3px;
+  flex: 0 0 auto;
+}
+
+.message__progress-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: message-progress-pulse 1.1s ease-in-out infinite;
+}
+
+.message__progress-dots i:nth-child(2) { animation-delay: 0.15s; }
+.message__progress-dots i:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes message-progress-pulse {
+  0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+  30% { opacity: 0.9; transform: translateY(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message__progress-dots i { animation: none; opacity: 0.6; }
 }
 
 @keyframes blink-cursor {
@@ -299,7 +344,7 @@
 
 .message__operation-link {
   cursor: pointer;
-  color: #60a5fa;
+  color: var(--accent);
   transition: color 0.15s, text-decoration 0.15s;
   display: inline-flex;
   align-items: center;
@@ -307,7 +352,7 @@
 }
 
 .message__operation-link:hover {
-  color: #93bbfc;
+  color: var(--accent-hover);
   text-decoration: underline;
 }
 
@@ -390,8 +435,8 @@
   padding: 8px 16px;
   border: 1px solid var(--accent, #6366f1);
   border-radius: 8px;
-  background: var(--accent, #6366f1);
-  color: #fff;
+  background: var(--accent-fill, #6366f1);
+  color: var(--accent-text);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -399,9 +444,14 @@
 }
 
 .message__download-btn:hover {
-  background: var(--accent-hover, #4f46e5);
+  background: var(--accent-fill-hover, #4f46e5);
+  /* The ink is restated because this is a real <button> and `index.css`'s
+     `button:hover:not(:disabled)` forces `--text-color-inv` on every button in
+     the site — an ink that follows the SITE's mode, while this fill follows the
+     CHAT's. They disagree whenever the two modes do. */
+  color: var(--accent-text);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 /* ── Structured CTAs (e.g. "Upgrade Now" on a 402) ──
@@ -423,8 +473,8 @@
   gap: 6px;
   padding: 9px 18px;
   border-radius: 999px;
-  background: var(--accent, #6366f1);
-  color: #fff;
+  background: var(--accent-fill, #6366f1);
+  color: var(--accent-text);
   font-size: 13px;
   font-weight: 600;
   text-decoration: none;
@@ -432,9 +482,21 @@
 }
 
 .message__action-link:hover {
-  background: var(--accent-hover, #4f46e5);
+  background: var(--accent-fill-hover, #4f46e5);
+  /* ⚠️ The ink MUST be restated, and the glow must not be a literal.
+
+     The ink: this is an ANCHOR, and `index.css`'s `a:hover` is (0,1,1) against
+     this rule's (0,2,0) — but only the properties named here win. `a:hover`
+     paints every anchor in the scheme's PARTNER hue, at the SITE's lightness, so
+     a dark chat's CTA went from near-black to `oklch(0.52 …)` — a mid-blue label
+     on a blue-to-cyan fill. `.message__download-btn:hover` below already carried
+     this note for the `button` rule; the anchor was the one that missed it (§6).
+
+     The glow: it was `rgba(99, 102, 241, 0.35)`, a hardcoded indigo no scheme
+     contains, so a Crimson button lit up blue. */
+  color: var(--accent-text);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .message__action-link:focus-visible {

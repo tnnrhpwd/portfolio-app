@@ -118,6 +118,15 @@ backend/storage/migration-backups/*
 backend/scripts/migration-backups/*
 
 # ===========================================
+# Generated / staging data
+# ===========================================
+# The Wordle word list is committed SPLIT BY LENGTH (see
+# frontend/scripts/split-dictionary.js) so the app fetches one length instead of
+# all 1.7 MB. Dictionary.txt is only a staging file produced by `--join` for bulk
+# editing — committing it as well would let it drift from the parts.
+frontend/src/pages/Projects/WordleSolver/Dictionary.txt
+
+# ===========================================
 # Secrets & Credentials (NEVER COMMIT)
 # ===========================================
 *.p12

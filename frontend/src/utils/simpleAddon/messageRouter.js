@@ -63,6 +63,11 @@ export const isPcControlRequest = (text = '') => PC_CONTROL_RE.test(text);
  * owns (generate_image, calculate, explicit web search) so we can skip the
  * addon hop. Deliberately narrow — anything uncertain returns false and takes
  * the normal addon path.
+ *
+ * One exception is site/repo SOURCE changes (`isSiteSourceChange` below), which
+ * are cloud-only by construction: the addon has no repository tools, so routing
+ * them there can only waste a local agent run. The same goes for questions about
+ * the user's own cloud data and for support/bug reports (`isCloudDataIntent`).
  */
 const CLOUD_ONLY_PATTERNS = [
   // Image generation — needs a visual-noun and a make-verb.
@@ -77,9 +82,70 @@ const CLOUD_ONLY_PATTERNS = [
   /\b(?:search|look\s+up|google|find)\b[^.?!]{0,20}\b(?:web|internet|online)\b/i,
 ];
 
+/**
+ * Repository vocabulary. Unambiguous on its own — the desktop addon has no git
+ * or repository tools at all, so these always belong to the cloud tool loop.
+ */
+const REPO_VOCAB_RE = /\b(?:repo|repository|codebase|source\s+code|pull\s+request)\b|\bgit\s+(?:commit|push|status|diff|checkout|branch|merge)\b|\b(?:commit|push)\s+(?:my|the|these)\s+changes\b/i;
+
+/** "…on this website" / "…the site's code" — the SITE is named as the object. */
+const SITE_TARGET_RE = /\b(?:this|the|my|our|its)\s+(?:web\s?site|web\s?app|webapp|front\s?end|back\s?end|codebase|code\s+base)\b/i;
+
+/** A verb that asks for the thing itself to change (not for the PC to do something). */
+const SOURCE_CHANGE_VERB_RE = /\b(?:increase|decrease|raise|lower|shorten|lengthen|extend|expand|limit|cap|fix|change|update|adjust|improve|remove|delete|add|rename|rewrite|refactor|resize|restyle|redesign|enable|disable|support|implement|edit|tweak|bump|make|commit|push|deploy)\b/i;
+
+/**
+ * "Change this website's own code / the repo it lives in."
+ *
+ * Only the CLOUD tool loop has `repo_*` tools, so this can never be a desktop
+ * agent task — and a connected addon used to swallow it and flail: observed
+ * 2026-09-14 on "increase the context length for the net goal description input
+ * on this website", where the addon classified it `action` and burned 56 steps
+ * (24 screen_captures, no progress) while the chat showed a spinner instead of
+ * handing the request to the repo agent.
+ *
+ * Needs the site/repo to be the named object ("this website", "my repo") —
+ * "open my website in chrome" or "click the button on the page" stay with the
+ * addon, because `open`/`click` are not source-change verbs.
+ */
+export const isSiteSourceChange = (text = '') => {
+  if (!text || typeof text !== 'string') return false;
+  if (REPO_VOCAB_RE.test(text)) return true;
+  return SITE_TARGET_RE.test(text) && SOURCE_CHANGE_VERB_RE.test(text);
+};
+
+/**
+ * Read-only questions about the user's OWN cloud data, and reports that only the
+ * cloud tools can file.
+ *
+ * The desktop addon has no access to any of it — the cloud `get_my_goals` /
+ * `get_my_notes` / `submit_support_ticket` tools own it — so routing these to the
+ * desktop agent can only flail or guess. Observed 2026-09-14: "what goals do I
+ * have saved right now?" was classified `action` and started a local worker that
+ * took screenshots of the screen to look for them.
+ *
+ * Needs a question/read shape AND the cloud-data noun, so "open edge on my pc"
+ * and "tidy up my downloads" still belong to the addon.
+ */
+const CLOUD_DATA_QUESTION_RE = new RegExp(
+  '\\b(?:what|which|how many|list|show|tell me|do i have|did i|have i)\\b[^.?!]{0,40}' +
+  '\\b(?:goals?|notes?|memor(?:y|ies)|reminders?|support\\s(?:tickets?|requests?))\\b', 'i'
+);
+const CLOUD_REPORT_RE = new RegExp(
+  '\\b(?:bug\\s?report|support\\s(?:ticket|request)|feature\\srequest)\\b' +
+  '|\\b(?:submit|file|raise)\\b[^.?!]{0,30}\\b(?:bug\\s?report|report|support\\s(?:ticket|request)|feature\\srequest)\\b', 'i'
+);
+
+/** True for a question/read of the user's cloud data, or a report the cloud must file. */
+export const isCloudDataIntent = (text = '') => {
+  if (!text || typeof text !== 'string') return false;
+  return CLOUD_DATA_QUESTION_RE.test(text) || CLOUD_REPORT_RE.test(text);
+};
+
 export const isCloudOnlyIntent = (text = '') => {
   if (!text || typeof text !== 'string') return false;
-  return CLOUD_ONLY_PATTERNS.some((re) => re.test(text));
+  if (CLOUD_ONLY_PATTERNS.some((re) => re.test(text))) return true;
+  return isSiteSourceChange(text) || isCloudDataIntent(text);
 };
 
 /**

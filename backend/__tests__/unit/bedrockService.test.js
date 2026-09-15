@@ -20,10 +20,34 @@ jest.mock('@aws-sdk/client-bedrock-runtime', () => ({
 const {
     BEDROCK_MODEL_ID,
     createBedrockCompletion,
+    streamBedrockCompletion,
+    buildConverseRequestParts,
+    hasToolHistory,
     toBedrockMessages,
     toBedrockToolConfig,
     fromBedrockResponse,
 } = require('../../services/bedrockService');
+
+/** A history that already ran one tool round (assistant tool_calls + tool result). */
+const TOOL_HISTORY = [
+    { role: 'system', content: 'You can edit the repo.' },
+    { role: 'user', content: 'Remove the footer from /net' },
+    {
+        role: 'assistant',
+        content: null,
+        tool_calls: [{
+            id: 'call_1',
+            type: 'function',
+            function: { name: 'repo_read_file', arguments: '{"path":"frontend/src/pages/Net/Net.jsx"}' },
+        }],
+    },
+    { role: 'tool', tool_call_id: 'call_1', content: '<Footer /> found on line 42' },
+];
+
+/** True when any emitted content block is a toolUse/toolResult block. */
+function hasToolBlocks(blocksOrMessages) {
+    return /toolUse|toolResult/.test(JSON.stringify(blocksOrMessages));
+}
 
 describe('bedrockService — request shape translation', () => {
     beforeEach(() => {
@@ -117,6 +141,54 @@ describe('bedrockService — request shape translation', () => {
     it('returns undefined toolConfig when no tools are provided', () => {
         expect(toBedrockToolConfig(undefined, 'auto')).toBeUndefined();
         expect(toBedrockToolConfig([], 'auto')).toBeUndefined();
+    });
+
+    it('flattens tool-call/tool-result turns to plain text when tool blocks are not allowed', () => {
+        const result = toBedrockMessages(TOOL_HISTORY, { allowToolBlocks: false });
+
+        expect(result).toEqual([
+            { role: 'user', content: [{ text: 'Remove the footer from /net' }] },
+            {
+                role: 'assistant',
+                content: [{ text: '[used tool: repo_read_file]' }],
+            },
+            { role: 'user', content: [{ text: '[tool result] <Footer /> found on line 42' }] },
+        ]);
+        // Converse rejects these blocks when no toolConfig accompanies them.
+        expect(hasToolBlocks(result)).toBe(false);
+    });
+
+    it('merges consecutive flattened tool results into a single turn', () => {
+        const messages = [
+            { role: 'user', content: 'two things' },
+            {
+                role: 'assistant',
+                content: null,
+                tool_calls: [
+                    { id: 'c1', type: 'function', function: { name: 'a', arguments: '{}' } },
+                    { id: 'c2', type: 'function', function: { name: 'b', arguments: '{}' } },
+                ],
+            },
+            { role: 'tool', tool_call_id: 'c1', content: 'result A' },
+            { role: 'tool', tool_call_id: 'c2', content: 'result B' },
+        ];
+        const result = toBedrockMessages(messages, { allowToolBlocks: false });
+
+        expect(result).toHaveLength(3);
+        expect(result[2]).toEqual({
+            role: 'user',
+            content: [{ text: '[tool result] result A' }, { text: '[tool result] result B' }],
+        });
+    });
+
+    it('reports whether a history contains tool turns', () => {
+        expect(hasToolHistory(TOOL_HISTORY)).toBe(true);
+        expect(hasToolHistory([{ role: 'tool', content: 'orphan result' }])).toBe(true);
+        expect(hasToolHistory([
+            { role: 'user', content: 'hi' },
+            { role: 'assistant', content: 'hello' },
+        ])).toBe(false);
+        expect(hasToolHistory(undefined)).toBe(false);
     });
 });
 
@@ -212,5 +284,159 @@ describe('bedrockService — createBedrockCompletion (mocked client)', () => {
 
         await expect(createBedrockCompletion([{ role: 'user', content: 'hi' }]))
             .rejects.toMatchObject({ code: 'BEDROCK_USE_CASE_NOT_SUBMITTED' });
+    });
+});
+
+/**
+ * Regression: the /net chat's streaming "final answer" leg is deliberately
+ * tool-free, but its history still carries the turns from the tool loop above
+ * it. Bedrock rejected the request with
+ *   "The toolConfig field must be defined when using toolUse and toolResult content blocks."
+ * which surfaced to the user as a bare `**Error:**` — the repo edit the chat had
+ * already staged never got explained, and the turn looked like a hard failure.
+ */
+describe('bedrockService — tool history on a tool-free call (regression)', () => {
+    beforeEach(() => {
+        mockSend.mockReset();
+    });
+
+    const TOOLS = [{
+        type: 'function',
+        function: {
+            name: 'repo_read_file',
+            description: 'Read a file',
+            parameters: { type: 'object', properties: {} },
+        },
+    }];
+
+    function mockStream(events) {
+        mockSend.mockResolvedValue({
+            stream: (async function* () { for (const event of events) yield event; })(),
+        });
+    }
+
+    async function drain(generator) {
+        const chunks = [];
+        let next = await generator.next();
+        while (!next.done) {
+            chunks.push(next.value);
+            next = await generator.next();
+        }
+        return { chunks, summary: next.value };
+    }
+
+    it('streams the final answer without sending tool blocks or an undefined toolConfig', async () => {
+        mockStream([
+            { contentBlockDelta: { delta: { text: 'Removed the footer.' } } },
+            { metadata: { usage: { inputTokens: 40, outputTokens: 6, totalTokens: 46 } } },
+            { messageStop: { stopReason: 'end_turn' } },
+        ]);
+
+        const { chunks, summary } = await drain(streamBedrockCompletion(TOOL_HISTORY, { maxTokens: 100 }));
+
+        const input = mockSend.mock.calls[0][0].input;
+        expect(input.toolConfig).toBeUndefined();
+        expect(hasToolBlocks(input.messages)).toBe(false);
+        expect(chunks).toEqual([{ type: 'token', text: 'Removed the footer.' }]);
+        expect(summary.fullText).toBe('Removed the footer.');
+        expect(summary.stopReason).toBe('end_turn');
+    });
+
+    it('keeps real toolUse/toolResult blocks when the call DOES offer tools', async () => {
+        mockSend.mockResolvedValue({
+            output: { message: { role: 'assistant', content: [{ text: 'done' }] } },
+            stopReason: 'end_turn',
+            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+        });
+
+        await createBedrockCompletion(TOOL_HISTORY, { tools: TOOLS, tool_choice: 'auto' });
+
+        const input = mockSend.mock.calls[0][0].input;
+        expect(input.toolConfig.tools).toHaveLength(1);
+        expect(hasToolBlocks(input.messages)).toBe(true);
+    });
+
+    it('leaves a plain tool-free history untouched', async () => {
+        mockSend.mockResolvedValue({
+            output: { message: { role: 'assistant', content: [{ text: 'hi' }] } },
+            stopReason: 'end_turn',
+            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+        });
+
+        await createBedrockCompletion([{ role: 'user', content: 'hi' }]);
+
+        const input = mockSend.mock.calls[0][0].input;
+        expect(input.toolConfig).toBeUndefined();
+        expect(input.messages).toEqual([{ role: 'user', content: [{ text: 'hi' }] }]);
+    });
+
+    it('flattens a history whose tool is not defined in the offered toolConfig', async () => {
+        mockSend.mockResolvedValue({
+            output: { message: { role: 'assistant', content: [{ text: 'done' }] } },
+            stopReason: 'end_turn',
+            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+        });
+
+        // TOOL_HISTORY used repo_read_file; this call only offers save_note.
+        await createBedrockCompletion(TOOL_HISTORY, {
+            tools: [{ type: 'function', function: { name: 'save_note', description: 'Save a note' } }],
+            tool_choice: 'auto',
+        });
+
+        const input = mockSend.mock.calls[0][0].input;
+        expect(input.toolConfig.tools.map((t) => t.toolSpec.name)).toEqual(['save_note']);
+        expect(hasToolBlocks(input.messages)).toBe(false);
+        expect(input.messages).toEqual(expect.arrayContaining([{
+            role: 'assistant',
+            content: [{ text: '[used tool: repo_read_file]' }],
+        }]));
+    });
+
+    it('buildConverseRequestParts keeps messages and toolConfig in agreement', () => {
+        const withTools = buildConverseRequestParts([{ role: 'user', content: 'hi' }], {
+            tools: TOOLS,
+            tool_choice: 'auto',
+        });
+        expect(withTools.toolBlocksAllowed).toBe(true);
+        expect(withTools.toolConfig.tools).toHaveLength(1);
+
+        const historyOnly = buildConverseRequestParts(TOOL_HISTORY, {});
+        expect(historyOnly.toolConfig).toBeUndefined();
+        expect(historyOnly.toolBlocksAllowed).toBe(false);
+        expect(hasToolBlocks(historyOnly.messages)).toBe(false);
+    });
+
+    it('never re-emits tool arguments into the flattened history', async () => {
+        // The leak that produced a wall of JSON in the chat: a big repo_write_file
+        // payload rendered as the assistant's own last message, which the model
+        // then simply continued.
+        const bigContent = 'x'.repeat(5000);
+        const messages = [
+            { role: 'user', content: 'raise the goal description limit' },
+            {
+                role: 'assistant',
+                content: 'Let me update that file.',
+                tool_calls: [{
+                    id: 'c1',
+                    type: 'function',
+                    function: { name: 'repo_write_file', arguments: JSON.stringify({ path: 'a.jsx', content: bigContent }) },
+                }],
+            },
+            { role: 'tool', tool_call_id: 'c1', content: 'Error: arguments were cut off (invalid JSON)' },
+        ];
+        mockSend.mockResolvedValue({
+            output: { message: { role: 'assistant', content: [{ text: 'sorry, that failed' }] } },
+            stopReason: 'end_turn',
+            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+        });
+
+        await createBedrockCompletion(messages);
+
+        const input = mockSend.mock.calls[0][0].input;
+        expect(input.messages[1]).toEqual({
+            role: 'assistant',
+            content: [{ text: 'Let me update that file.' }, { text: '[used tool: repo_write_file]' }],
+        });
+        expect(JSON.stringify(input.messages)).not.toContain('xxxxx');
     });
 });

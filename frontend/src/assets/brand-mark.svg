@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The Simple brand mark — MASTER ARTWORK (full variant).
+
+  THIS FILE IS THE PARITY TARGET, NOT THE LIVE MARK. The site renders the mark from
+  frontend/src/components/BrandMark/geometry.js, because an inline SVG is the only way
+  the two strokes can be bound to the scheme tokens (an img or a background-image is a
+  sealed box: CSS cannot reach inside it). So the numbers below exist twice — here and
+  in geometry.js — and BrandMark.test.jsx fails if the two ever disagree. Change one,
+  change the other.
+
+  Why this file exists at all: it is the single master the raster surfaces are
+  generated from (scripts/generate-logo-assets.js produces the apple-touch icon, the
+  default-avatar plate and the OG card). Those are files the OS and crawlers read, so
+  they can never follow the scheme. See docs/guides/LOGO_SYSTEM.md sections 5 and 6.
+
+  The fills below are the OCEAN scheme's literal hexes, i.e. what a default visitor
+  sees. Binding them to tokens is the live component's job.
+
+  Geometry was derived from the source render (2816x1536) and normalised into a
+  64-unit box. Two places deliberately simplify the AI-generated original: the ring is
+  a true circle where the source was roughly a 3% ellipse, and the check is a
+  uniform-width stroke where the source tapered about 15% along its long arm. Neither
+  difference survives at 38px CSS, let alone at 16px.
+
+  Zero background by design — there is no rect here, and there should never be one. The
+  mark is the ring, the field and the check, and nothing else.
+
+  NOTE FOR EDITORS: no doubled hyphen may appear anywhere in these comments. XML forbids
+  it inside a comment, and librsvg reports the violation as "corrupt header" rather than
+  as a syntax error — so naming a CSS custom property here breaks the raster build with
+  a message that says nothing about comments. Say "the bg-1 token", not the property. -->
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 64 64"
+     width="256"
+     height="256"
+     role="img"
+     aria-label="Simple">
+    <title>Simple</title>
+    <!-- The field: the bg-1 token in the live component. A solid surface that inverts
+       with light and dark and separates the mark from a scheme-tinted backdrop — in the
+       header it sits over the animated gradient and over the washed room on /net. -->
+    <circle cx="30.87"
+            cy="32.49"
+            r="25.5"
+            fill="#ffffff" />
+    <!-- The frame: the scheme's partner hue, which is the logo's royal blue on the
+       default scheme. -->
+    <circle cx="30.87"
+            cy="32.49"
+            r="27.46"
+            fill="none"
+            stroke="#3b82f6"
+            stroke-width="4.25" />
+    <!-- The keyline: the FIELD's colour, painted under the glyph so the check separates
+       from the ring where it crosses it. A scheme pins both of its hues to the same
+       lightness, so ring-against-check contrast measures 1.01-1.20 across the twelve
+       schemes — a crossing carried by hue alone, which visibly fuses in the schemes
+       whose hues are close (Forest, Emerald, Crimson). The artwork's black keyline,
+       reinterpreted as a tone: see CHECK_KEYLINE_STROKE in geometry.js. -->
+    <path d="M14.8 29.28 L27.67 44.14 L59.44 5.96"
+          fill="none"
+          stroke="#ffffff"
+          stroke-width="9.71"
+          stroke-linecap="butt"
+          stroke-linejoin="miter" />
+    <!-- The glyph, drawn LAST so it crosses in front of the ring: the scheme's dominant
+       hue, the logo's cyan on the default scheme. -->
+    <path d="M14.8 29.28 L27.67 44.14 L59.44 5.96"
+          fill="none"
+          stroke="#06b6d4"
+          stroke-width="8.51"
+          stroke-linecap="butt"
+          stroke-linejoin="miter" />
+</svg>

@@ -16,17 +16,52 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
+  /* ── The shell's height, and why it takes four declarations ─────────────
+   * This is the page's whole mobile story: a phone's browser puts its own bars
+   * at the top and the bottom, and every one of these units disagrees about how
+   * tall the page therefore is.
+   *
+   *   vh    on a phone this is the LARGE viewport — the height with the bars
+   *         RETRACTED — so the composer ends up underneath them. Kept only as
+   *         the fallback for browsers older than `svh`.
+   *   svh   the bars-expanded height. Nothing is ever covered by it, but it is
+   *         a fixed value, so the shell is left short the moment they retract.
+   *   dvh   tracks the bars exactly, retracting and extending with them.
+   *   var   `--net-app-height`, written from `visualViewport.height` in
+   *         Net.jsx. It is the ONLY measure that also excludes the soft
+   *         keyboard, because a keyboard is not a "dynamic toolbar" to the
+   *         viewport units — so `dvh` still puts the composer behind it.
+   *
+   * The last two live in the guarded block below rather than here: see it for
+   * why a `var()` declaration cannot simply be listed with these. */
   height: 100vh;
   height: 100svh;
   /* The surface switcher now lives inside the fixed site header, so this only
      has to clear the header itself. */
   padding-top: var(--nav-size);
+  /* The home indicator / gesture bar is part of the screen but not part of the
+     app, and the composer has to stay above it. It resolves to 0 everywhere
+     today (the viewport meta has no `viewport-fit=cover`), so this is here to be
+     already correct if that ever changes. Deliberately NOT applied to the top or
+     the sides: `--nav-size` sizes the FIXED header, and insetting only this
+     element would put the two out of step in landscape on a notched phone. */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   box-sizing: border-box;
   /* NO background and no animation of its own: the room paints the page with
      two `position: fixed` layers at `z-index: -1`. */
   pointer-events: all;
   position: relative;
   overflow: hidden;
+  /* A tap flash and a double-tap-zoom delay are the two things that make a tap
+     read as "web page" rather than "app". `manipulation` drops only the
+     double-tap gesture — panning and pinch-zoom still work. */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  /* Nothing scrolls here by design (the shell is exactly one viewport and the
+     chat scrolls inside it), so this only ever stops the BROWSER's overscroll:
+     the rubber-band and the pull-to-refresh. Both slide the browser's own bars,
+     which is what moves the layout under the visitor's thumb. */
+  overscroll-behavior: none;
   font-family: 'CutiveMono-Regular', monospace;
 
   /* ── The colour scheme ─────────────────────────────────────────────────
@@ -36,6 +71,19 @@
    * is re-pointed where it is defined — `SimpleTheme.css`. */
   --fg-blue: var(--scheme-accent);
   --fg-mint: var(--scheme-primary);
+}
+
+/* ⚠️ Guarded, and it has to be. `height: var(--net-app-height, 100dvh)` listed
+   with the declarations above would be invalid at COMPUTED-value time in a
+   browser that has `var()` but no `dvh` — and an invalid-at-computed-value-time
+   declaration discards EVERY other `height` for that element, not just its own,
+   collapsing the shell to `auto`. `dvh` and `svh` shipped together (Chrome 108 /
+   Safari 15.4), so the browsers this excludes are exactly the ones the `100svh`
+   above is for. They keep it and never see this rule. */
+@supports (height: 1dvh) {
+  .planit-nnet {
+    height: var(--net-app-height, 100dvh);
+  }
 }
 
 /* Floating background elements.
@@ -80,14 +128,17 @@
 
 /* ─── Mobile improvements ─────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .planit-nnet {
-    height: 100svh;
-    padding-top: var(--nav-size);
-  }
+  /* ⚠️ The shell's height is NOT restated here (it used to be `100svh`). The
+     guarded rule above is the one that has to win on a phone, and a media query
+     of the same specificity sitting later in this file silently beat it — the
+     bug would have been invisible on a desktop check. `--nav-size` needs no
+     restating either; it is already the base rule's padding.
 
-  .net-hero-section {
-    height: calc(100svh - var(--nav-size));
-  }
+     The child's own `calc(100svh - var(--nav-size))` went for the same reason:
+     `.net-hero-section` is `flex: 1` in a column flex container, so it tracks
+     whatever height the shell actually has. Pinning it to a viewport unit
+     instead is what would push the composer off-screen as soon as that unit and
+     the shell disagreed — with the keyboard up, for one. */
 }
 
 @media (orientation: landscape) {}

@@ -43,7 +43,7 @@
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  background: linear-gradient(135deg, var(--accent), var(--user-bubble));
+  background: var(--accent-fill);
   color: var(--accent-text);
   border-radius: 4px;
   padding: 2px 6px;
@@ -442,8 +442,8 @@
 }
 
 .short__btn--primary {
-  background: var(--accent, #4a90e2);
-  color: #fff;
+  background: var(--accent-fill, #4a90e2);
+  color: var(--accent-text);
   border-color: var(--accent, #4a90e2);
 }
 
@@ -590,7 +590,7 @@
 }
 
 .short__badge--ai {
-  background: linear-gradient(135deg, var(--accent), var(--user-bubble));
+  background: var(--accent-fill);
   color: var(--accent-text);
 }
 

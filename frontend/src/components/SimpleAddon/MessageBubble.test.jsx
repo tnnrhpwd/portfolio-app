@@ -143,4 +143,35 @@ describe('MessageBubble', () => {
 
     expect(container.querySelector('.message__actions')).toBeNull();
   });
+
+  /**
+   * The backend resolves every tool call before it streams a token, so a repo
+   * task is an empty bubble for up to a minute — which users read as a freeze
+   * (2026-09-14). The progress line is what tells them otherwise.
+   */
+  describe('progress note', () => {
+    it('shows what the agent is doing while its bubble is still empty', () => {
+      renderBubble(assistant({ content: '', isStreaming: true, progressNote: 'Editing Net.css…' }));
+
+      expect(screen.getByRole('status')).toHaveTextContent('Editing Net.css…');
+    });
+
+    it('disappears once the answer arrives', () => {
+      renderBubble(assistant({ content: 'Raised it to 5,000.', progressNote: null }));
+
+      expect(screen.queryByRole('status')).toBeNull();
+    });
+
+    it('never renders on an error bubble', () => {
+      renderBubble(assistant({ content: '**Error:** boom', isError: true, progressNote: 'Editing Net.css…' }));
+
+      expect(screen.queryByRole('status')).toBeNull();
+    });
+
+    it('is absent on a normal finished message', () => {
+      renderBubble(assistant({ content: 'All done.' }));
+
+      expect(screen.queryByRole('status')).toBeNull();
+    });
+  });
 });

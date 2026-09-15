@@ -26,6 +26,7 @@ const TOOL_SCOPES = Object.freeze({
   repo_git_diff: 'repo:read',
   // Repository write (mutates the working tree / creates a branch).
   repo_write_file: 'repo:write',
+  repo_edit_file: 'repo:write',
   repo_commit_changes: 'repo:write',
   // Pushing to GitHub — the only irreversible step.
   repo_push: 'repo:push',

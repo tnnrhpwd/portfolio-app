@@ -1,0 +1,58 @@
+/* BrandMark — the only place the logo's colour is decided.
+ *
+ * ⚠️ THREE DECLARATIONS, AND EACH ONE IS LOAD-BEARING. The geometry lives in
+ * `geometry.js`; this file is colour and size and nothing else. If you are here to
+ * add a `fill` to a variant, read docs/guides/LOGO_SYSTEM.md §3-§4 first — the two
+ * temptations (a raw `--scheme-hue-*`, or a per-scheme hand-tinted asset) are both
+ * covered there, and both are wrong. */
+
+.brand-mark {
+  display: block;
+  flex: none;
+}
+
+/* The field: the "canvas" that makes the mark readable anywhere.
+ *
+ * NOT a scheme hue, and this is the single most important line in the file. The
+ * header sits over the animated gradient and over /net's scheme-washed room, and
+ * SimpleCtaBand is a 38% mix of the mark's OWN two hues. A mark coloured entirely
+ * from the scheme would be one colour on a lighter version of itself in all three
+ * places. A solid `--bg-1` disc separates it, and inverts with light/dark for free
+ * (white surface on a light page, deep surface on a dark one) — the same recipe the
+ * UI standard gives a control sitting on a tinted plane (§5.7). */
+.brand-mark__disc {
+  fill: var(--bg-1);
+}
+
+/* The frame: the scheme's PARTNER hue.
+ *
+ * ⚠️ Ring -> `--scheme-primary` and check -> `--scheme-accent` is the order that
+ * reproduces the artwork on the DEFAULT scheme, because Ocean's pair is cyan
+ * (`--scheme-accent` #06b6d4) plus royal blue (`--scheme-primary` #3b82f6) — i.e. the
+ * mark's own colours. Swap these two lines and every first-time visitor gets a cyan
+ * ring around a blue tick: a logo that is wrong out of the box. */
+.brand-mark__ring {
+  stroke: var(--scheme-primary);
+}
+
+/* The glyph: the scheme's DOMINANT hue. */
+.brand-mark__check {
+  stroke: var(--scheme-accent);
+}
+
+/* The keyline under the glyph: the FIELD's own colour, so it is invisible against the
+   disc and reads as a gap where the check crosses the ring band.
+
+   ⚠️ Do not "tidy" this into `transparent` or into a border. A scheme pins both of its
+   hues to the same lightness, so the ring and the check measure 1.01-1.20:1 against
+   each other — see CHECK_KEYLINE in geometry.js for the full measurement. Without this
+   the crossing is carried by hue alone, and Forest and Emerald visibly fuse. Using
+   `--bg-1` and not a neutral is the point: it tracks the field in both modes. */
+.brand-mark__check-keyline {
+  stroke: var(--bg-1);
+}
+
+/* `plate` is the static raster — the fixed colourway, for the default avatar. */
+.brand-mark--plate {
+  object-fit: contain;
+}

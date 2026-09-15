@@ -237,8 +237,8 @@
 }
 
 .perms-modal__btn--confirm {
-  background: var(--accent, #6366f1);
-  color: #fff;
+  background: var(--accent-fill);
+  color: var(--accent-text);
 }
 
 .perms-modal__btn--confirm:hover:not(:disabled) {

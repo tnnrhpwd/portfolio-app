@@ -224,6 +224,14 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
                 ))}
               </div>
             )}
+            {/* Live "what is happening" line while the agent works. Without it a
+                tool-heavy turn is an empty bubble for up to a minute. */}
+            {message.progressNote && !message.isError && (
+              <div className="message__progress" role="status" aria-live="polite">
+                <span className="message__progress-dots" aria-hidden="true"><i /><i /><i /></span>
+                <span className="message__progress-label">{message.progressNote}</span>
+              </div>
+            )}
           </div>
 
           <div className="message__meta">

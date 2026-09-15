@@ -300,7 +300,8 @@
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: linear-gradient(135deg, var(--accent), #3b82f6);
+  /* Same scheme gradient as the message avatar — see MessageBubble.css. */
+  background: var(--accent-fill);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -325,7 +326,10 @@
 .adv-agent__avatar-placeholder {
   font-size: 20px;
   font-weight: 700;
-  color: white;
+  /* Ink for the scheme gradient on the avatar above — never white, which is
+     ~2:1 on the accent a dark chat gets. `--accent-text` is the ink the fill
+     was tuned against, in both modes. Same fix throughout this file. */
+  color: var(--accent-text);
   font-family: monospace;
 }
 
@@ -595,12 +599,12 @@
 }
 
 .adv-agent__btn--select {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--accent-text);
 }
 
 .adv-agent__btn--select:hover {
-  background: var(--accent-hover);
+  background: var(--accent-fill-hover);
 }
 
 .adv-agent__btn--delete {
@@ -804,7 +808,7 @@
 
 .adv-btn--active {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text);
 }
 
 .adv-info-grid {
@@ -850,8 +854,8 @@
   padding: 8px 24px;
   border: none;
   border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: white;
+  background: var(--accent-fill);
+  color: var(--accent-text);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -859,7 +863,11 @@
 }
 
 .adv-footer__close:hover {
-  background: var(--accent-hover);
+  background: var(--accent-fill-hover);
+  /* Restated because `index.css`'s `button:hover:not(:disabled)` would otherwise
+     force `--text-color-inv` — an ink that follows the SITE's mode, while this
+     fill follows the CHAT's. */
+  color: var(--accent-text);
 }
 
 /* ─── File Management ─────────────────────────────────────────────────────── */
@@ -867,8 +875,8 @@
   padding: 4px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--accent);
-  color: white;
+  background: var(--accent-fill);
+  color: var(--accent-text);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -876,7 +884,8 @@
 }
 
 .adv-file-add-btn:hover {
-  background: var(--accent-hover);
+  background: var(--accent-fill-hover);
+  color: var(--accent-text);
 }
 
 .adv-file-list {
@@ -1101,12 +1110,13 @@
 }
 
 .adv-file-editor-btn--save {
-  background: var(--accent);
-  color: white;
+  background: var(--accent-fill);
+  color: var(--accent-text);
 }
 
 .adv-file-editor-btn--save:hover {
-  background: var(--accent-hover);
+  background: var(--accent-fill-hover);
+  color: var(--accent-text);
 }
 
 .adv-file-editor-btn--save:disabled {

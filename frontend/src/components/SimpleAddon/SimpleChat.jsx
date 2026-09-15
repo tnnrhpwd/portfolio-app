@@ -47,7 +47,7 @@ import './SimpleChat.css';
 import './SimpleTheme.css';
 import { checkMessage as securityCheckMessage } from '../../utils/simpleAddon/securityGuard';
 import { routeMessage, ROUTE_KINDS } from '../../utils/simpleAddon/messageRouter';
-import { CHATS_STORAGE_KEY, ACTIVE_CHAT_KEY } from '../../utils/simpleAddon/chatStore';
+import { CHATS_STORAGE_KEY, ACTIVE_CHAT_KEY, hasMessages, adoptSyncedConversations } from '../../utils/simpleAddon/chatStore';
 import {
   ensureGoalConversation,
   goalRefFromWorkspaceEntry,
@@ -137,34 +137,16 @@ function getDeviceLocalSettings() {
   } catch { return {}; }
 }
 
-/** True when a conversation has at least one message (i.e. worth syncing). */
-const hasMessages = (c) => Array.isArray(c?.messages) && c.messages.length > 0;
-
 /**
  * Drop empty "New Chat" placeholders before syncing. Every device keeps a
  * fresh empty placeholder locally, and eagerly syncing it was accumulating
  * duplicate empty chats on other devices.
+ *
+ * The merge itself lives in `chatStore.js` (`adoptSyncedConversations`) so the
+ * "never drop local content" rule is unit-tested — see that module for why
+ * replacing local state with a stale server snapshot lost just-sent messages.
  */
 const nonEmptyConversations = (list) => (Array.isArray(list) ? list : []).filter(hasMessages);
-
-/**
- * Combine the server's authoritative (non-empty) conversation list with any
- * local empty conversations (fresh "New Chat" placeholders) so a sync never
- * deletes a just-created chat. Empty chats are local-only and never sync.
- * If a local empty chat's id already exists server-side as a non-empty chat,
- * drop the empty copy in favor of the server's version.
- */
-function adoptSyncedConversations(prev, serverConversations) {
-  const merged = Array.isArray(serverConversations) ? serverConversations : [];
-  const mergedIds = new Set(merged.map(c => String(c.id)));
-  const localEmpty = prev.filter(c => !hasMessages(c) && !mergedIds.has(String(c.id)));
-  const next = [...localEmpty, ...merged];
-  if (next.length === 0) {
-    return [{ id: Date.now().toString(), title: 'New Chat', messages: [], createdAt: new Date().toISOString() }];
-  }
-  if (JSON.stringify(next) === JSON.stringify(prev)) return prev;
-  return next;
-}
 
 const DEFAULT_SETTINGS = {
   saveChatsLocally: true,
@@ -257,6 +239,9 @@ function SimpleChat({
   // eslint-disable-next-line no-unused-vars
   const [behaviorContent, setBehaviorContent] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  // Live "what is happening" line for the desktop-agent path, which has no
+  // token stream to show (see the AGENT route branch in sendMessage).
+  const [agentProgress, setAgentProgress] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
@@ -400,7 +385,14 @@ function SimpleChat({
     const root = rootRef.current;
     if (!root) return;
 
-    const theme = settings.theme || 'system';
+    /* Only `light` / `dark` are chat settings now. Anything else — including a
+       scheme name written by the ten-item theme list this select used to have —
+       means "follow the site", so a stale value can never pin the chat to a
+       palette that no longer exists. The scheme itself is not read from here at
+       all: `--accent` / `--user-bubble` in SimpleTheme.css read `--scheme-*`,
+       which the body carries. */
+    const stored = settings.theme;
+    const theme = stored === 'light' || stored === 'dark' ? stored : 'system';
     if (theme === 'system') {
       // "System" means "match the portfolio site's own theme toggle" first,
       // since that reflects the user's explicit choice for this site. Only
@@ -504,7 +496,7 @@ function SimpleChat({
       // added/updated/deleted a conversation). Deep-equality guard prevents an
       // identical result from retriggering the debounced save.
       if (result?.conversations && Array.isArray(result.conversations)) {
-        setConversations(prev => adoptSyncedConversations(prev, result.conversations));
+        setConversations(prev => adoptSyncedConversations(prev, result.conversations, result.deletedIds));
       }
       setCloudSyncStatus('synced');
     } catch (err) {
@@ -564,7 +556,7 @@ function SimpleChat({
               );
               if (Array.isArray(merged.deletedIds)) setDeletedConversationIds(merged.deletedIds);
               if (merged?.conversations && Array.isArray(merged.conversations)) {
-                setConversations(prev => adoptSyncedConversations(prev, merged.conversations));
+                setConversations(prev => adoptSyncedConversations(prev, merged.conversations, merged.deletedIds));
               }
             } catch (convErr) {
               console.warn('[Simple] Failed to load cloud conversations:', convErr);
@@ -1609,12 +1601,33 @@ function SimpleChat({
           conversations.find(c => c.id === activeConversationId),
         );
         try {
-          const agentResult = await runAgentMessage(text, {
-            token: user?.token,
-            deviceId: getSelectedRemoteDeviceId(),
-            forceAction,
-            ...(goalSlug ? { goalId: goalSlug } : {}),
-          });
+          // The addon's local agent gives no token stream and can run for
+          // minutes, so poll its status and show which step it is on. Without
+          // this the chat is three dots — read as a freeze (observed 2026-09-14,
+          // when a stuck run took 56 screen captures before anyone noticed).
+          setAgentProgress('Working on it…');
+          const progressPoll = setInterval(async () => {
+            try {
+              const s = await getAgentStatus();
+              const lastTool = s?.stepLog?.[s.stepLog.length - 1]?.tool;
+              if (s?.running) {
+                const tool = lastTool ? ` — ${String(lastTool).replace(/_/g, ' ')}` : '';
+                setAgentProgress(`Step ${s.step ?? 0}${tool}…`);
+              }
+            } catch { /* addon unreachable mid-run — keep the last note */ }
+          }, 2000);
+          let agentResult;
+          try {
+            agentResult = await runAgentMessage(text, {
+              token: user?.token,
+              deviceId: getSelectedRemoteDeviceId(),
+              forceAction,
+              ...(goalSlug ? { goalId: goalSlug } : {}),
+            });
+          } finally {
+            clearInterval(progressPoll);
+            setAgentProgress(null);
+          }
           if (agentResult?.actionable) {
             const stepNote = typeof agentResult.steps === 'number'
               ? `\n\n_(ran ${agentResult.steps} step${agentResult.steps === 1 ? '' : 's'})_`
@@ -1831,7 +1844,22 @@ function SimpleChat({
                 return {
                   ...c,
                   messages: c.messages.map(m =>
-                    m.id === streamingMsgId ? { ...m, content: m.content + token } : m
+                    // The first token replaces the progress line: the answer is
+                    // arriving now, so "Editing Net.css…" is stale.
+                    m.id === streamingMsgId ? { ...m, content: m.content + token, progressNote: null } : m
+                  ),
+                };
+              }));
+            },
+            onProgress: (label) => {
+              // The backend resolves EVERY tool call before it streams a single
+              // token, so during a repo task this line is the only sign of life.
+              setConversations(prev => prev.map(c => {
+                if (c.id !== activeConversationId) return c;
+                return {
+                  ...c,
+                  messages: c.messages.map(m =>
+                    m.id === streamingMsgId ? { ...m, progressNote: label } : m
                   ),
                 };
               }));
@@ -2217,6 +2245,7 @@ function SimpleChat({
         <ChatWindow
           conversation={activeConversation}
           isGenerating={isGenerating}
+          progressNote={agentProgress}
           onSendMessage={sendMessage}
           onStopGeneration={stopGeneration}
           onToggleSidebar={() => setSidebarOpen(prev => !prev)}

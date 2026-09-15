@@ -24,10 +24,6 @@ jest.mock('./utils/theme.js', () => ({
   FONT_SCALE_DEFAULT: 1,
 }));
 
-// Mock all asset imports
-jest.mock('./assets/Checkmark512.png', () => 'mocked-image');
-jest.mock('./assets/STHlogo192.png', () => 'mocked-image');
-
 // Mock all page components to avoid complex dependencies
 jest.mock('./pages/Home/Home', () => {
   const React = require('react');

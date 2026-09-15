@@ -4,14 +4,24 @@ import { SIMPLE_NAV_SURFACES } from '../../../constants/simpleSurfaces';
 import './SimpleNav.css';
 
 /**
- * SimpleNav — the shared "you are here" switcher for the three product surfaces.
+ * SimpleNav — the shared "you are here" switcher for the product surfaces.
  *
- * Simple is one product with three rooms, and the user must be able to move
+ * Simple is one product with four rooms, and the user must be able to move
  * between them without guessing:
  *
- *   💬 Chat   (/net)     — tell the agent what you want, in words
- *   🎛️ Control(/simple)  — watch it, trust it, change how much it may do
- *   🎯 Goals  (/plans)   — where your intent lives; the durable record
+ *   Chat     (/net)     — tell the agent what you want, in words
+ *   Control  (/simple)  — watch it, trust it, change how much it may do
+ *   Goals    (/plans)   — where your intent lives; the durable record
+ *   Market   (/market)  — what other people made, ready to save
+ *
+ * ⚠️ The pills are TEXT ONLY, deliberately — the list still carries an `icon`
+ * field but nothing here renders it. That field belongs to the closing CTA band
+ * (`SimpleCtaBand`), where a card has room for one; in a 48px header band four
+ * glyphs sitting beside four words read as decoration arguing with the type. Do
+ * not re-add it without deleting it from the band too, or the same room gets two
+ * different marks. What must stay identical is the WORDS — the switcher is a
+ * landmark only while its labels match the band's, which `SimpleCtaBand.test.jsx`
+ * asserts.
  *
  * It is designed to be rendered INSIDE the site header, which costs no vertical
  * space at all:
@@ -58,7 +68,6 @@ function SimpleNav({ running = false, goalName = '', compact = false }) {
                 className={`snav-link ${isActive(l.to) ? 'is-active' : ''}`}
                 aria-current={isActive(l.to) ? 'page' : undefined}
               >
-                <span className="snav-link-icon" aria-hidden="true">{l.icon}</span>
                 <span className="snav-link-label">{l.label}</span>
               </Link>
             </li>

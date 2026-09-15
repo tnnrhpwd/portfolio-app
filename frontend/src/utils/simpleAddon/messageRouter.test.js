@@ -79,6 +79,60 @@ describe('routeMessage — logic mode & cloud-only shortcut', () => {
     expect(isCloudOnlyIntent('open notepad')).toBe(false);
   });
 
+  it("treats this site's own source (and the repo) as cloud-only", () => {
+    // The prompt that exposed this: the addon classified it `action` and burned
+    // 56 steps (24 screen_captures, no progress) while the chat showed a spinner,
+    // because the desktop agent has no repository tools to do it with.
+    expect(isCloudOnlyIntent(
+      'Increase the context length for the net goal description input on this website so users can enter more goal details if they want.',
+    )).toBe(true);
+    expect(isCloudOnlyIntent('make this website load faster')).toBe(true);
+    expect(isCloudOnlyIntent('add a dark mode toggle to this website')).toBe(true);
+    expect(isCloudOnlyIntent('what does my repo look like?')).toBe(true);
+    expect(isCloudOnlyIntent('commit my changes')).toBe(true);
+  });
+
+  it('still leaves genuine desktop work with the addon', () => {
+    expect(isCloudOnlyIntent('open my website in chrome')).toBe(false);
+    expect(isCloudOnlyIntent('click the login button on the page')).toBe(false);
+    expect(isCloudOnlyIntent('take a screenshot of this website')).toBe(false);
+    expect(isCloudOnlyIntent('tidy up my downloads')).toBe(false);
+  });
+
+  it("keeps questions about the user's own cloud data off the desktop agent", () => {
+    // The addon cannot read goals/notes, so a local run on these can only flail —
+    // "what goals do I have saved right now?" was classified `action` and started
+    // screenshotting the screen to look for them.
+    expect(isCloudOnlyIntent('what goals do I have saved right now?')).toBe(true);
+    expect(isCloudOnlyIntent('how many goals do I have?')).toBe(true);
+    expect(isCloudOnlyIntent('show me my notes')).toBe(true);
+    expect(isCloudOnlyIntent('list my reminders')).toBe(true);
+    // Reports only the cloud can file.
+    expect(isCloudOnlyIntent('submit a bug report about the crash')).toBe(true);
+    expect(isCloudOnlyIntent('file a support ticket')).toBe(true);
+    // Still desktop work.
+    expect(isCloudOnlyIntent('open notepad')).toBe(false);
+    expect(isCloudOnlyIntent('open edge on my pc')).toBe(false);
+    expect(isCloudOnlyIntent('close all my browser windows')).toBe(false);
+  });
+
+  it('routes a cloud-data question to the cloud even with the addon connected', () => {
+    const d = routeMessage({ text: 'what goals do I have saved?', isAddonConnected: true, provider: 'portfolio' });
+
+    expect(d.kind).toBe(ROUTE_KINDS.CHAT_CLOUD);
+    expect(d.skippedAddon).toBe(true);
+  });
+
+  it('skips the addon hop for a website source change', () => {
+    const d = routeMessage({
+      text: 'fix the spacing on this website',
+      isAddonConnected: true,
+      provider: 'portfolio',
+    });
+    expect(d.kind).toBe(ROUTE_KINDS.CHAT_CLOUD);
+    expect(d.skippedAddon).toBe(true);
+  });
+
   it('skips the addon hop for a cloud-only intent when the addon is remote', () => {
     const d = routeMessage({ text: 'generate an image of a cat', isRemoteAddonOnline: true, provider: 'portfolio' });
     expect(d.kind).toBe(ROUTE_KINDS.CHAT_CLOUD);
