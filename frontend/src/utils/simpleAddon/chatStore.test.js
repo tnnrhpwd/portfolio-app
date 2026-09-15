@@ -168,4 +168,15 @@ describe('chatStore.mergeMessageLists', () => {
     expect(mergeMessageLists(undefined, undefined)).toEqual([]);
     expect(mergeMessageLists([{ id: 'x', content: 'x' }], null)).toHaveLength(1);
   });
+
+  test('keeps a client-side annotation the server copy does not carry', () => {
+    // `toolsUsed` is how the router spots a repo workflow in progress, so a sync
+    // must not strip it from the message it annotates.
+    const local = [{ id: 'm1', content: 'Committed.', timestamp: '2026-01-01T00:00:01.000Z', toolsUsed: ['repo_commit_changes'] }];
+    const server = [{ id: 'm1', content: 'Committed.', timestamp: '2026-01-01T00:00:01.000Z' }];
+
+    const merged = mergeMessageLists(local, server);
+
+    expect(merged[0].toolsUsed).toEqual(['repo_commit_changes']);
+  });
 });

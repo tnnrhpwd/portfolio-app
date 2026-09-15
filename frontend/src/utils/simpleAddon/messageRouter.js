@@ -142,6 +142,29 @@ export const isCloudDataIntent = (text = '') => {
   return CLOUD_DATA_QUESTION_RE.test(text) || CLOUD_REPORT_RE.test(text);
 };
 
+/** Words a short "go on then" answer is built from. */
+const AFFIRMATIVE_TOKENS = new Set([
+  'yes', 'yeah', 'yep', 'y', 'ok', 'okay', 'sure', 'please', 'do', 'go', 'ahead',
+  'proceed', 'confirm', 'confirmed', 'approve', 'approved', 'ship', 'it', 'push',
+  'now', 'lgtm', 'correct', 'right', 'fine',
+]);
+
+/**
+ * A short "go on then" answer — or a literal `push <code>` — i.e. a reply to a
+ * question the CLOUD asked, not a fresh instruction.
+ *
+ * ≤4 words and every word drawn from the affirmative set, so "yes push it",
+ * "go ahead", "ship it" and "push a2e3" qualify while "open notepad" and
+ * "sure, but also fix the tests" do not.
+ */
+export const isRepoFlowConfirmation = (text = '') => {
+  if (!text || typeof text !== 'string') return false;
+  const words = text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+  if (words.length === 0 || words.length > 4) return false;
+  if (words.length === 2 && words[0] === 'push' && /^[a-z0-9]{4,8}$/.test(words[1])) return true;
+  return words.every((w) => AFFIRMATIVE_TOKENS.has(w));
+};
+
 export const isCloudOnlyIntent = (text = '') => {
   if (!text || typeof text !== 'string') return false;
   if (CLOUD_ONLY_PATTERNS.some((re) => re.test(text))) return true;
@@ -161,6 +184,7 @@ export const isCloudOnlyIntent = (text = '') => {
  * @param {boolean} [input.isRemoteAddonOnline]   addon reachable via cloud relay
  * @param {boolean} [input.isLoggedIn]            user has a token
  * @param {boolean} [input.phoneTargetingDesktop] arrived via ?addon= QR link
+ * @param {boolean} [input.repoFlowActive]        the last assistant turn used repo_* tools
  * @returns {{kind:string, reason:string, confidence:number, cloudOnly?:boolean, skippedAddon?:boolean}}
  */
 export function routeMessage({
@@ -173,6 +197,7 @@ export function routeMessage({
   isRemoteAddonOnline = false,
   isLoggedIn = false,
   phoneTargetingDesktop = false,
+  repoFlowActive = false,
 } = {}) {
   const decide = (kind, reason, confidence = 1, extra = {}) => ({
     kind, reason, confidence, ...extra,
@@ -206,6 +231,17 @@ export function routeMessage({
   // 6. Logic mode: let the addon's O-O-G-P-A loop try the message first —
   //    unless it's a cloud-only intent (skip the expensive relay hop).
   const addonReachable = isAddonConnected || isRemoteAddonOnline;
+
+  // 6a. A short confirmation that follows a repository-tool turn continues THAT
+  //     cloud conversation: the desktop agent never saw the question (it has no
+  //     repo tools), so handing it "yes push it" makes it answer something
+  //     unrelated — observed 2026-09-14, when the reply was "I need more context
+  //     ... what would you like me to push?" and the change was never pushed.
+  if (!hasImage && repoFlowActive && addonReachable && isRepoFlowConfirmation(text)) {
+    const kind = provider === 'portfolio' ? ROUTE_KINDS.CHAT_CLOUD : ROUTE_KINDS.CHAT_LOCAL;
+    return decide(kind, 'repo-flow-confirmation', 0.9, { skippedAddon: true });
+  }
+
   if (!hasImage && addonReachable) {
     const cloudOnly = isCloudOnlyIntent(text);
     if (cloudOnly) {

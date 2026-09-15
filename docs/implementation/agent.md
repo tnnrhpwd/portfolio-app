@@ -1121,6 +1121,30 @@ Verified live after both fixes: the same goals question produced **no** desktop
 worker (`workersRunning: 0`), the cloud call returned 200, and the user message
 plus reply stayed in the same conversation with the active id unchanged.
 
+**3. A `yes push it` confirmation was answered by the desktop agent.** The repo
+flow ends with the agent asking *"reply `push a2e3` to confirm"*. That follow-up is
+a short message, so the router handed it to the addon — which had never seen the
+question — and its classifier answered *"I need more context … what would you like
+me to push?"*. The confirmation never reached the cloud, so nothing pushed and the
+whole exchange looked like the model had amnesia.
+
+Two halves to the fix:
+
+- `SimpleChat` records the tools each cloud turn used (`toolsUsed` on the assistant
+  message; `mergeMessageLists` now unions message fields so a sync can't strip it).
+- `routeMessage` sends a short confirmation to the cloud whenever the previous turn
+  used `repo_*` tools — `isRepoFlowConfirmation()` accepts ≤4 words drawn from an
+  affirmative set (`yes`, `ok`, `sure`, `go ahead`, `ship it`, …) or a literal
+  `push <code>`, and the decision is reported as `repo-flow-confirmation`. Ordinary
+  instructions are untouched: "open notepad" and "sure, but also fix the failing
+  tests first" still go to the addon, and a confirmation with *no* repo workflow in
+  flight still does too.
+
+Verified live (harmless calculator turn): the assistant message carries
+`toolsUsed: ['calculate']` in the local store, which is the same signal a
+`repo_commit_changes` turn produces. The push itself was deliberately **not**
+triggered during verification.
+
 ---
 
 ## 15. How /net chat messages are routed (reference)

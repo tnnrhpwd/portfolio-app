@@ -9,6 +9,7 @@ import {
   routeMessage,
   isPcControlRequest,
   isCloudOnlyIntent,
+  isRepoFlowConfirmation,
   chatFallbackFor,
   ROUTE_KINDS,
   ROUTE_TRANSITIONS,
@@ -121,6 +122,40 @@ describe('routeMessage — logic mode & cloud-only shortcut', () => {
 
     expect(d.kind).toBe(ROUTE_KINDS.CHAT_CLOUD);
     expect(d.skippedAddon).toBe(true);
+  });
+
+  it('sends a repo-workflow confirmation to the cloud, not the desktop agent', () => {
+    // The addon never saw the question (the cloud agent asked "reply `push a2e3`
+    // to confirm"), so a confirmation handed to it produced "I need more
+    // context ... what would you like me to push?" and the change never pushed.
+    const opts = { isAddonConnected: true, provider: 'portfolio', repoFlowActive: true };
+    for (const text of ['yes push it', 'push a2e3', 'go ahead', 'ship it', 'yes']) {
+      const d = routeMessage({ text, ...opts });
+      expect([text, d.kind, d.reason]).toEqual([text, ROUTE_KINDS.CHAT_CLOUD, 'repo-flow-confirmation']);
+      expect(d.skippedAddon).toBe(true);
+    }
+  });
+
+  it('leaves a confirmation with the addon when no repo workflow is in flight', () => {
+    const d = routeMessage({ text: 'yes push it', isAddonConnected: true, provider: 'portfolio' });
+
+    expect(d.kind).toBe(ROUTE_KINDS.AGENT);
+  });
+
+  it('does not mistake an instruction for a confirmation', () => {
+    const opts = { isAddonConnected: true, provider: 'portfolio', repoFlowActive: true };
+
+    expect(routeMessage({ text: 'open notepad', ...opts }).kind).toBe(ROUTE_KINDS.AGENT);
+    expect(routeMessage({ text: 'sure, but also fix the failing tests first', ...opts }).kind).toBe(ROUTE_KINDS.AGENT);
+  });
+
+  it('recognises confirmation wording directly', () => {
+    expect(isRepoFlowConfirmation('yes push it')).toBe(true);
+    expect(isRepoFlowConfirmation('push a2e3')).toBe(true);
+    expect(isRepoFlowConfirmation('go ahead')).toBe(true);
+    expect(isRepoFlowConfirmation('')).toBe(false);
+    expect(isRepoFlowConfirmation('open the calculator')).toBe(false);
+    expect(isRepoFlowConfirmation('yes, and then update the pricing page too')).toBe(false);
   });
 
   it('skips the addon hop for a website source change', () => {

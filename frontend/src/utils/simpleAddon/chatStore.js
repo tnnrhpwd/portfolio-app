@@ -65,11 +65,16 @@ export function mergeMessageLists(a = [], b = []) {
     if (!msg || msg.id == null) continue;
     const key = String(msg.id);
     const seen = byId.get(key);
-    // Prefer the longer body: a streamed reply still growing, or a local message
-    // the server hasn't seen yet, must not be truncated by the merge.
-    if (!seen || String(msg.content ?? '').length >= String(seen.content ?? '').length) {
+    if (!seen) {
       byId.set(key, msg);
+      continue;
     }
+    // Union the fields (later copy wins) so client-only annotations — e.g. the
+    // `toolsUsed` list the router needs to spot a repo-workflow confirmation —
+    // are not lost when the server's plainer copy of the message arrives. Then
+    // take the longer body, so a streamed reply still growing is not truncated.
+    const longer = String(msg.content ?? '').length >= String(seen.content ?? '').length ? msg : seen;
+    byId.set(key, { ...seen, ...msg, content: longer.content });
   }
   return [...byId.values()].sort(
     (x, y) => String(x.timestamp ?? '').localeCompare(String(y.timestamp ?? ''))

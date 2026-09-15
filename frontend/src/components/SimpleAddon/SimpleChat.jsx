@@ -1475,6 +1475,13 @@ function SimpleChat({
 
       const provider = settings.llmProvider || 'portfolio';
 
+      // Did the previous assistant turn in THIS conversation use repository tools?
+      // If so, a short confirmation ("yes push it", "push a2e3") is answering a
+      // cloud question, and must not be handed to the desktop agent — which never
+      // saw it. See routeMessage's `repoFlowActive`.
+      const lastAssistant = [...(currentConv?.messages || [])].reverse().find(m => m.role === 'assistant');
+      const repoFlowActive = (lastAssistant?.toolsUsed || []).some(t => String(t).startsWith('repo_'));
+
       // ── Route the message ───────────────────────────────────────────────
       // The *decision* of where a message goes is a pure function; the blocks
       // below just execute it. See utils/simpleAddon/messageRouter.js, and the
@@ -1487,6 +1494,7 @@ function SimpleChat({
         isRemoteAddonOnline,
         isLoggedIn: !!user?.token,
         phoneTargetingDesktop: !!getCustomAddonHost(),
+        repoFlowActive,
       });
 
       // ── Vision requires the cloud provider ─────────────────────────────
@@ -1865,8 +1873,19 @@ function SimpleChat({
               }));
             },
             onTools: (tools) => {
-              // Could display tool indicators — for now just log
-              console.log('[Stream] Tools executed:', tools);
+              // Remember which tools ran on this message. A later short
+              // confirmation ("yes push it") has to continue in the cloud, and
+              // this is how the router knows a repo workflow is in progress.
+              const names = (tools || []).map(t => t.tool).filter(Boolean);
+              setConversations(prev => prev.map(c => {
+                if (c.id !== activeConversationId) return c;
+                return {
+                  ...c,
+                  messages: c.messages.map(m =>
+                    m.id === streamingMsgId ? { ...m, toolsUsed: names } : m
+                  ),
+                };
+              }));
             },
             onMeta: (meta) => {
               // Attach token usage and cost to the streaming message
