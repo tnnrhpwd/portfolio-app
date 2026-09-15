@@ -1,0 +1,254 @@
+/* GoalMap.css — the /plans Map view (node graph).
+   ---------------------------------------------------------------------------
+   The graph is drawn as one SVG (not positioned DOM nodes) because the edges are
+   cubic paths between fixed anchors — laying that out in HTML would mean a canvas
+   of absolutely-positioned divs plus a separate painter for the lines.
+
+   ⚠️ The hue ramp below is CATEGORY IDENTITY, not status. On this page pink,
+   orange and red are reserved signals (blocked / paused / failed — see the note
+   at the top of Plans.css), so the two never share a channel: a lane's hue is
+   only ever a 3px rail, a ~7% wash and a legend swatch, while the thing that
+   actually says "blocked" is the node's status glyph, inked from `--badge-tone`
+   with the same mapping the goal cards use. Categories are capped at 8 by the
+   backend for exactly this reason (`CATEGORY_MAX` in services/goalMap.js).
+
+   Hue ORDER matters as much as the values: consecutive lanes take hues from
+   opposite sides of the wheel, so neighbours never look like each other.
+
+   ⚠️ Chroma is kept LOW (0.105 light / 0.09 dark) for exactly that reason. Two
+   of the eight hues sit near the page's signal hues — 35° is close to the paused
+   orange, 330° to the blocked pink — and a categorical ramp that has to span the
+   wheel cannot avoid that. Lowering the chroma, and never using a lane hue for
+   ink, keeps the two channels apart: a pink LANE is a category, a pink GLYPH on
+   a node is blocked. Chroma also has to stay inside sRGB at this lightness;
+   higher values clamp on the greens and the ramp stops being predictable. */
+
+.goal-map {
+  /* Full-width: a graph needs the whole grid, not one column of the shell's
+     auto-fit tracks (same reason `.dream` does). */
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.2);
+  padding: calc(var(--nav-size) * 0.3);
+  background: var(--glass);
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow);
+  color: var(--text-color);
+}
+
+/* Lightness/chroma are pinned per mode and only the HUE varies per lane, so a
+   ramp that reads on the light page also reads on the dark one. */
+.goal-map { --map-l: 0.58; --map-c: 0.105; }
+.dark-theme .goal-map { --map-l: 0.80; --map-c: 0.09; }
+.goal-map [data-hue] { --map-hue: 255; --map-color: oklch(var(--map-l) var(--map-c) var(--map-hue)); }
+.goal-map [data-hue='0'] { --map-hue: 255; } /* blue */
+.goal-map [data-hue='1'] { --map-hue: 35; }  /* orange */
+.goal-map [data-hue='2'] { --map-hue: 165; } /* green */
+.goal-map [data-hue='3'] { --map-hue: 330; } /* magenta */
+.goal-map [data-hue='4'] { --map-hue: 95; }  /* olive */
+.goal-map [data-hue='5'] { --map-hue: 285; } /* violet */
+.goal-map [data-hue='6'] { --map-hue: 205; } /* cyan */
+.goal-map [data-hue='7'] { --map-hue: 15; }  /* red-orange */
+
+/* ── Head ─────────────────────────────────────────────────────────────────── */
+
+.goal-map-head {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--nav-size) * 0.2);
+  flex-wrap: wrap;
+}
+.goal-map-heading { flex: 1; min-width: min(100%, 22ch); }
+.goal-map-title {
+  margin: 0 0 calc(var(--nav-size) * 0.08);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+.goal-map-meta {
+  margin: 0;
+  max-width: 62ch;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-base);
+  color: var(--text-color-accent);
+}
+.goal-map-generate { flex-shrink: 0; }
+
+.goal-map-progress,
+.goal-map-notice,
+.goal-map-note,
+.goal-map-error,
+.goal-map-empty {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-base);
+}
+.goal-map-progress { color: var(--text-color-accent); }
+.goal-map-notice { color: var(--fg-blue); }
+/* The map is a snapshot; saying so is better than quietly showing yesterday's
+   goals. Same muted ink as the meta line — it is information, not an alarm. */
+.goal-map-note { color: var(--text-color-accent); }
+.goal-map-error { color: var(--fg-pink); }
+.goal-map-error a { color: var(--fg-blue); font-weight: var(--font-weight-semibold); }
+.goal-map-empty {
+  padding: calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.35);
+  background: var(--glass-sunken);
+  border-radius: var(--glass-radius);
+  color: var(--text-color-accent);
+  max-width: 56ch;
+}
+
+/* ── Canvas ───────────────────────────────────────────────────────────────── */
+
+/* The graph is as wide as the AI's lane count and as tall as its longest lane.
+   It scrolls INSIDE this box (never sideways-pushing the page) and is capped in
+   height so a 100-goal lane can't stretch the page into a scrollbar several
+   screens long. `tabIndex` on the wrapper is what makes the scroll reachable by
+   keyboard — a scroll container with no focusable content is a trap. */
+.goal-map-canvas {
+  overflow: auto;
+  max-height: 68vh;
+  padding: calc(var(--nav-size) * 0.18);
+  background: var(--glass-sunken);
+  border-radius: var(--glass-radius);
+  overscroll-behavior: contain;
+}
+.goal-map-canvas:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
+}
+/* This is the only scroller on the page, and an unthemed one is a bright white
+   slab across the dark theme. Same treatment the `.simple-root` panes get. */
+.goal-map-canvas {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text-color) 28%, transparent) transparent;
+}
+.goal-map-canvas::-webkit-scrollbar { width: 8px; height: 8px; }
+.goal-map-canvas::-webkit-scrollbar-track { background: transparent; }
+.goal-map-canvas::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-color) 28%, transparent);
+  border-radius: 4px;
+}
+.goal-map-canvas::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-color) 45%, transparent);
+}
+.goal-map-svg { display: block; }
+.goal-map-svg text { font-family: inherit; }
+
+/* A lane is a wash, not a plane: the nodes inside it are the panes. */
+.goal-map-lane-bg {
+  fill: color-mix(in oklab, var(--map-color) 7%, transparent);
+  stroke: color-mix(in oklab, var(--map-color) 26%, transparent);
+  stroke-width: 1;
+}
+.goal-map-lane-label {
+  fill: color-mix(in oklab, var(--map-color) 72%, var(--text-color));
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.1em;
+}
+.goal-map-lane-count {
+  fill: var(--text-color-accent);
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── Links ────────────────────────────────────────────────────────────────── */
+
+/* Prerequisite → dependent. Drawn under the nodes, and in the page's text ink
+   rather than a hue: an arrow is not a category. */
+.goal-map-edge {
+  fill: none;
+  stroke: color-mix(in oklab, var(--text-color) 34%, transparent);
+  stroke-width: 1.4;
+}
+.goal-map-arrowhead { fill: color-mix(in oklab, var(--text-color) 50%, transparent); }
+
+/* ── Nodes ────────────────────────────────────────────────────────────────── */
+
+.goal-map-node-bg {
+  fill: color-mix(in oklab, var(--map-color) 7%, var(--bg-1));
+  stroke: color-mix(in oklab, var(--map-color) 30%, transparent);
+  stroke-width: 1;
+  transition: fill 0.18s ease, stroke 0.18s ease;
+}
+.goal-map-node-rail { fill: var(--map-color); }
+.goal-map-node-title { fill: var(--text-color); font-size: 12.5px; font-weight: var(--font-weight-semibold); }
+.goal-map-node-glyph { font-size: 11px; }
+
+.goal-map-node.is-openable { cursor: pointer; }
+.goal-map-node.is-openable:hover .goal-map-node-bg {
+  fill: color-mix(in oklab, var(--map-color) 15%, var(--bg-1));
+  stroke: color-mix(in oklab, var(--map-color) 55%, transparent);
+}
+.goal-map-node.is-openable:focus-visible { outline: none; }
+.goal-map-node.is-openable:focus-visible .goal-map-node-bg {
+  stroke: var(--fg-blue);
+  stroke-width: 2;
+}
+
+/* A goal the map remembers but which no longer exists: still drawn (the AI's
+   grouping is still informative), dimmed, dashed, and not clickable. */
+.goal-map-node.is-gone { opacity: 0.5; }
+.goal-map-node.is-gone .goal-map-node-bg { stroke-dasharray: 3 3; }
+
+/* Status ink — the same mapping the goal cards use, so "blocked" is the same
+   colour on the map as it is on the card. */
+.goal-map-node[data-status='active']  { --badge-tone: var(--fg-mint); }
+.goal-map-node[data-status='blocked'] { --badge-tone: var(--fg-pink); }
+.goal-map-node[data-status='paused']  { --badge-tone: var(--fg-orange); }
+.goal-map-node[data-status='failed']  { --badge-tone: var(--red0); }
+.goal-map-node[data-status='done']    { --badge-tone: var(--fg-blue); }
+.goal-map-node[data-status] .goal-map-node-glyph {
+  fill: color-mix(in oklab, var(--badge-tone) var(--plane-ink-fallback), var(--text-color));
+  fill: oklch(from var(--badge-tone) var(--plane-ink-l) c h);
+}
+.goal-map-node[data-status='done'] { opacity: 0.82; }
+
+/* ── Legend ───────────────────────────────────────────────────────────────── */
+
+.goal-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.24);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.goal-map-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.1);
+  max-width: 100%;
+  font-size: var(--font-size-xs);
+  color: var(--text-color-accent);
+}
+.goal-map-legend-swatch {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--map-color);
+}
+.goal-map-legend-label { color: var(--text-color); overflow-wrap: anywhere; }
+.goal-map-legend-count {
+  padding: 0 calc(var(--nav-size) * 0.14);
+  border-radius: 999px;
+  background: var(--bg-accent);
+  color: var(--text-color);
+}
+
+/* ── Narrow ───────────────────────────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+  .goal-map-head { flex-direction: column; align-items: stretch; }
+  .goal-map-generate { width: 100%; }
+  .goal-map-canvas { max-height: 60vh; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goal-map-node-bg { transition: none; }
+}

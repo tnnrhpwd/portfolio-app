@@ -328,6 +328,61 @@ export function isAgentReady(goal) {
   return !isTerminalStatus(status) && status !== 'paused';
 }
 
+// ── Folded groups ───────────────────────────────────────────────────────────
+//
+// A workspace with a hundred finished goals should not be a hundred cards the
+// visitor scrolls past on every visit, so a group's heading folds its own grid
+// shut. The fold is the visitor's own and it is remembered per device: one that
+// springs open again next time is one nobody bothers to use twice.
+
+/** Where the folded groups are stored. Per device, like the theme and the scheme. */
+export const COLLAPSED_GROUPS_KEY = 'plansCollapsedGroups';
+
+/** A stored value → the folded keys. Garbage, or nothing at all, reads as "nothing
+ *  folded" — the state a first-time visitor gets, and the one that can never hide
+ *  work by accident. */
+export function parseCollapsedGroups(raw) {
+  if (!raw) return new Set();
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((key) => typeof key === 'string' && key));
+  } catch {
+    return new Set();
+  }
+}
+
+/** The folded keys → what is stored. */
+export function serializeCollapsedGroups(keys) {
+  return JSON.stringify([...keys]);
+}
+
+/** One fold toggled, as a NEW set — the caller's stays untouched. */
+export function toggleCollapsedGroup(keys, key) {
+  const next = new Set(keys);
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
+  return next;
+}
+
+/** The stored folds. Storage is per-origin and can throw (private mode, a blocked
+ *  site setting), and a folded card list is not worth an error boundary. */
+export function readCollapsedGroups(storage = globalThis.localStorage) {
+  try {
+    return parseCollapsedGroups(storage?.getItem(COLLAPSED_GROUPS_KEY));
+  } catch {
+    return new Set();
+  }
+}
+
+export function writeCollapsedGroups(keys, storage = globalThis.localStorage) {
+  try {
+    storage?.setItem(COLLAPSED_GROUPS_KEY, serializeCollapsedGroups(keys));
+  } catch {
+    // Nothing to recover from: the fold just won't survive the reload.
+  }
+}
+
 /**
  * Whether an agent has already been enlisted on this goal — i.e. there is a run
  * to *look at*, not just a goal to start. Any recorded run state counts, so the

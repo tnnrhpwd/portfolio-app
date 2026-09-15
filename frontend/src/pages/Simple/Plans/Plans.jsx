@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import Header from '../../../components/Header/Header.jsx';
@@ -23,6 +23,7 @@ import {
 import { useAddonDetection } from '../../../hooks/simpleAddon/useAddonDetection';
 import SimpleNav from '../../../components/Simple/SimpleNav/SimpleNav.jsx';
 import DreamBoard from './DreamBoard.jsx';
+import GoalMap from './GoalMap.jsx';
 import {
   OOGPA_STAGES,
   LOOP_LABELS,
@@ -45,6 +46,9 @@ import {
   goalStats,
   isAgentReady,
   hasBeenEnlisted,
+  readCollapsedGroups,
+  writeCollapsedGroups,
+  toggleCollapsedGroup,
 } from './plansUtils';
 import './Plans.css';
 
@@ -84,6 +88,11 @@ const LIBRARY_FILTERS = [
   { key: 'active',    label: 'Active' },
   { key: 'completed', label: 'Done' },
 ];
+
+// Library groups fold under their own keys, so folding "Completed" in the Library
+// never folds the goals view's "Done": different lists, different folds.
+const LIBRARY_ACTIVE_GROUP = 'library:active';
+const LIBRARY_DONE_GROUP = 'library:done';
 
 // The workspace goal vocabulary (the canonical store's richer lifecycle).
 const GOAL_STATUS_OPTIONS = ['active', 'paused', 'blocked', 'done', 'failed'];
@@ -135,6 +144,21 @@ function Plans() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [sortBy, setSortBy] = useState('smart');
+
+  // ── Folded groups ────────────────────────────────────────────────────────
+  // Which group headings are folded shut, read once on mount from the visitor's
+  // own device. A hundred finished goals is a wall of cards otherwise, and the
+  // choice has to outlive the visit or it is not worth making.
+  const [collapsedGroups, setCollapsedGroups] = useState(readCollapsedGroups);
+  const toggleGroup = useCallback((key) => {
+    setCollapsedGroups((prev) => {
+      const next = toggleCollapsedGroup(prev, key);
+      // Written from inside the updater so a fast double-click cannot lose a fold;
+      // the write is idempotent, so React re-invoking the updater is harmless.
+      writeCollapsedGroups(next);
+      return next;
+    });
+  }, []);
 
   // ── Quick add ────────────────────────────────────────────────────────────
   const [quickTitle, setQuickTitle] = useState('');
@@ -303,14 +327,19 @@ function Plans() {
   const activeStage = stageIndex(agentLive?.stage);
   const runningWorkers = agentLive?.workerCount || 0;
   const hasFilters = Boolean(search) || statusFilter !== 'all' || priorityFilter !== 'all';
-  // Three views of one store: the goal list, the dream board over the same
-  // goals, and the supporting memory (plans/actions/notes). The dream board owns
-  // its own controls, search and create form, so the goals/library ones are
-  // explicitly gated on the OTHER two views rather than on `!isGoalsView`.
+  // Four views of one store: the goal list, the dream board over the same
+  // goals, the AI's node map over the same goals again, and the supporting memory
+  // (plans/actions/notes). The dream board and the map both own their own
+  // controls (and the map its own create path — it asks the backend to read the
+  // goals), so the goals/library controls are gated on the OTHER views rather
+  // than on `!isGoalsView`.
   const isGoalsView = view === 'goals';
   const isLibraryView = view === 'library';
   const isDreamView = view === 'dream';
-  const viewTitle = isGoalsView ? 'Goals' : isDreamView ? 'Dream board' : 'Library';
+  const isMapView = view === 'map';
+  // Views that own their own controls — no quick-add, search, filters or form.
+  const ownsControls = isDreamView || isMapView;
+  const viewTitle = isGoalsView ? 'Goals' : isDreamView ? 'Dream board' : isMapView ? 'Goal map' : 'Library';
 
   // -- Form helpers ----------------------------------------------------------
 
@@ -566,7 +595,7 @@ function Plans() {
               </span>
             )}
 
-            {user && !isDreamView && (
+            {user && !ownsControls && (
               <div className="plans-bar-actions">
                 <button type="button" className="plans-btn plans-btn--primary" onClick={openCreate}>
                   + New goal
@@ -691,7 +720,7 @@ function Plans() {
                 </section>
               )}
 
-              {/* View switch: Goals | Library */}
+              {/* View switch: Goals | Board | Map | Library */}
               <div className="plans-switch" role="tablist" aria-label="Workspace view">
                 <button
                   type="button"
@@ -711,9 +740,21 @@ function Plans() {
                   aria-label="Dream board"
                   title="Dream board"
                 >
-                  {/* The tab label stays one word so all three tabs are the same
+                  {/* The tab label stays one word so all four tabs are the same
                       height; the page's own <h1> spells out "Dream board". */}
                   🌟 Board
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={isMapView}
+                  className={`plans-switch-btn ${isMapView ? 'is-active' : ''}`}
+                  onClick={() => setView('map')}
+                  aria-label="Goal map"
+                  title="Goal map"
+                >
+                  {/* One word, for the same reason as Board above. */}
+                  🗺️ Map
                 </button>
                 <button
                   type="button"
@@ -746,8 +787,9 @@ function Plans() {
               )}
 
               {/* Controls — goals + library. The dream board renders its own
-                  (search, board filters, + New dream) inside DreamBoard. */}
-              {!isDreamView && (
+                  (search, board filters, + New dream) inside DreamBoard, and the
+                  map renders its own (the generate/update button). */}
+              {!ownsControls && (
               <section className="plans-controls">
                 <form className="plans-quickadd" onSubmit={handleQuickAdd}>
                   <span className="plans-quickadd-icon" aria-hidden="true">{isGoalsView ? '🎯' : currentTab.icon}</span>
@@ -826,7 +868,7 @@ function Plans() {
               )}
 
               {/* Create / edit form */}
-              {!isDreamView && showForm && (
+              {!ownsControls && showForm && (
                 <form className="plans-form" onSubmit={handleSubmit}>
                   <div className="plans-form-head">
                     <h2 className="plans-form-title">
@@ -976,7 +1018,7 @@ function Plans() {
               )}
 
               {/* Loading skeleton */}
-              {loading && !isDreamView && (
+              {loading && !ownsControls && (
                 <div className="plans-skeleton-list" aria-label="Loading">
                   {[0, 1, 2].map((i) => (
                     <div className="plans-skeleton-card" key={i}>
@@ -999,30 +1041,42 @@ function Plans() {
                         ? <button type="button" className="plans-btn plans-btn--ghost" onClick={clearFilters}>Clear filters</button>
                         : <button type="button" className="plans-btn plans-btn--primary" onClick={openCreate}>+ Create your first goal</button>}
                     />
-                  ) : goalGroups.map((group) => (
-                    <div className="plans-group" key={group.status}>
-                      {goalGroups.length > 1 && (
-                        <h3 className={`plans-group-title plans-group-title--${group.status}`}>
-                          {group.label} <span className="plans-group-count">{group.items.length}</span>
-                        </h3>
-                      )}
-                      <div className="plans-goal-grid">
-                        {group.items.map((item) => (
-                          <GoalCard
-                            key={item._id}
-                            item={item}
-                            onStatusChange={handleStatusChange}
-                            onDelete={requestDelete}
-                            onEdit={openEditGoal}
-                            onOpen={openGoal}
-                            onEnlist={handleEnlist}
-                            onViewAgent={handleViewAgent}
-                            enlisting={enlisting}
-                          />
-                        ))}
+                  ) : goalGroups.map((group) => {
+                    const folded = collapsedGroups.has(group.status);
+                    const gridId = `plans-goal-group-${group.status}`;
+                    return (
+                      <div className="plans-group" key={group.status}>
+                        {/* Drawn even when this is the only bucket: the heading is
+                            the fold's handle, so its presence can't depend on how
+                            many buckets happen to exist — with a hundred finished
+                            goals and nothing else, a missing heading is exactly the
+                            case the fold was asked for. */}
+                        <GroupHeading
+                          label={group.label}
+                          count={group.items.length}
+                          folded={folded}
+                          controls={gridId}
+                          tone={group.status}
+                          onToggle={() => toggleGroup(group.status)}
+                        />
+                        <div className="plans-goal-grid" id={gridId} hidden={folded}>
+                          {group.items.map((item) => (
+                            <GoalCard
+                              key={item._id}
+                              item={item}
+                              onStatusChange={handleStatusChange}
+                              onDelete={requestDelete}
+                              onEdit={openEditGoal}
+                              onOpen={openGoal}
+                              onEnlist={handleEnlist}
+                              onViewAgent={handleViewAgent}
+                              enlisting={enlisting}
+                            />
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </section>
               )}
 
@@ -1042,6 +1096,17 @@ function Plans() {
                 />
               )}
 
+              {/* Map view — the same goals again, as the AI's category lanes and
+                  dependency arrows. It reads the saved map itself and is the
+                  only place a map can be generated. */}
+              {isMapView && (
+                <GoalMap
+                  goals={goals}
+                  token={user?.token}
+                  onOpen={openGoal}
+                />
+              )}
+
               {/* Library view */}
               {!loading && isLibraryView && (
                 <section className="plans-goals">
@@ -1057,8 +1122,18 @@ function Plans() {
                     <>
                       {libraryActive.length > 0 && (
                         <div className="plans-group">
-                          {libraryDone.length > 0 && <h3 className="plans-group-title">Active</h3>}
-                          <div className="plans-item-list">
+                          <GroupHeading
+                            label="Active"
+                            count={libraryActive.length}
+                            folded={collapsedGroups.has(LIBRARY_ACTIVE_GROUP)}
+                            controls="plans-library-active"
+                            onToggle={() => toggleGroup(LIBRARY_ACTIVE_GROUP)}
+                          />
+                          <div
+                            className="plans-item-list"
+                            id="plans-library-active"
+                            hidden={collapsedGroups.has(LIBRARY_ACTIVE_GROUP)}
+                          >
                             {libraryActive.map((item) => (
                               <LibraryCard
                                 key={item._id}
@@ -1073,8 +1148,18 @@ function Plans() {
                       )}
                       {libraryDone.length > 0 && (
                         <div className="plans-group plans-group--done">
-                          <h3 className="plans-group-title">Completed</h3>
-                          <div className="plans-item-list">
+                          <GroupHeading
+                            label="Completed"
+                            count={libraryDone.length}
+                            folded={collapsedGroups.has(LIBRARY_DONE_GROUP)}
+                            controls="plans-library-done"
+                            onToggle={() => toggleGroup(LIBRARY_DONE_GROUP)}
+                          />
+                          <div
+                            className="plans-item-list"
+                            id="plans-library-done"
+                            hidden={collapsedGroups.has(LIBRARY_DONE_GROUP)}
+                          >
                             {libraryDone.map((item) => (
                               <LibraryCard
                                 key={item._id}
@@ -1172,6 +1257,33 @@ function EmptyState({ icon, title, action }) {
       <p className="plans-empty-title">{title}</p>
       {action}
     </div>
+  );
+}
+
+// -- Group heading ------------------------------------------------------------
+
+/**
+ * A bucket's heading, which doubles as its handle: clicking it folds that group's
+ * grid shut, so a workspace with a hundred finished goals is not a hundred cards
+ * on every visit. Two details are deliberate — the count sits OUTSIDE the fold, so
+ * a shut group still says how much it is hiding, and the state is carried by
+ * `aria-expanded` rather than by the caret alone.
+ */
+function GroupHeading({ label, count, folded, controls, tone, onToggle }) {
+  return (
+    <h3 className={`plans-group-title${tone ? ` plans-group-title--${tone}` : ''}`}>
+      <button
+        type="button"
+        className="plans-group-toggle"
+        aria-expanded={!folded}
+        aria-controls={controls}
+        onClick={() => onToggle()}
+      >
+        <span className="plans-group-caret" aria-hidden="true">▾</span>
+        {label}
+        <span className="plans-group-count">{count}</span>
+      </button>
+    </h3>
   );
 }
 

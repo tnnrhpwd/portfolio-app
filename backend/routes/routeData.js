@@ -109,6 +109,7 @@ const {
   getWorkspaceTemplates,
   compileMacroNatural,
   editMacroNatural,
+  generateGoalMap,
   agentChatProxy,
   agentVisionProxy,
 } = require('../controllers/workspaceController');
@@ -739,6 +740,10 @@ router.get('/csimple/workspace/telemetry/summary', protect, workspaceReadLimiter
 router.post('/csimple/compile-natural', protect, llmLimiter, sanitizeInput, compileMacroNatural);
 // NL macro editor — modify an existing macro's steps via English instruction
 router.post('/csimple/edit-natural', protect, llmLimiter, sanitizeInput, editMacroNatural);
+// /plans Map view — categorise + sequence the caller's goals into a graph.
+// Reads the goals server-side and stores the result as kind `map` (slug
+// `goal-map`), so the view's "Update" is the only thing that spends a credit.
+router.post('/csimple/goal-map', protect, llmLimiter, sanitizeInput, generateGoalMap);
 // §7.1 addon LLM provider seam backend routes — the Simple Addon's agent
 // loop / skill repair / vision lookups ALWAYS proxy through these (never a
 // direct LLM call from the addon). See simple-addon/server/automation/llm-provider.js.

@@ -3279,4 +3279,124 @@ The pane rendered, the rail filled — and the thread came back
 
 ---
 
+## 22. Goal map — `/plans` 🗺️
+
+The fourth tab on `/plans`: the same goals, drawn as a node graph. The AI groups
+them into categories and sequences them by expected dependency. It is
+**generated, stored, then re-generated on demand** — the view renders a saved
+snapshot, and one button is the only thing that spends a credit.
+
+### 22.1 Two axes are the AI's; everything else is ours
+
+| Axis | Comes from | Renders as |
+| --- | --- | --- |
+| Category | `categories[]` — capped at 8, `other` always last | a **lane**, left → right **in the AI's order**, with a hue, label and count |
+| Sequence | `order` on each node | the node's position down its lane |
+| Dependency | `dependsOn[]` — capped at 3 per node | an **arrow from the prerequisite to the dependent** |
+
+No coordinates come back from the model, and the view is **not** force-directed: a
+lane's horizontal position has to mean something, and "the model put this group
+before that one" is something. Everything geometric — lane width, node size, wrap
+threshold, edge anchors — is in `frontend/src/pages/Simple/Plans/goalMapUtils.js`,
+a pure module with 18 unit tests, so a lane/edge regression is testable without
+mounting an SVG.
+
+Edges are easy to get backwards: `dependsOn` lists what comes first, so the arrow
+is drawn **from** `dependsOn[i]` **to** the node that names it — the direction the
+work flows — and it enters the dependent. Same-lane links leave the bottom of the
+prerequisite and enter the top of the dependent; a link whose target lane sits to
+the left is anchored on the facing edges.
+
+### 22.2 Backend contract
+
+- `POST /api/data/csimple/goal-map` (`protect, llmLimiter, sanitizeInput`) →
+  `generateGoalMap` in `workspaceController.js`. **The goals are read
+  server-side** from the workspace store — the browser never posts its goal list,
+  and it cannot ask for a map of somebody else's goals.
+- `backend/services/goalMap.js` (new, pure) owns every rule that makes an LLM
+  answer safe to render: `selectGoalsForMap` (rank active → blocked → paused →
+  failed → done, then priority, then recency, capped at 120 so a 400-goal account
+  still gets an answer), `buildGoalMapPrompt`, and `normalizeGoalMap` — which drops
+  unknown slugs, first-placement-wins on duplicates, derives categories a node
+  names but the model never declared, folds overflow and unmapped goals into
+  `other` (added **on top of** the cap), filters self/duplicate/unknown
+  `dependsOn`, and caps edges at 3. 15 unit tests.
+- The result is **stored before it is returned**, as a workspace item of the new
+  kind `map` (slug `goal-map`, one per user, 64KB cap) — so the view opens
+  instantly next visit and `GET /csimple/workspace/map/goal-map` reads it back
+  through the ordinary workspace route. The write is a server-side `Put`, not the
+  generic `upsertWorkspaceItem`: there is no client body to validate, and a
+  rejected map write must not be able to fail a request whose Bedrock call has
+  already been paid for. A failed write still returns the map (with
+  `meta.saved: false`).
+- Credits: `_enforceLlmCreditGate` before the call (402 → `requiresUpgrade` +
+  `upgradeUrl: '/pricing'`), `_trackAgentLlmUsage` after. No goals at all → 200
+  with `map: null` and **nothing spent**.
+
+### 22.3 One button, and a snapshot that admits its age
+
+`Generate map` becomes `Update map` once anything is stored. A map is a
+photograph of the goal list at one moment, so the view **says when it is out of
+date** rather than pretending: `goalMapDrift()` (unit-tested) compares the current
+goals against the nodes and the line reads e.g. *"⚠️ 2 new goals since this map
+was made · 1 goal in this map is gone — update to rebuild."* A node whose goal no
+longer exists is drawn dimmed, dashed and **not** clickable (the grouping is still
+information). With no goals left at all, the stored map is hidden entirely — it
+would be every node "gone" sitting next to the empty state contradicting it — and
+the button is disabled with `title="Add a goal first"`.
+
+### 22.4 Category hue vs status signal
+
+A lane's hue is **category identity**; the page's pink/orange/red already mean
+blocked/paused/failed (`Plans.css`). Two of the eight hues necessarily sit near
+those signals, so the two never share a channel: a lane hue is only ever a 3px
+rail, a 7% wash and a legend swatch, chroma is deliberately low (0.105 light /
+0.09 dark, inside sRGB at that lightness so the greens don't clamp), and the
+**loudest mark on a node is its status glyph** — inked from `--badge-tone` with
+the same mapping the goal cards use (● active, ■ blocked, ‖ paused, ✓ done, ✕
+failed). Consecutive lanes take hues from opposite sides of the wheel so
+neighbours never look alike.
+
+Other rendering rules worth keeping: lanes are clipped (`clipPath`, one per lane)
+so an unusually wide title is cut at the lane's edge instead of crossing into the
+next group; the canvas scrolls **inside** the panel (`max-height: 68vh`, themed
+thin scrollbar) and is keyboard-focusable, because a scroll container with no
+focusable content is a trap; nodes are `<g role="button" tabindex="0">` with
+Enter/Space, a `title` tooltip carrying the untruncated title, and a focus ring;
+a lane with no nodes draws no lane at all.
+
+### 22.5 Verified
+
+- **The real path ran end to end on the guest account**: one press of *Generate
+  map* returned `1 goal · 1 group · no links yet · generated Sep 15, 03:20 PM`,
+  the stored item read back through `GET /workspace/map/goal-map`, and the graph
+  rendered from that stored JSON. The row was then deleted (`?hard=1`), leaving
+  the shared guest account as it was found.
+- **The dense case was driven with mocked data**, not eyeballed: 15 goals / 5
+  lanes / 11 links → `5` lanes, `15` nodes, `11` edges, `5` legend items, and the
+  drift line reported both directions at once ("1 new goal … 1 goal … is gone").
+- **No page overflow at 320 / 414 / 480 / 600 / 768 / 1024 / 1400 / 1920px**
+  (`document.scrollingElement.scrollWidth - clientWidth === 0` at every width),
+  the tab row never overflows at any of them (`plans-switch` breaks out of its
+  stadium pill at 520px — four tabs need ~400px and the threshold moved up from
+  400 when Map joined), and the canvas scrolls horizontally inside the panel at
+  all of them.
+- **Both themes measured, not assumed**: lane/node/glyph fills resolve to the
+  intended oklch values in light and dark; the only unthemed thing found (a white
+  scrollbar slab in dark mode) was fixed by theming the canvas scrollbar.
+- **Interaction**: hover changes the node fill; keyboard `Tab` into the graph
+  lands on a node with `:focus-visible` matching and a 2px accent ring; both Enter
+  and click navigate to `/plans/goal/<slug>`; a 402 renders `role="alert"` with
+  the server's message and a `/pricing` link **with the previous map still on
+  screen**.
+- Tests: `goalMapUtils.test.js` 18/18, `GoalMap.test.jsx` 8/8,
+  `backend/__tests__/unit/goalMap.test.js` 15/15, and the whole `Plans` folder
+  75/75. `vite build` clean (the chunk-size warning predates this change).
+- The truncation cap was **measured**: a 26-character label ends ~32px short of
+  the node's right edge at 12.5px semi-bold, and an all-`W` run still overflows —
+  which is what the per-lane clip path is for, since measuring real glyph runs per
+  node would mean a layout pass per render.
+
+---
+
 **Companion doc:** [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md) — threat model, trust boundaries, and the permissions matrix.

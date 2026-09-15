@@ -132,6 +132,51 @@ export async function editMacroNaturalViaBackend(token, steps, instruction, cont
 }
 
 /**
+ * (Re)generate the /plans Map view's graph.
+ *
+ * The backend reads your stored goals itself, organises them into categories and
+ * a dependency order with one Bedrock call, and STORES the result as the
+ * `map/goal-map` workspace item — so the map opens instantly next visit and this
+ * is the only call in the view that spends a credit. Read it back with
+ * `getWorkspaceItem(token, 'map', 'goal-map')`, which returns the same object as
+ * JSON in `content`.
+ *
+ * @param {string} token - User JWT
+ * @returns {Promise<{ok: boolean, map: object|null, meta: object}>} `map` is null
+ *   when the account has no goals yet (nothing was generated, nothing spent).
+ * @throws {Error} `.status` carries the HTTP code — 402 means the monthly AI
+ *   credit limit is reached and `.upgradeUrl` points at the upgrade path.
+ */
+export async function generateGoalMapViaBackend(token) {
+  if (!token) throw new Error('Sign in required to generate a goal map');
+  let res;
+  try {
+    res = await fetch(`${getPortfolioApiUrl()}/csimple/goal-map`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({}),
+    });
+  } catch (networkErr) {
+    throw new Error(`Network error: ${networkErr.message}`);
+  }
+  const text = await res.text().catch(() => '');
+  let json;
+  try { json = JSON.parse(text); } catch { json = null; }
+  if (!res.ok) {
+    const err = _errorFromResponse(res, json, text, `Map generation failed (${res.status})`);
+    // 402 bodies carry the upgrade path; keep it on the error so the view can
+    // offer a link instead of a dead end.
+    if (json?.upgradeUrl) err.upgradeUrl = json.upgradeUrl;
+    if (json?.requiresUpgrade) err.requiresUpgrade = true;
+    throw err;
+  }
+  return json;
+}
+
+/**
  * Get LLM providers from the portfolio backend.
  */
 export async function getPortfolioLLMProviders(token) {

@@ -157,6 +157,10 @@ const ALLOWED_KINDS = new Set([
     'lesson',     // critic-written semantic memory (O-O-G-P-A loop): { pattern,
                   // context, do, avoid, confidence, sourceGoal } stored as JSON
                   // in the item `content` string.
+    'map',        // generated graph for the /plans Map view — one item per user
+                  // (slug `goal-map`), written server-side by generateGoalMap and
+                  // read back through the ordinary workspace GET. The payload is
+                  // { categories, nodes, stats } as JSON in `content`.
 ]);
 
 // Allowed goal lifecycle states.
@@ -189,6 +193,7 @@ const KIND_SIZE_CAP_BYTES = {
     action:    256 * 1024, // append-only ring buffer
     settings:  8 * 1024,
     lesson:    16 * 1024,
+    map:       64 * 1024, // ~120 nodes plus categories; see CATEGORY_MAX/GOAL_MAX
 };
 
 // Hard cap on an `action` item's text — older entries trimmed when exceeded.
@@ -1226,6 +1231,175 @@ click_at.button and key_hold.mouseButtons default to "left" ONLY if the instruct
     });
 });
 
+// ─── /plans Map view ────────────────────────────────────────────────────────
+
+/** The single workspace slug the generated map lives under (one per user). */
+const GOAL_MAP_SLUG = 'goal-map';
+
+/**
+ * Persist a generated map.
+ *
+ * Deliberately NOT the generic `upsertWorkspaceItem` handler: that one validates
+ * a body a browser sent, whereas this is the server's own write — there are no
+ * client fields to police, and a rejected map write must never be able to fail a
+ * request whose Bedrock call has already been paid for. Same key shape and same
+ * audit trail as the generic path, so the map reads back through the ordinary
+ * `GET /csimple/workspace/map/goal-map`.
+ *
+ * @returns {Promise<boolean>} true when stored, false when over the size cap.
+ */
+async function _writeGoalMap(userId, payload) {
+    const text = JSON.stringify(payload);
+    const sizeBytes = Buffer.byteLength(text, 'utf-8');
+    if (sizeBytes > KIND_SIZE_CAP_BYTES.map) {
+        logger.warn('[goal-map] payload over cap; not stored', { sizeBytes });
+        return false;
+    }
+
+    const id = itemId(userId, 'map', GOAL_MAP_SLUG);
+    const { Item: existing } = await dynamodb.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { id, createdAt: CSIMPLE_CREATED_AT },
+    }));
+
+    const now = new Date().toISOString();
+    await dynamodb.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: {
+            id,
+            createdAt: CSIMPLE_CREATED_AT,
+            kind: 'map',
+            slug: GOAL_MAP_SLUG,
+            name: 'Goal map',
+            text,
+            sizeBytes,
+            version: (existing?.version || 0) + 1,
+            createdAtReal: existing?.createdAtReal || now,
+            updatedAt: now,
+        },
+    }));
+    auditLog(userId, existing ? 'update' : 'create', { kind: 'map', slug: GOAL_MAP_SLUG, version: (existing?.version || 0) + 1 });
+    return true;
+}
+
+// @desc    Generate the /plans Map view: the caller's goals organised into
+//          thematic categories and a sequence, plus the dependencies between
+//          them, as a { categories, nodes } graph.
+//
+//          Two deliberate choices worth keeping:
+//           - The goals are read SERVER-side from the workspace, not posted by
+//             the client. The browser never has to ship its goal list, and it
+//             cannot ask for a map of somebody else's goals.
+//           - The result is STORED (kind `map`) before it is returned, so the
+//             view opens instantly on the next visit and "Update" is the only
+//             thing that ever spends a credit. A failed write does not fail the
+//             response — the map is still worth showing.
+// @route   POST /api/data/csimple/goal-map
+// @access  Private
+const generateGoalMap = asyncHandler(async (req, res) => {
+    if (!req.user) return unauthorized(res);
+
+    const { listGoals } = require('../services/workspaceGoals');
+    const { selectGoalsForMap, buildGoalMapPrompt, normalizeGoalMap, goalMapStats } = require('../services/goalMap');
+
+    let all;
+    try {
+        // listGoals returns each goal's `content` too, which is where the short
+        // description the prompt asks for comes from.
+        all = await listGoals(req.user.id);
+    } catch (e) {
+        logger.error('[goal-map] goal read failed:', e.message);
+        res.status(502);
+        throw new Error('Could not read your goals right now. Try again in a moment.');
+    }
+
+    // No goals is a legitimate state, not an error: the view shows its empty
+    // state, so answer with a null map and spend nothing.
+    if (!all.length) {
+        return res.status(200).json({ ok: true, map: null, meta: { reason: 'no-goals' } });
+    }
+
+    const selection = selectGoalsForMap(all);
+    const prompt = buildGoalMapPrompt(selection.goals);
+
+    // Pre-call credit gate — same seam as compile-natural / agent-chat.
+    const estimate = { inputTokens: Math.ceil(prompt.length / 4), outputTokens: 2500 };
+    const gate = await _enforceLlmCreditGate(req, res, estimate);
+    if (!gate) return; // 402 already written
+
+    let parsed;
+    let usage = null;
+    try {
+        const { createBedrockCompletion } = require('../services/bedrockService');
+        const response = await createBedrockCompletion([
+            {
+                role: 'system',
+                content: 'You organise a list of goals into a categorised, dependency-ordered graph. Output only valid JSON, with no prose and no code fences.',
+            },
+            { role: 'user', content: prompt },
+        ], { temperature: 0.2, maxTokens: 4000 });
+        usage = response?.usage || null;
+
+        const raw = response?.choices?.[0]?.message?.content || '';
+        // Models wrap JSON in prose or fences often enough that a brace-to-brace
+        // slice is more reliable than asking for the body to be clean.
+        const match = raw.match(/\{[\s\S]*\}/);
+        if (!match) throw new Error('the model returned no JSON');
+        parsed = JSON.parse(match[0]);
+    } catch (e) {
+        if (e.code === 'BEDROCK_THROTTLED') {
+            res.status(429);
+            throw new Error('Bedrock is rate limiting requests right now. Please wait a minute and try again.');
+        }
+        if (e.code === 'BEDROCK_ACCESS_DENIED') {
+            res.status(502);
+            throw new Error('Bedrock model access not enabled for this AWS account/region. An operator needs to enable "Claude Haiku 4.5" in the Bedrock console (us-east-1) and grant bedrock:InvokeModel to the backend\'s IAM user.');
+        }
+        if (e.code === 'BEDROCK_USE_CASE_NOT_SUBMITTED') {
+            res.status(502);
+            throw new Error('Anthropic requires a one-time "use case details" form before this AWS account can invoke Claude models on Bedrock. An operator needs to open the Bedrock console model catalog, select Claude Haiku 4.5, and submit the form (access is granted within a few minutes).');
+        }
+        logger.warn('[goal-map] generation failed:', e.message);
+        res.status(502);
+        throw new Error('The map could not be generated. Try again in a moment.');
+    }
+
+    const map = normalizeGoalMap(parsed, selection.goals);
+    if (!map.nodes.length) {
+        res.status(502);
+        throw new Error('The model did not return a usable map. Try again in a moment.');
+    }
+
+    await _trackAgentLlmUsage(req, { usage });
+
+    const payload = {
+        version: 1,
+        generatedAt: new Date().toISOString(),
+        categories: map.categories,
+        nodes: map.nodes,
+        stats: {
+            ...goalMapStats(map),
+            totalGoals: selection.total,
+            mappedGoals: map.nodes.length,
+            truncated: selection.truncated,
+        },
+    };
+
+    let saved = true;
+    try {
+        saved = await _writeGoalMap(req.user.id, payload);
+    } catch (e) {
+        logger.warn('[goal-map] persist failed:', e.message);
+        saved = false;
+    }
+
+    res.status(200).json({
+        ok: true,
+        map: payload,
+        meta: { saved, truncated: selection.truncated, totalGoals: selection.total },
+    });
+});
+
 // @desc    Generic tool-calling chat completion for the Simple Addon's
 //          automation agent loop (agent-loop.js / tools/skill.js repair /
 //          screenshot_check via the §7.1 llm-provider.js backend-proxy
@@ -1357,6 +1531,7 @@ module.exports = {
     getWorkspaceTemplates,
     compileMacroNatural,
     editMacroNatural,
+    generateGoalMap,
     agentChatProxy,
     agentVisionProxy,
     // Exported for use by llmService when assembling system prompts:

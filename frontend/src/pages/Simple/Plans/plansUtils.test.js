@@ -19,6 +19,12 @@ import {
   isTerminalStatus,
   isAgentReady,
   hasBeenEnlisted,
+  parseCollapsedGroups,
+  serializeCollapsedGroups,
+  toggleCollapsedGroup,
+  readCollapsedGroups,
+  writeCollapsedGroups,
+  COLLAPSED_GROUPS_KEY,
   DREAM_FILTERS,
   DREAM_VISION_MAX,
   isImageCover,
@@ -397,5 +403,66 @@ describe('plansUtils · dream board', () => {
 
   test('every offered board filter is answerable', () => {
     expect(DREAM_FILTERS.map((f) => f.key)).toEqual(['all', 'flight', 'achieved']);
+  });
+});
+
+/** A stand-in for localStorage, recording what was written. */
+const fakeStorage = () => {
+  const store = {};
+  return {
+    store,
+    getItem: jest.fn((key) => (key in store ? store[key] : null)),
+    setItem: jest.fn((key, value) => { store[key] = String(value); }),
+  };
+};
+
+describe('folded groups', () => {
+  test('a fold survives being stored and read back', () => {
+    const raw = serializeCollapsedGroups(new Set(['done', 'library:done']));
+    expect([...parseCollapsedGroups(raw)]).toEqual(['done', 'library:done']);
+  });
+
+  test('nothing stored — or something unreadable — folds nothing', () => {
+    // Every shape a real store can hand back, including a value written by an
+    // older build or by hand. "Nothing folded" is the state that cannot hide work
+    // by accident, so it is the only safe fallback.
+    for (const raw of [null, undefined, '', 'not json', '{"done":true}', '""', 'null']) {
+      expect([...parseCollapsedGroups(raw)]).toEqual([]);
+    }
+    // An array is read, but only the strings in it: a null or a number in the list
+    // would otherwise become a group key that matches nothing.
+    expect([...parseCollapsedGroups('["done",null,7,""]')]).toEqual(['done']);
+  });
+
+  test('toggling folds one key and leaves the caller\'s set alone', () => {
+    const before = new Set(['done']);
+    const folded = toggleCollapsedGroup(before, 'active');
+    expect([...folded].sort()).toEqual(['active', 'done']);
+    expect([...before]).toEqual(['done']);
+
+    expect([...toggleCollapsedGroup(folded, 'done')]).toEqual(['active']);
+  });
+
+  test('the read/write pair round-trips through storage', () => {
+    const storage = fakeStorage();
+    expect([...readCollapsedGroups(storage)]).toEqual([]);
+
+    writeCollapsedGroups(new Set(['done']), storage);
+    expect(storage.store[COLLAPSED_GROUPS_KEY]).toBe('["done"]');
+    expect([...readCollapsedGroups(storage)]).toEqual(['done']);
+  });
+
+  test('storage that refuses to be read or written is not an error', () => {
+    const hostile = {
+      getItem() { throw new Error('denied'); },
+      setItem() { throw new Error('denied'); },
+    };
+    expect([...readCollapsedGroups(hostile)]).toEqual([]);
+    expect(() => writeCollapsedGroups(new Set(['done']), hostile)).not.toThrow();
+
+    // And with nowhere to store anything at all — a visitor whose browser has no
+    // storage in this context. The fold still works for the visit.
+    expect([...readCollapsedGroups(null)]).toEqual([]);
+    expect(() => writeCollapsedGroups(new Set(['done']), null)).not.toThrow();
   });
 });

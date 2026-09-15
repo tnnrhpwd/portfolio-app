@@ -1437,12 +1437,17 @@
   max-height: 320px;
   overflow-y: auto;
 }
-/* Four columns, shared by the header row and every row below it.
+/* Four columns: user, plan, signed up, last online.
    The name is `minmax(0, 1fr)` so a long email truncates instead of pushing the
    timestamps out of the panel, and the two date columns are `max-content` rather
-   than fixed widths: each track is sized from the widest value in its own
-   column, so the rows line up with no magic number to keep in step with the
-   text (a fixed width that is too small clips "9/14/2026"). */
+   than fixed widths: each track is sized from the widest value in it, so the
+   columns line up with no magic number to keep in step with the text (a fixed
+   width that is too small clips "9/14/2026").
+
+   This rule is the FLOOR, not the arrangement. Declared on the row, the tracks
+   are measured from that row alone — every `.signup-row` is its own grid
+   container — so four values that should read as four columns instead drift past
+   each other down the list. The subgrid block below is what lines them up. */
 .signup-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto max-content max-content;
@@ -1473,6 +1478,38 @@
 .signup-seen { color: var(--plane-muted); font-size: var(--font-size-xs); white-space: nowrap; }
 /* The one column the eye goes to: "did the new accounts come back?". */
 .signup-seen { font-variant-numeric: tabular-nums; }
+
+/* One measurement per column instead of one per column per row.
+
+   A `max-content` track is measured from its own grid container, and above each
+   row is a container of its own: "Premium" is wider than "Free", so the two
+   timestamps started at a different x on every row — 487px down to 541px across
+   the eight rows, with the header labels in a third position again. Four values
+   that each start somewhere else read as one run of text ("Pro 9/14/2026 2m
+   ago"), which is the opposite of what a table is for.
+
+   Subgrid is the fix that keeps `max-content`: the list becomes the grid and the
+   rows become subgrids of it, so all of them are sized by the same measurement
+   and every cell starts exactly under its label. Only the parent's gutters
+   apply to a subgrid — the row's own `gap` no longer sets the space between
+   these tracks — and the gutter is deliberately wider than the fallback's 7.7px,
+   which is the other half of the problem: values 7.7px apart still read as one
+   line even once they are aligned.
+
+   `@supports` so a browser without subgrid keeps the per-row grid above, i.e.
+   today's layout, rather than a row whose `subgrid` template resolved to `none`
+   and stacked all four cells on top of one another. */
+@supports (grid-template-columns: subgrid) {
+  .recent-signups-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto max-content max-content;
+    column-gap: calc(var(--nav-size) * 0.45);
+  }
+  .signup-row {
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+  }
+}
 
 /* ── 10. Purchase gate (the one instant kill switch) ─────────────────────── */
 
@@ -2273,6 +2310,14 @@
      to a couple of characters while the dates keep their full width. So the row
      becomes name + plan, with the times on their own lines beneath it, labelled
      inline (`::before`) because the header row that labelled them retires here. */
+  /* §9 hands the list's four tracks to the rows as a subgrid, and the row's own
+     two-track template below outranks that — so the list lets go of the tracks
+     here and goes back to being a plain column. The stacked layout should not
+     lean on tracks the row has stopped dividing into. */
+  .recent-signups-list {
+    display: flex;
+    flex-direction: column;
+  }
   .signup-row {
     grid-template-columns: minmax(0, 1fr) auto;
     row-gap: calc(var(--nav-size) * 0.05);

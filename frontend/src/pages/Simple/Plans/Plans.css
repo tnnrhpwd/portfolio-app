@@ -390,7 +390,7 @@
 }
 .plans-suggestion-tags { display: flex; flex-wrap: wrap; gap: calc(var(--nav-size) * 0.1); margin-top: calc(var(--nav-size) * 0.14); }
 
-/* ── View switch (Goals | Library) ────────────────────────────────────────── */
+/* ── View switch (Goals | Board | Map | Library) ───────────────────────────── */
 
 .plans-switch {
   display: inline-flex;
@@ -432,12 +432,15 @@
   font-weight: var(--font-weight-bold);
 }
 
-/* Three tabs need ~300px; below that the stadium pill is wider than the shell on
-   a small phone (Galaxy Fold's outer screen, iPhone SE) and its content spilled
-   out of the page. Dropping the enclosing pill lets the tabs become three pills
-   that wrap naturally — the same shape `.plans-tabs` already uses — instead of
-   one long pill that has to be squeezed or clipped. */
-@media (max-width: 400px) {
+/* Four tabs need ~400px inside one stadium pill; below that the pill is wider
+   than the shell on a phone (Galaxy Fold's outer screen, iPhone SE) and its
+   content spilled out of the page. Dropping the enclosing pill lets the tabs
+   become separate pills that wrap naturally — the same shape `.plans-tabs`
+   already uses — instead of one long pill that has to be squeezed or clipped.
+   The threshold moved 400 → 520 when Map joined: three tabs measured ~300px, so
+   four land near 400 and 400px of pill plus the shell's own padding does not fit
+   a 400px viewport. */
+@media (max-width: 520px) {
   .plans-switch {
     display: flex;
     flex-wrap: wrap;
@@ -933,6 +936,53 @@
   font-size: var(--font-size-xs);
 }
 
+/* The heading is a CONTROL now — clicking it folds that group shut, so a
+   hundred finished goals are one line instead of a hundred cards. It wears the
+   heading's own type, colour and tracking, so the caret is the only thing saying
+   "this is clickable": the global `button` chrome (action ramp, 44px tap target,
+   padding, inner clip) is undone here and its hover at the end of this file. */
+.plans-group-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.14);
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+.plans-group-toggle:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
+  border-radius: var(--border-radius);
+}
+
+/* Folded the caret points AT the label — "the rest is this way". The rotation is
+   the only motion, and it is state changing, which is the one kind this page
+   allows (§5.7). */
+.plans-group-caret {
+  display: inline-block;
+  font-size: var(--font-size-xs);
+  line-height: 1;
+  transition: transform 0.18s ease;
+}
+.plans-group-toggle[aria-expanded='false'] .plans-group-caret { transform: rotate(-90deg); }
+
+/* A folded group keeps its cards in the DOM — nothing is re-mounted, so a card's
+   own state (an open menu, a running enlist) survives the fold — and simply stops
+   laying them out.
+
+   ⚠️ `[hidden]` on its own is not enough: `.plans-goal-grid` sets `display: grid`
+   and a class rule outranks the UA sheet's `[hidden] { display: none }`, so the
+   attribute would do nothing at all. Both descendants are listed because the
+   goals view folds a grid and the Library folds a list. */
+.plans-goal-grid[hidden],
+.plans-item-list[hidden] { display: none; }
+
 /* auto-FILL (not auto-fit): empty tracks are kept, so a single goal stays one
    card wide instead of stretching the whole row. */
 /* `min()` inside `minmax()` for the same reason as the shell above: a bare 300px
@@ -1311,6 +1361,7 @@
   .plans-goal-check,
   .plans-goal-actions,
   .plans-icon-btn,
+  .plans-group-caret,
   .plans-track-fill { transition: none; }
 }
 
@@ -1326,6 +1377,13 @@
 ═══════════════════════════════════════════════════════════════════════════ */
 
 /* Flat text / icon controls — no fill in any state. */
+.plans-group-toggle:hover:not(:disabled) {
+  /* A group's heading is a label before it is a control: it keeps its own ink and
+     never becomes a pill, in any state. */
+  background: none;
+  color: inherit;
+  text-decoration: none;
+}
 .plans-goal-title:hover:not(:disabled) {
   background: none;
   color: var(--fg-mint);
