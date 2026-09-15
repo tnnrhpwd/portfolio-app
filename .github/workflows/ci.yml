@@ -81,9 +81,19 @@ jobs:
         working-directory: ./frontend
         run: npm ci
 
+      # The ROOT Jest config is the canonical frontend runner (see
+      # .github/copilot-instructions.md). Running `npm test` inside frontend/
+      # instead resolves frontend/package.json's own jest block, which has no
+      # `testEnvironment` — so every DOM/localStorage suite dies with
+      # "document is not defined" (19 suites / 149 tests) and a PNG import
+      # breaks its suite, because that config maps only css/svg. Same tests,
+      # wrong runner: the root config runs the whole suite green. Do not
+      # "simplify" this back to a `npm test` in frontend/.
+      - name: Install root dependencies (where the canonical Jest config lives)
+        run: npm ci
+
       - name: Run frontend tests
-        working-directory: ./frontend
-        run: npm test -- --watchAll=false --passWithNoTests
+        run: node node_modules/jest/bin/jest.js --config package.json frontend/src
         env:
           CI: true
 
