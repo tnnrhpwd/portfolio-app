@@ -16,6 +16,12 @@
  *   msg_friend_<a>_<b>                 one row per friendship, ids sorted so the
  *                                      pair has a single canonical row. This is
  *                                      the *authorisation* check for messaging.
+ *   msg_block_<a>_<b>                  one row per block, ids NOT sorted: a block
+ *                                      is one-directional, so `<a>` is always the
+ *                                      blocker and `<b>` the account they hid
+ *                                      from. Its own row (rather than only a list
+ *                                      in the blocker's index) is what lets
+ *                                      `rebuildIndex` restore it.
  *   msg_msg_<convId>  (+ createdAt)    one row per message. Same partition for a
  *                                      whole conversation, so the sort key gives
  *                                      ordered reads with a `Limit` and a `since`
@@ -66,6 +72,7 @@ const KIND = {
     index: 'msgIndex',
     request: 'msgRequest',
     friend: 'msgFriend',
+    block: 'msgBlock',
     message: 'msgMessage',
 };
 
@@ -73,6 +80,7 @@ const MARKERS = {
     index: '|MsgIndex:',
     request: '|MsgRequest:',
     friend: '|MsgFriend:',
+    block: '|MsgBlock:',
     message: '|Msg:',
 };
 
@@ -104,6 +112,17 @@ const indexId = (userId) => `msg_index_${userId}`;
 const requestId = (toUserId, fromUserId) => `msg_req_${toUserId}_${fromUserId}`;
 const friendId = (a, b) => `msg_friend_${sortedPair(a, b).join('_')}`;
 const messagePartition = (convId) => `msg_msg_${convId}`;
+
+/**
+ * A block's row id — deliberately **not** sorted, unlike `friendId`.
+ *
+ * A friendship is symmetric, so its two ids are sorted into one canonical row. A
+ * block is not: "A blocked B" and "B blocked A" are different facts with different
+ * consequences, and one must not be readable as the other. So the argument order
+ * is the meaning — `blocker` first — and `readBlock(blocker, blocked)` is the
+ * only way to ask the question.
+ */
+const blockId = (blockerId, blockedId) => `msg_block_${String(blockerId)}_${String(blockedId)}`;
 
 /** Deterministic conversation id for a pair of accounts. */
 const convIdFor = (a, b) =>
@@ -160,6 +179,10 @@ const emptyIndex = () => ({
     pendingOut: [],
     requestLog: [],
     cooldowns: [],
+    // Accounts THIS one has hidden. Never the reverse: a block is one-directional,
+    // and the other side is deliberately not told, so it must not appear in their
+    // index either.
+    blocks: [],
 });
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -324,9 +347,9 @@ async function updateIndex(userId, mutate, attempts = 4) {
 async function rebuildIndex(userId, nickname) {
     const rows = await paginatedScan({
         TableName: TABLE,
-        FilterExpression: '#kind = :req OR #kind = :fri',
+        FilterExpression: '#kind = :req OR #kind = :fri OR #kind = :blk',
         ExpressionAttributeNames: { '#kind': 'kind' },
-        ExpressionAttributeValues: { ':req': KIND.request, ':fri': KIND.friend },
+        ExpressionAttributeValues: { ':req': KIND.request, ':fri': KIND.friend, ':blk': KIND.block },
     });
 
     const payload = emptyIndex();
@@ -354,6 +377,18 @@ async function rebuildIndex(userId, nickname) {
             } else if (req.fromUserId === me && req.status === 'pending') {
                 payload.pendingOut.push({ userId: req.toUserId, nickname: req.toNickname || 'Someone', at: req.createdAt });
             }
+        } else if (row.kind === KIND.block) {
+            // ⚠️ `blockerId`, not "either side". A rows-from-me filter would put the
+            // *blocked* account's list into my index if it were a pair, which would
+            // both show them a control they must not have and hide the block from
+            // the one person it belongs to.
+            const block = parsePayload(row.text, MARKERS.block);
+            if (!block || block.blockerId !== me) continue;
+            payload.blocks.push({
+                userId: String(block.blockedId),
+                nickname: block.blockedNickname || 'Someone',
+                at: block.at || row.createdAt,
+            });
         }
         // Other accounts' indexes and every message row are filtered out above.
     }
@@ -507,6 +542,11 @@ async function getDirectory(user) {
         })).sort((a, b) => new Date(b.lastAt || 0) - new Date(a.lastAt || 0)),
         pendingIn: payload.pendingIn.map((r) => ({ userId: r.userId, nickname: r.nickname || 'Someone', at: r.at })),
         pendingOut: payload.pendingOut.map((r) => ({ userId: r.userId, nickname: r.nickname || 'Someone', at: r.at })),
+        // Accounts this one has blocked, so the state is enumerable rather than
+        // only reachable by re-finding each blocked account's page. Not the mirror
+        // of it: an account that has been blocked by someone else is not told, and
+        // nothing in this payload would reveal it.
+        blocks: (payload.blocks || []).map((b) => ({ userId: b.userId, nickname: b.nickname || 'Someone', at: b.at || null })),
         limits: LIMITS_PUBLIC,
         remaining,
     };
@@ -519,6 +559,24 @@ const LIMITS_PUBLIC = {
     contactsMax: LIMITS.contactsMax,
     bodyMax: LIMITS.bodyMax,
 };
+
+/**
+ * The refusal a request meets when the other side has already said no — whether
+ * they declined a request or blocked the sender before one could ever be sent.
+ *
+ * ⚠️ **One function for both, on purpose.** A block that answered differently
+ * would be a block receipt: the sender could tell "declined" from "blocked", and
+ * the point of `blockUser` is that they are not told. So a blocked requester gets
+ * byte-identical copy to a declined one, and the wording lives in one place so the
+ * two cannot drift apart.
+ */
+function declinedError(remainingMs) {
+    const days = Math.ceil(remainingMs / (24 * 60 * 60 * 1000));
+    return Object.assign(
+        new Error(`That request was declined. You can try again in ${days} day${days === 1 ? '' : 's'}.`),
+        { statusCode: 429 }
+    );
+}
 
 /**
  * Send a friend request to `nickname`.
@@ -548,13 +606,16 @@ async function sendFriendRequest(user, nickname) {
         throw Object.assign(new Error(`You are already connected with ${targetNickname}`), { statusCode: 409 });
     }
 
+    // Blocked, either direction. A block IS a pre-emptive decline, so it answers
+    // exactly as one — the cooldown is only the fallback for a requester who
+    // somehow reached here past the gate (see `declinedError`).
+    if (await areBlocked(me, targetId)) {
+        throw declinedError(LIMITS.declineCooldownMs);
+    }
+
     const cooldownMs = cooldownRemainingMs(payload, targetId);
     if (cooldownMs > 0) {
-        const days = Math.ceil(cooldownMs / (24 * 60 * 60 * 1000));
-        throw Object.assign(
-            new Error(`That request was declined. You can try again in ${days} day${days === 1 ? '' : 's'}.`),
-            { statusCode: 429 }
-        );
+        throw declinedError(cooldownMs);
     }
 
     const alreadyPendingOut = payload.pendingOut.find((r) => r.userId === targetId);
@@ -774,6 +835,182 @@ async function removeContact(user, peerId) {
     return { ok: true };
 }
 
+// ── Blocks ──────────────────────────────────────────────────────────────────
+
+/**
+ * Resolve a handle to the account row it names, or refuse with a 404.
+ *
+ * ⚠️ Blocking is addressed by USERNAME, and this is why. A friend request already
+ * is (`sendFriendRequest(user, nickname)`) because a stranger holds no other
+ * identifier for the account they want to reach — and the public profile payload
+ * refuses to disclose another account's internal id to anyone who is not already
+ * connected (`services/publicProfile.js`, `connectedUserId`). A block is placed
+ * from exactly that page, by exactly that viewer, so it has to speak the same
+ * language: a handle. Keeping the id-addressed form for the reverse direction
+ * would mean one operation with two addressing schemes.
+ */
+async function resolveByNickname(nickname) {
+    const row = await findUserByNickname(nickname);
+    if (!row) {
+        throw Object.assign(new Error('No account with that username'), { statusCode: 404 });
+    }
+    return row;
+}
+
+/** `blocker` has hidden `blocked` — one direction only. */
+async function readBlock(blockerId, blockedId) {
+    if (!blockerId || !blockedId) return null;
+    const result = await dynamodb.send(new GetCommand({
+        TableName: TABLE,
+        Key: { id: blockId(blockerId, blockedId), createdAt: SENTINEL },
+    }));
+    return result.Item || null;
+}
+
+/** Is there a block between these two accounts, in *either* direction? */
+async function areBlocked(a, b) {
+    if (!a || !b || String(a) === String(b)) return false;
+    const [forward, backward] = await Promise.all([readBlock(a, b), readBlock(b, a)]);
+    return Boolean(forward || backward);
+}
+
+/**
+ * Block an account.
+ *
+ * What a block *is*, in one sentence: **it removes the connection and refuses
+ * everything the removed connection would have allowed, permanently and from one
+ * side only.** So this is not a heavier `removeContact` — it is the three things
+ * that can reach the blocker, closed in one operation:
+ *
+ *   1. the friendship row (which is the authorisation check for messaging),
+ *   2. any pending request in *either* direction, and
+ *   3. the friend-request gate — `sendFriendRequest` refuses while this row exists.
+ *
+ * Plus the read gate: `publicProfile` answers the blocked account as if the page
+ * were private, whatever its visibility setting says.
+ *
+ * **The blocked account is not told, and that is a rule, not an omission.** Every
+ * mutation here is applied to their index as well (the contact and the requests do
+ * disappear from their side) so nothing is left dangling, but no copy, status or
+ * flag anywhere distinguishes "blocked" from "the connection was removed" and
+ * "that page is private". A block the other side can detect is a block that starts
+ * an argument instead of ending one.
+ *
+ * Idempotent: blocking twice rewrites the same row and the same list entry, so a
+ * double-tap, a retry after a timeout, or blocking someone who has already blocked
+ * you all land on the same state.
+ */
+async function blockUser(user, nickname) {
+    const me = String(user.id);
+    const myNickname = readNickname(user) || 'Someone';
+    const target = await resolveByNickname(nickname);
+    const peer = String(target.id);
+
+    if (peer === me) {
+        throw Object.assign(new Error('You cannot block yourself'), { statusCode: 400 });
+    }
+
+    const peerNickname = readNickname(target) || 'Someone';
+    const now = new Date().toISOString();
+
+    // ⚠️ Order matters. The block row goes FIRST, so that a failure later in this
+    // function leaves a block that is *already in force* rather than a removed
+    // connection with nothing recording why it cannot be re-made.
+    await dynamodb.send(new PutCommand({
+        TableName: TABLE,
+        Item: {
+            id: blockId(me, peer),
+            createdAt: SENTINEL,
+            kind: KIND.block,
+            text: `${MARKERS.block}${JSON.stringify({
+                blockerId: me,
+                blockedId: peer,
+                blockedNickname: peerNickname,
+                at: now,
+            })}`,
+            updatedAt: now,
+        },
+    }));
+
+    await dynamodb.send(new DeleteCommand({
+        TableName: TABLE,
+        Key: { id: friendId(me, peer), createdAt: SENTINEL },
+    }));
+
+    // Both directions of a pending request, because both are a way in: mine is one
+    // I no longer want, and theirs is one I am refusing without answering it.
+    await Promise.all([
+        dynamodb.send(new DeleteCommand({ TableName: TABLE, Key: { id: requestId(peer, me), createdAt: SENTINEL } })),
+        dynamodb.send(new DeleteCommand({ TableName: TABLE, Key: { id: requestId(me, peer), createdAt: SENTINEL } })),
+    ]);
+
+    // One index write per side, not four: the block, the dropped contact and the
+    // two dropped requests are a single new state, and `updateIndex` is a
+    // read-modify-write that retries on a lost race — splitting it into more passes
+    // only widens the window another writer can slip into.
+    await updateIndex(me, (current) => {
+        dropContact(current, peer);
+        current.pendingIn = current.pendingIn.filter((r) => r.userId !== peer);
+        current.pendingOut = current.pendingOut.filter((r) => r.userId !== peer);
+        current.blocks = [
+            { userId: peer, nickname: peerNickname, at: now },
+            ...(current.blocks || []).filter((b) => b.userId !== peer),
+        ];
+        return current;
+    });
+
+    await updateIndex(peer, (current) => {
+        dropContact(current, me);
+        current.pendingIn = current.pendingIn.filter((r) => r.userId !== me);
+        current.pendingOut = current.pendingOut.filter((r) => r.userId !== me);
+        return current;
+    });
+
+    logger.info('Account blocked', { by: me, peer });
+    return { ok: true, nickname: peerNickname };
+}
+
+/**
+ * Lift a block.
+ *
+ * Deliberately does **not** restore the connection, and does not send a request:
+ * an unblock says "you may ask again", not "we are connected" — a re-connection
+ * still takes a request and an acceptance, which is the whole point of having
+ * removed one.
+ *
+ * ⚠️ The decline cooldown is cleared as well. Blocking implies the same refusal a
+ * decline does (see `sendFriendRequest`), and leaving that stamp behind would mean
+ * an unblocked account still could not ask for a week — a control that appears to
+ * work and does nothing.
+ */
+async function unblockUser(user, nickname) {
+    const me = String(user.id);
+    const peer = String((await resolveByNickname(nickname)).id);
+    const now = new Date().toISOString();
+
+    await dynamodb.send(new DeleteCommand({
+        TableName: TABLE,
+        Key: { id: blockId(me, peer), createdAt: SENTINEL },
+    }));
+
+    await updateIndex(me, (current) => {
+        current.blocks = (current.blocks || []).filter((b) => b.userId !== peer);
+        current.cooldowns = current.cooldowns.filter((c) => c.userId !== peer);
+        return current;
+    });
+
+    // Their side is touched too, for the mirror of the reason it is touched on
+    // block: the cooldown stamped on them (if any) has to go, or the unblock is
+    // invisible to the only person it was meant to release.
+    await updateIndex(peer, (current) => {
+        current.cooldowns = current.cooldowns.filter((c) => c.userId !== me);
+        return current;
+    });
+
+    logger.info('Account unblocked', { by: me, peer, at: now });
+    return { ok: true };
+}
+
 // ── Messaging ───────────────────────────────────────────────────────────────
 
 /** Membership check shared by every conversation endpoint. */
@@ -790,6 +1027,17 @@ async function assertConversation(user, peerId) {
     if (!friendship) {
         throw Object.assign(new Error('You are not connected with that account'), { statusCode: 403 });
     }
+
+    // ⚠️ The block is checked even though `blockUser` deletes the friendship row
+    // above, and it is checked here rather than only on send: this is the single
+    // gate every conversation read AND write passes through, and the invariant it
+    // enforces must not rest on two rows having been deleted in the right order.
+    // The copy is the no-friendship copy, so a block is not distinguishable here
+    // either (see `declinedError`).
+    if (await areBlocked(me, peer)) {
+        throw Object.assign(new Error('You are not connected with that account'), { statusCode: 403 });
+    }
+
     const pair = parsePayload(friendship.text, MARKERS.friend) || {};
 
     return { me, peer, convId: convIdFor(me, peer), nicknames: pair.nicknames || {} };
@@ -1049,6 +1297,7 @@ module.exports = {
     AVATAR_BATCH_MAX,
     convIdFor,
     friendId,
+    blockId,
     indexId,
     messagePartition,
     requestId,
@@ -1059,7 +1308,10 @@ module.exports = {
     declineFriendRequest,
     cancelFriendRequest,
     removeContact,
-    listMessages,
+    readBlock,
+    areBlocked,
+    blockUser,
+    unblockUser,    listMessages,
     sendMessage,
     markConversationRead,
     collectAvatars,

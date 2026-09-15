@@ -10,9 +10,22 @@
  *   POST   /messenger/requests/:userId/decline            → decline an inbound request
  *   DELETE /messenger/requests/:userId                    → withdraw an outgoing request
  *   DELETE /messenger/contacts/:userId                    → remove a connection
+ *   POST   /messenger/blocks                              → block { username }
+ *   DELETE /messenger/blocks                              → lift a block { username }
  *   GET    /messenger/conversations/:userId/messages      → newest page (?since= cursor)
  *   POST   /messenger/conversations/:userId/messages      → send { body }
  *   POST   /messenger/conversations/:userId/read          → clear the unread badge
+ *
+ * A block (docs/implementation/agent.md §19.4) is not a heavier `DELETE
+ * /contacts`: it also refuses every future request from that account and hides the
+ * blocker's page from them, and it is the only one of the two that is one-sided.
+ * The blocked account is never told — see `blockUser` in the service.
+ *
+ * ⚠️ The two block routes are addressed by USERNAME, not by id, even though every
+ * other peer route is id-addressed. That is not an oversight: the member page a
+ * block is placed from never learns another account's internal id unless the two
+ * are connected — and a block removes the connection — so a handle is the only
+ * identifier it holds. Same reason `POST /messenger/requests` takes one.
  *
  * Every route requires a signed-in user: `protect` sets `req.user`, and the
  * service keys everything off `req.user.id`, never off anything the client sent.
@@ -30,6 +43,8 @@ const {
     declineFriendRequest,
     cancelFriendRequest,
     removeContact,
+    blockUser,
+    unblockUser,
     listMessages,
     sendMessage,
     markConversationRead,
@@ -110,11 +125,7 @@ const getMessengerPeer = asyncHandler(async (req, res) => {
 // @access  Private
 const postFriendRequest = asyncHandler(async (req, res) => {
     const user = await requireUser(req, res);
-    const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
-    if (!username) fail(res, 400, 'Enter a username');
-    if (username.length > LIMITS.nicknameMax) fail(res, 400, 'That username is too long');
-
-    const result = await sendFriendRequest(user, username);
+    const result = await sendFriendRequest(user, readUsername(req, res));
     const directory = await getDirectory(user);
     res.status(201).json({ success: true, ...result, ...directory });
 });
@@ -159,6 +170,40 @@ const deleteMessengerContact = asyncHandler(async (req, res) => {
     const user = await requireUser(req, res);
     const peerId = readPeerId(req, res);
     await removeContact(user, peerId);
+    const directory = await getDirectory(user);
+    res.status(200).json({ success: true, ...directory });
+});
+
+/**
+ * The handle a block is addressed by. Same validation as a friend request, in the
+ * same place, so the two cannot disagree about what a usable username is.
+ */
+function readUsername(req, res) {
+    const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
+    if (!username) fail(res, 400, 'Enter a username');
+    if (username.length > LIMITS.nicknameMax) fail(res, 400, 'That username is too long');
+    return username;
+}
+
+// @desc    Block an account — removes the connection, refuses their requests, hides the page
+// @route   POST /api/data/messenger/blocks  { username }
+// @access  Private
+//
+// 200 rather than 201: a block is idempotent state, not a created resource, and a
+// repeat call (a double-tap, a retry after a timeout) is a success, not a conflict.
+const postBlockUser = asyncHandler(async (req, res) => {
+    const user = await requireUser(req, res);
+    const result = await blockUser(user, readUsername(req, res));
+    const directory = await getDirectory(user);
+    res.status(200).json({ success: true, ...result, ...directory });
+});
+
+// @desc    Lift a block (does NOT restore the connection)
+// @route   DELETE /api/data/messenger/blocks  { username }
+// @access  Private
+const deleteBlockUser = asyncHandler(async (req, res) => {
+    const user = await requireUser(req, res);
+    await unblockUser(user, readUsername(req, res));
     const directory = await getDirectory(user);
     res.status(200).json({ success: true, ...directory });
 });
@@ -224,6 +269,8 @@ module.exports = {
     postDeclineRequest,
     deleteFriendRequest,
     deleteMessengerContact,
+    postBlockUser,
+    deleteBlockUser,
     getConversationMessages,
     postConversationMessage,
     postConversationRead,

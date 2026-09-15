@@ -22,6 +22,12 @@
  *                                                    the server on publish
  *   - game bests                                   → self-reported public rows
  *                                                    (see services/gameBoards.js)
+ *
+ * A block outranks all of it (docs/implementation/agent.md §19.4): an account that
+ * has blocked the viewer is answered as a private page, so the visibility setting
+ * cannot be used to read around a block. The reverse is *not* hidden — the viewer's
+ * own block is reported back to them, because a block you cannot see is a block you
+ * cannot lift (`blockedByYou`).
  */
 
 const { logger } = require('../utils/logger');
@@ -33,7 +39,12 @@ const {
 } = require('../constants/profileVisibility.js');
 const { buildAvatar } = require('./avatarService');
 const { getPlayerBoards } = require('./gameBoards');
-const { findUserByNickname, countConnections, areFriends } = require('./messengerService');
+const {
+    findUserByNickname,
+    countConnections,
+    areFriends,
+    readBlock,
+} = require('./messengerService');
 
 /** How many published items to show before the list stops being a page. */
 const PUBLISHED_MAX = 12;
@@ -109,6 +120,10 @@ async function listPublished(userId) {
  * button — after which it opens), and one response shape means the client has one
  * render path instead of an error branch that forgives itself.
  *
+ * A block by the target is answered with that same restricted object — see the
+ * note on `restrictedPayload` below for why it reports `private` even when the
+ * page is public.
+ *
  * @param {object} params
  * @param {string} params.username - The account's nickname (case-insensitive).
  * @param {object|null} [params.viewer] - The signed-in caller, if any. Only ever
@@ -132,22 +147,59 @@ async function buildPublicProfile({ username, viewer = null }) {
         ? await areFriends(viewerId, userId).catch(() => false)
         : false;
 
+    // ── Blocks ──────────────────────────────────────────────────────────────
+    // Asked as two separate questions, because the two answers go to two different
+    // people and only one of them may be told. `readBlock(a, b)` is directional by
+    // construction (`messengerService.blockId`), so this cannot be got backwards.
+    const [viewerBlockedThem, theyBlockedViewer] = viewerId && !isSelf
+        ? await Promise.all([
+            readBlock(viewerId, userId).catch(() => null),
+            readBlock(userId, viewerId).catch(() => null),
+        ])
+        : [null, null];
+
+    /** The viewer's OWN block. Never about the other side, so it cannot leak. */
+    const blockedByYou = Boolean(viewerBlockedThem);
+
+    /**
+     * The restricted answer: who this is, and the one action that would open it.
+     *
+     * ⚠️ **A block BY the target is answered with this same object, including a
+     * `private` visibility, whatever the setting really says.** That is the whole
+     * design: a blocked account must not be able to tell a block from a page that
+     * was simply kept private, so the two produce byte-identical responses. The
+     * trade-off is deliberate — a blocked viewer of a PUBLIC page is shown the
+     * private copy, which is a small inaccuracy told to the one person the block
+     * exists to withhold from. Without it, "Private" vs. a slightly different
+     * answer would be a block receipt.
+     */
+    const restrictedPayload = (/** @type {string} */ reportedVisibility) => ({
+        nickname,
+        visibility: reportedVisibility,
+        restricted: true,
+        avatar: null,
+        memberSince: null,
+        connections: 0,
+        games: [],
+        published: [],
+        isSelf: false,
+        isConnected: false,
+        // Their own block is still reported here, and it has to be: this is the
+        // branch a blocker lands in whenever the account they blocked keeps its
+        // page private, and without the flag the only way back would be gone.
+        blockedByYou,
+        canBlock: Boolean(viewerId) && !blockedByYou,
+        canConnect: Boolean(viewerId) && !blockedByYou,
+        connectedUserId: null,
+        isSignedIn: Boolean(viewerId),
+    });
+
+    if (theyBlockedViewer) {
+        return restrictedPayload(PROFILE_VISIBILITY.PRIVATE);
+    }
+
     if (visibility !== PROFILE_VISIBILITY.PUBLIC && !isSelf && !isConnected) {
-        return {
-            nickname,
-            visibility,
-            restricted: true,
-            avatar: null,
-            memberSince: null,
-            connections: 0,
-            games: [],
-            published: [],
-            isSelf: false,
-            isConnected: false,
-            canConnect: Boolean(viewerId),
-            connectedUserId: null,
-            isSignedIn: Boolean(viewerId),
-        };
+        return restrictedPayload(visibility);
     }
 
     // Each optional section is best-effort: a profile with no games played is the
@@ -185,8 +237,15 @@ async function buildPublicProfile({ username, viewer = null }) {
         published,
         isSelf,
         isConnected,
-        // The page offers "Connect" only when that action can actually work.
-        canConnect: Boolean(viewerId) && !isSelf && !isConnected,
+        blockedByYou,
+        // The page offers "Connect" only when that action can actually work — and
+        // not to a viewer who has already blocked this account, for whom the
+        // offer is the one thing they have explicitly refused.
+        canConnect: Boolean(viewerId) && !isSelf && !isConnected && !blockedByYou,
+        // "Block" becomes "Unblock" once there is a block, so the two never appear
+        // together. Self is excluded by `blockedByYou` too: blocking yourself is
+        // rejected by the service (400), so the control must not be offered.
+        canBlock: Boolean(viewerId) && !isSelf && !blockedByYou,
         // ⚠️ The only case the internal id is disclosed, and only to someone who is
         // already connected: a DM link is `/net?with=<userId>`, so the viewer needs
         // it to send a message. It is *not* returned to a stranger — "connect"

@@ -31,15 +31,57 @@
   overflow-wrap: anywhere;
 }
 
+/* ── Faces ────────────────────────────────────────────────────────────────
+
+   ⚠️ ONE rule for every picture in this pane, and it is load-bearing.
+
+   `TalkAvatar` renders its own `<img class="talk-avatar__img">`, and the frame it
+   is handed here is `MessageBubble`'s `.message__avatar` — which sizes an image
+   the AI chat renders ITSELF (`.message__avatar--assistant-img`) and does not
+   clip. So the peer's picture kept its natural 160px, `object-fit: fill`, and
+   drew a 160px square straight over the transcript. Sizing it from the pane
+   means every future face — header, transcript, empty state — is covered by
+   construction rather than by remembering.
+
+   Scoped to `.talk-dm`, so the assistant's own avatars are untouched. */
+.talk-dm .talk-avatar__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* The frame clips what is put inside it, the way `Talk.css`'s own avatar frame
+   does, and rounds it: `.message__avatar` is `overflow: visible` because the
+   assistant's mark is a letter that cannot spill. (0,2,0), so it beats
+   `.message__avatar--assistant` regardless of stylesheet order — that rule is
+   the letter tile's, and this is a face. */
+.talk-dm .message__avatar {
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+/* A person is a CIRCLE, and this is the one place the pane deliberately differs
+   from the assistant's mark: `.message__avatar--assistant` is a 28px tile with
+   an 8px radius because it holds a LETTER, while a face is a circle everywhere
+   else on the site (`Talk.css`'s `.talk-avatar`, the rail's People rows, the
+   `/u/…` pages, `/profile`). Size and spacing are untouched, so the two
+   transcripts still measure the same. */
+.talk-dm-avatar,
+.talk-dm-empty-avatar {
+  border-radius: 50%;
+}
+
 /* A row the server could not decrypt (a rotated key, a hand-edited record) is
    stated rather than rendered as nothing. */
 .talk-dm-unreadable { color: var(--text-secondary); }
 
 /* ── Header: who you are talking to ──────────────────────────────────────── */
 
-/* The chat's own mark frame — 28px, radius 8, the scheme gradient, and the ink
-   that gradient was tuned against (`MessageBubble.css`'s
-   `.message__avatar--assistant`, so the header and the transcript line up). */
+/* The chat's own mark frame — 28px, and the scheme gradient with the ink that
+   gradient was tuned against (`MessageBubble.css`'s `.message__avatar--assistant`),
+   so the header and the transcript line up. The corner is a circle: see the
+   Faces note above. */
 .talk-dm-avatar {
   flex-shrink: 0;
   display: inline-flex;
@@ -47,19 +89,11 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  border-radius: 8px;
   overflow: hidden;
   background: var(--accent-fill);
   color: var(--accent-text);
   font-size: 12px;
   font-weight: 700;
-}
-
-.talk-dm-avatar .talk-avatar__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
 }
 
 /* Their public page, one click from the conversation with them. */
@@ -91,19 +125,11 @@
   justify-content: center;
   width: 64px;
   height: 64px;
-  border-radius: 20px;
   overflow: hidden;
   background: var(--accent-fill);
   color: var(--accent-text);
   font-size: 24px;
   font-weight: 700;
-}
-
-.talk-dm-empty-avatar .talk-avatar__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
 }
 
 /* ── The composer's hint line, when it carries a failure ─────────────────── */

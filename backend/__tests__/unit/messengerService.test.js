@@ -169,12 +169,16 @@ const {
   LIMITS,
   convIdFor,
   friendId,
+  blockId,
   messageSortKey,
   sendFriendRequest,
   acceptFriendRequest,
   declineFriendRequest,
   cancelFriendRequest,
   removeContact,
+  blockUser,
+  unblockUser,
+  areBlocked,
   listMessages,
   sendMessage,
   markConversationRead,
@@ -383,6 +387,134 @@ async function connect() {
   await sendFriendRequest(ME, 'Peer One');
   await acceptFriendRequest(PEER, 'user-me');
 }
+
+/** Read an account's index payload back out of the fake table. */
+const indexOf = (id) => JSON.parse(rowFor(id).text.replace('|MsgIndex:', ''));
+
+/**
+ * Blocks (docs/implementation/agent.md §19.4).
+ *
+ * A block is the one thing in this service that is deliberately NOT symmetric, so
+ * the tests that matter are the asymmetric ones: the two sides are left in
+ * different states, and only one of them is allowed to be able to tell.
+ */
+describe('blocks', () => {
+  test('refuses your own username', async () => {
+    stubUserLookup(ME);
+    await expect(blockUser(ME, 'Me User')).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  test('removes the connection on both sides', async () => {
+    await connect();
+    await blockUser(ME, 'Peer One');
+
+    expect(await areFriends('user-me', 'user-peer')).toBe(false);
+    expect(await areBlocked('user-me', 'user-peer')).toBe(true);
+    expect(indexOf('msg_index_user-me').contacts).toEqual([]);
+    expect(indexOf('msg_index_user-peer').contacts).toEqual([]);
+  });
+
+  test('drops a pending request in both directions', async () => {
+    stubUserLookup(ME, PEER);
+    await sendFriendRequest(ME, 'Peer One');
+    await blockUser(ME, 'Peer One');
+
+    expect(rowFor('msg_req_user-peer_user-me')).toBeFalsy();
+    expect(indexOf('msg_index_user-me').pendingOut).toEqual([]);
+    expect(indexOf('msg_index_user-peer').pendingIn).toEqual([]);
+  });
+
+  test('⚠️ refuses the blocked account exactly as a decline does', async () => {
+    await connect();
+    await blockUser(ME, 'Peer One');
+
+    // This is the assertion the whole design rests on. A distinct status or a
+    // message that mentioned blocking would be a receipt, and the other side is
+    // not told — so the refusal has to be the decline's own, word for word.
+    await expect(sendFriendRequest(PEER, 'Me User')).rejects.toThrow('That request was declined');
+    await expect(sendFriendRequest(PEER, 'Me User')).rejects.toMatchObject({ statusCode: 429 });
+  });
+
+  test('⚠️ and refuses the blocker too — it is a wall, not a one-way door', async () => {
+    await connect();
+    await blockUser(ME, 'Peer One');
+    await expect(sendFriendRequest(ME, 'Peer One')).rejects.toMatchObject({ statusCode: 429 });
+  });
+
+  test('⚠️ the blocked account is not told: the block never appears in their index', async () => {
+    await connect();
+    await blockUser(ME, 'Peer One');
+
+    expect(indexOf('msg_index_user-me').blocks).toEqual([
+      expect.objectContaining({ userId: 'user-peer', nickname: 'Peer One' }),
+    ]);
+    // All a block looks like from their side is a connection that went away — and
+    // that is also what a plain `removeContact` looks like, which is the point.
+    expect(indexOf('msg_index_user-peer').blocks).toEqual([]);
+  });
+
+  test('refuses messaging in both directions while it stands', async () => {
+    await connect();
+    await blockUser(ME, 'Peer One');
+
+    await expect(sendMessage(ME, 'user-peer', 'hello?')).rejects.toMatchObject({ statusCode: 403 });
+    await expect(listMessages(PEER, 'user-me')).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  test('unblocking lifts the block but does NOT restore the connection', async () => {
+    await connect();
+    await blockUser(ME, 'Peer One');
+    await unblockUser(ME, 'Peer One');
+
+    expect(await areBlocked('user-me', 'user-peer')).toBe(false);
+    expect(rowFor(blockId('user-me', 'user-peer'))).toBeFalsy();
+    expect(indexOf('msg_index_user-me').blocks).toEqual([]);
+    // "You may ask again" is the whole of what unblocking promises.
+    expect(await areFriends('user-me', 'user-peer')).toBe(false);
+  });
+
+  test('and lets the other side ask again', async () => {
+    await connect();
+    await blockUser(ME, 'Peer One');
+    await unblockUser(ME, 'Peer One');
+
+    stubUserLookup(ME, PEER);
+    const result = await sendFriendRequest(PEER, 'Me User');
+    expect(result.autoAccepted).toBe(false);
+    expect(rowFor('msg_req_user-me_user-peer')).toBeTruthy();
+  });
+
+  test('the dashboard reports the accounts you have blocked', async () => {
+    await connect();
+    await blockUser(ME, 'Peer One');
+
+    const directory = await getDirectory(ME);
+    expect(directory.blocks).toEqual([
+      expect.objectContaining({ userId: 'user-peer', nickname: 'Peer One' }),
+    ]);
+  });
+
+  test('⚠️ a lost index rebuilds the block list from its own row', async () => {
+    // The index is a CACHE — that is why every other fact in it also has a row of
+    // its own. A block that lived only in the index would silently vanish with the
+    // index, and of everything here that is the one failure a safety control
+    // cannot have.
+    await connect();
+    await blockUser(ME, 'Peer One');
+    const blockRow = rowFor(blockId('user-me', 'user-peer'));
+    expect(blockRow).toBeTruthy();
+
+    awsLib.__rows.delete('msg_index_user-me::2000-01-01T00:00:00.000Z');
+    paginatedScan.mockImplementation(async (params) => (
+      params.ExpressionAttributeValues?.[':blk'] === 'msgBlock' ? [{ ...blockRow }] : []
+    ));
+
+    const directory = await getDirectory(ME);
+    expect(directory.blocks).toEqual([
+      expect.objectContaining({ userId: 'user-peer', nickname: 'Peer One' }),
+    ]);
+  });
+});
 
 describe('messaging', () => {
   test('refuses a conversation with someone you are not connected to', async () => {

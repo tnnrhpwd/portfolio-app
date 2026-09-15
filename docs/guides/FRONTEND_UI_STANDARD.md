@@ -29,7 +29,7 @@ ends up wrong. Decide first, then read §5.7 if you're building the second kind.
 
 | | **Discovery page** | **Service page** |
 | --- | --- | --- |
-| Examples | `/`, `/projects`, project pages, `/pricing` | `/simple`, `/plans`, `/net`, `/profile` |
+| Examples | `/`, `/projects`, project pages, `/pricing` | `/simple`, `/plans`, `/net`, `/profile`, `/u/<username>` |
 | Job | Convince a stranger the product is worth trying | *Do the job* for someone who already showed up |
 | Hero | Marketing: eyebrow → big `<h1>` → subtitle → CTAs | A **row** at the top: name + live state + primary action — in the flow, never pinned |
 | Copy | Persuasive; explains the product | Labels only; a hint under a control at most |
@@ -782,7 +782,7 @@ setValue(Math.round(target * eased));
 
 ## 5.7 Service pages — a workspace, not a story
 
-A **service page** (`/simple`, `/plans`, `/net`, `/profile`) is a tool someone already opened
+A **service page** (`/simple`, `/plans`, `/net`, `/profile`, `/u/<username>`) is a tool someone already opened
 on purpose. It shares the palette, the tokens and the typography — but **not the band
 stack**. Bands exist to sell an idea; a workspace has no idea to sell, it has tasks to
 finish. A Discovery page earns its scroll; a service page costs the user time, and every
@@ -1297,6 +1297,7 @@ one control rather than a row of links with one highlighted.
 | Control (`/simple`) | `frontend/src/pages/Simple/Simple/` | **Service page (§5.7)** — name/state/action row + dense panel grid on one flat surface, no bands, nothing pinned |
 | Goals (`/plans`) | `frontend/src/pages/Simple/Plans/` | **Service page (§5.7)** — same shape: live state in the top row, panels grouped into grid rows |
 | Dream board (`/plans` 🌟) | `frontend/src/pages/Simple/Plans/DreamBoard.jsx` | **Service page view (§5.7)** — a third tab over the *same* goals: a cover-art tile grid where each tile is a goal you can hand to the agent. Panels stay colour planes; no bands, no reveals. Covers are real artwork (`assets/art/dream-*.jpg`), never emoji tiles (§5) |
+| Member page (`/u/<username>`) | `frontend/src/pages/UserProfile/` | **Service page (§5.7)** — the page a member sends someone. One row (face + name + live state + the one action, which differs for the owner, a connection, a signed-in stranger and a signed-out visitor) over a dense glass-pane grid. The owner's own state is the only thing hidden from visitors: no `Page` chip, no `Your page` panel |
 
 The earlier entries predate the editorial structure; **Annuities is the markup reference for it.** When
 in doubt about how a band, a staggered reveal, a borderless readout or a themed canvas should be built,

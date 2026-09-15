@@ -257,7 +257,9 @@
   justify-content: center;
   width: 22px;
   height: 22px;
-  border-radius: 6px;
+  /* A face, so a circle — the same treatment the Talk rows and the transcript
+     use. See the Faces note in DirectChat.css. */
+  border-radius: 50%;
   overflow: hidden;
   background: var(--accent-fill);
   color: var(--accent-text);

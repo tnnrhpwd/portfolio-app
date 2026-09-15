@@ -73,6 +73,30 @@ export const removeMessengerContact = (token, userId) =>
   request(token, `/messenger/contacts/${encodeURIComponent(userId)}`, { method: 'DELETE' });
 
 /**
+ * Block an account, by username.
+ *
+ * ⚠️ By USERNAME, not by id like every other peer call here. The member page a
+ * block is placed from only ever holds a handle — the public profile deliberately
+ * never discloses another account's internal id unless the two are connected, and
+ * a block removes the connection — so this speaks the same language as a friend
+ * request.
+ *
+ * Not a heavier "remove": it also refuses every future request from them and hides
+ * your page from them, permanently, until you lift it. It does NOT delete the
+ * conversation history, and the other side is never told — so nothing in the UI may
+ * say "they know".
+ */
+export const blockMessengerUser = (token, username) =>
+  request(token, '/messenger/blocks', { method: 'POST', body: { username } });
+
+/**
+ * Lift a block, by username. Does NOT restore the connection — they may ask again,
+ * that is all.
+ */
+export const unblockMessengerUser = (token, username) =>
+  request(token, '/messenger/blocks', { method: 'DELETE', body: { username } });
+
+/**
  * One page of a conversation, oldest-first.
  *
  * @param {string} token

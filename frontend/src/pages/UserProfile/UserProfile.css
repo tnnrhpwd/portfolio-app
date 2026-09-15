@@ -1,184 +1,241 @@
 /* ===========================================================================
-   UserProfile — the public page at /u/<username>
+   UserProfile — the member page at /u/<username>
    ---------------------------------------------------------------------------
-   A DISCOVERY PAGE (FRONTEND_UI_STANDARD.md §5): the animated gradient covers the
-   hero, flat alternating bands carry the content, and the page ends on a CTA band.
-   That shape is chosen because of who arrives here — a stranger following a link,
-   who needs a face and a reason to keep scrolling before they need any detail.
+   A SERVICE PAGE (FRONTEND_UI_STANDARD.md §5.7). This is the page a member sends
+   someone and the one they open to check what a stranger sees, so it shares the
+   palette, the tokens and the typography with the rest of the site — and none of
+   the band stack:
 
-   MATERIAL: cards are `--bg-1` surfaces with a hairline edge and a soft shadow,
-   the treatment §5 reserves for a *Discovery* page's tiles. (The service pages use
-   glass panes on the shared room instead — different material for a different job.)
+     · the shared ambient ROOM for a ground (`.service-room`, worn by the page
+       root) — no bands, no gradient behind the numbers, no floating circles, no
+       scroll reveals, no stagger;
+     · ONE ROW at the top carrying the name, its live state and the one action,
+       and nothing of the page's own is pinned — the site header is the only
+       thing that stays put;
+     · a DENSE PANEL GRID, rows inside a panel separated by alternating tints
+       rather than a hairline (§5);
+     · copy that is labels, not sentences.
 
-   Two aliases on the root, and nothing below has to change:
-   `--fg-blue` is the interaction hue and `--fg-mint` the emphasis hue, so both
-   follow the visitor's colour scheme. `--fg-orange` deliberately does not — it is
-   the alert hue.
+   MATERIAL: panes of `--glass` resting on the room — `--glass-radius`,
+   `--glass-shadow`, no borders anywhere. Panels are tinted with the TEXT colour,
+   not with a hue of their own: on a dense grid, colour means signal (the page's
+   one action, a lock, a state), and a page where every pane shouts says nothing
+   about which one matters.
+
+   COLOUR: the page follows the visitor's colour scheme, and needs exactly TWO
+   aliases to do it — the two ROLES a scheme defines. `--fg-blue` is the
+   interaction hue (links, focus) and `--fg-mint` the emphasis hue (the row's
+   gradient hairline). `--fg-pink` and `--fg-orange` are deliberately NOT aliased:
+   orange is the alert hue, and a warning that changes colour with the decor is
+   not a warning (§2.1). The four-stop backdrop aliases this page used to carry
+   are gone with the backdrop they painted — the room paints the scheme now.
    =========================================================================== */
 
-.up {
+.up-page {
   --fg-blue: var(--scheme-accent);
   --fg-mint: var(--scheme-primary);
-  color: var(--text-color);
+
+  /* Muted (secondary) text. `--plane-muted` is the shared service-page token: a
+     muted colour tuned against the flat page does not survive leaving it, and
+     every pane here rests on the room's scheme-tinted ground. */
+  --up-muted: var(--plane-muted);
+
+  position: relative;
   min-height: 100vh;
   min-height: 100svh;
-  /* The home indicator / gesture bar is part of the screen but not the page. */
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* The header is fixed, so the first row clears it. NO background here: the room
+     paints the page (`.service-room`), and an opaque fill on this box would cover
+     both of its layers. */
+  padding: calc(var(--nav-size) * 1.15) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
+  color: var(--text-color);
 }
 
-/* ── Hero ─────────────────────────────────────────────────────────────────── */
-
-.up-hero {
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  /* The header is fixed, so the first band clears it — on the band, never on
-     every band, or they would drift apart from each other. */
-  padding: calc(var(--nav-size) * 2.1) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
-  background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
-  background-size: 400% 400%;
-  animation: upGradientShift 14s ease infinite;
-}
-
-.light-theme .up-hero { animation-duration: 18s; }
-.dark-theme .up-hero { animation-duration: 11s; }
-
-@keyframes upGradientShift {
-  0% { background-position: 0% 50%; }
-  25% { background-position: 100% 50%; }
-  50% { background-position: 100% 100%; }
-  75% { background-position: 0% 100%; }
-  100% { background-position: 0% 50%; }
-}
-
-/* Decorative, non-interactive. */
-.up-floating {
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-}
-
-.up-circle {
-  position: absolute;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--white1-transp, #f4f7fd33) 0%, transparent 70%);
-  animation: upFloat 7s ease-in-out infinite;
-}
-
-.up-circle-1 { width: 180px; height: 180px; top: 8%; left: 5%; animation-duration: 9s; }
-.up-circle-2 { width: 120px; height: 120px; top: 58%; right: 7%; animation-duration: 11s; animation-delay: -2s; }
-.up-circle-3 { width: 220px; height: 220px; bottom: 2%; left: 58%; animation-duration: 13s; animation-delay: -4s; }
-
-@keyframes upFloat {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-24px) rotate(180deg); }
-}
-
-.up-hero-wrap {
-  position: relative;
-  z-index: 2;
+.up-shell {
   width: 100%;
-  max-width: 720px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+/* ── Row — the name, its live state and the one action, in the flow ───────── */
+
+.up-bar {
+  /* NOT sticky: a second pinned bar would cost the workspace a strip of the
+     viewport and make the panes scroll under an opaque band (§5.7). `relative` is
+     here only to anchor the accent rule below. */
+  position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  text-align: center;
-  gap: calc(var(--nav-size) * 0.16);
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.25);
+  margin-bottom: calc(var(--nav-size) * 0.25);
+  /* Horizontal padding IS the panel padding, so the name shares a left edge with
+     every panel title and row below it. */
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.3);
+  /* A PANE, like every panel: it fills the width, so it is glass rather than a
+     solid slab, and it wears a pane's radius. */
+  background: var(--glass);
+  border-radius: var(--glass-radius);
 }
 
-.up-eyebrow {
-  margin: calc(var(--nav-size) * 0.2) 0 0;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-color-accent);
+/* The one piece of brand on the page — and the reason `--fg-mint` is aliased at
+   all. Inset by the bar's own radius so the rule ends where the corner curve
+   begins: never clipped, never poking past the curve, with its own rounded cap. */
+.up-bar::after {
+  content: '';
+  position: absolute;
+  left: calc(var(--glass-radius) * 0.7);
+  right: calc(var(--glass-radius) * 0.7);
+  bottom: 2px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint) 42%, transparent 72%);
+  pointer-events: none;
 }
 
-.up-title {
+.up-bar-title {
   margin: 0;
+  font-size: var(--font-size-heading);
   font-weight: var(--font-weight-bold);
   letter-spacing: -0.01em;
-  font-size: var(--font-size-display);
-  line-height: var(--line-height-tight);
+  line-height: 1;
   /* A long nickname must wrap, not widen the page. */
   overflow-wrap: anywhere;
 }
 
-.up-subtitle {
-  margin: 0;
-  font-size: var(--font-size-large);
-  line-height: var(--line-height-relaxed);
-  color: var(--text-color-accent);
+/* The face, at the size of a chip — identity in the row, where the name is. */
+.up-bar .profile-avatar {
+  flex: 0 0 auto;
 }
 
-.up-actions {
+/* The lock the gate sends in place of a picture: same slot, same size, so the row
+   keeps one rhythm whether the page opens or not. */
+.up-bar-lock {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--nav-size) * 0.9);
+  height: calc(var(--nav-size) * 0.9);
+  border-radius: 50%;
+  background: var(--glass-sunken-strong);
+  font-size: calc(var(--nav-size) * 0.42);
+  line-height: 1;
+}
+
+/* ── Readout chips ────────────────────────────────────────────────────────── */
+
+.up-bar-readout {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
-  gap: calc(var(--nav-size) * 0.2);
-  margin-top: calc(var(--nav-size) * 0.2);
+  gap: calc(var(--nav-size) * 0.1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-/* ── Buttons ──────────────────────────────────────────────────────────────── */
+/* A chip is a READOUT, so it is a solid `--bg-1` object rather than a tint: it has
+   to stay legible on the pane it lands on, whatever the scheme is doing. It also
+   never shrinks — inside the narrow-screen scroller below, a squashed chip is
+   worse than one that scrolls out of view. */
+.up-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.12);
+  padding: 1px 9px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--bg-1);
+  color: var(--up-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.7;
+  white-space: nowrap;
+}
+
+.up-chip-key {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.up-chip strong {
+  color: var(--text-color);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── Actions ──────────────────────────────────────────────────────────────── */
+
+.up-bar-actions {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.12);
+  min-width: 0;
+}
 
 .up-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: calc(var(--nav-size) * 0.12);
-  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.6);
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.55);
   border: 1px solid transparent;
   border-radius: 999px;
   font-family: inherit;
   font-size: var(--font-size-small);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
   text-decoration: none;
-  cursor: pointer;
   white-space: nowrap;
-  /* A filled control is the scheme's action ramp, pinned per mode so the label
-     clears AA on every scheme (§6). */
-  background: var(--action);
-  color: var(--text-color-inv);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
 
-.up-btn:hover:not(:disabled) {
+/* Undo the global `button` min-height where a compact control is wanted. */
+.up-btn--sm {
+  padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.4);
+  min-height: calc(var(--nav-size) * 0.72);
+}
+
+/* Every hover rule below repeats `:not(:disabled)` so it out-specifies the global
+   `button:hover:not(:disabled)` in index.css, which would otherwise repaint these
+   controls with the site gradient and inverted text (§6). */
+.up-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  transform: none;
+}
+
+/* The page's ONE action colour: the shared scheme ramp with its lightness pinned
+   per mode, so the label clears AA on every scheme (§6). */
+.up-btn--primary {
+  background: var(--action);
+  color: var(--text-color-inv);
+}
+.up-btn--primary:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
 
-.up-btn:disabled { opacity: 0.6; cursor: default; transform: none; box-shadow: none; }
-
-.up-btn-outline {
-  background: transparent;
+.up-btn--outline {
+  background: color-mix(in srgb, var(--text-color) 9%, transparent);
   color: var(--text-color);
-  border-color: var(--border-nav);
 }
-
-.up-btn-outline:hover:not(:disabled) {
-  background: var(--bg-accent);
-  box-shadow: none;
-}
-
-/* On the CTA band the ink is the band's own, so the controls invert with it. */
-.up-btn-inv { background: var(--text-color); color: var(--bg-page); }
-
-.up-btn-ghost {
-  background: transparent;
+.up-btn--outline:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text-color) 15%, transparent);
   color: var(--text-color);
-  border-color: color-mix(in srgb, var(--text-color) 55%, transparent);
 }
 
-.up-btn-ghost:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--text-color) 10%, transparent);
-  border-color: var(--text-color);
+/* The destructive one. `--fg-orange` is the alert hue and is deliberately NOT
+   aliased to the scheme at the top of this file (§2.1: a warning that changes
+   colour with the decor is not a warning), so this is the only control on the
+   page that does not follow the visitor's palette. A TONE, not a border (§5) —
+   the control is already a pill, and a second edge would only say it twice. */
+.up-btn--alert {
+  background: color-mix(in srgb, var(--fg-orange) 22%, transparent);
+  color: var(--text-color);
+}
+.up-btn--alert:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--fg-orange) 34%, transparent);
+  color: var(--text-color);
 }
 
 .up-btn:focus-visible {
@@ -186,307 +243,382 @@
   outline-offset: var(--focus-outline-offset);
 }
 
-/* ── Hero readout ─────────────────────────────────────────────────────────── */
-
-.up-stats {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: calc(var(--nav-size) * 0.5);
-  margin-top: calc(var(--nav-size) * 0.3);
-}
-
-.up-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.up-stat-value {
-  font-size: var(--font-size-heading);
-  font-weight: var(--font-weight-bold);
-  line-height: 1;
-}
-
-.up-stat-label {
-  font-size: var(--font-size-xs);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-color-accent);
-}
-
-.up-quiet {
-  margin: calc(var(--nav-size) * 0.2) 0 0;
-  max-width: 460px;
-  font-size: var(--font-size-small);
-  line-height: var(--line-height-base);
-  color: var(--text-color-accent);
-}
+/* ── Status line ──────────────────────────────────────────────────────────── */
 
 .up-notice {
-  margin: calc(var(--nav-size) * 0.2) 0 0;
-  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.35);
-  border-radius: 999px;
+  margin: 0 0 calc(var(--nav-size) * 0.25);
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.28);
+  border-radius: var(--glass-radius-inner);
+  background: var(--glass);
   font-size: var(--font-size-small);
   font-weight: var(--font-weight-semibold);
-  color: var(--text-color);
 }
 
-.up-notice--ok { background: color-mix(in srgb, var(--fg-mint) 26%, transparent); }
-.up-notice--error { background: color-mix(in srgb, var(--fg-orange) 26%, transparent); }
-
-/* ── Private pages ────────────────────────────────────────────────────────── */
-
-/* The lock stands in for the avatar a gated page must not send. Sized to the
-   avatar slot it replaces (…-lg) so the hero keeps the same rhythm whether the
-   page opens or not, and pinned inside a circle so it reads as a placeholder
-   rather than as an emoji someone typed into a paragraph. */
-.up-lock {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: calc(var(--nav-size) * 2.4);
-  height: calc(var(--nav-size) * 2.4);
-  margin: 0;
-  border: 1px dashed var(--border-nav);
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--text-color) 6%, transparent);
-  font-size: calc(var(--nav-size) * 0.95);
-  line-height: 1;
+/* Signal colours, and the one place a hue is allowed to mean something: is this
+   greeting or is it a refusal. Neither follows the colour scheme — a warning in
+   the visitor's favourite hue is not a warning. */
+.up-notice--ok {
+  background: color-mix(in srgb, var(--green2) 20%, var(--glass));
+}
+.dark-theme .up-notice--ok {
+  background: color-mix(in srgb, var(--green1) 18%, var(--glass));
+}
+.up-notice--error {
+  background: color-mix(in srgb, var(--red0) 18%, var(--glass));
 }
 
-/* The owner's own visibility readout. Deliberately quiet: it is a status line
-   about a setting, not an achievement, and it must not compete with the stats
-   directly beneath it. */
-.up-visibility {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: calc(var(--nav-size) * 0.12);
-  margin: calc(var(--nav-size) * 0.24) 0 0;
-  padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.4);
-  border: 1px solid var(--border-nav);
-  border-radius: 999px;
-  font-size: var(--font-size-xs);
-  color: var(--text-color-accent);
-}
+/* ── Panels — panes of glass on the room, not cards ───────────────────────── */
 
-.up-visibility--private {
-  background: color-mix(in srgb, var(--text-color) 6%, transparent);
-}
-
-.up-visibility--public {
-  border-color: color-mix(in srgb, var(--fg-blue) 45%, transparent);
-  background: color-mix(in srgb, var(--fg-blue) 12%, transparent);
-}
-
-.up-visibility-link {
-  color: var(--fg-blue);
-  font-weight: var(--font-weight-semibold);
-  text-decoration: none;
-}
-
-.up-visibility-link:hover {
-  text-decoration: underline;
-}
-
-/* ── Bands ────────────────────────────────────────────────────────────────── */
-
-.up-band {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  padding: calc(var(--nav-size) * 1.2) calc(var(--nav-size) * 0.3);
-}
-
-.up-wrap {
-  width: 100%;
-  max-width: 1080px;
-}
-
-/* Alternate the tone down the page: two flat washes are enough, and more than
-   that reads as decoration (§5). */
-.up-band--surface { background: var(--bg-page); }
-.up-band--tint { background: color-mix(in srgb, var(--fg-mint) 10%, var(--bg-page)); }
-
-/* The closing band wears the scheme's page-relative pair, inked with plain
-   --text-color: the -bg tokens mix each identity hue into THIS mode's page colour,
-   so the band is pale on a light page and deep on a dark one — and its copy stays
-   readable in both. Inking it with --text-color-inv would make it brighter as the
-   page got darker (§2). */
-.up-band--cta {
-  background: linear-gradient(45deg, var(--scheme-accent-bg), var(--scheme-primary-bg));
-  color: var(--text-color);
-}
-
-.up-reveal {
-  opacity: 0;
-  transform: translateY(28px);
-  transition: opacity 0.7s ease, transform 0.7s ease;
-}
-
-.up-reveal.is-visible { opacity: 1; transform: translateY(0); }
-
-/* ── Section heads: eyebrow → heading → lead ──────────────────────────────── */
-
-.up-head {
-  max-width: 760px;
-  margin: 0 auto calc(var(--nav-size) * 0.5);
-  text-align: center;
-}
-
-.up-band-eyebrow {
-  margin: 0 0 calc(var(--nav-size) * 0.12);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-color-accent);
-}
-
-.up-heading {
-  margin: 0 0 calc(var(--nav-size) * 0.2);
-  font-size: var(--font-size-heading);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: -0.01em;
-}
-
-.up-lead {
-  margin: 0;
-  font-size: var(--font-size-base);
-  line-height: var(--line-height-relaxed);
-  color: var(--text-color-accent);
-}
-
-/* ── Cards ────────────────────────────────────────────────────────────────── */
-
-.up-grid {
+.up-rows {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
-  gap: calc(var(--nav-size) * 0.3);
+  /* `min()` inside `minmax()` matters: a bare `minmax(320px, 1fr)` sets a hard
+     320px track MINIMUM, so on a 320px phone the row would be wider than the room
+     it has and the page would spill sideways. */
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+  gap: calc(var(--nav-size) * 0.25);
 }
 
-.up-card {
+.up-panel {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--nav-size) * 0.14);
-  padding: calc(var(--nav-size) * 0.35);
-  background: var(--bg-1);
-  border: 1px solid var(--border-nav);
-  border-radius: var(--border-radius-lg);
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  gap: calc(var(--nav-size) * 0.28);
+  padding: calc(var(--nav-size) * 0.3);
+  overflow: hidden;
+  border-radius: var(--glass-radius);
+  background: var(--glass);
+  box-shadow: var(--glass-shadow);
 }
 
-.up-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  border-color: color-mix(in srgb, var(--fg-blue) 45%, transparent);
+/* Head and foot are tone changes ON the pane, mixed from the text colour rather
+   than from a hue — colour on this material is reserved for signal. */
+.up-panel-head {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.2);
+  margin: calc(var(--nav-size) * -0.3) calc(var(--nav-size) * -0.3) 0;
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.3);
+  background: var(--glass-sheen);
 }
 
-.up-card-title {
+/* A panel's title is a LABEL in a dense grid, not a section heading: five panes
+   have to read as one workspace rather than five pages stacked. */
+.up-panel-title {
   margin: 0;
-  font-size: var(--font-size-large);
+  font-size: var(--font-size-small);
   font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
 }
 
-.up-card-sub {
+/* Provenance, not prose: where these numbers came from, in one line. */
+.up-panel-hint {
+  margin: calc(var(--nav-size) * -0.16) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--up-muted);
+}
+
+.up-panel-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.2);
+  margin: 0 calc(var(--nav-size) * -0.3) calc(var(--nav-size) * -0.3);
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.3);
+  background: var(--glass-sunken);
+}
+
+/* ── The Manage pane — a pane that is a `<details>` ───────────────────────────
+   The controls that change the relationship live behind this summary (§5.7):
+   "power-user plumbing goes in a `<details>`, so the first screen is the job and
+   not the config". It is a `--glass` pane like its neighbours so it reads as part
+   of the room rather than as a stray menu, and it is a real `<details>` rather
+   than a hand-rolled popover because that is a keyboard-accessible disclosure
+   with no JS state, no outside-click handler and no focus trap to get wrong.
+
+   `display: block` is the ONE declaration `.up-panel` has to be walked back for:
+   the base is a flex column, and a `<details>` that is not `display: block`
+   risks its closed content showing in a browser that hides it through the flex
+   container (the same class of bug as a summary styled with `display: flex`).
+   The rest of the pane's look — glass, radius, shadow, no border — is inherited. */
+.up-panel--manage {
+  display: block;
+  padding: 0;
+}
+
+.up-manage-summary {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.16);
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.3);
+  background: var(--glass-sheen);
+  cursor: pointer;
+  list-style: none;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+.up-manage-summary::-webkit-details-marker { display: none; }
+
+/* The house focus ring, not the browser's default auto outline — the same
+   declaration `/settings` puts on its own `<details>` summary. A `<summary>` is a
+   real control and has to show focus; it just should not do it in the one style
+   nothing else on the page uses. */
+.up-manage-summary:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
+  border-radius: var(--glass-radius-inner);
+}
+
+/* The same disclosure mark `/talk`'s info pane uses, so the two read as the same
+   control. It is `--up-muted` because it is chrome, not content. */
+.up-manage-summary::after {
+  content: '▸';
+  margin-left: auto;
+  font-size: var(--font-size-small);
+  color: var(--up-muted);
+}
+.up-panel--manage[open] .up-manage-summary::after { content: '▾'; }
+
+.up-manage-body {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.08);
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 0.28);
+}
+
+/* The rows in here carry a control as their value, so they centre rather than
+   sit on the baseline the plain readout rows use. */
+.up-manage-body .up-row {
+  align-items: center;
+}
+
+/* The hint under the controls, pulled in from the page's full width so it reads
+   as a note on the row above it rather than as a paragraph in the pane. */
+.up-manage-body .up-note {
+  margin-top: calc(var(--nav-size) * 0.06);
+  font-size: var(--font-size-xs);
+}
+
+.up-list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.08);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.up-note {
   margin: 0;
   font-size: var(--font-size-small);
   line-height: var(--line-height-base);
-  color: var(--text-color-accent);
+  color: var(--up-muted);
 }
 
-/* The number IS the card, so it is display-sized and left to do the work. */
-.up-card-value {
+/* ── Entry rows — a game, a published skill or goal ───────────────────────── */
+
+.up-entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: calc(var(--nav-size) * 0.08) calc(var(--nav-size) * 0.25);
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.25);
+  border-radius: var(--glass-radius-inner);
+}
+
+.up-entry-main {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin: calc(var(--nav-size) * 0.1) 0 0;
-  font-size: var(--font-size-display);
-  font-weight: var(--font-weight-bold);
-  line-height: 1;
-  letter-spacing: -0.02em;
+  /* Basis, not width: below ~200px of room the aside wraps onto its own line and
+     right-aligns, instead of squeezing the title into a column of two words. */
+  flex: 1 1 180px;
+  min-width: 0;
 }
 
-.up-card-value-label {
-  font-size: var(--font-size-xs);
+.up-entry-title {
+  margin: 0;
+  font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-color-accent);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
 }
 
-.up-card-facts {
+.up-entry-sub {
+  margin: 0;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-base);
+  color: var(--up-muted);
+}
+
+.up-entry-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.04) calc(var(--nav-size) * 0.2);
+  margin: calc(var(--nav-size) * 0.06) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-xs);
+  color: var(--up-muted);
+}
+
+.up-entry-aside {
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: calc(var(--nav-size) * 0.06);
-  margin: 0;
-  font-size: var(--font-size-small);
-  color: var(--text-color-accent);
+  flex: 0 1 auto;
+  margin-left: auto;
+  text-align: right;
 }
 
-.up-card-facts li {
+/* The number is the reason the row exists, so it keeps a size of its own — but a
+   readout in a dense grid, not the display type the old card used. */
+.up-entry-value {
   display: flex;
-  gap: calc(var(--nav-size) * 0.1);
-}
-
-.up-card-link {
-  margin-top: auto;
-  padding-top: calc(var(--nav-size) * 0.15);
-  font-size: var(--font-size-small);
-  font-weight: var(--font-weight-semibold);
-  /* The global `a:hover` paints anchors in the scheme's partner hue at (0,1,1), so
-     this has to NAME its colour to win. */
-  color: var(--fg-blue);
-  text-decoration: none;
-}
-
-.up-card-link:hover { color: var(--fg-mint); text-decoration: underline; }
-
-.up-chip {
-  align-self: flex-start;
+  flex-direction: column;
+  align-items: flex-end;
   margin: 0;
-  padding: calc(var(--nav-size) * 0.06) calc(var(--nav-size) * 0.2);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--fg-mint) 20%, transparent);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.1;
+}
+
+.up-entry-value-label {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  color: var(--up-muted);
+}
+
+.up-entry-link {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  /* The global `a:hover` paints anchors in the scheme's partner hue at (0,1,1),
+     so this has to NAME its colour to win. */
+  color: var(--fg-blue);
+  text-decoration: none;
+}
+
+.up-entry-link:hover {
+  color: var(--fg-mint);
+  text-decoration: underline;
+}
+
+/* A kind badge (Goal / Skill): a tint of the scheme's emphasis hue, never the
+   action ramp — it is a label, not something to press (§6). */
+.up-kind {
+  margin: 0;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--scheme-primary) 20%, var(--bg-1));
   color: var(--text-color);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-/* ── CTA band ─────────────────────────────────────────────────────────────── */
+/* The `Blocked` badge on the Manage summary: the same label shape, in the ALERT
+   hue rather than the scheme's, because a state you must notice should not change
+   colour with the decor (§2.1). ⚠️ It has to sit AFTER `.up-kind` — both are one
+   class, so source order decides, and above it the base tint would win. */
+.up-kind--alert {
+  background: color-mix(in srgb, var(--fg-orange) 26%, transparent);
+  color: var(--text-color);
+  letter-spacing: 0.06em;
+}
 
-.up-cta {
+/* ── Plain rows — a label and its value ───────────────────────────────────── */
+
+.up-row {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  max-width: 760px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: calc(var(--nav-size) * 0.25);
+  padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.25);
+  border-radius: var(--glass-radius-inner);
+  font-size: var(--font-size-small);
 }
 
-.up-band-eyebrow--cta { color: color-mix(in srgb, var(--text-color) 70%, transparent); }
-.up-lead--cta { color: color-mix(in srgb, var(--text-color) 82%, transparent); }
+/* Rows are separated by alternating tints, not a hairline under every row (§5). */
+.up-row:nth-child(odd) {
+  background: var(--glass-row);
+}
 
-.up-cta .up-actions { margin-top: calc(var(--nav-size) * 0.3); }
+.up-row-key {
+  color: var(--up-muted);
+}
 
-/* ── Portrait ─────────────────────────────────────────────────────────────── */
+.up-row-value {
+  font-weight: var(--font-weight-semibold);
+  text-align: right;
+}
 
+.up-row-code {
+  font-size: var(--font-size-xs);
+  color: var(--up-muted);
+  overflow-wrap: anywhere;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+
+/* Below ~900px the readout stops wrapping and scrolls sideways instead. `flex: 1
+   1 0` rather than `width: 100%` is the load-bearing part: with `flex-basis: auto`
+   the wrap decision is taken from the chips' FULL intrinsic width, so the actions
+   wrap onto a row of their own however much room is actually left over. */
+@media (max-width: 900px) {
+  .up-bar-readout {
+    flex: 1 1 0;
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 2px;
+  }
+  .up-bar-readout::-webkit-scrollbar { display: none; }
+}
+
+/* Portrait: the row's actions take the line they land on, so a long label
+   ("Connect with <long nickname>") shrinks or wraps instead of pushing the bar
+   wider than the screen. */
 @media (orientation: portrait) {
-  .up-hero { padding-top: calc(var(--nav-size) * 1.9); }
-  .up-actions { flex-direction: column; align-items: stretch; width: 100%; }
-  .up-actions .up-btn { width: 100%; }
-  .up-stats { gap: calc(var(--nav-size) * 0.35); }
+  .up-bar-actions {
+    width: 100%;
+  }
+  .up-bar-actions .up-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: normal;
+    text-align: center;
+  }
 }
 
+/* The Manage rows split label-and-control across a phone's width, which is not
+   enough for "Remove connection" AND a button on one line — so the label takes
+   the first line and the control sits under it, full width, where a thumb can
+   reach it. `min-height` is left alone: these are real buttons and 44px is the
+   touch target they should keep. */
+@media (max-width: 420px) {
+  .up-manage-body .up-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: calc(var(--nav-size) * 0.14);
+  }
+  .up-manage-body .up-btn {
+    width: 100%;
+  }
+}
+
+/* Motion here means state changed, and the only thing that moves on this page is
+   a control answering a hover — the room animates itself and resets under its own
+   reduced-motion block in index.css. */
 @media (prefers-reduced-motion: reduce) {
-  .up-hero { animation: none; }
-  .up-circle { animation: none; }
-  .up-reveal { opacity: 1; transform: none; transition: none; }
-  .up-card,
-  .up-btn { transition: none; }
+  .up-btn {
+    transition: none;
+  }
+  .up-btn--primary:hover:not(:disabled) {
+    transform: none;
+  }
 }

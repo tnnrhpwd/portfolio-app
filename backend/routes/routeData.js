@@ -140,6 +140,8 @@ const {
   postDeclineRequest,
   deleteFriendRequest,
   deleteMessengerContact,
+  postBlockUser,
+  deleteBlockUser,
   getConversationMessages,
   postConversationMessage,
   postConversationRead,
@@ -510,6 +512,17 @@ router.post('/messenger/requests/:userId/accept', protect, messengerWriteLimiter
 router.post('/messenger/requests/:userId/decline', protect, messengerWriteLimiter, sanitizeInput, postDeclineRequest);
 router.delete('/messenger/requests/:userId', protect, messengerWriteLimiter, deleteFriendRequest);
 router.delete('/messenger/contacts/:userId', protect, messengerWriteLimiter, deleteMessengerContact);
+
+// Blocking. A block is not a `DELETE /contacts` (see §19.4 in
+// docs/implementation/agent.md): it outlives the connection it removes and it is
+// one-sided. `messengerWriteLimiter` rather than `friendRequestLimiter` — this is
+// a state change on two accounts, not an unsolicited message to a stranger.
+//
+// ⚠️ Addressed by username in the body, like `POST /messenger/requests` above and
+// unlike every `:userId` route around it: the page a block is placed from only ever
+// holds a handle (see the note in messengerController.js).
+router.post('/messenger/blocks', protect, messengerWriteLimiter, postBlockUser);
+router.delete('/messenger/blocks', protect, messengerWriteLimiter, deleteBlockUser);
 
 router.get('/messenger/conversations/:userId/messages', protect, messengerReadLimiter, getConversationMessages);
 router.post('/messenger/conversations/:userId/messages', protect, messengerWriteLimiter, postConversationMessage);

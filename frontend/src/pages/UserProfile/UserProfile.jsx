@@ -6,60 +6,202 @@ import Footer from '../../components/Footer/Footer.jsx';
 import SEO from '../../components/SEO/SEO.jsx';
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import ProfileAvatar from '../../components/ProfilePicture/ProfileAvatar.jsx';
-import useScrollReveal from '../../hooks/useScrollReveal.js';
 import { getPublicProfile } from '../../services/publicProfileApi.js';
-import { sendFriendRequest } from '../../services/messengerApi.js';
+import {
+  blockMessengerUser,
+  removeMessengerContact,
+  sendFriendRequest,
+  unblockMessengerUser,
+} from '../../services/messengerApi.js';
 import { messengerErrorMessage } from '../../utils/talkUtils.js';
 import {
+  RELATIONSHIP,
+  blockConfirmText,
+  blockNoticeText,
   boardSummary,
+  canBlock,
+  canRemoveConnection,
+  canUnblock,
   formatNumber,
   isPublicVisibility,
-  memberSinceLabel,
+  memberSinceValue,
   playLabel,
+  profilePath,
+  profileRelationship,
   profileStats,
   publishedKindLabel,
   ratingLabel,
+  removeConfirmText,
+  removeNoticeText,
   shortDate,
+  unblockConfirmText,
+  unblockNoticeText,
+  visibilityAudience,
   visibilityLabel,
-  visibilitySummary,
 } from '../../utils/userProfileUtils.js';
 import './UserProfile.css';
 
 /**
- * UserProfile — the public page for one account, at `/u/<username>`.
+ * UserProfile — the member page, at `/u/<username>`.
  *
- * A DISCOVERY PAGE (FRONTEND_UI_STANDARD.md §5), because that is what it is: a
- * stranger can arrive here from a shared link knowing nothing, so it leads with a
- * face and a name, then earns the scroll with what the person has done, and ends
- * on a band that invites the visitor to have one of their own. `Talk` is the
- * service page; this is the page you send someone.
+ * A SERVICE PAGE (FRONTEND_UI_STANDARD.md §5.7). This is the page a member sends
+ * someone, and the one they open to check what a stranger sees — a room, not a
+ * pitch. So there are no bands and no gradient behind the numbers: one flat ground
+ * (the shared `.service-room`), one row at the top carrying the name, its live
+ * state and the one action, and a dense grid of glass panes below it. Nothing of
+ * the page's own is pinned, and nothing fades in — the site header is the only
+ * thing that stays put.
  *
  * Where the numbers come from, and how much they can be trusted, differs — so the
- * page is explicit about it rather than presenting everything as an achievement
- * record:
+ * page says it rather than presenting everything as an achievement record:
  *
  *   - identity, join date        → the account row
  *   - games                      → the PUBLIC game leaderboards. Those rows are
  *                                  self-reported by whoever posted them, and the
- *                                  section says so (see services/gameBoards.js).
+ *                                  panel's hint says so (see services/gameBoards.js).
  *   - published skills/goals      → `authorUserId` is stamped by the server on
  *                                  publish, so this is genuinely attributable.
  *
- * One `<h1>` (the name), one `<h2>` per band, and a band that has nothing in it is
- * not rendered at all — an empty "Games 0" band is worse than no band.
+ * One `<h1>` (the name) and one `<h2>` per panel, and a panel with nothing in it
+ * is not rendered at all — an empty "Games" pane is worse than no pane.
+ *
+ * MANAGING THE RELATIONSHIP (§19.4). The two controls that change it — remove the
+ * connection, and block — are NOT in the row. The row's buttons are for engaging
+ * with a person, and a destructive control parked next to "Message" is a misclick
+ * waiting to happen. They live in a folded `<details>` pane, which §5.7 asks for
+ * by name, and which doubles as the only place a block can be LIFTED: the summary
+ * carries a `Blocked` badge, so the pane announces its own state while closed.
+ * The row is left with no action at all in that state, because a block has already
+ * switched off everything this page's actions do.
  */
 
-/** The bands fade + rise once, like every other Discovery page (§5). */
-function RevealBand({ tone = 'surface', label, children }) {
-  const [ref, visible] = useScrollReveal();
+/** One pane of the room: a title row, an optional hint, its rows, an optional foot. */
+function Panel({ title, hint, foot, children }) {
   return (
-    <section
-      ref={ref}
-      aria-label={label}
-      className={`up-band up-band--${tone} up-reveal ${visible ? 'is-visible' : ''}`}
-    >
-      <div className="up-wrap">{children}</div>
+    <section className="up-panel">
+      <div className="up-panel-head">
+        <h2 className="up-panel-title">{title}</h2>
+      </div>
+      {hint && <p className="up-panel-hint">{hint}</p>}
+      {children}
+      {foot && <div className="up-panel-foot">{foot}</div>}
     </section>
+  );
+}
+
+/**
+ * The room's row: the name, its live state and the one action (§5.7). NOT pinned
+ * — the site header is the only thing that stays at the top of the page, so this
+ * scrolls away with everything below it.
+ */
+function ProfileBar({ title, avatar, lock, readout, actions, notice }) {
+  return (
+    <>
+      <header className="up-bar">
+        {avatar}
+        {lock && <span className="up-bar-lock" aria-hidden="true">{lock}</span>}
+        <h1 className="up-bar-title">{title}</h1>
+        {readout && <ul className="up-bar-readout">{readout}</ul>}
+        {actions && <div className="up-bar-actions">{actions}</div>}
+      </header>
+
+      {notice && (
+        <p className={`up-notice up-notice--${notice.tone === 'ok' ? 'ok' : 'error'}`} role="status">
+          {notice.text}
+        </p>
+      )}
+    </>
+  );
+}
+
+/**
+ * The controls that change the relationship, folded away.
+ *
+ * `§5.7` — "power-user plumbing goes in a `<details>`, so the first screen is the
+ * job and not the config" — and the two controls here are exactly that: removing a
+ * connection and blocking are not what this page is FOR, and both are destructive.
+ *
+ * It is a PANE like every other one in the grid, so it reads as part of the room
+ * rather than as a stray menu, and the panel is its own confirm step on the way in.
+ * The badge on the summary is load-bearing: it is the only place a block announces
+ * itself while the pane is shut, and a block you cannot find is a block you cannot
+ * lift — the row carries no action at all in that state (§19.4).
+ *
+ * Renders nothing when there is nothing to manage, so it never appears on your own
+ * page, for a signed-out visitor, or for a state with no available control.
+ */
+function ManagePanel({ profile, busy, onBlock, onUnblock, onRemove }) {
+  const showRemove = canRemoveConnection(profile);
+  const showUnblock = canUnblock(profile);
+  const showBlock = canBlock(profile);
+
+  if (!showRemove && !showUnblock && !showBlock) return null;
+
+  const nickname = profile.nickname;
+
+  return (
+    <details className="up-panel up-panel--manage">
+      <summary className="up-manage-summary">
+        Manage
+        {showUnblock && <span className="up-kind up-kind--alert">Blocked</span>}
+      </summary>
+
+      <div className="up-manage-body">
+        {showRemove && (
+          <div className="up-row">
+            <span className="up-row-key">Remove connection</span>
+            <button
+              type="button"
+              className="up-btn up-btn--outline up-btn--sm"
+              onClick={() => onRemove(nickname)}
+              disabled={busy}
+            >
+              Remove
+            </button>
+          </div>
+        )}
+
+        {showBlock && (
+          <div className="up-row">
+            <span className="up-row-key">Block</span>
+            <button
+              type="button"
+              className="up-btn up-btn--alert up-btn--sm"
+              onClick={() => onBlock(nickname)}
+              disabled={busy}
+            >
+              Block
+            </button>
+          </div>
+        )}
+
+        {showUnblock && (
+          <div className="up-row">
+            <span className="up-row-key">Blocked</span>
+            <button
+              type="button"
+              className="up-btn up-btn--outline up-btn--sm"
+              onClick={() => onUnblock(nickname)}
+              disabled={busy}
+            >
+              Unblock
+            </button>
+          </div>
+        )}
+
+        {/* The one thing the word "Block" does not say. It is the only sentence in
+            the pane, and it earns its place: a block is the one control here whose
+            effect is invisible to the other person, and whose scope (the page, the
+            requests, the messaging) cannot be guessed from the label. */}
+        {(showBlock || showUnblock) && (
+          <p className="up-note">
+            {showUnblock
+              ? 'Unblocking does not reconnect you. Your messages are kept either way.'
+              : 'Blocking hides your page from them and stops new requests and messages. They are not told.'}
+          </p>
+        )}
+      </div>
+    </details>
   );
 }
 
@@ -72,7 +214,8 @@ function UserProfile() {
   const [status, setStatus] = useState('loading'); // loading | ready | missing | error
   const [error, setError] = useState('');
   const [connecting, setConnecting] = useState(false);
-  const [connectNotice, setConnectNotice] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState(null);
   const [requestSent, setRequestSent] = useState(false);
 
   const load = useCallback(async () => {
@@ -96,7 +239,7 @@ function UserProfile() {
 
   const handleConnect = useCallback(async () => {
     setConnecting(true);
-    setConnectNotice(null);
+    setNotice(null);
     try {
       const result = await sendFriendRequest(token, profile.nickname);
       setRequestSent(true);
@@ -107,65 +250,127 @@ function UserProfile() {
       // page we are looking at is now readable. Re-fetch instead of claiming to
       // have sent a request against a page we could already be reading.
       if (result.autoAccepted) {
-        setConnectNotice({ tone: 'ok', text: `You are connected with ${profile.nickname} now.` });
+        setNotice({ tone: 'ok', text: `You are connected with ${profile.nickname} now.` });
         await load();
         return;
       }
 
-      setConnectNotice({
+      setNotice({
         tone: 'ok',
         text: `Request sent to ${profile.nickname}. They will see it next time they open Talk.`,
       });
     } catch (err) {
-      setConnectNotice({ tone: 'error', text: messengerErrorMessage(err, 'Could not send that request.') });
+      setNotice({ tone: 'error', text: messengerErrorMessage(err, 'Could not send that request.') });
     } finally {
       setConnecting(false);
     }
   }, [profile, token, load]);
 
+  /**
+   * The three relationship controls, and why they are one function.
+   *
+   * All three change state that this page does not own — the friend graph, and a
+   * block the server holds — so none of them writes a local flag and guesses. Each
+   * one calls the API and then RE-READS the profile, because the payload is what
+   * decides the row's action, the readout chips and which controls exist at all
+   * (`profileRelationship`). Setting `blockedByYou` here instead would be a second
+   * copy of the server's rule, and the two would eventually disagree about a page
+   * that is private, a block that is already there, or a connection that was
+   * removed on the other side.
+   *
+   * A `window.confirm` in front of each is the same choice `/talk` makes for
+   * "Remove": these are irreversible-by-accident (a removed connection has to be
+   * re-requested), the confirm is the only place the consequence is stated, and it
+   * costs nothing to keep.
+   */
+  const runRelationshipAction = useCallback(async (confirmText, action, say) => {
+    if (!window.confirm(confirmText)) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      await action();
+      await load();
+      setNotice({ tone: 'ok', text: say });
+    } catch (err) {
+      setNotice({ tone: 'error', text: messengerErrorMessage(err, 'That did not work. Please try again.') });
+    } finally {
+      setBusy(false);
+    }
+  }, [load]);
+
+  const handleBlock = useCallback((nickname) => runRelationshipAction(
+    blockConfirmText(nickname),
+    () => blockMessengerUser(token, nickname),
+    blockNoticeText(nickname)
+  ), [runRelationshipAction, token]);
+
+  const handleUnblock = useCallback((nickname) => runRelationshipAction(
+    unblockConfirmText(nickname),
+    () => unblockMessengerUser(token, nickname),
+    unblockNoticeText(nickname)
+  ), [runRelationshipAction, token]);
+
+  // The one of the three that IS id-addressed: removing a connection is `/talk`'s
+  // operation, and a connection is exactly the state in which this page holds the
+  // peer's id (`connectedUserId`). A block, which removes that id from reach, is
+  // handle-addressed for the same reason — see `messengerApi.js`.
+  const handleRemove = useCallback((nickname) => runRelationshipAction(
+    removeConfirmText(nickname),
+    () => removeMessengerContact(token, profile.connectedUserId),
+    removeNoticeText(nickname)
+  ), [runRelationshipAction, token, profile]);
+
   // ── Loading / not-found / failed ────────────────────────────────────────────
   // All three keep the page shell, so a bad link looks like a page rather than
-  // like something broke.
+  // like something broke. The row names the handle that was asked for and states
+  // what happened to it; the panel is the one place with room for a sentence.
   if (status !== 'ready') {
+    const state = status === 'loading' ? 'Loading' : (status === 'missing' ? 'Not found' : 'Unavailable');
+
+    const actions = status === 'missing' ? (
+      <>
+        <Link className="up-btn up-btn--primary" to="/talk">Find someone on Talk</Link>
+        {!user && <Link className="up-btn up-btn--outline" to="/register">Create your page</Link>}
+      </>
+    ) : status === 'error' ? (
+      <>
+        <button type="button" className="up-btn up-btn--primary" onClick={load}>↻ Try again</button>
+        <Link className="up-btn up-btn--outline" to="/talk">Open Talk</Link>
+      </>
+    ) : null;
+
     return (
       <>
         <SEO title="Profile" description="A member profile on STHopwood." path={`/u/${username}`} />
         <Header />
-        <div className="up">
-          <section className="up-hero">
-            <div className="up-floating" aria-hidden="true">
-              <div className="up-circle up-circle-1" />
-              <div className="up-circle up-circle-2" />
-              <div className="up-circle up-circle-3" />
-            </div>
-            <div className="up-hero-wrap">
-              {status === 'loading' && <Spinner />}
-              {status === 'missing' && (
-                <>
-                  <p className="up-eyebrow">Not found</p>
-                  <h1 className="up-title">No profile at “{username}”</h1>
-                  <p className="up-subtitle">
-                    Nobody here goes by that name. Usernames are the same ones used on Talk.
+
+        <div className="up-page service-room">
+          <div className="up-shell">
+            <ProfileBar
+              title={username || 'Member page'}
+              readout={(
+                <li className="up-chip">
+                  <span className="up-chip-key">Page</span>
+                  <strong>{state}</strong>
+                </li>
+              )}
+              actions={actions}
+            />
+
+            <div className="up-rows">
+              <Panel title="Member page">
+                {status === 'loading' && <Spinner />}
+                {status === 'missing' && (
+                  <p className="up-note">
+                    Nobody here goes by that name. A member page uses the same name as Talk.
                   </p>
-                  <div className="up-actions">
-                    <Link className="up-btn" to="/talk">Find someone on Talk</Link>
-                    {!user && <Link className="up-btn up-btn-outline" to="/register">Create your page</Link>}
-                  </div>
-                </>
-              )}
-              {status === 'error' && (
-                <>
-                  <p className="up-eyebrow">Unavailable</p>
-                  <h1 className="up-title">Couldn’t load that profile</h1>
-                  <p className="up-subtitle">{error}</p>
-                  <div className="up-actions">
-                    <button type="button" className="up-btn" onClick={load}>↻ Try again</button>
-                  </div>
-                </>
-              )}
+                )}
+                {status === 'error' && <p className="up-note">{error}</p>}
+              </Panel>
             </div>
-          </section>
+          </div>
         </div>
+
         <Footer />
       </>
     );
@@ -177,8 +382,39 @@ function UserProfile() {
   // explains itself and offers the one action that would open it — instead of a
   // dead end that looks identical to a mistyped username. Nothing about the
   // account is rendered here because nothing about it was sent: no picture, no
-  // stats, no boards, no published work.
+  // stats, no boards, no published work. So the panel is a list of what is being
+  // held back, which is a label per line rather than a paragraph.
   if (profile.restricted) {
+    // A block this viewer placed is the one state where the row carries NO action:
+    // `canConnect` is false (the server will not offer to connect someone to an
+    // account they have blocked), and the only thing left to do — lift it — is
+    // plumbing, so it lives in the Manage pane with the rest of the plumbing.
+    //
+    // For a viewer who was BLOCKED, none of this branch changes anything: no chip,
+    // no pane, no action beyond the Connect button the private page already offers.
+    // That is the point — the two states render identically, because the server
+    // answers them identically (`services/publicProfile.js`).
+    const blockedByYou = canUnblock(profile);
+
+    const actions = blockedByYou ? null : profile.canConnect ? (
+      <>
+        <button
+          type="button"
+          className="up-btn up-btn--primary"
+          onClick={handleConnect}
+          disabled={connecting || requestSent}
+        >
+          {connecting ? 'Sending…' : (requestSent ? 'Request sent' : `Connect with ${profile.nickname}`)}
+        </button>
+        <Link className="up-btn up-btn--outline" to="/talk">Open Talk</Link>
+      </>
+    ) : !profile.isSignedIn ? (
+      <>
+        <Link className="up-btn up-btn--primary" to="/login">Sign in</Link>
+        <Link className="up-btn up-btn--outline" to="/register">Create your page</Link>
+      </>
+    ) : null;
+
     return (
       <>
         <SEO
@@ -190,82 +426,87 @@ function UserProfile() {
         />
         <Header />
 
-        <div className="up">
-          <section className="up-hero">
-            <div className="up-floating" aria-hidden="true">
-              <div className="up-circle up-circle-1" />
-              <div className="up-circle up-circle-2" />
-              <div className="up-circle up-circle-3" />
-            </div>
+        <div className="up-page service-room">
+          <div className="up-shell">
+            <ProfileBar
+              lock="🔒"
+              title={profile.nickname}
+              readout={(
+                <>
+                  <li className="up-chip">
+                    <span className="up-chip-key">Page</span>
+                    <strong>Private</strong>
+                  </li>
+                  <li className="up-chip">
+                    <span className="up-chip-key">Access</span>
+                    <strong>{blockedByYou ? 'Blocked' : 'Connections only'}</strong>
+                  </li>
+                </>
+              )}
+              actions={actions}
+              notice={notice}
+            />
 
-            <div className="up-hero-wrap">
-              <p className="up-lock" aria-hidden="true">🔒</p>
-              <p className="up-eyebrow">Private page</p>
-              <h1 className="up-title">{profile.nickname}</h1>
-              <p className="up-subtitle">
-                {profile.nickname} shares this page with the people they are connected with. Their
-                picture, their games and what they have published stay hidden until you are one of
-                them.
-              </p>
+            <div className="up-rows">
+              <Panel title="What stays hidden">
+                <ul className="up-list">
+                  <li className="up-row">
+                    <span className="up-row-key">Picture</span>
+                    <span className="up-row-value">Hidden</span>
+                  </li>
+                  <li className="up-row">
+                    <span className="up-row-key">Games</span>
+                    <span className="up-row-value">Hidden</span>
+                  </li>
+                  <li className="up-row">
+                    <span className="up-row-key">Published work</span>
+                    <span className="up-row-value">Hidden</span>
+                  </li>
+                  <li className="up-row">
+                    <span className="up-row-key">Connections</span>
+                    <span className="up-row-value">Hidden</span>
+                  </li>
+                </ul>
+              </Panel>
 
-              <div className="up-actions">
-                {profile.canConnect && !requestSent && (
-                  <>
-                    <button
-                      type="button"
-                      className="up-btn"
-                      onClick={handleConnect}
-                      disabled={connecting}
-                    >
-                      {connecting ? 'Sending…' : `Connect with ${profile.nickname}`}
-                    </button>
-                    <Link className="up-btn up-btn-outline" to="/talk">Open Talk</Link>
-                  </>
-                )}
-
-                {profile.canConnect && requestSent && (
-                  <button type="button" className="up-btn up-btn-outline" onClick={load}>
+              <Panel
+                title="How to open it"
+                foot={requestSent && (
+                  <button type="button" className="up-btn up-btn--outline up-btn--sm" onClick={load}>
                     ↻ Check again
                   </button>
                 )}
-
-                {!profile.isSignedIn && (
-                  <>
-                    <Link className="up-btn" to="/login">Sign in</Link>
-                    <Link className="up-btn up-btn-outline" to="/register">Create your page</Link>
-                  </>
+              >
+                {blockedByYou ? (
+                  <p className="up-note">
+                    You blocked {profile.nickname}. Unblocking lets them ask to connect again — that
+                    does not reconnect you, and the page stays private until they accept.
+                  </p>
+                ) : requestSent ? (
+                  <p className="up-note">
+                    Waiting on {profile.nickname}. The page opens the moment they accept the request.
+                  </p>
+                ) : profile.canConnect ? (
+                  <p className="up-note">
+                    {profile.nickname} reads the request and decides. The page opens once they accept.
+                  </p>
+                ) : (
+                  <p className="up-note">
+                    Sign in first — then ask {profile.nickname} to connect, and the page opens once they accept.
+                  </p>
                 )}
-              </div>
+              </Panel>
 
-              {connectNotice && (
-                <p
-                  className={`up-notice ${connectNotice.tone === 'ok' ? 'up-notice--ok' : 'up-notice--error'}`}
-                  role="status"
-                >
-                  {connectNotice.text}
-                </p>
-              )}
+              {/* Last, like the full branch: plumbing after the content (§5.7). */}
+              <ManagePanel
+                profile={profile}
+                busy={busy}
+                onBlock={handleBlock}
+                onUnblock={handleUnblock}
+                onRemove={handleRemove}
+              />
             </div>
-          </section>
-
-          <section className="up-band up-band--cta">
-            <div className="up-wrap up-cta">
-              <p className="up-band-eyebrow up-band-eyebrow--cta">Your turn</p>
-              <h2 className="up-heading up-heading--cta">
-                Keep your own page private, or open it to everyone
-              </h2>
-              <p className="up-lead up-lead--cta">
-                Every page starts private — you, and the people you connect with. Publish it from
-                your profile whenever you want the whole web to see it.
-              </p>
-              <div className="up-actions">
-                <Link className="up-btn up-btn-inv" to={user ? '/talk' : '/register'}>
-                  {user ? 'Open Talk' : 'Create your page'}
-                </Link>
-                {user && <Link className="up-btn up-btn-ghost" to="/profile">Your privacy setting</Link>}
-              </div>
-            </div>
-          </section>
+          </div>
         </div>
 
         <Footer />
@@ -278,6 +519,53 @@ function UserProfile() {
   const published = Array.isArray(profile.published) ? profile.published : [];
 
   const isPublic = isPublicVisibility(profile);
+  const joined = memberSinceValue(profile.memberSince);
+  const empty = games.length === 0 && published.length === 0;
+
+  // The one action this page is for, which differs by who is looking: the owner
+  // edits their page, a connection messages them, a stranger asks to connect, and
+  // a signed-out visitor can only get an account of their own (§5.7).
+  //
+  // ⚠️ The four cases are read off `profileRelationship` rather than re-derived
+  // from `isConnected`/`canConnect` here, and the BLOCKED case has no action at
+  // all. Both are deliberate. The relationship is one fact with one definition
+  // (utils/userProfileUtils.js), so the row and the Manage pane below it cannot
+  // disagree about which state this page is in; and a block has already switched
+  // off everything this row's buttons do — messaging needs a connection, and
+  // connecting is the one thing the viewer has refused. Lifting the block is a
+  // settings change, so it lives in the Manage pane.
+  const relationship = profileRelationship(profile);
+
+  const actions = relationship === RELATIONSHIP.SELF ? (
+    <>
+      <Link className="up-btn up-btn--primary" to="/settings#identity">Edit your profile</Link>
+      <Link className="up-btn up-btn--outline" to="/profile">Who can see it</Link>
+    </>
+  ) : relationship === RELATIONSHIP.CONNECTED ? (
+    <>
+      <Link className="up-btn up-btn--primary" to={`/net?with=${encodeURIComponent(profile.connectedUserId)}`}>
+        Message {profile.nickname}
+      </Link>
+      <Link className="up-btn up-btn--outline" to="/talk">All connections</Link>
+    </>
+  ) : relationship === RELATIONSHIP.STRANGER ? (
+    <>
+      <button
+        type="button"
+        className="up-btn up-btn--primary"
+        onClick={handleConnect}
+        disabled={connecting || requestSent}
+      >
+        {connecting ? 'Sending…' : (requestSent ? 'Request sent' : `Connect with ${profile.nickname}`)}
+      </button>
+      <Link className="up-btn up-btn--outline" to="/talk">Open Talk</Link>
+    </>
+  ) : relationship === RELATIONSHIP.VISITOR ? (
+    <>
+      <Link className="up-btn up-btn--primary" to="/register">Create your page</Link>
+      <Link className="up-btn up-btn--outline" to="/login">Sign in</Link>
+    </>
+  ) : null;
 
   return (
     <>
@@ -293,218 +581,160 @@ function UserProfile() {
       />
       <Header />
 
-      <div className="up">
-        {/* ── Hero: face, name, and the one action that matters ── */}
-        <section className="up-hero">
-          <div className="up-floating" aria-hidden="true">
-            <div className="up-circle up-circle-1" />
-            <div className="up-circle up-circle-2" />
-            <div className="up-circle up-circle-3" />
-          </div>
+      <div className="up-page service-room">
+        <div className="up-shell">
+          <ProfileBar
+            avatar={<ProfileAvatar picture={profile.avatar} name={profile.nickname} size="sm" />}
+            title={profile.nickname}
+            readout={[
+              // The page's own state is news only to the person who owns it: to a
+              // visitor the page is simply readable, and a chip saying so is noise.
+              profile.isSelf && (
+                <li className="up-chip" key="visibility">
+                  <span className="up-chip-key">Page</span>
+                  <strong>{visibilityLabel(profile)}</strong>
+                </li>
+              ),
+              // ...but a BLOCK is the viewer's own state, and it is news to them
+              // every time: it explains an absent Message button, and the one
+              // control they are looking for is in the pane below.
+              relationship === RELATIONSHIP.BLOCKED && (
+                <li className="up-chip" key="blocked">
+                  <span className="up-chip-key">Access</span>
+                  <strong>Blocked</strong>
+                </li>
+              ),
+              joined && (
+                <li className="up-chip" key="joined">
+                  <span className="up-chip-key">Member since</span>
+                  <strong>{joined}</strong>
+                </li>
+              ),
+              ...stats.map((stat) => (
+                <li className="up-chip" key={stat.key}>
+                  <span className="up-chip-key">{stat.label}</span>
+                  <strong>{stat.value}</strong>
+                </li>
+              )),
+            ]}
+            actions={actions}
+            notice={notice}
+          />
 
-          <div className="up-hero-wrap">
-            <ProfileAvatar picture={profile.avatar} name={profile.nickname} size="lg" />
-            <p className="up-eyebrow">{profile.isSelf ? 'Your public page' : 'Member'}</p>
-            <h1 className="up-title">{profile.nickname}</h1>
-            {memberSinceLabel(profile.memberSince) && (
-              <p className="up-subtitle">{memberSinceLabel(profile.memberSince)}</p>
+          <div className="up-rows">
+            {games.length > 0 && (
+              <Panel title="Games" hint="Self-reported on the public leaderboards.">
+                <ul className="up-list">
+                  {games.map((game) => {
+                    const summary = boardSummary(game);
+                    return (
+                      <li className="up-entry" key={game.key}>
+                        <div className="up-entry-main">
+                          <h3 className="up-entry-title">{game.name}</h3>
+                          {game.title && <p className="up-entry-sub">{game.title}</p>}
+
+                          <ul className="up-entry-facts">
+                            {summary.detail && <li>{summary.detail}</li>}
+                            {summary.rank && <li>{summary.rank}</li>}
+                            {shortDate(game.at) && <li>Played {shortDate(game.at)}</li>}
+                          </ul>
+                        </div>
+
+                        <div className="up-entry-aside">
+                          <p className="up-entry-value">
+                            {summary.value}
+                            <span className="up-entry-value-label">{summary.label}</span>
+                          </p>
+                          <Link className="up-entry-link" to={game.href}>
+                            {playLabel(game)} <span aria-hidden="true">→</span>
+                          </Link>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Panel>
             )}
 
-            <div className="up-actions">
-              {profile.isSelf && (
-                <>
-                  <Link className="up-btn" to="/settings#identity">Edit your profile</Link>
-                  <Link className="up-btn up-btn-outline" to="/talk">Go to Talk</Link>
-                </>
-              )}
+            {published.length > 0 && (
+              <Panel title="Published work">
+                <ul className="up-list">
+                  {published.map((item) => (
+                    <li className="up-entry" key={item.marketId}>
+                      <div className="up-entry-main">
+                        <h3 className="up-entry-title">{item.name}</h3>
+                        {item.description && <p className="up-entry-sub">{item.description}</p>}
 
-              {profile.isConnected && profile.connectedUserId && (
-                <>
-                  <Link className="up-btn" to={`/net?with=${encodeURIComponent(profile.connectedUserId)}`}>
-                    Message {profile.nickname}
-                  </Link>
-                  <Link className="up-btn up-btn-outline" to="/talk">All connections</Link>
-                </>
-              )}
+                        <ul className="up-entry-facts">
+                          <li>{ratingLabel(item.ratingCount, item.avgRating)}</li>
+                          <li>
+                            {formatNumber(item.downloads)}{' '}
+                            {Number(item.downloads) === 1 ? 'download' : 'downloads'}
+                          </li>
+                          {shortDate(item.publishedAt) && <li>Published {shortDate(item.publishedAt)}</li>}
+                        </ul>
+                      </div>
 
-              {profile.canConnect && (
-                <>
-                  <button
-                    type="button"
-                    className="up-btn"
-                    onClick={handleConnect}
-                    disabled={connecting || requestSent}
-                  >
-                    {connecting ? 'Sending…' : requestSent ? 'Request sent' : `Connect with ${profile.nickname}`}
-                  </button>
-                  <Link className="up-btn up-btn-outline" to="/talk">Open Talk</Link>
-                </>
-              )}
-
-              {!profile.isSignedIn && (
-                <>
-                  <Link className="up-btn" to="/register">Create your page</Link>
-                  <Link className="up-btn up-btn-outline" to="/login">Sign in</Link>
-                </>
-              )}
-            </div>
-
-            {connectNotice && (
-              <p
-                className={`up-notice ${connectNotice.tone === 'ok' ? 'up-notice--ok' : 'up-notice--error'}`}
-                role="status"
-              >
-                {connectNotice.text}
-              </p>
+                      <div className="up-entry-aside">
+                        <p className="up-kind">{publishedKindLabel(item.kind)}</p>
+                        <Link className="up-entry-link" to="/market">
+                          Open the market <span aria-hidden="true">→</span>
+                        </Link>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
             )}
 
-            {/* Only the owner gets told which setting is in force — to a visitor
-                every private page looks the same (locked), and to a connection it
-                simply looks like a page. */}
+            {empty && (
+              <Panel title={profile.isSelf ? 'Nothing here yet' : 'Nothing public yet'}>
+                <p className="up-note">
+                  {profile.isSelf
+                    ? 'Play a game or publish a skill, and it appears on this page.'
+                    : `${profile.nickname} has not posted a board entry or published anything yet.`}
+                </p>
+              </Panel>
+            )}
+
+            {/* The owner's own settings, as rows. Changing them stays on `/profile`:
+                one write path for the setting, and this page only reads it. */}
             {profile.isSelf && (
-              <p className={`up-visibility up-visibility--${isPublic ? 'public' : 'private'}`}>
-                <span aria-hidden="true">{isPublic ? '🌐' : '🔒'}</span>
-                {visibilityLabel(profile)} — {visibilitySummary(profile)}{' '}
-                <Link className="up-visibility-link" to="/profile">Change</Link>
-              </p>
-            )}
-
-            {stats.length > 0 ? (
-              <ul className="up-stats">
-                {stats.map((stat) => (
-                  <li className="up-stat" key={stat.key}>
-                    <strong className="up-stat-value">{stat.value}</strong>
-                    <span className="up-stat-label">{stat.label}</span>
+              <Panel
+                title="Your page"
+                foot={<Link className="up-btn up-btn--outline up-btn--sm" to="/profile">Change on your profile</Link>}
+              >
+                <ul className="up-list">
+                  <li className="up-row">
+                    <span className="up-row-key">Visibility</span>
+                    <span className="up-row-value">{visibilityLabel(profile)}</span>
                   </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="up-quiet">
-                Nothing public on this page yet — it fills in as they play games and publish work.
-              </p>
+                  <li className="up-row">
+                    <span className="up-row-key">Audience</span>
+                    <span className="up-row-value">{visibilityAudience(profile)}</span>
+                  </li>
+                  <li className="up-row">
+                    <span className="up-row-key">Address</span>
+                    <code className="up-row-code">{profilePath(profile.nickname)}</code>
+                  </li>
+                </ul>
+              </Panel>
             )}
+
+            {/* LAST, deliberately. §5.7 orders a service page's panes by how often
+                the user touches them (what you watch → what you run → what you keep
+                → settings), and this is settings. Folded away it is one row, and it
+                should not push the games and the published work — the things this
+                page is FOR — any further down. */}
+            <ManagePanel
+              profile={profile}
+              busy={busy}
+              onBlock={handleBlock}
+              onUnblock={handleUnblock}
+              onRemove={handleRemove}
+            />
           </div>
-        </section>
-
-        {/* ── Games ── */}
-        {games.length > 0 && (
-          <RevealBand tone="surface" label="Games">
-            <div className="up-head">
-              <p className="up-band-eyebrow">On the boards</p>
-              <h2 className="up-heading">Games</h2>
-              <p className="up-lead">
-                From the public leaderboards. Entries there are posted by the players themselves,
-                so treat these as self-reported rather than verified.
-              </p>
-            </div>
-
-            <div className="up-grid">
-              {games.map((game) => {
-                const summary = boardSummary(game);
-                return (
-                  <article className="up-card up-card--game" key={game.key}>
-                    <h3 className="up-card-title">{game.name}</h3>
-                    {game.title && <p className="up-card-sub">{game.title}</p>}
-
-                    <p className="up-card-value">
-                      {summary.value}
-                      <span className="up-card-value-label">{summary.label}</span>
-                    </p>
-
-                    <ul className="up-card-facts">
-                      {summary.detail && <li>{summary.detail}</li>}
-                      {summary.rank && <li>{summary.rank}</li>}
-                      {shortDate(game.at) && <li>Last played {shortDate(game.at)}</li>}
-                    </ul>
-
-                    <Link className="up-card-link" to={game.href}>
-                      {playLabel(game)} <span aria-hidden="true">→</span>
-                    </Link>
-                  </article>
-                );
-              })}
-            </div>
-          </RevealBand>
-        )}
-
-        {/* ── Published work ── */}
-        {published.length > 0 && (
-          <RevealBand tone="tint" label="Published work">
-            <div className="up-head">
-              <p className="up-band-eyebrow">Shared</p>
-              <h2 className="up-heading">Published work</h2>
-              <p className="up-lead">
-                Skills and goals {profile.nickname} chose to publish to the market, where anyone
-                can save a copy.
-              </p>
-            </div>
-
-            <div className="up-grid">
-              {published.map((item) => (
-                <article className="up-card" key={item.marketId}>
-                  <p className="up-chip">{publishedKindLabel(item.kind)}</p>
-                  <h3 className="up-card-title">{item.name}</h3>
-                  {item.description && <p className="up-card-sub">{item.description}</p>}
-
-                  <ul className="up-card-facts">
-                    <li>{ratingLabel(item.ratingCount, item.avgRating)}</li>
-                    <li>{formatNumber(item.downloads)} {Number(item.downloads) === 1 ? 'download' : 'downloads'}</li>
-                    {shortDate(item.publishedAt) && <li>Published {shortDate(item.publishedAt)}</li>}
-                  </ul>
-
-                  <Link className="up-card-link" to="/market">
-                    Open the market <span aria-hidden="true">→</span>
-                  </Link>
-                </article>
-              ))}
-            </div>
-          </RevealBand>
-        )}
-
-        {/* ── The closing band: every Discovery page ends on one (§5) ── */}
-        <section className="up-band up-band--cta">
-          <div className="up-wrap up-cta">
-            <p className="up-band-eyebrow up-band-eyebrow--cta">
-              {profile.isSelf ? (isPublic ? 'Share it' : 'Not shared yet') : 'Your turn'}
-            </p>
-            <h2 className="up-heading up-heading--cta">
-              {profile.isSelf
-                ? (isPublic
-                  ? 'This page is yours to share'
-                  : 'Only your connections can see this page')
-                : 'Every member gets a page like this'}
-            </h2>
-            <p className="up-lead up-lead--cta">
-              {profile.isSelf
-                ? (isPublic
-                  // "Send it to anyone" is only true while the page is public — the
-                  // page would be lying to its own owner otherwise, which is exactly
-                  // the mistake the default-private setting exists to avoid.
-                  ? 'Send the link to anyone — it shows your games and what you have published, and nothing private.'
-                  : 'Publish it from your profile and the link works for anyone. Until then, someone without a connection sees only that the page is private.')
-                : 'Play a game, publish a skill, add a profile picture, and yours fills itself in.'}
-            </p>
-            <div className="up-actions">
-              {profile.isSelf ? (
-                isPublic ? (
-                  <Link className="up-btn up-btn-inv" to="/projects">Find something to play</Link>
-                ) : (
-                  <>
-                    <Link className="up-btn up-btn-inv" to="/profile">Change who can see it</Link>
-                    <Link className="up-btn up-btn-ghost" to="/talk">See your connections</Link>
-                  </>
-                )
-              ) : (
-                <>
-                  <Link className="up-btn up-btn-inv" to={user ? '/talk' : '/register'}>
-                    {user ? 'Open Talk' : 'Create your page'}
-                  </Link>
-                  <Link className="up-btn up-btn-ghost" to="/projects">See the projects</Link>
-                </>
-              )}
-            </div>
-          </div>
-        </section>
+        </div>
       </div>
 
       <Footer />

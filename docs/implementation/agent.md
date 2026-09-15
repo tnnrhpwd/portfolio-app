@@ -2705,6 +2705,7 @@ All in the `Simple` table (composite key `id` + `createdAt`):
 | --- | --- |
 | `msg_index_<userId>` | one row per account: contacts, pending in/out, the outgoing request log, cooldowns — JSON in `text` |
 | `msg_friend_<a>_<b>` | one row per friendship, ids **sorted** so the pair has a single canonical row. This is the authorisation check for messaging |
+| `msg_block_<blocker>_<blocked>` | one row per block, ids **NOT sorted** — a block is one-directional (§19.4) |
 | `msg_req_<to>_<from>` | one row per friend request (its status is the record of truth) |
 | `msg_msg_<convId>` + `createdAt` | one row per message |
 
@@ -2795,8 +2796,11 @@ on both indexes so the same request cannot be re-sent immediately.
 - **Nicknames are stamped into a contact entry when the connection is made**, so a later rename is not
   reflected until the two reconnect. Refreshing it would mean a user read per contact per load.
 - **Messages are not deleted when a connection is removed** — "Remove" drops the contact, not the
-  transcript. Nothing in the UI implies otherwise.
+  transcript, and a **block does the same**: it closes every way in without touching a single message
+  row. Nothing in the UI implies otherwise (§19.4).
 - **No notifications.** An unread count in the toolbar and on the contact row is the whole of it.
+- **The blocked account is never told**, and `/talk` deliberately has no "Blocked" list to manage —
+  the block is lifted from the page it was placed on (§19.4).
 
 ### 18.8 Avatars
 
@@ -2843,13 +2847,28 @@ beside the frame.
 
 ### 19.1 What it is
 
-The page a member sends someone. Discovery page (`FRONTEND_UI_STANDARD.md` §5), because a stranger
-can arrive from a shared link knowing nothing: a face and a name first, then what the person has
-done, then a closing band inviting the visitor to have one of their own. `/talk` is the service page;
-this is the shareable one. It is linked from the Talk contact row, the `/net` conversation header and
-`/profile`.
+The page a member sends someone — and the page they open to check what a stranger sees. A
+**service page** (`FRONTEND_UI_STANDARD.md` §5.7), which is a deliberate re-classification: it was
+built as a Discovery page, on the argument that a stranger can arrive from a shared link knowing
+nothing and has to be sold on the product before they read any detail. That argument lost to how the
+page is actually used. The owner is on it as often as a visitor is, the visitor already decided who
+they are looking at before the page loaded, and the two of them want the same thing from it — what is
+here, without scrolling past a pitch to find it.
 
-**Where the numbers come from differs, so the page says which.** Identity and join date come from the
+So it wears the service material: one flat ground (the shared `.service-room`), one row at the top
+carrying the name, its live state (visibility, join date, counts) and the one action, and a dense
+grid of glass panes below it. No bands, no gradient behind the numbers, no floating circles, no
+scroll reveals — nothing of the page's own is pinned, and the site header is the only thing that
+stays put. `/talk` and `/settings` are the same shape; the member page is the same room with a face
+in it. It is linked from the Talk contact row, the `/net` conversation header and `/profile`.
+
+**The row says who is looking.** The action is the owner's (`Edit your profile`), a connection's
+(`Message <name>`), a signed-in stranger's (`Connect with <name>`) or a signed-out visitor's (`Create
+your page` / `Sign in`) — the same four cases the old hero carried, collapsed onto one line. Only the
+owner sees the `Page` chip and the `Your page` panel: to a visitor the page is simply readable, and
+a chip saying `Public` is noise.
+
+**What the numbers come from differs, so the page says which.** Identity and join date come from the
 account row. Games come from the **public leaderboards**, whose rows are posted by the players
 themselves — the section says "self-reported rather than verified" out loud rather than dressing them
 up as a record. Published skills and goals carry an `authorUserId` stamped by the server on publish,
@@ -2883,8 +2902,11 @@ nothing was fetched.
 **Restricted is a `200`, not a `403`.** The page still has something true to show (who this is, and
 the one action that would open it), so a shared private link lands somewhere sensible instead of on a
 dead end that looks identical to a mistyped username — and the client gets one render path instead of
-an error branch that forgives itself. `UserProfile.jsx` renders that state as a lock, the nickname,
-an explanation, **Connect** (only when signed in), and — after a request is sent — **Check again**.
+an error branch that forgives itself. `UserProfile.jsx` renders that state as the lock in the row, the
+nickname, `Page: Private` / `Access: Connections only`, **Connect** (only when signed in), and — in
+the second panel — what is being held back, as a row per thing rather than as a paragraph: no picture,
+no boards, no published work, no connections. After a request is sent that panel swaps its line for
+**↻ Check again**.
 
 **A private page is never indexed.** `SEO` takes `noindex` whenever the setting is not `public`, for
 every viewer including the owner: being able to read your own private page does not make it public.
@@ -2910,7 +2932,83 @@ same lie the validation exists to prevent.
 The public guest account cannot change its own visibility — or anything else — because
 `PUT /api/data/profile` returns `403` for `GUEST_EMAIL`. It is a shared demo login.
 
-### 19.4 Files
+### 19.4 Blocking, and removing a connection
+
+Shipped 2026-09-15. Two controls on the member page, in a folded `Manage` pane. They are **not the
+same operation and must not be presented as one**:
+
+|  | Remove connection | Block |
+| --- | --- | --- |
+| Direction | mutual — both sides lose the contact | **one-sided** — only the blocker's list records it |
+| Requests | the connection is gone; either side may ask again | every future request is refused, both directions |
+| The page | follows the visibility setting as usual | the blocked account is answered as if it were **private**, whatever the setting says |
+| Messaging | both sides refused (no friendship row) | both sides refused (no friendship row) |
+| Undone by | a new request and an acceptance | `Unblock` — which does **not** reconnect either |
+
+**Where they live.** In a `<details>` pane in the pane grid (`ManagePanel`), not in the row. §5.7 asks
+for exactly this: the row's buttons are for *engaging* with a person, and a destructive control parked
+next to `Message` is a misclick waiting to happen. The pane is a `--glass` pane like its neighbours so
+it still reads as part of the room, and it is a real `<details>` rather than a hand-rolled popover —
+keyboard-accessible, no JS state, no outside-click handler, no focus trap.
+
+**A block announces itself in exactly one place: the summary.** The `Blocked` badge on the pane's
+summary is the only sign of it while the pane is shut, and it is load-bearing — a block you cannot find
+is a block you cannot lift. The row carries a `Blocked` chip too (it explains an absent `Message`
+button) but **no action at all**: a block has already switched off everything the row's buttons do,
+and lifting a block is a settings change, not an engagement.
+
+**⚠️ The blocked account is not told. This is the rule the whole design is bent around.**
+
+- **Their page-answer is byte-identical to a private page's.** `buildPublicProfile` returns the same
+  `restricted` object it returns for a genuinely private page — *including a `private` visibility*,
+  even when the page is public. That is a deliberate inaccuracy told to the one person the block
+  exists to withhold from, and it is the price of the alternative: any difference at all (a distinct
+  status, a `blocked` flag, the real visibility) is a **block receipt**. A test asserts the two
+  payloads are `toEqual`, so adding a field to the restricted branch breaks it loudly.
+- **Their friend request is refused exactly as a declined one is** — the same 429 and the same
+  sentence, from one function (`declinedError` in `messengerService`), so the two cannot drift. They
+  are still *offered* the `Connect` button, because withholding it would be the same tell.
+- Their index loses the contact and the requests, so nothing is left dangling — and that is
+  indistinguishable from a plain `Remove`, which is the point.
+
+**The blocker, by contrast, IS told**, or the block could never be lifted: `blockedByYou` in the
+payload, a `Blocked` chip in the row, and the `Unblock` control. That flag is only ever about the
+viewer's **own** action, so reporting it cannot leak anything about the other side — which is also why
+it is safe to report in the restricted branch, the one place a blocker of a private account lands.
+
+**Storage.** A block is a graph row of its own, `msg_block_<blocker>_<blocked>` — **ids not sorted**,
+unlike `msg_friend_<a>_<b>`, because "A blocked B" and "B blocked A" are different facts and neither
+may be read as the other. `readBlock(blocker, blocked)` is directional; `areBlocked(a, b)` asks both
+ways. The blocker's index also carries a `blocks` list (for the pane and `getDirectory`), but the
+**row** is what survives: an index is a cache, and `rebuildIndex` now restores blocks from these rows
+alongside friends and requests. A block that lived only in a cache would silently vanish with it —
+the one failure a safety control cannot have, and there is a test for it.
+
+`blockUser` does three things in one call, in this order: writes the block row (**first**, so a later
+failure leaves a block already in force rather than a removed connection with nothing recording why it
+cannot be re-made), deletes the friendship row, and deletes both pending request rows. Then it makes
+**one** index write per side rather than four — the block, the dropped contact and the two dropped
+requests are a single new state, and `updateIndex` is a read-modify-write that retries on a lost race.
+
+**Blocking is addressed by USERNAME, not by id**, like a friend request and unlike every other peer
+route. Not an oversight: the member page a block is placed from never learns another account's internal
+id unless the two are connected (`connectedUserId`, §19.2) — and a block removes the connection. So
+`POST`/`DELETE /api/data/messenger/blocks` take `{ username }`. `DELETE` with a body is unusual but
+deliberate: the alternative was one operation with two addressing schemes.
+
+**Unblocking does not reconnect.** It deletes the block row, drops the list entry, and clears the
+cooldown it implied — clearing that is load-bearing, because blocking implies the same refusal a
+decline does and leaving the stamp behind would mean an unblocked account still could not ask for a
+week, i.e. a control that appears to work and does nothing. Reconnecting still takes a request and an
+acceptance, and both the confirm dialog and the follow-up notice say so.
+
+Confirmations are `window.confirm`, the same choice `/talk` makes for `Remove`. The wording lives in
+`utils/userProfileUtils.js` because the dialog is the **only** place a consequence is stated before it
+happens — the controls are labels (`Block`), so a dialog that understates what it is about to do is a
+bug rather than copy. The block dialog says what it does, that messages are kept, that they are **not
+told**, and that it can be undone.
+
+### 19.5 Files
 
 | Concern | File |
 | --- | --- |
@@ -2920,8 +3018,11 @@ The public guest account cannot change its own visibility — or anything else �
 | Boards / published work | `backend/services/gameBoards.js` |
 | Route | `backend/routes/routeData.js` — `GET /u/:username` |
 | The page | `frontend/src/pages/UserProfile/UserProfile.jsx` |
-| Wording + path building | `frontend/src/utils/userProfileUtils.js` |
+| Wording + path building + the relationship rules | `frontend/src/utils/userProfileUtils.js` |
 | The control | `frontend/src/pages/Profile/Profile.jsx` |
+| Remove / block storage | `backend/services/messengerService.js` (`blockUser`, `unblockUser`, `readBlock`, `areBlocked`) |
+| Their routes | `backend/routes/routeData.js` — `POST`/`DELETE /messenger/blocks` (**by username**) |
+| Their client | `frontend/src/services/messengerApi.js` |
 
 ---
 
@@ -3065,6 +3166,21 @@ the page felt like a second app that happened to share the URL. Now the chat hos
   …`, else `Mar 3, …`), so dates survive without a band that only one of the two panes has.
 - The AI-only **mic-pause overlay is suppressed** while a person is open (`isInactive && !peerId`) —
   it is about the assistant's listening and has no business covering a conversation.
+- 🐛 **The peer's face drew a 160px square over the transcript.** `TalkAvatar` renders its own
+  `<img class="talk-avatar__img">`, and the frame it was handed is `MessageBubble`'s
+  `.message__avatar` — which sizes an image the AI chat renders *itself*
+  (`.message__avatar--assistant-img`) and is `overflow: visible` because its usual content is a
+  LETTER that cannot spill. So the picture kept its natural 160px, `object-fit: fill`, and covered the
+  message beside it. The sizing now lives in the pane (`.talk-dm .talk-avatar__img`, scoped so the
+  assistant's avatars are untouched) and the frame clips, so every face — header, transcript, empty
+  state — is covered by construction rather than by remembering. **Lesson: a shared sub-component that
+  renders its own `<img>` does not inherit the host's sizing rules; size it from the container that
+  owns the layout.**
+- **A face is a CIRCLE; the assistant keeps its tile.** `.message__avatar--assistant` is a 28px tile
+  with an 8px radius because it holds a *letter*. A person's picture is a circle everywhere else on the
+  site (`Talk.css`'s `.talk-avatar`, the rail's People rows, `/u/…`, `/profile`), so the person's face
+  uses that shape in all three of its places here — with size and spacing untouched, so the two
+  transcripts still measure identically.
 - Cost of one app: the addon-status probe (ports 3001/3002) now also runs while a person's thread is
   open, because `SimpleChat` is what owns the rail. Harmless, and it is what keeps the rail's addon
   row honest in both modes.
@@ -3086,6 +3202,27 @@ with a face, the name, the last thing said and an unread count, each row a `Link
 - Faces come from `useAvatars` (cache-first, so a warm cache costs no request) and fall back to
   initials. `Connections on Talk →` is the way to the page that manages them, and an empty rail
   points at `/talk` rather than at nothing.
+- **The rail is an ACCORDION — one section open at a time.** Conversations, People, Settings and
+  Macros & Agent were four independent booleans, so every combination existed, including two lists
+  competing for the same vertical space in a column this narrow; opening one pushed whatever you were
+  reading off the bottom. They are now ONE piece of state — `openSection` with
+  `toggleSection(name)` — so opening a section closes whichever was open, and the open one closes
+  itself (the section set is closed by default, and nothing is open with no `messenger` prop, which is
+  what the old `false` defaults gave the addon renderer).
+- **`'people'` is the default section**: it is what `/net` is for and it is the short list, where the
+  AI history is long and stays opt-in.
+- The two settings toggles gained `aria-expanded` / `aria-controls` in the same pass — the conversation
+  toggles already had them, and exclusivity is invisible to a screen reader without them.
+- **The account meters are OFF in the rail, for every account** — the AI credits meter (with the
+  "upgrade for more credits" link that lives inside it) and the storage meter. They are behind ONE
+  flag at the top of `Sidebar.jsx` (`SHOW_ACCOUNT_METERS = false`) rather than deleted, because this is
+  a "for now": both components, their styles, their `/usage` poll and the upgrade control are
+  untouched, so bringing them back is that one word. Nothing else in the rail reads either component,
+  and they were the only callers of `/usage` in this tree — the only thing that changed with them is
+  that the poll stopped. The rail is shared with the addon renderer, so this hides them there too,
+  which is right: they show the same account's numbers on both surfaces.
+- ℹ️ `/fit`'s sections deliberately stay multi-open: that page is a long form you fill in, not a rail.
+  The accordion is a property of this column, not a house rule.
 
 ### 21.3 The blocker underneath: opening a conversation was a 500
 
@@ -3123,6 +3260,21 @@ The pane rendered, the rail filled — and the thread came back
 - `messengerService.test.js` **35/35**; frontend `llmProviderOptions.test.js` + `TalkAvatar.test.jsx`
   **31/31** (the former scans `Sidebar.jsx` and asserts it still offers cloud models through the
   shared picker — the section was added around it, not through it).
+- **The rail's accordion was driven, not assumed**: People open on arrival; then Conversations →
+  People closed; Settings → Conversations closed; Macros & Agent → Settings closed; clicking the open
+  section → nothing open. Exactly one panel in the DOM at every step, and all four toggles report
+  `aria-expanded`.
+- **The meters are gone, measured rather than eyeballed**: `.usage-meter`, `.storage-meter` and
+  `.usage-meter__upgrade` all absent from the rail, no "more credits" or storage wording in its text at
+  all, and **zero `/api/data/usage` requests across 8s of watching** (the 60s poll the components own
+  stops with them, since nothing else in this tree calls it).
+- **The backend restart landed, so the read fix is confirmed end-to-end**: the `test` message the guest
+  sent renders in the pane as a bubble with its 01:21 AM stamp and no error line — the same message the
+  drawer had been previewing all along.
+- **The faces were measured, not eyeballed**: header, transcript and rail avatars are 28/28/22px,
+  `border-radius: 50%`, `overflow: hidden`, with the picture rendered at the frame's own size and
+  `object-fit: cover` — and a sweep of every `<img>` in the pane reports **0** that overflow their
+  frame, against the **160×160 in a 28px box** the transcript had before.
 - No test covers `DirectChat` or the rail's People section; neither had one before this change.
 
 ---

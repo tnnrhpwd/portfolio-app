@@ -14,6 +14,23 @@ import AgentLivePanel from './AgentLivePanel';
 import { isGoalConversation, goalSlugFromConversation } from '../../utils/simpleAddon/goalChat';
 import './Sidebar.css';
 
+/**
+ * The rail's ACCOUNT METERS — the AI credits meter with its "upgrade for more
+ * credits" link, and the storage meter — are hidden for now, for every account.
+ *
+ * ⚠️ A flag, not a deletion, because this is a "for now": `UsageMeter` and
+ * `StorageMeter` are untouched (their styles, their `/usage` poll and the
+ * upgrade control inside `UsageMeter` all stay), so bringing them back is this
+ * one word. Nothing else in the rail reads either component, and they are the
+ * only callers of `/usage` in this tree — so nothing moves with them except the
+ * poll, which stops.
+ *
+ * The rail is shared with the addon renderer, so this hides them there too: the
+ * ask was "for all users", and an account's credits are the same number on both
+ * surfaces.
+ */
+const SHOW_ACCOUNT_METERS = false;
+
 function Sidebar({
   conversations,
   activeConversationId,
@@ -52,11 +69,22 @@ function Sidebar({
   messenger = null,
 }) {
   const [models, setModels] = useState([]);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showLiveAgent, setShowLiveAgent] = useState(false);
-  // Conversations start minimised: the rail stays open on desktop, but the
-  // history is opt-in so the sidebar reads as "New Chat + agent status".
-  const [showConversations, setShowConversations] = useState(false);
+  /**
+   * Which section of the rail is open — ONE at a time.
+   *
+   * ⚠️ One piece of state, not four booleans. This rail is a narrow column of
+   * stacked lists and panels: two open sections push whatever you were reading
+   * off the bottom of it, and independent flags allow every combination —
+   * including two sections fighting over the same vertical space.
+   *
+   * `'people'` is the default because it is what `/net` is for (a person's
+   * thread) and it is the short list; the AI history stays opt-in, so the rail
+   * still reads as "New Chat + who you talk to + agent status".
+   */
+  const [openSection, setOpenSection] = useState('people');
+
+  /** Opening a section closes whichever was open; the open one closes itself. */
+  const toggleSection = (name) => setOpenSection((current) => (current === name ? null : name));
   const [addonTest, setAddonTest] = useState({ state: 'idle', checks: [] });
   // Single-click self-update: 'idle' | 'updating' | 'error' | 'unsupported'
   const [updateNow, setUpdateNow] = useState({ state: 'idle', progress: 0, error: null });
@@ -112,9 +140,6 @@ function Sidebar({
   const messengerToken = messenger?.token || '';
   const activePeerId = messenger?.activePeerId || '';
   const [people, setPeople] = useState([]);
-  // People start OPEN, unlike the AI history: a person's thread is what this
-  // section is for, and it is short enough to show without asking.
-  const [showPeople, setShowPeople] = useState(true);
   const peopleAvatars = useAvatars(
     useMemo(() => people.map((person) => person.userId), [people]),
     messengerToken,
@@ -181,13 +206,13 @@ function Sidebar({
         <div className="sidebar__conversations">
           <button
             className="sidebar__conversations-toggle"
-            onClick={() => setShowConversations(!showConversations)}
-            aria-expanded={showConversations}
+            onClick={() => toggleSection('conversations')}
+            aria-expanded={openSection === 'conversations'}
             aria-controls="sidebar-conversations-list"
-            title={showConversations ? 'Hide conversations' : 'Show conversations'}
+            title={openSection === 'conversations' ? 'Hide conversations' : 'Show conversations'}
           >
             <span
-              className={`sidebar__conversations-chevron ${showConversations ? 'sidebar__conversations-chevron--up' : ''}`}
+              className={`sidebar__conversations-chevron ${openSection === 'conversations' ? 'sidebar__conversations-chevron--up' : ''}`}
               aria-hidden="true"
             >
               ▾
@@ -198,7 +223,7 @@ function Sidebar({
             )}
           </button>
 
-          {showConversations && (
+          {openSection === 'conversations' && (
             <div className="sidebar__conversations-list" id="sidebar-conversations-list">
               {conversations.map(conv => {
                 // A goal's thread wears the goal's own mark, so the list reads as
@@ -233,13 +258,13 @@ function Sidebar({
           <div className="sidebar__conversations sidebar__people">
             <button
               className="sidebar__conversations-toggle"
-              onClick={() => setShowPeople(!showPeople)}
-              aria-expanded={showPeople}
+              onClick={() => toggleSection('people')}
+              aria-expanded={openSection === 'people'}
               aria-controls="sidebar-people-list"
-              title={showPeople ? 'Hide people' : 'Show people'}
+              title={openSection === 'people' ? 'Hide people' : 'Show people'}
             >
               <span
-                className={`sidebar__conversations-chevron ${showPeople ? 'sidebar__conversations-chevron--up' : ''}`}
+                className={`sidebar__conversations-chevron ${openSection === 'people' ? 'sidebar__conversations-chevron--up' : ''}`}
                 aria-hidden="true"
               >
                 ▾
@@ -250,7 +275,7 @@ function Sidebar({
               )}
             </button>
 
-            {showPeople && (
+            {openSection === 'people' && (
               <div className="sidebar__conversations-list" id="sidebar-people-list">
                 {people.length === 0 ? (
                   <p className="sidebar__people-empty">
@@ -292,43 +317,6 @@ function Sidebar({
         )}
 
         <div className="sidebar__footer">
-          {isAddonConnected && !showAddonPrompt && (
-            <div
-              className={`sidebar__addon-connected sidebar__addon-connected--${addonTest.state}`}
-              onClick={runAddonTest}
-              role="button"
-              tabIndex={0}
-              title="Click to run addon diagnostics"
-            >
-              <span className="sidebar__addon-connected__icon">
-                {addonTest.state === 'testing' ? '⏳' : '🧩'}
-              </span>
-              <span className="sidebar__addon-connected__label">
-                {addonTest.state === 'idle' && <>Addon connected{addonCurrentVersion && <span className="sidebar__addon-connected__version"> v{addonCurrentVersion}</span>}</>}
-                {addonTest.state === 'testing' && 'Running diagnostics…'}
-                {addonTest.state === 'passed' && 'All checks passed'}
-                {addonTest.state === 'failed' && 'Some checks failed'}
-              </span>
-              <span className="sidebar__addon-connected__check">
-                {addonTest.state === 'idle' && '✓'}
-                {addonTest.state === 'testing' && ''}
-                {addonTest.state === 'passed' && '✓'}
-                {addonTest.state === 'failed' && '✗'}
-              </span>
-            </div>
-          )}
-          {addonTest.checks.length > 0 && (
-            <div className="sidebar__addon-test-results">
-              {addonTest.checks.map((c, i) => (
-                <div key={i} className={`sidebar__addon-test-row ${c.ok ? 'sidebar__addon-test-row--ok' : 'sidebar__addon-test-row--fail'}`}>
-                  <span className="sidebar__addon-test-row__icon">{c.ok ? '✓' : '✗'}</span>
-                  <span className="sidebar__addon-test-row__name">{c.name}</span>
-                  <span className="sidebar__addon-test-row__detail">{c.detail}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
           {showAddonPrompt && addonNeedsOptIn && (
             <div className="sidebar__addon-notice">
               <span className="sidebar__addon-notice__icon">🔌</span>
@@ -460,14 +448,16 @@ function Sidebar({
 
           <button
             className="sidebar__settings-toggle"
-            onClick={() => setShowSettings(!showSettings)}
+            onClick={() => toggleSection('settings')}
+            aria-expanded={openSection === 'settings'}
+            aria-controls="sidebar-settings-panel"
           >
             ⚙ Settings
-            <span className={`sidebar__arrow ${showSettings ? 'sidebar__arrow--up' : ''}`}>▾</span>
+            <span className={`sidebar__arrow ${openSection === 'settings' ? 'sidebar__arrow--up' : ''}`}>▾</span>
           </button>
 
-          {showSettings && (
-            <div className="sidebar__settings">
+          {openSection === 'settings' && (
+            <div className="sidebar__settings" id="sidebar-settings-panel">
               <div className="sidebar__setting-group">
                 <label className="sidebar__label">Agent</label>
                 <select
@@ -542,14 +532,16 @@ function Sidebar({
 
           <button
             className="sidebar__settings-toggle"
-            onClick={() => setShowLiveAgent(!showLiveAgent)}
+            onClick={() => toggleSection('liveAgent')}
+            aria-expanded={openSection === 'liveAgent'}
+            aria-controls="sidebar-live-agent-panel"
           >
             ⚡ Macros & Agent
-            <span className={`sidebar__arrow ${showLiveAgent ? 'sidebar__arrow--up' : ''}`}>▾</span>
+            <span className={`sidebar__arrow ${openSection === 'liveAgent' ? 'sidebar__arrow--up' : ''}`}>▾</span>
           </button>
 
-          {showLiveAgent && (
-            <div className="sidebar__live-agent">
+          {openSection === 'liveAgent' && (
+            <div className="sidebar__live-agent" id="sidebar-live-agent-panel">
               <AgentLivePanel
                 addonConnected={isAddonConnected}
                 user={user}
@@ -559,9 +551,48 @@ function Sidebar({
             </div>
           )}
         </div>
-
-        <UsageMeter user={user} />
-        <StorageMeter user={user} />
+          {isAddonConnected && !showAddonPrompt && (
+            <div
+              className={`sidebar__addon-connected sidebar__addon-connected--${addonTest.state}`}
+              onClick={runAddonTest}
+              role="button"
+              tabIndex={0}
+              title="Click to run addon diagnostics"
+            >
+              <span className="sidebar__addon-connected__icon">
+                {addonTest.state === 'testing' ? '⏳' : '🧩'}
+              </span>
+              <span className="sidebar__addon-connected__label">
+                {addonTest.state === 'idle' && <>Addon connected{addonCurrentVersion && <span className="sidebar__addon-connected__version"> v{addonCurrentVersion}</span>}</>}
+                {addonTest.state === 'testing' && 'Running diagnostics…'}
+                {addonTest.state === 'passed' && 'All checks passed'}
+                {addonTest.state === 'failed' && 'Some checks failed'}
+              </span>
+              <span className="sidebar__addon-connected__check">
+                {addonTest.state === 'idle' && '✓'}
+                {addonTest.state === 'testing' && ''}
+                {addonTest.state === 'passed' && '✓'}
+                {addonTest.state === 'failed' && '✗'}
+              </span>
+            </div>
+          )}
+          {addonTest.checks.length > 0 && (
+            <div className="sidebar__addon-test-results">
+              {addonTest.checks.map((c, i) => (
+                <div key={i} className={`sidebar__addon-test-row ${c.ok ? 'sidebar__addon-test-row--ok' : 'sidebar__addon-test-row--fail'}`}>
+                  <span className="sidebar__addon-test-row__icon">{c.ok ? '✓' : '✗'}</span>
+                  <span className="sidebar__addon-test-row__name">{c.name}</span>
+                  <span className="sidebar__addon-test-row__detail">{c.detail}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        {SHOW_ACCOUNT_METERS && (
+          <>
+            <UsageMeter user={user} />
+            <StorageMeter user={user} />
+          </>
+        )}
       </aside>
     </>
   );

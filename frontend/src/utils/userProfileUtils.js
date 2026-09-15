@@ -46,19 +46,40 @@ export const visibilityLabel = (source) =>
   isPublicVisibility(source) ? 'Public' : 'Private';
 
 /**
+ * Who can read the page, as a label rather than a sentence: a panel's "Audience"
+ * row has no room for the verb, and the badge above it already says Public or
+ * Private. `visibilitySummary` is this plus the verb, so the two can never
+ * disagree about who is being told what.
+ */
+export const visibilityAudience = (source) => (isPublicVisibility(source)
+  ? 'Anyone with the link'
+  : 'You and your connections');
+
+/**
  * The full sentence a visitor-facing badge shows. Deliberately spells out who
  * can read the page, because "Public" alone reads like "listed somewhere".
  */
-export const visibilitySummary = (source) => (isPublicVisibility(source)
-  ? 'Anyone with the link can see this page.'
-  : 'Only the owner and their connections can see this page.');
+export const visibilitySummary = (source) =>
+  `${visibilityAudience(source)} can see this page.`;
 
-/** "Member since August 2025" — a join date is context, not a timestamp. */
-export const memberSinceLabel = (iso) => {
+/** "August 2025" — the join date on its own, for a readout chip. */
+export const memberSinceValue = (iso) => {
   if (!iso) return '';
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '';
-  return `Member since ${date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}`;
+  return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+};
+
+/**
+ * "Member since August 2025" — a join date is context, not a timestamp.
+ *
+ * Kept as the sentence form for anywhere that has room for one; the service
+ * page's readout chips take `memberSinceValue` instead, because a chip's key is
+ * already the label ("Member since") and repeating it in the value costs a line.
+ */
+export const memberSinceLabel = (iso) => {
+  const value = memberSinceValue(iso);
+  return value ? `Member since ${value}` : '';
 };
 
 /** A date, or '' — used for "last played"/"published" lines. */
@@ -134,3 +155,102 @@ export const profileStats = (profile = {}) => {
 /** True when there is nothing but the identity to show. */
 export const isQuietProfile = (profile = {}) =>
   profileStats(profile).length === 0;
+
+// ── The relationship, and what may be done about it ─────────────────────────
+//
+// The row's one action and the "Manage" pane's contents are both decided by ONE
+// fact — where this viewer stands with this account — so that fact is computed
+// once, here, rather than re-derived at each control. Every branch below is read
+// straight off the server's payload; nothing is inferred from what is on screen.
+
+/** The four ways a viewer can stand with the account they are looking at. */
+export const RELATIONSHIP = Object.freeze({
+  SELF: 'self',
+  BLOCKED: 'blocked',
+  CONNECTED: 'connected',
+  STRANGER: 'stranger',
+  VISITOR: 'visitor',
+});
+
+/**
+ * Where the viewer stands with this account.
+ *
+ * **`blockedByYou` is answered before `connected`, and that ordering is the rule**
+ * — a block removes the connection, so the two can only be reported together if
+ * one is stale, and the block is the newer fact. It is also the only branch that
+ * comes from the viewer's own action: the reverse (someone has blocked *you*) is
+ * deliberately not reported at all, and the server answers that viewer as a
+ * stranger looking at a private page (`backend/services/publicProfile.js`).
+ *
+ * `connectedUserId` is required for CONNECTED rather than `isConnected` alone: the
+ * id is what a DM link is built from, so without it there is a "Message them"
+ * button that goes nowhere.
+ *
+ * @returns {'self'|'blocked'|'connected'|'stranger'|'visitor'}
+ */
+export const profileRelationship = (profile = {}) => {
+  if (profile.isSelf) return RELATIONSHIP.SELF;
+  if (profile.blockedByYou) return RELATIONSHIP.BLOCKED;
+  if (profile.isConnected && profile.connectedUserId) return RELATIONSHIP.CONNECTED;
+  if (profile.canConnect) return RELATIONSHIP.STRANGER;
+  return RELATIONSHIP.VISITOR;
+};
+
+/**
+ * May this viewer change anything about the relationship? Only for a signed-in
+ * visitor on someone else's page — never your own (you cannot befriend or block
+ * yourself) and never signed out (there is no relationship to change).
+ */
+export const canManageRelationship = (profile = {}) =>
+  Boolean(profile.isSignedIn) && !profile.isSelf;
+
+/** Only a connection can be removed; a stranger is not one. */
+export const canRemoveConnection = (profile = {}) =>
+  profileRelationship(profile) === RELATIONSHIP.CONNECTED;
+
+/** A block exists and can be lifted. */
+export const canUnblock = (profile = {}) =>
+  profileRelationship(profile) === RELATIONSHIP.BLOCKED;
+
+/** A block can be placed: signed in, not yourself, and not already blocked. */
+export const canBlock = (profile = {}) =>
+  canManageRelationship(profile) && !canUnblock(profile);
+
+/**
+ * The confirmations, in one place because each one is the ONLY place a
+ * consequence is stated before it happens — the controls themselves are labels
+ * ("Block"), so a dialog that understates what it is about to do is a bug, not
+ * copy. Both say what survives: messages are kept either way, and a block is not
+ * announced to the other person.
+ */
+export const blockConfirmText = (nickname) => {
+  const name = String(nickname || 'this account');
+  return `Block ${name}?\n\n`
+    + `They lose the connection and cannot ask to connect again or message you. Your page is hidden from them. `
+    + `They are not told. Your messages are kept, and you can unblock them later.`;
+};
+
+export const removeConfirmText = (nickname) =>
+  `Remove ${String(nickname || 'this account')} from your connections? Your messages are kept.`;
+
+/**
+ * Lifting a block is not the same as reconnecting, and the confirm has to say so:
+ * the one thing a user expects from "Unblock" is that the other person is back,
+ * and they are not — they can ask again, and that still has to be accepted.
+ */
+export const unblockConfirmText = (nickname) => {
+  const name = String(nickname || 'this account');
+  return `Unblock ${name}?\n\n`
+    + `You are not connected again — they can ask to connect, and you will have to accept. `
+    + `Your page becomes visible to them again if it is public.`;
+};
+
+/** What the status line says afterwards. State, not praise — and no "they know". */
+export const blockNoticeText = (nickname) =>
+  `${nickname} is blocked. Your page is hidden from them and they cannot ask again.`;
+
+export const unblockNoticeText = (nickname) =>
+  `${nickname} is unblocked. You are not connected — they can ask again if they want to.`;
+
+export const removeNoticeText = (nickname) =>
+  `${nickname} is no longer a connection. Your messages are kept.`;

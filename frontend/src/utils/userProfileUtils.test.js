@@ -7,18 +7,30 @@
  */
 
 import {
+  RELATIONSHIP,
+  blockConfirmText,
+  blockNoticeText,
   boardSummary,
+  canBlock,
+  canManageRelationship,
+  canRemoveConnection,
+  canUnblock,
   formatNumber,
   isPublicVisibility,
   isQuietProfile,
   memberSinceLabel,
   playLabel,
   profilePath,
+  profileRelationship,
   profileStats,
   profileVisibilityOf,
   publishedKindLabel,
   ratingLabel,
+  removeConfirmText,
+  removeNoticeText,
   shortDate,
+  unblockConfirmText,
+  unblockNoticeText,
   visibilityLabel,
   visibilitySummary,
 } from './userProfileUtils';
@@ -187,5 +199,106 @@ describe('profileVisibilityOf', () => {
     expect(visibilityLabel({})).toBe('Private');
     expect(visibilitySummary({ visibility: 'public' })).toMatch(/anyone/i);
     expect(visibilitySummary({ visibility: 'private' })).toMatch(/connections/i);
+  });
+});
+
+/**
+ * The relationship decides both the row's one action and which controls the
+ * Manage pane offers (docs/implementation/agent.md §19.4), so it is the one piece
+ * of page logic worth asserting: two controls reading it differently is how a page
+ * ends up offering to connect you to somebody you have blocked.
+ */
+describe('profileRelationship', () => {
+  const signedIn = { isSignedIn: true };
+  const connectable = { ...signedIn, canConnect: true };
+
+  test('your own page is its own case', () => {
+    // Even when the payload also says you can connect — which it does not, but the
+    // rule must not depend on that.
+    expect(profileRelationship({ ...connectable, isSelf: true })).toBe(RELATIONSHIP.SELF);
+  });
+
+  test('a connection is recognised by the id, not just the flag', () => {
+    expect(profileRelationship({ ...signedIn, isConnected: true, connectedUserId: 'u1' }))
+      .toBe(RELATIONSHIP.CONNECTED);
+    // `isConnected` with no id would build a "Message them" link to nowhere, so it
+    // is not a connection — it falls through to whatever else the payload says.
+    expect(profileRelationship({ ...signedIn, isConnected: true, connectedUserId: null }))
+      .toBe(RELATIONSHIP.VISITOR);
+  });
+
+  test('a block outranks everything, because it is the newer fact', () => {
+    // `blockUser` removes the connection, so a payload carrying both is one where
+    // a stale half survived — and the block is the half that decides.
+    expect(profileRelationship({ ...signedIn, blockedByYou: true, isConnected: true, connectedUserId: 'u1' }))
+      .toBe(RELATIONSHIP.BLOCKED);
+    expect(profileRelationship({ ...connectable, blockedByYou: true })).toBe(RELATIONSHIP.BLOCKED);
+  });
+
+  test('⚠️ someone else having blocked YOU is not reported as a state', () => {
+    // The server answers that viewer exactly as it answers a stranger looking at a
+    // private page, and this mirrors it: `blockedByYou` is about the viewer's own
+    // action, and nothing else in the payload can reveal the reverse.
+    expect(profileRelationship({ ...connectable })).toBe(RELATIONSHIP.STRANGER);
+    expect(profileRelationship({ ...signedIn })).toBe(RELATIONSHIP.VISITOR);
+    expect(profileRelationship()).toBe(RELATIONSHIP.VISITOR);
+  });
+
+  test('the controls are derived from that one fact, not from the flags beside it', () => {
+    const blocked = { ...signedIn, blockedByYou: true };
+    expect(canUnblock(blocked)).toBe(true);
+    expect(canBlock(blocked)).toBe(false);
+    // No connection to remove — blocking already removed it.
+    expect(canRemoveConnection(blocked)).toBe(false);
+
+    const connected = { ...signedIn, isConnected: true, connectedUserId: 'u1' };
+    expect(canRemoveConnection(connected)).toBe(true);
+    expect(canBlock(connected)).toBe(true);
+    expect(canUnblock(connected)).toBe(false);
+
+    expect(canBlock(connectable)).toBe(true);
+  });
+
+  test('nothing is offered on your own page, or to a signed-out visitor', () => {
+    expect(canManageRelationship({ isSelf: true, isSignedIn: true })).toBe(false);
+    expect(canManageRelationship({ isSignedIn: false, canConnect: false })).toBe(false);
+    expect(canBlock({ isSelf: true, isSignedIn: true })).toBe(false);
+    expect(canManageRelationship(connectable)).toBe(true);
+  });
+});
+
+describe('the confirmations', () => {
+  test('a block says what it does, what it does not do, and that they are not told', () => {
+    const text = blockConfirmText('Peer One');
+    expect(text).toMatch(/Peer One/);
+    expect(text).toMatch(/not told/i);
+    expect(text).toMatch(/messages are kept/i);
+    expect(text).toMatch(/unblock/i);
+  });
+
+  test('an unblock is not a reconnect, and says so', () => {
+    const text = unblockConfirmText('Peer One');
+    expect(text).toMatch(/not connected/i);
+    expect(text).toMatch(/accept/i);
+  });
+
+  test('removing keeps the messages — that is the one thing it does not do', () => {
+    expect(removeConfirmText('Peer One')).toMatch(/messages are kept/i);
+  });
+
+  test('a missing nickname still produces a sentence, not "undefined"', () => {
+    for (const text of [blockConfirmText(), unblockConfirmText(), removeConfirmText(null)]) {
+      expect(text).toMatch(/this account/);
+      expect(text).not.toMatch(/undefined/);
+    }
+  });
+
+  test('the follow-up notices state the new state, and never claim they were told', () => {
+    expect(blockNoticeText('Peer One')).toMatch(/blocked/i);
+    expect(unblockNoticeText('Peer One')).toMatch(/not connected/i);
+    expect(removeNoticeText('Peer One')).toMatch(/no longer a connection/i);
+    for (const text of [blockNoticeText('Peer One'), unblockNoticeText('Peer One')]) {
+      expect(text).not.toMatch(/they know|they were told|notified/i);
+    }
   });
 });

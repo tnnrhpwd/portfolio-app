@@ -11,6 +11,7 @@ jest.mock('../../services/messengerService', () => ({
   findUserByNickname: jest.fn(),
   countConnections: jest.fn(async () => 0),
   areFriends: jest.fn(async () => false),
+  readBlock: jest.fn(async () => null),
 }));
 
 jest.mock('../../services/avatarService', () => ({
@@ -25,7 +26,7 @@ jest.mock('../../utils/paginatedScan', () => ({
   paginatedScan: jest.fn(async () => []),
 }));
 
-const { findUserByNickname, countConnections, areFriends } = require('../../services/messengerService');
+const { findUserByNickname, countConnections, areFriends, readBlock } = require('../../services/messengerService');
 const { buildAvatar } = require('../../services/avatarService');
 const { getPlayerBoards } = require('../../services/gameBoards');
 const { paginatedScan } = require('../../utils/paginatedScan');
@@ -60,6 +61,7 @@ beforeEach(() => {
   findUserByNickname.mockResolvedValue(accountRow());
   countConnections.mockResolvedValue(0);
   areFriends.mockResolvedValue(false);
+  readBlock.mockResolvedValue(null);
   getPlayerBoards.mockResolvedValue([]);
   paginatedScan.mockResolvedValue([]);
   buildAvatar.mockResolvedValue({ src: 'data:image/jpeg;base64,AVATAR', etag: 'e' });
@@ -334,5 +336,121 @@ describe('profile visibility', () => {
     findUserByNickname.mockResolvedValue(accountRow());
     await buildPublicProfile({ username: 'Guest User', viewer: { id: 'viewer-1' } });
     expect(areFriends).toHaveBeenCalledWith('viewer-1', 'user-1');
+  });
+});
+
+/**
+ * Blocks (docs/implementation/agent.md §19.4).
+ *
+ * The rule under test is asymmetric, and the asymmetry is the whole feature:
+ * the account that HAS been blocked must not be able to tell (§19.2's "restricted
+ * is a 200" is what makes that possible — the blocked answer IS the private
+ * answer), while the account that DID the blocking must be told, or the block
+ * could never be lifted.
+ */
+describe('blocks', () => {
+  /** The viewer has blocked the account the page belongs to. */
+  const viewerBlockedThem = () => readBlock.mockImplementation(async (blocker, blocked) => (
+    blocker === 'viewer-1' && blocked === 'user-1' ? { id: 'msg_block_viewer-1_user-1' } : null
+  ));
+
+  /** The account the page belongs to has blocked the viewer. */
+  const theyBlockedViewer = () => readBlock.mockImplementation(async (blocker, blocked) => (
+    blocker === 'user-1' && blocked === 'viewer-1' ? { id: 'msg_block_user-1_viewer-1' } : null
+  ));
+
+  test('⚠️ a block closes a PUBLIC page — visibility is not a way around it', async () => {
+    findUserByNickname.mockResolvedValue(publicRow());
+    theyBlockedViewer();
+
+    const profile = await buildPublicProfile({ username: 'Guest User', viewer: { id: 'viewer-1' } });
+
+    expect(profile).toMatchObject({
+      restricted: true,
+      avatar: null,
+      memberSince: null,
+      connections: 0,
+      games: [],
+      published: [],
+    });
+    // Not merely hidden — never gathered. Same promise the private gate makes.
+    expect(buildAvatar).not.toHaveBeenCalled();
+    expect(getPlayerBoards).not.toHaveBeenCalled();
+    expect(paginatedScan).not.toHaveBeenCalled();
+  });
+
+  test('⚠️ the blocked viewer cannot tell a block from a private page', async () => {
+    // Two runs over the SAME account: one because it is private, one because the
+    // viewer is blocked and the page is public. The payloads have to be equal —
+    // any difference at all is a block receipt, and this is the assertion that
+    // fails the moment someone adds a "blocked" flag to the restricted branch.
+    const privateAnswer = await buildPublicProfile({ username: 'Guest User', viewer: { id: 'viewer-1' } });
+
+    findUserByNickname.mockResolvedValue(publicRow());
+    theyBlockedViewer();
+    const blockedAnswer = await buildPublicProfile({ username: 'Guest User', viewer: { id: 'viewer-1' } });
+
+    expect(blockedAnswer).toEqual(privateAnswer);
+    // Including the visibility it reports, which is the one deliberate inaccuracy.
+    expect(blockedAnswer.visibility).toBe('private');
+  });
+
+  test('and the blocked viewer is still offered Connect, exactly as before', async () => {
+    theyBlockedViewer();
+    const profile = await buildPublicProfile({ username: 'Guest User', viewer: { id: 'viewer-1' } });
+    // The server refuses the request itself (a decline-shaped refusal, see
+    // messengerService.declinedError). Withholding the button would be a tell.
+    expect(profile.canConnect).toBe(true);
+    expect(profile.blockedByYou).toBe(false);
+  });
+
+  test('the viewer\u2019s own block IS reported, or it could never be lifted', async () => {
+    findUserByNickname.mockResolvedValue(publicRow());
+    viewerBlockedThem();
+
+    const profile = await buildPublicProfile({ username: 'Guest User', viewer: { id: 'viewer-1' } });
+
+    expect(profile).toMatchObject({ blockedByYou: true, restricted: false });
+    // Block and Unblock are never offered together, and the connect offer is the
+    // one thing a blocker has already refused.
+    expect(profile.canBlock).toBe(false);
+    expect(profile.canConnect).toBe(false);
+  });
+
+  test('and it survives the other account keeping its page private', async () => {
+    // The common case after blocking someone you were connected to: their page is
+    // private, so the blocker lands in the restricted branch — and that branch is
+    // the only place the Unblock control can live.
+    viewerBlockedThem();
+
+    const profile = await buildPublicProfile({ username: 'Guest User', viewer: { id: 'viewer-1' } });
+
+    expect(profile).toMatchObject({ restricted: true, blockedByYou: true, canBlock: false });
+  });
+
+  test('blocks are one-directional: the blocker keeps reading the page', async () => {
+    findUserByNickname.mockResolvedValue(publicRow());
+    viewerBlockedThem();
+
+    const profile = await buildPublicProfile({ username: 'Guest User', viewer: { id: 'viewer-1' } });
+
+    expect(profile.restricted).toBe(false);
+    expect(profile.avatar).toBeTruthy();
+  });
+
+  test('the block lookup runs only when it can change the answer', async () => {
+    // Your own page: nobody is blocking anybody.
+    await buildPublicProfile({ username: 'Guest User', viewer: { id: 'user-1' } });
+    expect(readBlock).not.toHaveBeenCalled();
+
+    // Signed out: no viewer to be blocked by, and none to have blocked.
+    await buildPublicProfile({ username: 'Guest User' });
+    expect(readBlock).not.toHaveBeenCalled();
+
+    // Signed in as someone else: both directions are asked, because either one
+    // changes the answer and they change it differently.
+    await buildPublicProfile({ username: 'Guest User', viewer: { id: 'viewer-1' } });
+    expect(readBlock).toHaveBeenCalledWith('viewer-1', 'user-1');
+    expect(readBlock).toHaveBeenCalledWith('user-1', 'viewer-1');
   });
 });
