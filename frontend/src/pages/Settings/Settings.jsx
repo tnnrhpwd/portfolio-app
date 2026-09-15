@@ -18,7 +18,7 @@ import { getCloudSettings, saveCloudSettings, isAddonOptedIn, setAddonOptIn } fr
 import { GEOLOCATION, isPermissionEnabled, setPermissionEnabled } from '../../utils/browserPermissions.js';
 import { ADDON_DOWNLOAD_URL, useAddonDetection } from '../../hooks/simpleAddon/useAddonDetection';
 import AIWorkflowSettings from '../../components/SimpleAddon/AIWorkflowSettings.jsx';
-import { DEFAULT_CLOUD_MODEL_ID, resolveCloudModelLabel } from '../../utils/llmProviderOptions.js';
+import { getEffectiveCloudModelId, resolveCloudModelLabel } from '../../utils/llmProviderOptions.js';
 import ProfileAvatar from '../../components/ProfilePicture/ProfileAvatar.jsx';
 import ProfilePictureEditor from '../../components/ProfilePicture/ProfilePictureEditor.jsx';
 import './Settings.css';
@@ -124,7 +124,10 @@ function Settings() {
     const stored = getAISettings();
     return {
       llmProvider: stored.llmProvider || 'portfolio',
-      portfolioModel: stored.portfolioModel || DEFAULT_CLOUD_MODEL_ID,
+      // '' = the user never chose a model, so the panel resolves the cheapest
+      // one the server offers (see getEffectiveCloudModelId).
+      portfolioModel: stored.portfolioModel || '',
+      portfolioModelChosen: stored.portfolioModelChosen || '',
       defaultTemperature: stored.defaultTemperature ?? 0.7,
       defaultMaxTokens: stored.defaultMaxTokens ?? 500,
       maxConversationHistory: stored.maxConversationHistory ?? 20,
@@ -145,10 +148,13 @@ function Settings() {
   const [locationEnabled, setLocationEnabled] = useState(() => isPermissionEnabled(GEOLOCATION));
 
   // What the AI panel should *state* it is using — resolved from the user's
-  // saved choice and the live `/llm-providers` response, never hardcoded.
-  // `resolveCloudModelLabel` already folds the provider in ("Claude Haiku 4.5
-  // (Bedrock)"), so the panel needs no separate provider string.
-  const cloudModelLabel = resolveCloudModelLabel(aiSettings?.portfolioModel, llmProviders);
+  // recorded choice and the live `/llm-providers` response, never hardcoded.
+  // `resolveCloudModelLabel` already folds the provider in ("DeepSeek-V3 (Chat)
+  // (DeepSeek)"), so the panel needs no separate provider string.
+  const cloudModelLabel = resolveCloudModelLabel(
+    getEffectiveCloudModelId(aiSettings?.portfolioModel, llmProviders, aiSettings?.portfolioModelChosen),
+    llmProviders
+  );
 
   const cloudSyncDebounce = useRef(null);
   const cloudPullDone = useRef(false);
@@ -161,7 +167,7 @@ function Settings() {
         const cloud = cloudData?.settings;
         if (!cloud) return;
         const pullKeys = [
-          'llmProvider', 'portfolioModel',
+          'llmProvider', 'portfolioModel', 'portfolioModelChosen',
           'defaultTemperature', 'defaultMaxTokens', 'maxConversationHistory',
           'sendWithEnter', 'showTimestamps', 'enableMarkdown',
           'saveChatsLocally', 'cloudSync', 'ttsEnabled', 'sttEnabled',
@@ -211,13 +217,15 @@ function Settings() {
     setFontSizeScale(FONT_SCALE_DEFAULT);
   }, []);
 
-  const updateAISetting = useCallback((key, value) => {
-    setAiSettings(prev => {
-      const updated = { ...prev, [key]: value };
-      saveAISettings({ [key]: value });
-      return updated;
-    });
-    pushAISettingToCloud({ [key]: value });
+  // Accepts a single field, or a PATCH object for a change that writes more
+  // than one related key at once (the model picker: id + record of the choice —
+  // see cloudModelChoicePatch). Local save and cloud push both take the patch as
+  // one object, so they can't half-apply it.
+  const updateAISetting = useCallback((keyOrPatch, value) => {
+    const patch = typeof keyOrPatch === 'string' ? { [keyOrPatch]: value } : (keyOrPatch || {});
+    setAiSettings(prev => ({ ...prev, ...patch }));
+    saveAISettings(patch);
+    pushAISettingToCloud(patch);
   }, [pushAISettingToCloud]);
 
   // Microphone opt-in = the shared Speech Recognition setting, so enabling it

@@ -64,21 +64,86 @@ async function initializeLLMClients() {
 
 // Get available providers and models (with rate info)
 // Model tier requirements: which minimum tier is needed for each model.
-// Models not listed here are available to all tiers (Free+). Empty today —
-// Bedrock's single Claude Haiku 4.5 model is available to Free and Pro alike
-// (each tier's *usage* is instead capped by MEMBERSHIP_LIMITS in
-// apiUsageTracker.js, since Bedrock is a metered, server-paid provider).
+// Models not listed here are available to all tiers (Free+). Empty today — the
+// cloud models are all available to Free and Pro alike (each tier's *usage* is
+// instead capped by MEMBERSHIP_LIMITS in apiUsageTracker.js, since every cloud
+// provider here is a metered, server-paid one).
 const MODEL_TIER_REQUIREMENTS = {};
 
-function getAvailableProviders() {
-    // Import API_COSTS lazily to avoid circular deps
-    let API_COSTS;
+/** The metering table, lazily (it imports DynamoDB/Stripe at load). */
+function apiCosts() {
     try {
-        API_COSTS = require('./apiUsageTracker.js').API_COSTS;
-    } catch { API_COSTS = null; }
+        return require('./apiUsageTracker.js').API_COSTS;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Real cost of one model, USD per 1M tokens, from the metering table.
+ *
+ * Input and output are ADDED rather than compared one at a time: a model that is
+ * cheaper on input can be the dearer one to actually run, and a plain ordering
+ * has to put that somewhere. Unknown/uncatalogued models rank last
+ * (`Infinity`) — an unpriceable model must never win a "cheapest" comparison.
+ */
+function modelCostPer1M(providerKey, modelId) {
+    const table = apiCosts();
+    const cost = table?.[providerKey]?.[modelId] || table?.[providerKey]?.default;
+    if (!cost || typeof cost.input !== 'number') return Number.POSITIVE_INFINITY;
+    return cost.input + (typeof cost.output === 'number' ? cost.output : 0);
+}
+
+/** Providers the server actually holds credentials for. */
+function configuredProviderKeys() {
+    return Object.keys(PROVIDERS).filter((key) => PROVIDERS[key].apiKey);
+}
+
+/**
+ * The model that answers when the caller names none, and the model every picker
+ * pre-selects for a user who has not chosen one: **the cheapest cloud model the
+ * server is configured to serve**.
+ *
+ * This is deliberately computed rather than hardcoded. "Default" used to mean
+ * "Bedrock's Claude Haiku 4.5" by virtue of it being the only model the app had,
+ * so adding a cheaper provider (DeepSeek) left every user who never touched the
+ * picker on the dearer one — including a caller that named no model at all.
+ * Ranking lives here, next to the catalogue, so the model the UI defaults to and
+ * the model a nameless request bills against cannot disagree.
+ *
+ * Ties break on provider key then model id, so a deployment always resolves to
+ * the same model. With nothing configured it reports the always-on provider's
+ * model, which is what the adapter will attempt (and fail loudly on) anyway.
+ *
+ * @returns {{ provider: string, model: string }}
+ */
+function getDefaultModel() {
+    const candidates = [];
+    for (const providerKey of configuredProviderKeys()) {
+        for (const modelId of Object.keys(PROVIDERS[providerKey].models)) {
+            candidates.push({
+                provider: providerKey,
+                model: modelId,
+                cost: modelCostPer1M(providerKey, modelId),
+            });
+        }
+    }
+    if (candidates.length === 0) {
+        return { provider: 'bedrock', model: Object.keys(PROVIDERS.bedrock.models)[0] };
+    }
+    candidates.sort((a, b) =>
+        (a.cost - b.cost) ||
+        a.provider.localeCompare(b.provider) ||
+        a.model.localeCompare(b.model));
+    return { provider: candidates[0].provider, model: candidates[0].model };
+}
+
+function getAvailableProviders() {
+    const API_COSTS = apiCosts();
+    const { provider: defaultProvider, model: defaultModel } = getDefaultModel();
 
     const availableProviders = {};
-    
+
     for (const [providerKey, provider] of Object.entries(PROVIDERS)) {
         if (provider.apiKey) {
             const modelsWithRates = {};
@@ -88,7 +153,13 @@ function getAvailableProviders() {
                 modelsWithRates[modelId] = {
                     ...modelInfo,
                     rate: ratePer1M,
+                    // Numeric per-1M rates alongside the display string, so a
+                    // client can compare costs without parsing "$0.27/1M".
+                    inputRate: typeof cost?.input === 'number' ? cost.input * 1000000 : null,
+                    outputRate: typeof cost?.output === 'number' ? cost.output * 1000000 : null,
                     requiredTier: MODEL_TIER_REQUIREMENTS[modelId] || 'free',
+                    // Exactly one model carries this: see getDefaultModel().
+                    isDefault: providerKey === defaultProvider && modelId === defaultModel,
                 };
             }
             availableProviders[providerKey] = {
@@ -97,7 +168,7 @@ function getAvailableProviders() {
             };
         }
     }
-    
+
     return availableProviders;
 }
 
@@ -310,6 +381,7 @@ module.exports = {
     MODEL_TIER_REQUIREMENTS,
     initializeLLMClients,
     getAvailableProviders,
+    getDefaultModel,
     validateProviderModel,
     checkApiUsage,
     createCompletion,

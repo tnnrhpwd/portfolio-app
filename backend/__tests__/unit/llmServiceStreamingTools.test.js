@@ -235,7 +235,7 @@ describe('streamCompressionRequest — tool loop that exhausts its rounds', () =
         expect(toolsEvent).toBeDefined();
         expect(toolsEvent.tools.length).toBeGreaterThan(0);
         expect(toolsEvent.tools[0].tool).toBe('repo_read_file');
-        expect(executeTool).toHaveBeenCalledTimes(12); // MAX_TOOL_ROUNDS
+        expect(executeTool).toHaveBeenCalledTimes(16); // MAX_TOOL_ROUNDS
     });
 
     it('asks for a prose wrap-up with tools still offered when the rounds run out', async () => {
@@ -247,7 +247,7 @@ describe('streamCompressionRequest — tool loop that exhausts its rounds', () =
             converseCalls++;
             // The initial call and every follow-up keep asking for tools; the
             // wrap-up call after the cap finally answers in prose.
-            return converseCalls <= 13 ? toolCallingResponse()
+            return converseCalls <= 17 ? toolCallingResponse()
                 : textResponse('I raised the goal description limit to 30,000 characters.');
         });
 
@@ -286,7 +286,7 @@ describe('streamCompressionRequest — tool loop that exhausts its rounds', () =
 
         // One initial call + one follow-up per round, then the wrap-up call that
         // returns no text, so exactly one streamed leg follows.
-        expect(converse).toHaveLength(14); // 1 + MAX_TOOL_ROUNDS (12) + wrap-up
+        expect(converse).toHaveLength(18); // 1 + MAX_TOOL_ROUNDS (16) + wrap-up
         expect(stream).toHaveLength(1);
 
         // Loop rounds legitimately use real tool blocks, backed by a toolConfig.
@@ -296,12 +296,16 @@ describe('streamCompressionRequest — tool loop that exhausts its rounds', () =
         expect(JSON.stringify(lastLoopRequest.messages)).toMatch(/toolUse/);
         expect(JSON.stringify(lastLoopRequest.messages)).toMatch(/toolResult/);
 
-        // The tool-free leg may not carry tool blocks — and must not lose them either.
+        // The tool-free leg may not carry tool blocks — and must not lose the
+        // results either. They arrive as a USER-side activity log: an assistant
+        // turn here is what the model continues (it echoed the old
+        // "[used tool: repo_read_file]" marker straight into a live reply).
         const finalRequest = stream[0].input;
         expect(finalRequest.toolConfig).toBeUndefined();
         expect(JSON.stringify(finalRequest.messages)).not.toMatch(/toolUse|toolResult/);
-        expect(JSON.stringify(finalRequest.messages)).toMatch(/\[used tool: repo_read_file\]/);
-        expect(JSON.stringify(finalRequest.messages)).toMatch(/\[tool result\]/);
+        expect(JSON.stringify(finalRequest.messages)).toMatch(/Tool activity so far/);
+        expect(JSON.stringify(finalRequest.messages)).toMatch(/called repo_read_file/);
+        expect(JSON.stringify(finalRequest.messages)).not.toContain('[used tool');
         // ...and never the arguments: those made the model continue its own JSON.
         expect(JSON.stringify(finalRequest.messages)).not.toContain('Net.jsx')
         expect(finalRequest.messages.length).toBeGreaterThan(1);

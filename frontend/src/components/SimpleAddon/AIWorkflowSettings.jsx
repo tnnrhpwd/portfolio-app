@@ -1,6 +1,7 @@
 import './AIWorkflowSettings.css';
-import { buildCloudModelList, getEffectiveCloudModelId } from '../../utils/llmProviderOptions.js';
-import { DEFAULT_CLOUD_PROVIDER, DEFAULT_LOCAL_PROVIDER, providerLabel } from '../../constants/aiModel.js';
+import { cloudModelChoicePatch, cloudProviderSummary } from '../../utils/llmProviderOptions.js';
+import { DEFAULT_LOCAL_PROVIDER, providerLabel } from '../../constants/aiModel.js';
+import CloudModelSelect from './CloudModelSelect';
 
 /**
  * AIWorkflowSettings — the single source of truth for the AI chat preferences
@@ -27,7 +28,11 @@ import { DEFAULT_CLOUD_PROVIDER, DEFAULT_LOCAL_PROVIDER, providerLabel } from '.
  * @param {boolean} [props.sttSupported] - Whether speech recognition is supported in this browser.
  */
 function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupported = true, portfolioLLMProviders }) {
-  const update = (key, value) => onChange?.(key, value);
+  // `onChange` takes either a single field or a PATCH object. The model picker
+  // uses the patch form: choosing a model writes the id and the record of the
+  // choice together (`cloudModelChoicePatch`), and two sequential calls would
+  // race on the host's stale settings snapshot.
+  const update = (keyOrPatch, value) => onChange?.(keyOrPatch, value);
 
   const isLocal = settings.llmProvider === 'local';
 
@@ -42,17 +47,18 @@ function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupp
             onChange={e => update('llmProvider', e.target.value)}
             className="aiw-input"
           >
-            <option value="portfolio">☁️ Cloud ({providerLabel(DEFAULT_CLOUD_PROVIDER)})</option>
+            <option value="portfolio">☁️ Cloud ({cloudProviderSummary(portfolioLLMProviders)})</option>
             <option value="local">💻 {providerLabel(DEFAULT_LOCAL_PROVIDER)}</option>
           </select>
           <span className="aiw-hint">Switch providers depending on where you want responses generated.</span>
         </div>
 
-        {/* Cloud mode lists whatever cloud models the backend reports (AWS
-            Bedrock by default, plus DeepSeek when configured). Local mode
-            delegates model choice to the addon, so the temperature/token/
-            history controls below are only shown once the user switches to
-            Local. */}
+        {/* Cloud mode lists every model the backend reports as available (AWS
+            Bedrock by default, plus DeepSeek when configured) — the SAME
+            component the /net sidebar renders, so the two surfaces cannot
+            offer different models. Local mode delegates model choice to the
+            addon, so the temperature/token/history controls below are only
+            shown once the user switches to Local. */}
         {isLocal ? (
           <div className="aiw-item">
             <label className="aiw-label" htmlFor="aiw-model">
@@ -67,18 +73,14 @@ function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupp
               🧠 Model
               <span className="aiw-badge">☁️ Cloud</span>
             </label>
-            <select
+            <CloudModelSelect
               id="aiw-model"
-              value={getEffectiveCloudModelId(settings.portfolioModel, portfolioLLMProviders)}
-              onChange={e => update('portfolioModel', e.target.value)}
               className="aiw-input"
-            >
-              {buildCloudModelList(portfolioLLMProviders).map(m => (
-                <option key={m.id} value={m.id}>
-                  {m.name} ({providerLabel(m.provider)})
-                </option>
-              ))}
-            </select>
+              providers={portfolioLLMProviders}
+              value={settings.portfolioModel}
+              chosenModelId={settings.portfolioModelChosen}
+              onChange={(modelId) => onChange?.(cloudModelChoicePatch(modelId))}
+            />
             <span className="aiw-hint">Cloud model used for responses.</span>
           </div>
         )}

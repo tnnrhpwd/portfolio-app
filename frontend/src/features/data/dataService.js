@@ -3,7 +3,6 @@
 import axios from 'axios';  // import ability to make http request
 import { toast } from 'react-toastify'; // import toast notifications
 import { getApiBase } from '../../config/api';
-import { DEFAULT_CLOUD_MODEL_ID, DEFAULT_CLOUD_PROVIDER } from '../../constants/aiModel.js';
 
 const API_URL = getApiBase();
 
@@ -294,11 +293,14 @@ const compressData = async (dataData, token, options = {}) => {
         },
     }
 
-    // Add LLM provider options to the request
+    // LLM provider/model are only sent when the caller has resolved one (the chat
+    // always does). Omitting them lets the backend use its own default, which is
+    // the cheapest configured cloud model — naming a provider here would silently
+    // override that and bill the dearest one (llmProviders.getDefaultModel).
     const requestData = {
         ...dataData,
-        provider: options.provider || DEFAULT_CLOUD_PROVIDER,
-        model: options.model || DEFAULT_CLOUD_MODEL_ID
+        provider: options.provider,
+        model: options.model,
     };
 
     console.log('Calling POST URL:', API_URL + 'compress');
@@ -317,10 +319,11 @@ const compressData = async (dataData, token, options = {}) => {
  * Event types: { type: 'token', text }, { type: 'tools', tools }, { type: 'content', text }, { type: 'error', error }
  */
 const compressDataStream = async function* (dataData, token, options = {}) {
+    // See compressData: only send a provider/model the caller actually resolved.
     const requestData = {
         ...dataData,
-        provider: options.provider || DEFAULT_CLOUD_PROVIDER,
-        model: options.model || DEFAULT_CLOUD_MODEL_ID
+        provider: options.provider,
+        model: options.model,
     };
 
     const response = await fetch(API_URL + 'compress/stream', {

@@ -199,11 +199,14 @@ upstream is wrong.
 - **`title`** decides the accessibility contract: named → `role="img"` + `aria-label`;
   omitted → `aria-hidden="true"`. Omit it wherever adjacent text already names the
   product (the header does: the mark sits next to "Simple by STHopwood").
-- **`compact` is deliberately NOT a variant.** Below ~24px the full mark is three elements
-  fighting over 256 pixels, so a compact version (solid disc, knocked-out tick, no ring)
-  exists — but its only consumers are the favicon and the tray icon, both static rasters
-  generated once. Adding it to the component would mean a second copy of the geometry in
-  JS for zero callers. It lives as `assets/brand-mark-compact.svg` and nowhere as code.
+- **`compact` is deliberately NOT a variant.** Below ~24px the `full` mark is three
+  elements fighting over 256 pixels — and the thing that makes it at 38px is exactly what
+  breaks it at 16: its tick crosses the ring band and overshoots it, so the two read as
+  one smudge. The small surfaces therefore get a **badge** instead: the same ring, field
+  and tick, but chunkier (a 5.5-unit ring against the `full` mark's 4.25) and with the
+  tick **confined inside the field**. It is only ever a raster — the favicon and the
+  addon's two icons — so it lives as `assets/brand-mark-compact.svg` and nowhere in JS;
+  a fourth component variant would mean a second copy of the geometry for zero callers.
 
 ### The geometry exists twice, and a test pins it
 
@@ -237,10 +240,28 @@ node scripts/generate-logo-assets.js --apply    # writes
 **Every output is transparent.** The masters have no background rect and `sharp` is asked
 for RGBA throughout — a logo does not get a white plate behind it.
 
-**Why the favicon uses the compact master.** Verified by rendering both at 16/24/32/48 and
-upscaling with nearest-neighbour: at 16px the full mark's 4px ring and 8.5px glyph survive
-but are visibly busier, while the compact mark is bold and unmistakable from 16px up. The
-full mark is comfortable from 24px.
+**Why the icons use the compact master.** Verified by rendering both masters at 16/24/32/48
+and upscaling with nearest-neighbour side by side. The badge is the bolder read at every
+size, and at 16px it is the difference between a mark and a suggestion: there the `full`
+mark's ring is 1.06px against the badge's 1.38px, and that 1px ring is the one its tick
+crosses. The `full` mark is comfortable from about 24px.
+
+**The badge is monochrome — black on white — and that is a decision about chrome it does not
+control.** A coloured pair only ever looks right on the palette it was drawn for, and every
+one of these surfaces sits on something we cannot see: a dark tab strip, a light taskbar, an
+accent-tinted title bar, the user's wallpaper. Black and white holds up on all of them — and
+better, it reads the *same* on all of them. On a light surface the field disappears into the
+chrome, so the mark is a hollow black circle with a tick; on a dark one the field reads as a
+solid white disc and the ring becomes that disc's edge. Verified by rendering every size
+below 64px on both a light and a dark strip and magnifying the result pixel for pixel.
+
+What makes that work is that the ring and the tick are always drawn against the **field**,
+never against the surface behind the mark. A coloured pair cannot promise that: the blue and
+teal this badge first used were chosen for a light page, and on a dark taskbar the teal field
+and the blue ring collapsed toward each other.
+
+That these surfaces cannot follow the scheme is the whole reason the colourway has to be
+pinned at all: a browser tab and the Windows shell cannot read `data-scheme` (§6).
 
 ### Two gotchas in that script, both of which cost a debugging round
 

@@ -6,8 +6,6 @@ import dataService from '../../../features/data/dataService.js';
 import SimpleChat from '../../../components/SimpleAddon/SimpleChat.jsx';
 import LoginGate from '../../../components/Simple/LoginGate/LoginGate.jsx';
 import { useAddonDetection } from '../../../hooks/simpleAddon/useAddonDetection.js';
-import { DEFAULT_CLOUD_MODEL_ID } from '../../../utils/llmProviderOptions.js';
-import { DEFAULT_CLOUD_PROVIDER } from '../../../constants/aiModel.js';
 import './Net.css';
 import Header from '../../../components/Header/Header.jsx';
 import SimpleNav from '../../../components/Simple/SimpleNav/SimpleNav.jsx';
@@ -120,7 +118,10 @@ function Net() {
 
   // Streaming chat handler — streams tokens directly to SimpleChat callbacks
   const handlePortfolioChatStream = useCallback(
-    async (message, conversationHistory, provider = DEFAULT_CLOUD_PROVIDER, model = DEFAULT_CLOUD_MODEL_ID, extras = {}) => {
+    // `provider`/`model` arrive already resolved by the chat (user's choice, else
+    // the cheapest configured model). No default is named here: if one were, it
+    // would override the backend's own default and bill a specific provider.
+    async (message, conversationHistory, provider, model, extras = {}) => {
       if (!user) return;
 
       const payload = {
@@ -166,7 +167,7 @@ function Net() {
 
   // Legacy non-streaming handler (fallback)
   const handlePortfolioChat = useCallback(
-    (message, conversationHistory, provider = DEFAULT_CLOUD_PROVIDER, model = DEFAULT_CLOUD_MODEL_ID, extras = {}) => {
+    (message, conversationHistory, provider, model, extras = {}) => {
       if (!user) return;
       const payload = {
         message,

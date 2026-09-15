@@ -7,8 +7,9 @@ const {
     PROVIDERS,
     createCompletion,
     streamCompletion,
+    getDefaultModel,
 } = require('../utils/llmProviders.js');
-const { createBedrockCompletion, streamBedrockCompletion, BEDROCK_MODEL_ID } = require('./bedrockService.js');
+const { createBedrockCompletion, streamBedrockCompletion } = require('./bedrockService.js');
 const { isProTier, PLAN_IDS, PLAN_NAMES, MONTHLY_PRICES, STORAGE_DISPLAY, formatUsdCompact } = require('../constants/pricing.js');
 const { getGoalsSummary, logAction } = require('./memoryService.js');
 const { TOOL_SCHEMAS, executeTool } = require('./netTools.js');
@@ -154,26 +155,32 @@ function parseCompressionRequest(req) {
     const contextInput = parsedJSON.text;
     logger.debug('Context input:', contextInput);
 
-    // AWS Bedrock (Claude Haiku 4.5) is the default. GitHub Models was retired
-    // 2026-07-30, so legacy `provider: 'github'` requests still fall through to
-    // Bedrock. DeepSeek is also selectable when a DEEPSEEK_API_KEY is
-    // configured; the client's `provider`/`model` are honored only for that
-    // provider. Everything else normalizes to Bedrock so cost tracking and
-    // dashboards reflect what's actually used.
+    // The model a request runs on. Cloud chat has more than one provider now, so
+    // "the default" is a computed choice — the cheapest model the server holds
+    // credentials for (llmProviders.getDefaultModel()), which is the same model
+    // every picker pre-selects for a user who has not chosen one. Hardcoding a
+    // default here would mean a call that names no model (and the cost dashboard
+    // behind it) disagreeing with what the UI says it will use.
+    //
+    // A client-requested model wins whenever the server can actually serve it —
+    // requested provider configured, requested id in that provider's catalogue.
+    // Anything else (a retired provider such as `github`, an unknown id, a
+    // provider with no credentials) resolves to the default instead of failing,
+    // so usage tracking always reflects a model that exists.
     const requestedProvider = req.body.provider;
     const requestedModel = req.body.model;
 
-    let provider = 'bedrock';
-    let model = BEDROCK_MODEL_ID;
+    const fallback = getDefaultModel();
+    let provider = fallback.provider;
+    let model = fallback.model;
 
-    if (requestedProvider === 'deepseek') {
-        const cfg = PROVIDERS.deepseek;
-        if (cfg?.apiKey && cfg?.models) {
-            provider = 'deepseek';
-            model = (requestedModel && cfg.models[requestedModel])
-                ? requestedModel
-                : Object.keys(cfg.models)[0];
-        }
+    const requestedIsServable = !!requestedProvider && !!requestedModel
+        && !!PROVIDERS[requestedProvider]?.apiKey
+        && !!PROVIDERS[requestedProvider]?.models?.[requestedModel];
+
+    if (requestedIsServable) {
+        provider = requestedProvider;
+        model = requestedModel;
     }
 
     logger.debug(`Using ${provider} with model ${model}${requestedProvider ? ` (client requested "${requestedProvider}")` : ''}`);
@@ -579,14 +586,14 @@ async function executeToolCall(toolCall, toolContext) {
 /**
  * Max tool-call rounds per turn (prevents runaway loops).
  *
- * Was 3 — too tight for the repo-editing workflow a /net chat can run. 8 still
- * came up short: a live run spent every round on legitimate work (list files →
- * read ×3 → two failed snippet edits → a successful edit → diff) and had to be
- * cut off before it could answer. 12 leaves room to investigate, edit, verify
- * and reply, and matches the goal agent's own loop. A round is only spent when
- * the model actually asks for a tool, so a normal chat turn costs nothing extra.
+ * Was 3 — far too tight for the repo workflow. 8 and then 12 still came up short:
+ * the live run that leaked a tool marker had already edited the file and only
+ * wanted to re-read it to verify, i.e. it was cut off in the *checking* phase.
+ * 16 leaves room for investigate → edit → retry a bad snippet → verify → answer.
+ * A round is only spent when the model actually asks for a tool, so a normal chat
+ * turn costs nothing extra.
  */
-const MAX_TOOL_ROUNDS = 12;
+const MAX_TOOL_ROUNDS = 16;
 
 /**
  * Appended to the system prompt when a turn has spent every tool round, so the
@@ -633,7 +640,8 @@ async function runToolLoop({ provider, model, messages, llmOptions, toolContext,
         for (const toolCall of choice.message.tool_calls) {
             const { fnName, fnArgs, result } = await executeToolCall(toolCall, toolContext);
             toolResults.push({ tool: fnName, args: fnArgs, result });
-            messages.push({ role: 'tool', tool_call_id: toolCall.id, content: result });
+            // `name` is what the flattened activity log labels the result with.
+            messages.push({ role: 'tool', tool_call_id: toolCall.id, name: fnName, content: result });
         }
 
         response = await makeLLMCall(provider, model, messages, llmOptions);
@@ -1131,7 +1139,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
 
     // ── Tool-call phase (non-streamed, same as before) ─────────────────────
     // We must resolve tools before streaming the final answer
-    const MAX_TOOL_ROUNDS = 12; // same cap as runToolLoop (see MAX_TOOL_ROUNDS above)
+    const MAX_TOOL_ROUNDS = 16; // same cap as runToolLoop (see MAX_TOOL_ROUNDS above)
     let round = 0;
     const toolResults = [];
     let needsStreaming = true;
@@ -1158,7 +1166,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
                 // executeToolCall above.
                 const { fnName, fnArgs, result } = await executeToolCall(toolCall, toolContext);
                 toolResults.push({ tool: fnName, args: fnArgs, result });
-                messages.push({ role: 'tool', tool_call_id: toolCall.id, content: result });
+                messages.push({ role: 'tool', tool_call_id: toolCall.id, name: fnName, content: result });
             }
 
             // Check if the follow-up also has tool calls
@@ -1353,9 +1361,9 @@ function getMaxTokensForRequest(user, model) {
     const tierLimits = { Free: 1000, Pro: 2000, Flex: 2000, Simple: 4000, Premium: 4000 };
     const tierMax = tierLimits[rank] || 1000;
 
-    // `model` is currently always the Bedrock Claude Haiku 4.5 model ID (there's
-    // only one downstream model since the GitHub Models migration), so no
-    // per-model ceiling is needed — the tier limit applies directly.
+    // The model can be Bedrock's Claude or a DeepSeek one (see parseCompression
+    // Request's default resolution), and both allow far more than the tier caps
+    // below, so no per-model ceiling is needed — the tier limit applies directly.
     return tierMax;
 }
 

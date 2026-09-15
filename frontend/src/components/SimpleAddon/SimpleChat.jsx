@@ -41,8 +41,8 @@ import {
 import { recordGoalAgentResult } from '../../services/goalAgentApi.js';
 import { createData } from '../../features/data/dataSlice';
 import { getUserIdentifier } from '../../utils/supportUtils';
-import { DEFAULT_CLOUD_MODEL_ID, getEffectiveCloudModelId, resolveCloudModelProvider } from '../../utils/llmProviderOptions.js';
-import { DEFAULT_CLOUD_PROVIDER, DEFAULT_LOCAL_MODEL_ID, providerLabel } from '../../constants/aiModel.js';
+import { getEffectiveCloudModelId, resolveCloudModelProvider } from '../../utils/llmProviderOptions.js';
+import { DEFAULT_CLOUD_PROVIDER, DEFAULT_LOCAL_MODEL_ID, modelDisplayName, providerLabel } from '../../constants/aiModel.js';
 import './SimpleChat.css';
 import './SimpleTheme.css';
 import { checkMessage as securityCheckMessage } from '../../utils/simpleAddon/securityGuard';
@@ -164,7 +164,13 @@ const DEFAULT_SETTINGS = {
   sttEnabled: false,
   micDeviceId: '',
   llmProvider: 'portfolio',   // Default to portfolio cloud when no addon
-  portfolioModel: DEFAULT_CLOUD_MODEL_ID,
+  // '' = the user has never picked a cloud model, so it resolves to the cheapest
+  // one the server is configured to serve (getEffectiveCloudModelId), and is
+  // re-resolved whenever the provider list changes. `portfolioModelChosen` is
+  // what records an actual pick — a stored id alone can't be told apart from the
+  // app's own former default.
+  portfolioModel: '',
+  portfolioModelChosen: '',
   cloudSync: true, // Cloud sync on by default so chats follow the signed-in user across devices
 };
 
@@ -790,7 +796,7 @@ function SimpleChat({
         role: 'assistant',
         content: portfolioChatResponse,
         timestamp: new Date().toISOString(),
-        modelId: getEffectiveCloudModelId(settings.portfolioModel, portfolioLLMProviders),
+        modelId: getEffectiveCloudModelId(settings.portfolioModel, portfolioLLMProviders, settings.portfolioModelChosen),
       };
 
       setConversations(prev => prev.map(c => {
@@ -909,7 +915,9 @@ function SimpleChat({
     } else {
       const lines = [`# ${conv.title}`, `*Exported ${new Date().toLocaleString()}*`, ''];
       conv.messages.forEach(m => {
-        const role = m.role === 'user' ? '**You**' : `**AI** ${m.modelId ? `(${m.modelId})` : ''}`;
+        // Friendly model name in the human-readable export; the JSON export
+        // above keeps the raw id for machine consumption.
+        const role = m.role === 'user' ? '**You**' : `**AI** ${m.modelId ? `(${modelDisplayName(m.modelId)})` : ''}`;
         const time = m.timestamp ? `*${new Date(m.timestamp).toLocaleString()}*` : '';
         lines.push(`### ${role} ${time}`, '', m.content, '', '---', '');
       });
@@ -1523,7 +1531,7 @@ function SimpleChat({
       // addon is online, and surface a clear error when no PC is reachable.
       if (route.reason === 'explicit-pc-phrasing-remote-relay' || route.reason === 'explicit-pc-phrasing-no-addon') {
         if (isRemoteAddonOnline && user?.token) {
-          const cloudModel = getEffectiveCloudModelId(settings.portfolioModel, portfolioLLMProviders);
+          const cloudModel = getEffectiveCloudModelId(settings.portfolioModel, portfolioLLMProviders, settings.portfolioModelChosen);
           try {
             await runRemoteRelay(text, trimmedHistory, cloudModel);
           } catch (err) {
@@ -1717,7 +1725,7 @@ function SimpleChat({
         if (!onPortfolioChat && !onPortfolioChatStream) {
           throw new Error('Portfolio chat not available. Please log in.');
         }
-        const portfolioModel = getEffectiveCloudModelId(settings.portfolioModel, portfolioLLMProviders);
+        const portfolioModel = getEffectiveCloudModelId(settings.portfolioModel, portfolioLLMProviders, settings.portfolioModelChosen);
         const portfolioProvider = resolveCloudModelProvider(portfolioModel, portfolioLLMProviders);
 
         // ── /compare handler — send last user message to a second model ──
@@ -1753,7 +1761,11 @@ function SimpleChat({
               messages: [...c.messages, {
                 id: compareId,
                 role: 'assistant',
-                content: `**🔄 Comparing with ${compareModel}...**\n\n`,
+                // Friendly name, not the raw id: the bubble used to read
+                // "Comparing with us.anthropic.claude-haiku-4-5-20251001-v1:0...".
+                // `modelId` below still carries the real id, so the badge's
+                // tooltip keeps the exact model.
+                content: `**🔄 Comparing with ${modelDisplayName(compareModel)}...**\n\n`,
                 timestamp: new Date().toISOString(),
                 modelId: compareModel,
                 isStreaming: true,
@@ -1809,7 +1821,7 @@ function SimpleChat({
                   ...c,
                   messages: c.messages.map(m =>
                     m.id === compareId
-                      ? { ...m, content: `**Compare Error (${compareModel}):** ${errMsg}`, isError: true, isStreaming: false }
+                      ? { ...m, content: `**Compare Error (${modelDisplayName(compareModel)}):** ${errMsg}`, isError: true, isStreaming: false }
                       : m
                   ),
                 };

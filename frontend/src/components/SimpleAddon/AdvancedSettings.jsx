@@ -110,15 +110,21 @@ function AdvancedSettings({ isOpen, onClose, settings, onSettingsChange, isOnlin
     }, 500);
   }, [onSettingsChange]);
 
-  const updateSetting = useCallback((key, value) => {
+  const updateSetting = useCallback((keyOrPatch, value) => {
     const DEVICE_LOCAL_KEYS = ['micDeviceId', 'sttEnabled'];
-    const newSettings = { ...settings, [key]: value };
-    if (DEVICE_LOCAL_KEYS.includes(key)) {
+    // A single field, or a PATCH object for a change that has to write more than
+    // one related key at once (the cloud model picker records the model and the
+    // fact that the user chose it — see cloudModelChoicePatch). Merging the patch
+    // here is what keeps that atomic against this component's settings snapshot.
+    const patch = typeof keyOrPatch === 'string' ? { [keyOrPatch]: value } : (keyOrPatch || {});
+    const keys = Object.keys(patch);
+    const newSettings = { ...settings, ...patch };
+    if (keys.length > 0 && keys.every(k => DEVICE_LOCAL_KEYS.includes(k))) {
       // Per-device settings: save to localStorage only, don't sync to server
       try {
         const saved = localStorage.getItem('csimple_device_settings');
         const deviceSettings = saved ? JSON.parse(saved) : {};
-        deviceSettings[key] = value;
+        keys.forEach(k => { deviceSettings[k] = patch[k]; });
         localStorage.setItem('csimple_device_settings', JSON.stringify(deviceSettings));
       } catch (e) {
         console.warn('[Settings] Failed to save device-local setting:', e);

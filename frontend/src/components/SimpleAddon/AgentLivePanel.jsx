@@ -33,6 +33,7 @@ import {
   stopEyeTracking,
   calibrateEyeTracking,
 } from '../../services/simpleAddonApi';
+import { modelDisplayName } from '../../constants/aiModel.js';
 import './AgentLivePanel.css';
 
 const MAX_FEED = 20;
@@ -56,7 +57,9 @@ function describe(ev) {
   switch (ev.type) {
     case 'tool.start': return `${ev.tool} started`;
     case 'tool.end':   return `${ev.tool} ${ev.ok ? 'ok' : 'failed'}${ev.durationMs != null ? ` · ${ev.durationMs}ms` : ''}${ev.error ? ` · ${ev.error}` : ''}`;
-    case 'agent.step': return `step ${ev.step}${ev.modelId ? ` · ${ev.modelId}` : ''}`;
+    // Friendly model name — the addon reports the raw id when the step ran on
+    // the cloud (e.g. us.anthropic.claude-haiku-4-5-20251001-v1:0).
+    case 'agent.step': return `step ${ev.step}${ev.modelId ? ` · ${modelDisplayName(ev.modelId)}` : ''}`;
     case 'agent.message': return `${ev.role}: ${String(ev.content || '').slice(0, 140)}`;
     case 'agent.stopped': return `stopped: ${ev.reason || ''}`;
     case 'approval.pending': return `needs approval: ${ev.toolName}`;

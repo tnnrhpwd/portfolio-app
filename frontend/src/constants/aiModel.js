@@ -22,23 +22,48 @@
  */
 
 // ──────────────────────────────────────────────
-// Default cloud (server-paid) chat model
+// Always-on baseline cloud chat model
 // ──────────────────────────────────────────────
-/** Provider key that backs cloud chat by default (see backend PROVIDERS). */
+/**
+ * Provider key that backs cloud chat when nothing else is configured — the
+ * BASELINE, not the model a user gets.
+ *
+ * Cloud chat now has more than one provider, so the *default* a user starts on
+ * is computed from the live catalogue: the cheapest model the server is
+ * configured to serve (see `utils/llmProviderOptions.js` `defaultCloudModel` and
+ * backend `llmProviders.getDefaultModel`). These constants are what the UI falls
+ * back to before that payload arrives, what static copy (privacy/terms) can name
+ * without a provider request, and what the backend attempts when it holds no
+ * credentials at all. Keep them in step with PROVIDERS.bedrock in
+ * `backend/utils/llmProviders.js` — a test pins that.
+ */
 export const DEFAULT_CLOUD_PROVIDER = 'bedrock';
 
-/** Cross-region inference profile id for the default cloud chat model. */
+/** Cross-region inference profile id for the baseline cloud chat model. */
 export const DEFAULT_CLOUD_MODEL_ID = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
 
-/** Human-readable name of the default cloud chat model. */
+/** Human-readable name of the baseline cloud chat model. */
 export const DEFAULT_CLOUD_MODEL_NAME = 'Claude Haiku 4.5';
 
-/** Convenience object combining the default cloud model's identity. */
+/** Convenience object combining the baseline cloud model's identity. */
 export const DEFAULT_CLOUD_MODEL = Object.freeze({
   id: DEFAULT_CLOUD_MODEL_ID,
   name: DEFAULT_CLOUD_MODEL_NAME,
   provider: DEFAULT_CLOUD_PROVIDER,
 });
+
+/**
+ * Model ids this app has itself written into settings as the *implicit* cloud
+ * default, back when "the default" was a constant.
+ *
+ * A stored copy of one of these means "never chosen", NOT "the user picked
+ * this": while it was the default it was either the only option in the picker or
+ * the value the app seeded settings with, so it cannot carry a preference. That
+ * distinction is the whole reason `settings.portfolioModelChosen` exists — once
+ * there was more than one model to pick, a stored id alone stopped telling you
+ * which of the two it was. See `getEffectiveCloudModelId`.
+ */
+export const LEGACY_DEFAULT_CLOUD_MODEL_IDS = Object.freeze([DEFAULT_CLOUD_MODEL_ID]);
 
 // ──────────────────────────────────────────────
 // Default local (addon / HuggingFace) chat model

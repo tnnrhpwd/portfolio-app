@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getLocalModels, testAddonConnection, runAddonSingleClickUpdate } from '../../services/simpleAddonApi';
 import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection';
-import { buildCloudModelList, FALLBACK_CLOUD_MODEL, getEffectiveCloudModelId } from '../../utils/llmProviderOptions.js';
-import { DEFAULT_CLOUD_PROVIDER, DEFAULT_LOCAL_PROVIDER, providerLabel } from '../../constants/aiModel.js';
+import { cloudModelChoicePatch, cloudProviderSummary } from '../../utils/llmProviderOptions.js';
+import { DEFAULT_LOCAL_PROVIDER, providerLabel } from '../../constants/aiModel.js';
+import CloudModelSelect from './CloudModelSelect';
 import UsageMeter from './UsageMeter';
 import StorageMeter from './StorageMeter';
 import AgentLivePanel from './AgentLivePanel';
@@ -88,20 +89,6 @@ function Sidebar({
   const agents = settings?.agents || [];
   const selectedAgentId = settings?.selectedAgentId || 'default';
   const isPortfolio = settings?.llmProvider === 'portfolio';
-
-  // Build portfolio models list from the live cloud providers.
-  const portfolioModels = React.useMemo(
-    () => buildCloudModelList(portfolioLLMProviders),
-    [portfolioLLMProviders]
-  );
-
-  // The effective model depends on the provider. Older stored settings may
-  // still carry a retired model id (from before the AWS Bedrock migration) —
-  // validate against the live cloud model list instead of trusting a stored
-  // id just because it's truthy.
-  const effectiveModel = isPortfolio
-    ? getEffectiveCloudModelId(settings?.portfolioModel, portfolioLLMProviders)
-    : selectedModel;
 
   // Fetch local models from addon when connected
   useEffect(() => {
@@ -382,7 +369,7 @@ function Sidebar({
                   value={settings?.llmProvider || 'portfolio'}
                   onChange={e => onSettingsChange({ ...settings, llmProvider: e.target.value })}
                 >
-                  <option value="portfolio">☁️ Cloud ({providerLabel(DEFAULT_CLOUD_PROVIDER)})</option>
+                  <option value="portfolio">☁️ Cloud ({cloudProviderSummary(portfolioLLMProviders)})</option>
                   {isAddonConnected && <option value="local">💻 {providerLabel(DEFAULT_LOCAL_PROVIDER)}</option>}
                 </select>
               </div>
@@ -394,11 +381,18 @@ function Sidebar({
                   {!isPortfolio && <span style={{ fontSize: '10px', color: 'var(--accent)', marginLeft: '4px' }}>💻 Local</span>}
                 </label>
                 {isPortfolio ? (
-                  // Show the cloud model actually in use (resolved from the live
-                  // provider list). The full picker lives in Advanced Settings.
-                  <div className="sidebar__static-value">
-                    {(portfolioModels.find(m => m.id === effectiveModel)?.name) || FALLBACK_CLOUD_MODEL.name}
-                  </div>
+                  // EVERY cloud model the server has configured, not just the one
+                  // currently selected — this used to be static text showing the
+                  // resolved model, so DeepSeek was configurable server-side and
+                  // invisible here. `CloudModelSelect` is the shared picker.
+                  <CloudModelSelect
+                    id="sidebar-model"
+                    className="sidebar__select"
+                    providers={portfolioLLMProviders}
+                    value={settings?.portfolioModel}
+                    chosenModelId={settings?.portfolioModelChosen}
+                    onChange={(modelId) => onSettingsChange?.({ ...settings, ...cloudModelChoicePatch(modelId) })}
+                  />
                 ) : (
                   <select
                     className="sidebar__select"

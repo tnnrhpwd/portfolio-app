@@ -142,7 +142,7 @@ export default function GoalManager({ user, addonConnected, addonBaseUrl }) {
       const slug = editSlug || slugify(form.name);
       await upsertWorkspaceItem(token, 'goal', slug, {
         name: form.name.trim().slice(0, 80),
-        content: form.content.trim().slice(0, 2000),
+        content: form.content.trim().slice(0, 10000),
         successCriteria: form.successCriteria.trim().slice(0, 300),
         constraints: form.constraints.trim().slice(0, 300),
         priority: Math.min(100, Math.max(0, Number(form.priority) || 50)),
@@ -257,7 +257,7 @@ export default function GoalManager({ user, addonConnected, addonBaseUrl }) {
                 placeholder="e.g. Reply to all unread emails before noon" maxLength={80} />
             </label>
             <label className="gm__label">Description / steps
-              <textarea className="gm__textarea" rows={3} value={form.content}
+              <textarea className="gm__textarea" rows={6} value={form.content}
                 onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
                 placeholder="Detailed steps or context for the agent…" />
             </label>

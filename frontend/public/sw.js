@@ -5,13 +5,14 @@
  * load) so repeat visits work offline.
  *
  * ⚠️ BUMP THE VERSION whenever a static file under `public/` changes, because
- * cache-first is exactly as sticky as it sounds. The v2 -> v3 bump carried the
- * reworked brand mark: `Checkmark192.ico` (the tab icon) and `STHlogo192.png`
- * (the apple-touch icon) would otherwise have kept serving the previous logo to
- * every returning visitor indefinitely. `/assets/*` is hashed and self-busting;
+ * cache-first is exactly as sticky as it sounds. v2 -> v3 carried the reworked brand
+ * mark (the tab icon and the apple-touch icon); v3 -> v4 carried the follow-up that
+ * restyled the tab and addon icons as a badge. Either bump alone would have left every
+ * returning visitor on the previous logo indefinitely, because their service worker had
+ * already cached it under the current version. `/assets/*` is hashed and self-busting;
  * `public/` is not.
  */
-const CACHE = 'sthopwood-v3';
+const CACHE = 'sthopwood-v4';
 
 self.addEventListener('install', () => {
   self.skipWaiting();

@@ -41,7 +41,7 @@ const TOOL_HISTORY = [
             function: { name: 'repo_read_file', arguments: '{"path":"frontend/src/pages/Net/Net.jsx"}' },
         }],
     },
-    { role: 'tool', tool_call_id: 'call_1', content: '<Footer /> found on line 42' },
+    { role: 'tool', tool_call_id: 'call_1', name: 'repo_read_file', content: '<Footer /> found on line 42' },
 ];
 
 /** True when any emitted content block is a toolUse/toolResult block. */
@@ -143,22 +143,42 @@ describe('bedrockService — request shape translation', () => {
         expect(toBedrockToolConfig([], 'auto')).toBeUndefined();
     });
 
-    it('flattens tool-call/tool-result turns to plain text when tool blocks are not allowed', () => {
+    it('flattens tool-call/tool-result turns into a USER-side activity log', () => {
         const result = toBedrockMessages(TOOL_HISTORY, { allowToolBlocks: false });
 
-        expect(result).toEqual([
-            { role: 'user', content: [{ text: 'Remove the footer from /net' }] },
-            {
-                role: 'assistant',
-                content: [{ text: '[used tool: repo_read_file]' }],
-            },
-            { role: 'user', content: [{ text: '[tool result] <Footer /> found on line 42' }] },
-        ]);
-        // Converse rejects these blocks when no toolConfig accompanies them.
+        expect(result).toEqual([{
+            role: 'user',
+            content: [{
+                text: 'Remove the footer from /net\n\nTool activity so far:\n'
+                    + '- called repo_read_file\n'
+                    + '- repo_read_file result: <Footer /> found on line 42',
+            }],
+        }]);
+        // The whole point: no assistant turn carries a tool trace, because a model
+        // continues its own last assistant message (it did, twice, at the markers
+        // this replaced).
+        expect(result.some((m) => m.role === 'assistant')).toBe(false);
         expect(hasToolBlocks(result)).toBe(false);
     });
 
-    it('merges consecutive flattened tool results into a single turn', () => {
+    it('keeps assistant prose but never the call it was attached to', () => {
+        const result = toBedrockMessages([
+            { role: 'user', content: 'change the limit' },
+            {
+                role: 'assistant',
+                content: 'Updating it now.',
+                tool_calls: [{ id: 'c1', type: 'function', function: { name: 'repo_edit_file', arguments: '{"path":"a.jsx"}' } }],
+            },
+            { role: 'tool', tool_call_id: 'c1', name: 'repo_edit_file', content: 'Edited "a.jsx" (1 replacement).' },
+        ], { allowToolBlocks: false });
+
+        expect(result.map((m) => m.role)).toEqual(['user', 'assistant', 'user']);
+        expect(result[1].content).toEqual([{ text: 'Updating it now.' }]);
+        expect(JSON.stringify(result[1])).not.toMatch(/repo_edit_file/);
+        expect(result[2].content[0].text).toBe('Tool activity so far:\n- called repo_edit_file\n- repo_edit_file result: Edited "a.jsx" (1 replacement).');
+    });
+
+    it('folds several results from one round into the same user log', () => {
         const messages = [
             { role: 'user', content: 'two things' },
             {
@@ -169,16 +189,15 @@ describe('bedrockService — request shape translation', () => {
                     { id: 'c2', type: 'function', function: { name: 'b', arguments: '{}' } },
                 ],
             },
-            { role: 'tool', tool_call_id: 'c1', content: 'result A' },
-            { role: 'tool', tool_call_id: 'c2', content: 'result B' },
+            { role: 'tool', tool_call_id: 'c1', name: 'a', content: 'result A' },
+            { role: 'tool', tool_call_id: 'c2', name: 'b', content: 'result B' },
         ];
         const result = toBedrockMessages(messages, { allowToolBlocks: false });
 
-        expect(result).toHaveLength(3);
-        expect(result[2]).toEqual({
-            role: 'user',
-            content: [{ text: '[tool result] result A' }, { text: '[tool result] result B' }],
-        });
+        expect(result).toHaveLength(1);
+        expect(result[0].content[0].text).toBe(
+            'two things\n\nTool activity so far:\n- called a\n- called b\n- a result: result A\n- b result: result B'
+        );
     });
 
     it('reports whether a history contains tool turns', () => {
@@ -386,10 +405,8 @@ describe('bedrockService — tool history on a tool-free call (regression)', () 
         const input = mockSend.mock.calls[0][0].input;
         expect(input.toolConfig.tools.map((t) => t.toolSpec.name)).toEqual(['save_note']);
         expect(hasToolBlocks(input.messages)).toBe(false);
-        expect(input.messages).toEqual(expect.arrayContaining([{
-            role: 'assistant',
-            content: [{ text: '[used tool: repo_read_file]' }],
-        }]));
+        expect(JSON.stringify(input.messages)).toMatch(/repo_read_file result/);
+        expect(JSON.stringify(input.messages)).not.toMatch(/toolUse|toolResult/);
     });
 
     it('buildConverseRequestParts keeps messages and toolConfig in agreement', () => {
@@ -433,10 +450,11 @@ describe('bedrockService — tool history on a tool-free call (regression)', () 
         await createBedrockCompletion(messages);
 
         const input = mockSend.mock.calls[0][0].input;
-        expect(input.messages[1]).toEqual({
-            role: 'assistant',
-            content: [{ text: 'Let me update that file.' }, { text: '[used tool: repo_write_file]' }],
-        });
+        const texts = input.messages.map((m) => m.content.map((c) => c.text).join(''));
+        expect(input.messages.map((m) => m.role)).toEqual(['user', 'assistant', 'user']);
+        expect(texts[1]).toBe('Let me update that file.');
+        expect(texts[2]).toBe('Tool activity so far:\n- called repo_write_file\n- result: Error: arguments were cut off (invalid JSON)');
         expect(JSON.stringify(input.messages)).not.toContain('xxxxx');
+        expect(JSON.stringify(input.messages)).not.toContain('[used tool');
     });
 });

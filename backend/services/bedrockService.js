@@ -138,9 +138,8 @@ function toBedrockUserContent(content) {
  *
  * @param {Array} messages - OpenAI-style messages (system/user/assistant/tool).
  * @param {Object} [options] - { allowToolBlocks } — set to `false` when this call
- *   offers NO tools, so tool-call/result turns are flattened to text instead of
- *   being emitted as `toolUse`/`toolResult` blocks (which Converse rejects
- *   without a `toolConfig`).
+ *   offers NO tools: the history is rewritten by `flattenToolHistory` so it carries
+ *   no `toolUse`/`toolResult` blocks and no assistant-side tool traces at all.
  */
 function toBedrockMessages(messages, options = {}) {
     // Converse rejects `toolUse`/`toolResult` content blocks unless a `toolConfig`
@@ -148,27 +147,25 @@ function toBedrockMessages(messages, options = {}) {
     // toolResult content blocks") — and a toolConfig only makes sense when the
     // caller is actually offering tools. The one caller that keeps a tool-bearing
     // history while deliberately offering NO tools is llmService's streaming
-    // "final answer" leg (tools are stripped there so the model replies in text).
-    // Rendering those turns as plain text keeps the model's full trace while
-    // keeping the request valid — pass `{ allowToolBlocks: false }` for that case.
+    // "final answer" leg, so for that case the history is rewritten by
+    // flattenToolHistory() first: it carries no assistant-side tool trace at all.
     const allowToolBlocks = options.allowToolBlocks !== false;
+    const source = allowToolBlocks ? messages : flattenToolHistory(messages);
     const bedrockMessages = [];
     // The user turn currently collecting tool results, so consecutive results
     // (one per call in a round) merge into a single turn as Converse requires.
     let toolResultsTurn = null;
 
-    for (const msg of messages) {
-        if (msg.role === 'system') continue;
+    for (const msg of source) {
+        if (!msg || msg.role === 'system') continue;
 
         if (msg.role === 'tool') {
-            const block = allowToolBlocks
-                ? {
-                    toolResult: {
-                        toolUseId: msg.tool_call_id,
-                        content: [{ text: String(msg.content ?? '') }],
-                    },
-                }
-                : { text: `[tool result] ${String(msg.content ?? '')}` };
+            const block = {
+                toolResult: {
+                    toolUseId: msg.tool_call_id,
+                    content: [{ text: String(msg.content ?? '') }],
+                },
+            };
             if (toolResultsTurn) {
                 toolResultsTurn.push(block);
             } else {
@@ -185,16 +182,6 @@ function toBedrockMessages(messages, options = {}) {
             if (msg.content) content.push({ text: msg.content });
             if (Array.isArray(msg.tool_calls)) {
                 for (const tc of msg.tool_calls) {
-                    if (!allowToolBlocks) {
-                        // Tool NAME only — never the arguments. Re-emitting the raw
-                        // arguments JSON here lets the model treat it as its own
-                        // previous text and simply continue it: observed 2026-09-14,
-                        // when a /net turn echoed a whole repo_write_file payload
-                        // into the chat. The results still follow as their own turn,
-                        // which is what the model needs in order to answer.
-                        content.push({ text: `[used tool: ${tc.function?.name}]` });
-                        continue;
-                    }
                     let input = {};
                     try { input = JSON.parse(tc.function?.arguments || '{}'); } catch { /* leave as {} */ }
                     content.push({
@@ -222,6 +209,65 @@ function toBedrockMessages(messages, options = {}) {
     }
 
     return bedrockMessages;
+}
+
+/**
+ * Rewrite a tool-bearing history into one a tool-free call can accept, WITHOUT
+ * leaving any trace of the tool calls in an assistant turn.
+ *
+ * The first version of this rendered them as `[used tool: x]` text inside the
+ * ASSISTANT turn — which is exactly what a model continues: live replies came
+ * back as `…after my edits[used tool: repo_read_file]` (seen twice on 2026-09-14).
+ * So the assistant tool-call turns are dropped and every call/result is folded
+ * into the neighbouring USER turn as a short activity log, which is not something
+ * the model treats as its own words. The model still sees everything the tools
+ * returned, so it can write a real answer.
+ */
+function flattenToolHistory(messages) {
+    const out = [];
+    let pending = [];
+
+    const flush = () => {
+        if (pending.length === 0) return;
+        const log = `Tool activity so far:\n${pending.map((line) => `- ${line}`).join('\n')}`;
+        pending = [];
+        const last = out[out.length - 1];
+        // Merge into the user turn already there rather than adding a second one:
+        // Converse requires the roles to alternate.
+        if (last && last.role === 'user' && typeof last.content === 'string') {
+            last.content = `${last.content}\n\n${log}`;
+            return;
+        }
+        out.push({ role: 'user', content: log });
+    };
+
+    for (const msg of Array.isArray(messages) ? messages : []) {
+        if (!msg || msg.role === 'system') continue;
+
+        if (msg.role === 'tool') {
+            const label = msg.name ? `${msg.name} result` : 'result';
+            pending.push(`${label}: ${String(msg.content ?? '')}`);
+            continue;
+        }
+
+        const toolCalls = Array.isArray(msg.tool_calls) ? msg.tool_calls : [];
+        if (msg.role === 'assistant' && toolCalls.length > 0) {
+            // Keep any prose the assistant actually wrote under its own name, but
+            // never the call itself.
+            if (msg.content) {
+                flush();
+                out.push({ role: 'assistant', content: String(msg.content) });
+            }
+            for (const tc of toolCalls) pending.push(`called ${tc.function?.name || 'a tool'}`);
+            continue;
+        }
+
+        flush();
+        out.push(msg);
+    }
+    flush();
+
+    return out;
 }
 
 /**
@@ -506,6 +552,7 @@ module.exports = {
     streamBedrockCompletion,
     buildConverseRequestParts,
     collectHistoryToolNames,
+    flattenToolHistory,
     hasToolHistory,
     toBedrockMessages,
     toBedrockUserContent,
