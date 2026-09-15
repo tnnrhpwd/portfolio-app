@@ -62,6 +62,14 @@ jest.mock('../../utils/llmProviders', () => ({
     PROVIDERS: {}, // no DeepSeek configured ⇒ the turn normalizes to Bedrock
     createCompletion: jest.fn(),
     streamCompletion: jest.fn(),
+    // `parseCompressionRequest` resolves a request through this when the client's
+    // provider/model can't be served — which is every request here, since
+    // PROVIDERS above is empty. Returning Bedrock's model keeps the turn on the
+    // adapter this suite is actually testing.
+    getDefaultModel: jest.fn(() => ({
+        provider: 'bedrock',
+        model: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+    })),
 }));
 
 // Two public tools + two repo tools: the admin context below may use them all,
