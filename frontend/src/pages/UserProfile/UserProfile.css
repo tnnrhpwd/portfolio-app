@@ -211,6 +211,16 @@
   color: var(--text-color-inv);
 }
 .up-btn--primary:hover:not(:disabled) {
+  /* ⚠️ COLOUR IS NAMED HERE, and not for tidiness. This class is a `<Link>` as
+     often as it is a `<button>` ("Edit your profile", "Message <name>"), and
+     `index.css`'s bare `a:hover` is (0,1,1) — it repaints an anchor's label in
+     `--scheme-primary`, the very hue `--action` is built from, so the hovered
+     label vanished into its own pill (§6). The fill is named too, so both
+     variants now show the same lean: `--action-hover` is the same ramp with its
+     stops swapped, which is what the global `button:hover` was giving the
+     `<button>` siblings on their own. */
+  background: var(--action-hover);
+  color: var(--text-color-inv);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }

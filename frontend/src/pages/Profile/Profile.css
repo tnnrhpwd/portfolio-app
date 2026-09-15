@@ -275,6 +275,26 @@
     color: var(--text-color-inv);
 }
 
+/* ⚠️ The FILLED pills name their colour on hover, and it is not optional: these
+   classes land on a <Link> ("View public page", "Upgrade Now") as often as on a
+   <button> ("Talk", "Open AI Chat", "Control center"), and `index.css`'s bare
+   `a:hover` is (0,1,1) — it repaints an anchor's label in `--scheme-primary`, which
+   on this page IS the second stop of the gradient above, so the label vanished into
+   its own pill (§6). Naming the fill as well keeps the <button> siblings on the
+   same two-hue ramp rather than letting the global `button:hover` swap it for the
+   single-hue `--action-hover`. The lift and the shadow still come from the shared
+   rule above. */
+.planit-profile-net-button:hover:not(:disabled) {
+    background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+    color: var(--text-color-inv);
+}
+
+.planit-profile-settings-button:hover:not(:disabled),
+.upgrade-button:hover:not(:disabled) {
+    background: linear-gradient(45deg, var(--fg-orange), var(--fg-pink));
+    color: var(--text-color-inv);
+}
+
 .planit-profile-settings-button,
 .upgrade-button {
     background: linear-gradient(45deg, var(--fg-orange), var(--fg-pink));

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { openFile, getAddonBaseUrl } from '../../services/simpleAddonApi';
 import { modelDisplayName } from '../../constants/aiModel.js';
+import BrandMark from '../BrandMark/BrandMark.jsx';
 import './MessageBubble.css';
 
 // Only render data: or http(s): avatar URLs — drop stale /api/agents/... paths
@@ -96,7 +97,12 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
           safeAvatarUrl(agent?.avatarUrl) ? (
             <img className="message__avatar message__avatar--assistant-img" src={safeAvatarUrl(agent.avatarUrl)} alt={agent.name} />
           ) : (
-            <div className="message__avatar message__avatar--assistant">{(agent?.name || 'C')[0]}</div>
+            /* No face on this agent, so the reply wears the MARK — the same swap
+               `ChatWindow`'s empty state makes, and for the same reason: it is
+               the assistant's own scheme-aware drawing, where an initial in a
+               gradient tile was a letter that named nothing the bubble had not
+               already said. */
+            <BrandMark className="message__avatar--assistant-logo" size="28px" />
           )
         )}
 

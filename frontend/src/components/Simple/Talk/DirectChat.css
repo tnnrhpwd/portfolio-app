@@ -53,19 +53,19 @@
 
 /* The frame clips what is put inside it, the way `Talk.css`'s own avatar frame
    does, and rounds it: `.message__avatar` is `overflow: visible` because the
-   assistant's mark is a letter that cannot spill. (0,2,0), so it beats
-   `.message__avatar--assistant` regardless of stylesheet order — that rule is
-   the letter tile's, and this is a face. */
+   assistant's reply avatar is an inline SVG that cannot spill. (0,2,0), so it
+   beats `.message__avatar--assistant` regardless of stylesheet order — that rule
+   is the letter tile's, and this is a face. */
 .talk-dm .message__avatar {
   overflow: hidden;
   border-radius: 50%;
 }
 
 /* A person is a CIRCLE, and this is the one place the pane deliberately differs
-   from the assistant's mark: `.message__avatar--assistant` is a 28px tile with
-   an 8px radius because it holds a LETTER, while a face is a circle everywhere
-   else on the site (`Talk.css`'s `.talk-avatar`, the rail's People rows, the
-   `/u/…` pages, `/profile`). Size and spacing are untouched, so the two
+   from the assistant's reply avatar: `.message__avatar--assistant` is a 28px tile
+   with an 8px radius because it holds a LETTER, while a face is a circle
+   everywhere else on the site (`Talk.css`'s `.talk-avatar`, the rail's People
+   rows, the `/u/…` pages, `/profile`). Size and spacing are untouched, so the two
    transcripts still measure the same. */
 .talk-dm-avatar,
 .talk-dm-empty-avatar {

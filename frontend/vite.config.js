@@ -31,6 +31,13 @@ logger.error = (msg, options) => {
   loggerError(msg, options);
 };
 
+// Open the dev server in Microsoft Edge whenever the frontend boots locally.
+// Vite's browser opener only honors `server.open` as a boolean or as a path, so
+// the browser itself is chosen through BROWSER (the same variable CRA honored on
+// which Vite's opener is based). Left alone, an existing BROWSER wins — set
+// `BROWSER=none` to skip opening a window entirely, or e.g. `BROWSER=chrome`.
+if (!process.env.BROWSER) process.env.BROWSER = 'msedge';
+
 export default defineConfig({
   customLogger: logger,
   plugins: [
@@ -71,6 +78,8 @@ export default defineConfig({
   server: {
     port: 3000,
     host: '127.0.0.1',
+    // Skip the launch on CI, where there is no desktop to open into.
+    open: !process.env.CI,
     proxy: {
       // Proxy API requests to the backend (replaces package.json "proxy" field).
       // Use 127.0.0.1 (not localhost) to avoid IPv6 (::1) resolution ambiguity

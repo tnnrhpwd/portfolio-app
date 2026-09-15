@@ -49,6 +49,17 @@
   margin-top: 4px;
 }
 
+/* An agent with no picture of its own wears the mark instead of an initial.
+
+   ⚠️ It deliberately does NOT carry `.message__avatar`: that class paints the
+   scheme gradient behind a LETTER, and a gradient square would show past the
+   corners of a circular mark. The mark brings its own `--bg-1` field, and the
+   size comes from the component (as it does in `ChatWindow`), so this rule owes
+   the row nothing but the spacing the tile used to hold. */
+.message__avatar--assistant-logo {
+  margin-top: 4px;
+}
+
 .message__avatar--user {
   background: var(--surface);
   color: var(--text-secondary);

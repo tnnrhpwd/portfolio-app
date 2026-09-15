@@ -6,6 +6,7 @@ import Footer from '../../components/Footer/Footer.jsx';
 import SEO from '../../components/SEO/SEO.jsx';
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import ProfileAvatar from '../../components/ProfilePicture/ProfileAvatar.jsx';
+import ShareProfile from '../../components/ShareProfile/ShareProfile.jsx';
 import { getPublicProfile } from '../../services/publicProfileApi.js';
 import {
   blockMessengerUser,
@@ -217,6 +218,7 @@ function UserProfile() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
   const [requestSent, setRequestSent] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   const load = useCallback(async () => {
     setStatus('loading');
@@ -319,6 +321,10 @@ function UserProfile() {
     () => removeMessengerContact(token, profile.connectedUserId),
     removeNoticeText(nickname)
   ), [runRelationshipAction, token, profile]);
+
+  // A stable identity, because the sheet subscribes once while it is open: an
+  // inline arrow would re-bind the Escape listener on every render of this page.
+  const closeSharing = useCallback(() => setSharing(false), []);
 
   // ── Loading / not-found / failed ────────────────────────────────────────────
   // All three keep the page shell, so a bad link looks like a page rather than
@@ -536,7 +542,7 @@ function UserProfile() {
   // settings change, so it lives in the Manage pane.
   const relationship = profileRelationship(profile);
 
-  const actions = relationship === RELATIONSHIP.SELF ? (
+  const relationshipActions = relationship === RELATIONSHIP.SELF ? (
     <>
       <Link className="up-btn up-btn--primary" to="/settings#identity">Edit your profile</Link>
       <Link className="up-btn up-btn--outline" to="/profile">Who can see it</Link>
@@ -566,6 +572,30 @@ function UserProfile() {
       <Link className="up-btn up-btn--outline" to="/login">Sign in</Link>
     </>
   ) : null;
+
+  /**
+   * The share sheet, appended to whatever the relationship offers.
+   *
+   * `outline` on purpose: this page's ONE filled control is its action, and
+   * handing someone the address is not the same offer as messaging them.
+   *
+   * ⚠️ Every case EXCEPT a block. The blocked row is deliberately actionless — a
+   * block has already switched off everything these buttons do (see above) — and
+   * "here is their address, pass it on" is not compatible with that, least of all
+   * for the one viewer the owner has just closed the door on. `/u/<name>` behind a
+   * lock (the `restricted` branch) offers no share either: it renders no action row
+   * at all, which is the same principle stated earlier in the page.
+   */
+  const actions = (
+    <>
+      {relationshipActions}
+      {relationship !== RELATIONSHIP.BLOCKED && (
+        <button type="button" className="up-btn up-btn--outline" onClick={() => setSharing(true)}>
+          Share profile
+        </button>
+      )}
+    </>
+  );
 
   return (
     <>
@@ -735,6 +765,10 @@ function UserProfile() {
             />
           </div>
         </div>
+
+        {/* Floats over the room rather than sitting in a panel: it is a modal, and
+            the page owns the open state so navigating away unmounts it. */}
+        <ShareProfile name={profile.nickname} open={sharing} onClose={closeSharing} />
       </div>
 
       <Footer />

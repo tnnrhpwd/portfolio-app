@@ -1,0 +1,276 @@
+/* ShareProfile — the share sheet for a member page.
+ *
+ * Tokens only, so it tracks light/dark and the visitor's colour scheme, sized off
+ * `--nav-size` so it scales phone → desktop (§3 of the UI standard). The strip of
+ * fixed colour inside it is the QR code, and that one is deliberate — see `.sp-qr`.
+ */
+
+.sp-overlay {
+  position: fixed;
+  inset: 0;
+  /* The same layer as the photo editor: these are the app's two modals, one at a
+     time, and both have to sit above the fixed header. */
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm);
+  background: color-mix(in srgb, var(--text-color) 55%, transparent);
+  animation: spFadeIn 0.2s ease both;
+}
+
+.sp-sheet {
+  width: min(360px, 100%);
+  max-height: calc(100vh - var(--spacing-md));
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.26);
+  padding: calc(var(--nav-size) * 0.45);
+  background: var(--bg-page);
+  color: var(--text-color);
+  /* A modal is one of the few things that genuinely floats, so it keeps both the
+     shadow and the hairline (`ProfilePictureEditor`'s dialog wears the same pair). */
+  border: 1px solid var(--border-nav);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-xl);
+  animation: spRise 0.25s ease both;
+}
+
+.sp-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-xs);
+}
+
+.sp-eyebrow {
+  margin: 0 0 calc(var(--nav-size) * 0.06);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+
+.sp-title {
+  margin: 0;
+  font-size: var(--font-size-large);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  /* A nickname is user data: a long one wraps rather than widening the sheet. */
+  overflow-wrap: anywhere;
+}
+
+/* The global `button` style is a gradient pill with a 44px min-height, so every
+   dimension of an icon button has to be pinned explicitly (§6). */
+.sp-close {
+  width: calc(var(--nav-size) * 0.55);
+  height: calc(var(--nav-size) * 0.55);
+  min-width: calc(var(--nav-size) * 0.55);
+  min-height: calc(var(--nav-size) * 0.55);
+  padding: 0;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--border-nav);
+  background: var(--bg-1);
+  color: var(--text-color);
+  font-size: var(--font-size-base);
+  line-height: 1;
+  cursor: pointer;
+}
+.sp-close:hover:not(:disabled) {
+  background: var(--bg-accent);
+  color: var(--text-color);
+}
+.sp-close:focus-visible,
+.sp-btn:focus-visible,
+.sp-input:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
+}
+
+.sp-label {
+  display: block;
+  margin-bottom: calc(var(--nav-size) * 0.1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+
+.sp-link-field {
+  display: flex;
+  gap: calc(var(--nav-size) * 0.12);
+}
+
+/* The address as a control you can select by hand. `min-height`/padding are named
+   because the global `input` rule sizes every field to 44px with a 2px edge. */
+.sp-input {
+  flex: 1;
+  min-width: 0;
+  min-height: calc(var(--nav-size) * 0.78);
+  padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.22);
+  font-family: inherit;
+  font-size: var(--font-size-small);
+  border: 1px solid var(--border-nav);
+  border-radius: var(--border-radius);
+  background: var(--bg-1);
+  color: var(--text-color);
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────────
+   One pill for every control in the sheet — Copy and the three platforms differ
+   only in their fill, so they line up as one row of equal-weight choices.
+
+   ⚠️ Colour is named on the normal AND the hover state, and that is load-bearing
+   rather than tidy: these "buttons" are anchors as often as they are `<button>`s
+   (X, Facebook), and `index.css`'s bare `a:hover` is (0,1,1) — it repaints the
+   label in the scheme's partner hue, which is the SAME hue this app fills a
+   control with, so the text disappeared into its own pill on hover. Naming the
+   fill as well keeps the `<button>` variants on the same tone instead of letting
+   the global `button:hover:not(:disabled)` swap their surface for its gradient. */
+.sp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--nav-size) * 0.1);
+  padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.34);
+  min-height: calc(var(--nav-size) * 0.78);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform var(--speed) ease,
+    box-shadow var(--speed) ease,
+    background var(--speed) ease;
+}
+
+.sp-btn--primary {
+  background: var(--action);
+  color: var(--text-color-inv);
+}
+.sp-btn--primary:hover:not(:disabled) {
+  background: var(--action-hover);
+  color: var(--text-color-inv);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* The three platforms: one row, equal width, so choosing between them is a
+   choice of destination rather than of emphasis. A tone, not an edge (§5).
+   ⚠️ `width: 100%` is what makes them equal — a pill is `inline-flex` and would
+   otherwise size to its own label, which draws "X" a third the width of
+   "Instagram" in a grid that is already dividing the row into thirds. */
+.sp-targets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: calc(var(--nav-size) * 0.12);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sp-targets .sp-btn {
+  width: 100%;
+  /* The horizontal padding is smaller than a lone pill's, because these three
+     labels share the sheet's width between them — at a full pill's padding
+     "Instagram" no longer fits its own track. */
+  padding-inline: calc(var(--nav-size) * 0.2);
+  background: color-mix(in srgb, var(--text-color) 9%, transparent);
+  color: var(--text-color);
+}
+.sp-targets .sp-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text-color) 16%, transparent);
+  color: var(--text-color);
+  transform: translateY(-1px);
+  box-shadow: none;
+}
+
+/* ⚠️ Below ~420px the three labels stop fitting their tracks — "Instagram" is
+   most of one at a 48px `--nav-size` — and the global `button` rule sets
+   `overflow: hidden`, so the name would be CLIPPED rather than shortened. One
+   column is the row's shape until there is width for three, which also survives a
+   visitor's larger font scale rather than sitting on a knife edge. */
+@media (max-width: 420px) {
+  .sp-targets {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ── The code ───────────────────────────────────────────────────────────────
+   ⚠️ Fixed black on white, and the ONLY fixed colour in this component. A QR code
+   is read by a camera, not by an eye: it needs real luminance contrast and a light
+   quiet zone around the modules, so a code tinted from the scheme — or a dark one
+   on a dark sheet — is a code a good share of phones will not resolve. The plate is
+   white in BOTH modes for the same reason, which is also why the caption on it uses
+   a fixed dark ink instead of `--text-color`. */
+.sp-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.1);
+  padding: calc(var(--nav-size) * 0.22);
+  border-radius: var(--border-radius-lg);
+  background: #ffffff;
+}
+.sp-qr-code {
+  display: block;
+}
+.sp-qr-hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--dark-blue0);
+  text-align: center;
+}
+
+.sp-note {
+  /* Reserved, so the sheet does not jump a line taller when a note appears. */
+  min-height: calc(var(--nav-size) * 0.44);
+  margin: 0;
+  font-size: var(--font-size-small);
+  color: var(--text-color-accent);
+}
+
+@keyframes spFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes spRise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-overlay,
+  .sp-sheet {
+    animation: none;
+  }
+  .sp-btn {
+    transition: none;
+  }
+  .sp-btn:hover:not(:disabled),
+  .sp-targets .sp-btn:hover:not(:disabled) {
+    transform: none;
+  }
+}

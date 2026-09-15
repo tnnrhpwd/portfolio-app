@@ -1,9 +1,6 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
-
-const SITE_NAME = 'STHopwood';
-const SITE_URL = 'https://sthopwood.com';
-const DEFAULT_IMAGE = `${SITE_URL}/STHlogo192.png`;
+import { DEFAULT_IMAGE, SITE_NAME, SITE_URL } from '../../constants/site.js';
 
 /**
  * Sets per-page <title>, meta description, canonical URL, and Open Graph /
@@ -56,4 +53,6 @@ function SEO({ title, description, path = '', image = DEFAULT_IMAGE, noindex = f
 }
 
 export default SEO;
+// Re-exported so every existing `{ SITE_URL }` import keeps working — the values
+// themselves live in `constants/site.js` now (see the note there).
 export { SITE_NAME, SITE_URL, DEFAULT_IMAGE };
