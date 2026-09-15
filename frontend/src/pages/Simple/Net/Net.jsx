@@ -1,9 +1,10 @@
 import React, { useEffect, useCallback, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { compressData, getLLMProviders, getMembershipPricing, resetDataSlice } from '../../../features/data/dataSlice.js';
 import dataService from '../../../features/data/dataService.js';
 import SimpleChat from '../../../components/SimpleAddon/SimpleChat.jsx';
+import DirectChat from '../../../components/Simple/Talk/DirectChat.jsx';
 import LoginGate from '../../../components/Simple/LoginGate/LoginGate.jsx';
 import { useAddonDetection } from '../../../hooks/simpleAddon/useAddonDetection.js';
 import './Net.css';
@@ -15,6 +16,20 @@ function Net() {
   const { user, data, dataIsLoading, dataIsSuccess, dataIsError, dataMessage, operation, llmProviders, membershipPricing } = useSelector(
     (state) => state.data
   );
+
+  /**
+   * `/net?with=<userId>` opens a conversation with a member instead of the AI.
+   *
+   * The messenger's Talk page links here, and it is deliberately the SAME page:
+   * a member DM is a different thing to talk to, not a different app, and it
+   * reuses this shell (the viewport-height ladder, the composer above the
+   * keyboard) rather than growing a second one.
+   *
+   * Nothing about this path touches the LLM: no provider fetch, no token spend,
+   * and the transcript comes from the messenger's own endpoints.
+   */
+  const [searchParams] = useSearchParams();
+  const peerId = searchParams.get('with') || '';
   const {
     addonStatus,
     remoteAddonStatus,
@@ -86,12 +101,16 @@ function Net() {
     };
   }, []);
 
-  // Fetch LLM providers on mount if user is logged in
+  // Fetch LLM providers on mount if user is logged in.
+  //
+  // Skipped for a member conversation (`?with=`): that view never calls a model,
+  // and asking for the provider catalogue would fetch and bill nothing while
+  // making the "no AI in this conversation" promise look untrue.
   useEffect(() => {
-    if (user) {
+    if (user && !peerId) {
       dispatch(getLLMProviders());
     }
-  }, [user, dispatch]);
+  }, [user, peerId, dispatch]);
 
   // Fetch membership pricing on mount (public endpoint, no auth needed)
   useEffect(() => {
@@ -209,11 +228,14 @@ function Net() {
         <div className="net-hero-section">
           {!user ? (
             <LoginGate
-              redirectTo="/net"
+              redirectTo={peerId ? `/net?with=${encodeURIComponent(peerId)}` : '/net'}
               eyebrow="Net AI Chat"
               title="Sign in to Net AI Chat"
               subtitle="Your AI-powered assistant for automation, coding, and more."
             />
+          ) : peerId ? (
+            /* A conversation with a person, not with the assistant. */
+            <DirectChat peerId={peerId} user={user} />
           ) : (
           <SimpleChat
             addonStatus={addonStatus}

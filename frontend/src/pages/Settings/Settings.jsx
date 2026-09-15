@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { logout, resetDataSlice, getLLMProviders, getEmailPreferences, updateEmailPreferences, updateProfile } from './../../features/data/dataSlice.js';
+import { logout, resetDataSlice, resetDataSuccess, getLLMProviders, getEmailPreferences, updateEmailPreferences, updateProfile } from './../../features/data/dataSlice.js';
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import { toast } from 'react-toastify';
 import {
@@ -269,7 +269,17 @@ function Settings() {
     }
 
     return () => {
-      dispatch(resetDataSlice());
+      // Clear this page's data on the way out — but NEVER the session.
+      //
+      // `resetDataSlice` restores `initialState.user`, which is the localStorage
+      // snapshot taken at MODULE LOAD. This effect also depends on `user`, so the
+      // cleanup runs the moment a save replaces `state.user` — dispatching it
+      // here therefore discarded the profile name/photo the user had just
+      // saved: the field visibly snapped back to the old value and /profile kept
+      // greeting them by it, even though the write had succeeded.
+      // `resetDataSuccess` clears the operation flags without touching
+      // `state.user` — the same action Login.jsx uses for the same reason.
+      dispatch(resetDataSuccess());
     };
   }, [user, navigate, dispatch]);
 
@@ -421,7 +431,10 @@ function Settings() {
         />
         <Header />
 
-        <div className="settings-page">
+        {/* `.service-room` is the shared ambient ground every service page rests
+            its panes on (index.css). The page root must not paint an opaque
+            background of its own, or it covers the room. */}
+        <div className="settings-page service-room">
           <div className="settings-shell">
             {/* Sticky toolbar — the page's "hero", collapsed onto one row: the
                 room's name, its live state, and the primary action reachable from
@@ -553,7 +566,7 @@ function Settings() {
                       type="button"
                       onClick={handlePasswordReset}
                       disabled={isResetPasswordLoading}
-                      className="settings-btn settings-btn--warm settings-btn--sm"
+                      className="settings-btn settings-btn--outline settings-btn--sm"
                     >
                       {isResetPasswordLoading ? '📤 Sending…' : '🔐 Send reset email'}
                     </button>

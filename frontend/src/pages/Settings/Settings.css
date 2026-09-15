@@ -5,88 +5,70 @@
    already opened on purpose, so it shares the palette, the tokens and the
    typography — but none of the band stack:
 
-     · ONE flat surface (`--bg-page`) — no animated gradient behind the data,
-       no floating circles, no scroll reveals, no stagger.
-     · The hero collapses into a STICKY TOOLBAR carrying the room's name, its
-       live state, and the primary action, reachable from anywhere on the page.
+     · The shared ambient ROOM for a ground (`.service-room`, worn by the page
+       root) — no bands, no floating circles, no scroll reveals, no stagger.
+     · A ROW at the top carries the room's name, its live state and the primary
+       action. Nothing of the page's own is pinned — the site header is the only
+       thing that stays put (§5.7).
      · A DENSE PANEL GRID, grouped into rows by subject.
      · Copy is labels, not sentences; long explanations fold into a <details>.
 
-   Nothing here is separated by a border: panels are PLANES OF COLOR, each with
-   its own hue, and neighbouring planes differ in tone ("color beside color").
+   MATERIAL: every block is a PANE OF GLASS resting on the room — the page colour
+   at 84%, `--glass-radius`, `--glass-shadow`, and no border anywhere.
+
+   ⚠️ This page was the LAST one still giving each panel a saturated HUE OF ITS
+   OWN, rotated by position. That material is gone: a grid of equally-loud
+   coloured blocks says nothing about which one matters, and it made five panels
+   read as five unrelated products. Colour here now means SIGNAL — the live addon
+   connection, the one action, a destructive control, the transient deep-link
+   highlight — and a panel is neutral, told apart from its neighbour by the ROOM
+   showing through the gap between them (§5 "color beside color", with the
+   colour in the ground rather than in the block).
    =========================================================================== */
 
 .settings-page {
   /* ── Follow the site-wide colour scheme ───────────────────────────────
-   * Four aliases, and no rule below this was touched.
+   * TWO aliases: `--fg-blue` is this page's interaction hue (links, focus, the
+   * checkboxes' accent) and `--fg-mint` its emphasis hue (the row's gradient
+   * hairline). They are the two ROLES a scheme defines, so the page follows the
+   * visitor's choice on `/profile` rather than the fixed pre-scheme palette.
    *
-   * This page painted with the RAW brand hues — `--fg-blue`, `--fg-mint`,
-   * `--fg-orange`, `--fg-pink`. Those are the fixed pre-scheme palette, so every
-   * panel hue, the toolbar's gradient hairline, the focus/selection colour and
-   * the two gradient buttons stayed cyan-and-pink whatever scheme the visitor
-   * had picked on `/profile`. Aliasing them to the scheme's two ROLE hues is the
-   * whole fix: the panels, the hairline and the buttons now move with the picker.
-   *
-   * The pairings matter. `--fg-mint` only ever appeared opposite `--fg-blue` in a
-   * gradient (the primary button, the toolbar rule), so it maps to `primary` to
-   * keep those ramps two-hued rather than collapsing them into a flat fill. Same
-   * for `--fg-pink`/`--fg-orange`, which are the warm button's two ends.
+   * ⚠️ `--fg-pink` and `--fg-orange` are deliberately NOT aliased. They used to
+   * paint a second, "warm" gradient button whose ONLY difference from the
+   * primary was this alias — both ramps resolved to the same two scheme hues, so
+   * the page shipped two names for one control. On this material there is ONE
+   * action colour (`--action`, §6), and those two hues belong to the SIGNALS
+   * that own them: `--fg-orange` is the alert hue and `--fg-pink` the
+   * destructive one. A warning that changes colour with the decor is not a
+   * warning (§2.1).
    *
    * Scoped to this page's root, so the rest of the site keeps the real tokens —
    * and declared HERE rather than on `:root` because a custom property is
    * substituted where it is DECLARED. `--scheme-*` lives on `<body>`, this page's
    * ancestor, so it resolves against the body palette and cannot form a cycle
-   * with the `--fg-*` names being redefined on this element. (Platform Admin.css
-   * and Profile.css use this same shape; index.css has the long version.)
-   *
-   * The `-bg` half of the scheme is deliberately absent: those exist to paint a
-   * full-bleed animated backdrop, and a service page is one flat `--bg-page`
-   * surface with no backdrop to tint (§5.7). */
+   * with the `--fg-*` names being redefined on this element. (Plans.css and
+   * SimpleDashboard.css use this same shape; index.css has the long version.) */
   --fg-blue: var(--scheme-accent);
   --fg-mint: var(--scheme-primary);
-  --fg-orange: var(--scheme-accent);
-  --fg-pink: var(--scheme-primary);
 
-  --settings-hue: var(--fg-blue);
-  /* Muted (secondary) text. The shared `--text-color-accent` is tuned against
-     `--bg-page`, where it measures 6.26:1 in dark mode; the panels below are
-     hue-washed, which lifts the plane's luminance and drops that under AA
-     (Plans measured 3.89:1 on a 15%-mint card). Blending a little of the
-     primary text back in lifts the worst case to ~5.1, which is the cheap side
-     of the trade — the alternative is flattening the washes, and the washes are
-     what make neighbouring blocks read as different blocks at all. Only dark
-     mode needs the lift; light already passes. (§13.13 of the audit notes.) */
-  --settings-muted: var(--text-color-accent);
-
-  /* The ACCENT AS TEXT gets the same treatment `--settings-muted` gets, and for
-     the same reason. index.css pins the scheme accent's lightness (0.52 light /
-     0.76 dark) so that the accent clears 4.5:1 as text on a PAGE background —
-     but the AI panel is a 15% wash of that same accent, which lifts the surface
-     toward the text. In dark mode the accent is the LIGHT one and so is the
-     wash, and the gap between them collapses: `--fg-blue` as a link measured
-     4.05:1 there, under AA, in every one of the twelve schemes. Same move, same
-     direction — mix toward `--text-color`, preserving the hue so it still reads
-     as a link. (Profile.css has this exposure too; not touched here.) */
-  --settings-link: var(--fg-blue);
+  /* Muted (secondary) text. `--plane-muted` is `--text-color-accent` nudged
+     toward the body text — the shared service-page token (§5.7), not another
+     local one. A muted token tuned for the flat page does not survive leaving
+     it: the panes rest on an ambient ROOM whose scheme tint is not `--bg-page`,
+     and on a tinted surface that token measured 3.89:1. */
+  --settings-muted: var(--plane-muted);
 
   position: relative;
   min-height: 100vh;
   min-height: 100svh;
-  /* NO `overflow-x: hidden`: it makes this element a scroll container, and a
-     `position: sticky` toolbar inside one offsets itself instead of sticking. */
+  /* NO `overflow-x: hidden`: nothing overflows, and making this element a scroll
+     container is a side effect with no upside. */
   padding: calc(var(--nav-size) * 1.15) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
   color: var(--text-color);
-  background: var(--bg-page);
-}
-
-/* Dark mode lifts the muted tone toward the primary text. 55/45 rather than the
-   70/30 the Plans page uses, because the toggle rows stack a SECOND wash on top
-   of the panel's — the surface under a toggle description is two tints deep, not
-   one. At 70/30 the neutral scheme (a grey hue, so the washes shift lightness
-   without adding colour) measured 4.34:1 there, under AA. */
-.dark-theme .settings-page {
-  --settings-muted: color-mix(in srgb, var(--text-color-accent) 55%, var(--text-color));
-  --settings-link: color-mix(in srgb, var(--fg-blue) 55%, var(--text-color));
+  /* ⚠️ NO background here, deliberately: `.service-room` (worn by this element —
+     see Settings.jsx) paints the page with two `position: fixed` layers at
+     `z-index: -1`, and an opaque fill on this box would cover both. The room
+     paints `--bg-page` itself. */
 }
 
 /* ── Shell ────────────────────────────────────────────────────────────────── */
@@ -97,26 +79,44 @@
   margin: 0 auto;
 }
 
-/* ── Toolbar — the page's "hero", collapsed onto one sticky row ───────────── */
+/* ── Row — the name, its live state and the primary action, in the flow ───── */
 
 .settings-bar {
-  position: sticky;
-  top: var(--nav-size);            /* just under the fixed site header */
-  z-index: 5;                      /* below the header's 10, above the panels */
+  /* NOT sticky: the site header is the only thing that stays at the top of the
+     page. A pinned bar here would cost the workspace a strip of the viewport on
+     the surface whose whole job is density, and it would make the panels scroll
+     under an opaque band. The name, the live state and the action scroll away
+     with the page — `relative` is only here to anchor the accent rule below. */
+  position: relative;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.25);
   margin-bottom: calc(var(--nav-size) * 0.25);
-  padding: calc(var(--nav-size) * 0.18) 0;
-  background: var(--bg-page);      /* opaque — no glassmorphism (§8) */
+  /* Horizontal padding is the PANEL padding (`.settings-panel`), so the room's
+     name sits on the same left edge as every panel title and every input below
+     it. With `0` the name is jammed into the corner of a full-bleed bar. */
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.3);
+  /* Ordinary glass, like every panel: the row only needed an opaque base while it
+     was pinned and panels scrolled beneath it. This is the same reversal
+     `/admin` made when its head stopped sticking — nothing scrolls under it now. */
+  background: var(--glass);
+  /* A PANE's radius, so the bar reads as the topmost surface of the room rather
+     than a square slab laid over it. */
+  border-radius: var(--glass-radius);
 }
 
 /* The one piece of brand on the page: an accent rule under the toolbar. */
 .settings-bar::after {
   content: '';
   position: absolute;
-  left: 0; right: 0; bottom: 0; height: 2px;
+  /* Inset by the bar's own radius so the rule ends where the corner curve begins:
+     it never pokes past a rounded corner, needs no clipping, and keeps its own
+     rounded cap (`.admin-head::after` is the same move). */
+  left: calc(var(--glass-radius) * 0.7);
+  right: calc(var(--glass-radius) * 0.7);
+  bottom: 2px; height: 2px;
+  border-radius: 999px;
   background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint) 42%, transparent 72%);
   pointer-events: none;
 }
@@ -155,7 +155,10 @@
      rather than let it scroll out of view. */
   flex: 0 0 auto;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--fg-blue) 8%, transparent);
+  /* A chip is a READOUT, so it is a solid `--bg-1` object rather than a tint: a
+     readout has to stay legible on whatever it lands on, and the hue wash it
+     used to wear belonged to the per-panel hue this page no longer has. */
+  background: var(--bg-1);
   color: var(--settings-muted);
   font-size: var(--font-size-xs);
   line-height: 1.7;
@@ -180,10 +183,11 @@
 .dark-theme .settings-chip--live { color: var(--green1); }
 .settings-chip--live strong { color: inherit; }
 
-/* A chip that sits on a panel head rather than the page background. */
+/* A chip that sits on a panel head rather than on the toolbar. It keeps the
+   solid readout fill: the head is a translucent sheen, so a second tint there
+   would leave the chip legible in one theme and murky in the other. */
 .settings-chip--quiet {
   margin-left: auto;
-  background: color-mix(in srgb, var(--text-color) 10%, transparent);
 }
 
 /* ── Form + rows ──────────────────────────────────────────────────────────── */
@@ -204,46 +208,42 @@
   gap: calc(var(--nav-size) * 0.25);
 }
 
-/* ── Panels — planes of color, not cards ──────────────────────────────────── */
+/* ── Panels — panes of glass on the room, not cards ───────────────────────── */
 
 .settings-panel {
-  --settings-hue: var(--fg-blue);
   display: flex;
   flex-direction: column;
   gap: calc(var(--nav-size) * 0.28);
   padding: calc(var(--nav-size) * 0.3);
-  border-radius: var(--border-radius-xl);
-  background: color-mix(in srgb, var(--settings-hue) 7%, var(--bg-1));
+  overflow: hidden;
+  border-radius: var(--glass-radius);
+  background: var(--glass);
+  box-shadow: var(--glass-shadow);
   transition: background 0.25s ease;
 }
-.dark-theme .settings-panel {
-  background: color-mix(in srgb, var(--settings-hue) 15%, var(--bg-1));
-}
 
-/* Every panel claims its own hue, so neighbouring blocks differ in tone. */
-.settings-panel--account       { --settings-hue: var(--fg-blue); }
-.settings-panel--appearance    { --settings-hue: var(--fg-mint); }
-.settings-panel--notifications { --settings-hue: var(--fg-pink); }
-.settings-panel--privacy       { --settings-hue: var(--fg-orange); }
-.settings-panel--ai            { --settings-hue: var(--fg-blue); }
+/* The `settings-panel--*` modifiers stay in the JSX as hooks — they name the
+   panel in the DOM and pair with the `id`s the deep links use — but they paint
+   nothing: on this material a panel has no hue of its own to declare. */
 
-/* Head and foot are stronger washes of the panel's OWN hue, bled to its edges,
-   so a block reads as one family instead of a box with two rules in it. */
+/* Head and foot are tone changes ON the pane, mixed from the TEXT colour rather
+   than from a hue, because on this material colour is reserved for signal. */
 .settings-panel-head {
   display: flex;
   align-items: center;
   gap: calc(var(--nav-size) * 0.2);
   margin: calc(var(--nav-size) * -0.3) calc(var(--nav-size) * -0.3) 0;
   padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.3);
-  border-radius: var(--border-radius-xl) var(--border-radius-xl) 0 0;
-  background: color-mix(in srgb, var(--settings-hue) 13%, transparent);
+  background: var(--glass-sheen);
 }
 
+/* A panel's own title is a LABEL in a dense grid, not a section heading: it is
+   the size the reference service pages use, so five panes read as one workspace
+   instead of five pages stacked. */
 .settings-panel-title {
   margin: 0;
-  font-size: var(--font-size-large);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: -0.01em;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-tight);
 }
 
@@ -254,17 +254,15 @@
   gap: calc(var(--nav-size) * 0.2);
   margin: 0 calc(var(--nav-size) * -0.3) calc(var(--nav-size) * -0.3);
   padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.3);
-  border-radius: 0 0 var(--border-radius-xl) var(--border-radius-xl);
-  background: color-mix(in srgb, var(--settings-hue) 10%, transparent);
+  background: var(--glass-sunken);
 }
 
 /* /profile deep-links to a section (#photo, #notifications, ...). The state is
-   transient, so it is shown as a deeper tone rather than a ring + shadow. */
+   transient, so it is shown as a deeper tone rather than a ring + shadow — and
+   it is the ONE place a hue lands on a pane, because "you came here for this
+   one" is a signal rather than decoration. */
 .settings-panel.is-highlighted {
-  background: color-mix(in srgb, var(--settings-hue) 18%, var(--bg-1));
-}
-.dark-theme .settings-panel.is-highlighted {
-  background: color-mix(in srgb, var(--settings-hue) 28%, var(--bg-1));
+  background: color-mix(in srgb, var(--scheme-accent) 14%, var(--glass));
 }
 .settings-panel,
 .settings-photo {
@@ -306,13 +304,14 @@
 }
 .settings-hint strong { color: var(--text-color); }
 
-/* An input on a tinted panel: a solid surface, and at most an edge mixed from
-   the panel's own accent — never a neutral grey outline (§5). */
+/* A CONTROL on a pane stays a solid `--bg-1` object, with at most an edge mixed
+   from the scheme's interaction hue — never a neutral grey outline (§5).
+   Controls keep `--bg-1` on this material; only the pane's land moves. */
 .settings-input {
   width: 100%;
   min-height: calc(var(--nav-size) * 0.9);
   padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.26);
-  border: 1px solid color-mix(in srgb, var(--settings-hue) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--scheme-accent) 30%, transparent);
   border-radius: var(--border-radius);
   background: var(--bg-1);
   color: var(--text-color);
@@ -321,7 +320,7 @@
   transition: border-color 0.18s ease;
 }
 select.settings-input { cursor: pointer; }
-.settings-input:hover { border-color: color-mix(in srgb, var(--settings-hue) 55%, transparent); }
+.settings-input:hover { border-color: color-mix(in srgb, var(--scheme-accent) 55%, transparent); }
 .settings-input:focus {
   outline: var(--focus-outline);
   outline-offset: var(--focus-outline-offset);
@@ -330,13 +329,15 @@ select.settings-input { cursor: pointer; }
 
 /* ── Profile photo row ────────────────────────────────────────────────────── */
 
+/* A nested block on a pane is a flat sunken tint of the text colour, never a
+   second pane (glass on glass). */
 .settings-photo {
   display: flex;
   align-items: center;
   gap: calc(var(--nav-size) * 0.35);
   padding: calc(var(--nav-size) * 0.28);
-  border-radius: var(--border-radius-lg);
-  background: color-mix(in srgb, var(--settings-hue) 10%, transparent);
+  border-radius: var(--glass-radius-inner);
+  background: var(--glass-sunken);
 }
 
 .settings-photo-copy {
@@ -386,8 +387,8 @@ select.settings-input { cursor: pointer; }
   align-items: flex-start;
   gap: calc(var(--nav-size) * 0.14);
   padding: calc(var(--nav-size) * 0.24);
-  border-radius: var(--border-radius);
-  background: color-mix(in srgb, var(--settings-hue) 10%, transparent);
+  border-radius: var(--glass-radius-inner);
+  background: var(--glass-sunken);
 }
 
 .settings-font-preview-text {
@@ -414,12 +415,13 @@ select.settings-input { cursor: pointer; }
   transition: background 0.2s ease;
 }
 
-/* Rows are separated by alternating tints, not a hairline under every row (§5). */
+/* Rows are separated by alternating tints, not a hairline under every row (§5).
+   Hover deepens the SAME tone — the row never changes hue. */
 .settings-toggle:nth-child(odd) {
-  background: color-mix(in srgb, var(--settings-hue) 8%, transparent);
+  background: var(--glass-row);
 }
 .settings-toggle:hover {
-  background: color-mix(in srgb, var(--settings-hue) 15%, transparent);
+  background: var(--glass-row-strong);
 }
 .settings-toggle:focus-within {
   outline: var(--focus-outline);
@@ -477,19 +479,19 @@ select.settings-input { cursor: pointer; }
   color: var(--settings-muted);
 }
 .settings-note strong { color: var(--text-color); }
-.settings-note a { color: var(--settings-link); font-weight: var(--font-weight-semibold); }
+.settings-note a { color: var(--fg-blue); font-weight: var(--font-weight-semibold); }
 .settings-note code {
   padding: 0 calc(var(--nav-size) * 0.1);
   border-radius: var(--border-radius-sm, 4px);
-  background: color-mix(in srgb, var(--settings-hue) 14%, transparent);
+  background: var(--glass-sunken-strong);
   font-size: var(--font-size-xs);
 }
 
-/* Power-user plumbing, folded away (§5.7) — a plane of colour, not a box. */
+/* Power-user plumbing, folded away (§5.7) — a sunken block on the pane. */
 .settings-details {
   padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.28);
-  border-radius: var(--border-radius);
-  background: color-mix(in srgb, var(--settings-hue) 7%, transparent);
+  border-radius: var(--glass-radius-inner);
+  background: var(--glass-sunken);
 }
 
 .settings-details > summary {
@@ -526,8 +528,8 @@ select.settings-input { cursor: pointer; }
   align-items: flex-start;
   gap: calc(var(--nav-size) * 0.18);
   padding: calc(var(--nav-size) * 0.24);
-  border-radius: var(--border-radius);
-  background: color-mix(in srgb, var(--settings-hue) 8%, transparent);
+  border-radius: var(--glass-radius-inner);
+  background: var(--glass-sunken);
 }
 
 /* ── The shared AIWorkflowSettings control set ────────────────────────────────
@@ -535,25 +537,25 @@ select.settings-input { cursor: pointer; }
    its own stylesheet has to stay host-agnostic — and it is written in the old
    idiom: bordered white cards with a shadow, and muted text tuned for
    `--bg-page`. Scoping the *surface* tokens here (never the component's file)
-   keeps a page from mixing two idioms: on a tinted panel we want planes of
-   colour instead of boxes (§5), and secondary text lifted to `--settings-muted`
-   so it clears AA on a wash. Layout, sizing and behaviour stay the component's
-   business, and the /net modal is untouched. */
+   keeps a page from mixing two idioms: on a pane we want the neutral sunken
+   tones instead of boxes (§5), and secondary text lifted to `--settings-muted`
+   so it clears AA. Layout, sizing and behaviour stay the component's business,
+   and the /net modal is untouched. */
 .settings-ai .aiw-toggle-card,
 .settings-ai .aiw-token-group,
 .settings-ai .aiw-static-value {
   border: none;
   box-shadow: none;
-  border-radius: var(--border-radius);
-  background: color-mix(in srgb, var(--settings-hue) 8%, transparent);
+  border-radius: var(--glass-radius-inner);
+  background: var(--glass-sunken);
 }
 .settings-ai .aiw-toggle-card:hover {
-  background: color-mix(in srgb, var(--settings-hue) 15%, transparent);
+  background: var(--glass-sunken-strong);
 }
 .settings-ai .aiw-input {
   background: var(--bg-1);
-  border-color: color-mix(in srgb, var(--settings-hue) 30%, transparent);
-  border-radius: var(--border-radius);
+  border-color: color-mix(in srgb, var(--scheme-accent) 30%, transparent);
+  border-radius: var(--glass-radius-inner);
 }
 .settings-ai .aiw-input:focus {
   outline: var(--focus-outline);
@@ -577,8 +579,8 @@ select.settings-input { cursor: pointer; }
   justify-content: space-between;
   gap: calc(var(--nav-size) * 0.18);
   padding: calc(var(--nav-size) * 0.28);
-  border-radius: var(--border-radius-xl);
-  background: color-mix(in srgb, var(--text-color) 6%, transparent);
+  border-radius: var(--glass-radius);
+  background: var(--glass-sunken);
 }
 
 /* ── Buttons ──────────────────────────────────────────────────────────────── */
@@ -613,16 +615,14 @@ select.settings-input { cursor: pointer; }
 .settings-btn:disabled { opacity: 0.5; cursor: default; transform: none; }
 
 .settings-btn--primary {
-  background: linear-gradient(45deg, var(--fg-blue), var(--fg-mint));
+  /* The page's ONE action colour: a gradient inside the scheme's emphasis hue,
+     re-pinned so the label clears AA on both stops. NOT a `--fg-blue` →
+     `--fg-mint` ramp: that pair is bright in both themes, so its label is only
+     readable at one end of it. */
+  background: var(--action);
   color: var(--text-color-inv);
 }
 .settings-btn--primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--shadow-md); }
-
-.settings-btn--warm {
-  background: linear-gradient(45deg, var(--fg-orange), var(--fg-pink));
-  color: var(--text-color-inv);
-}
-.settings-btn--warm:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--shadow-md); }
 
 .settings-btn--outline {
   background: color-mix(in srgb, var(--text-color) 9%, transparent);
@@ -638,7 +638,7 @@ select.settings-input { cursor: pointer; }
   color: var(--text-color);
 }
 .settings-btn--ghost:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--settings-hue, var(--fg-blue)) 20%, var(--bg-1));
+  background: var(--glass-btn-hover);
   color: var(--text-color);
 }
 

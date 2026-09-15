@@ -1437,8 +1437,15 @@
   max-height: 320px;
   overflow-y: auto;
 }
+/* Four columns, shared by the header row and every row below it.
+   The name is `minmax(0, 1fr)` so a long email truncates instead of pushing the
+   timestamps out of the panel, and the two date columns are `max-content` rather
+   than fixed widths: each track is sized from the widest value in its own
+   column, so the rows line up with no magic number to keep in step with the
+   text (a fixed width that is too small clips "9/14/2026"). */
 .signup-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto max-content max-content;
   align-items: center;
   gap: calc(var(--nav-size) * 0.16);
   padding: calc(var(--nav-size) * 0.09) calc(var(--nav-size) * 0.12);
@@ -1447,14 +1454,25 @@
 .signup-row { border-bottom: 1px solid var(--border-nav); }
 .signup-row:last-child { border-bottom: none; }
 .signup-name {
-  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-color);
 }
-.signup-date { color: var(--plane-muted); font-size: var(--font-size-xs); white-space: nowrap; }
+/* The column labels — uppercase and letterspaced, the same idiom the stacked
+   tables use for their own field names (their names live in §18). */
+.signup-row--head span {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--plane-muted);
+}
+.signup-date,
+.signup-seen { color: var(--plane-muted); font-size: var(--font-size-xs); white-space: nowrap; }
+/* The one column the eye goes to: "did the new accounts come back?". */
+.signup-seen { font-variant-numeric: tabular-nums; }
 
 /* ── 10. Purchase gate (the one instant kill switch) ─────────────────────── */
 
@@ -2249,6 +2267,24 @@
     min-width: 0;
   }
   .date-filter .hide-own-visits { grid-column: 1 / -1; white-space: normal; }
+
+  /* Recent signups: the four-track row cannot hold two timestamps plus a name
+     at this width, and the failure is not graceful — the name column collapses
+     to a couple of characters while the dates keep their full width. So the row
+     becomes name + plan, with the times on their own lines beneath it, labelled
+     inline (`::before`) because the header row that labelled them retires here. */
+  .signup-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: calc(var(--nav-size) * 0.05);
+  }
+  .signup-row--head { display: none; }
+  .signup-name { grid-column: 1; grid-row: 1; }
+  .signup-row .plan-badge { grid-column: 2; grid-row: 1; }
+  /* `1 / -1` with no row: auto-placement puts each of the two on its own line. */
+  .signup-date,
+  .signup-seen { grid-column: 1 / -1; }
+  .signup-date::before { content: 'Signed up '; }
+  .signup-seen::before { content: 'Last online '; }
 }
 
 /* A portrait *tablet* deserves a tighter KPI floor than a landscape one.

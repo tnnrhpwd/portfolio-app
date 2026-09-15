@@ -123,6 +123,20 @@ const getAdminDashboard = asyncHandler(async (req, res) => {
     const bugReports = [];
     const reviews = [];
 
+    // Last time each account was on the site, for the Recent signups table.
+    //
+    // `checkIP` (utils/accessData) writes one row per non-localhost request and
+    // stamps `|User:<id>` on it whenever the request carried a signed-in user,
+    // so the newest such row IS that account's last activity — collected here,
+    // where those rows are already being parsed. Note the account row's own
+    // `updatedAt` is a different question (it moves on profile/preference
+    // edits, not on visits).
+    //
+    // ⚠️ Access rows carry a DynamoDB TTL (utils/analyticsRetention, 90 days by
+    // default), so an account idle longer than that window has no row left and
+    // reads as "no recent activity" rather than as its true last visit.
+    const lastOnlineByUser = new Map();
+
     for (const item of allItems) {
         const type = categorise(item);
         const text = item.text || '';
@@ -157,6 +171,16 @@ const getAdminDashboard = asyncHandler(async (req, res) => {
                     referer:  parseField(text, 'Referer'),
                     createdAt: item.createdAt,
                 });
+
+                // Anonymous hits have no `|User:` segment and simply don't
+                // contribute (see `lastOnlineByUser` above).
+                const userId = parseField(text, 'User');
+                if (userId && item.createdAt) {
+                    const seen = lastOnlineByUser.get(userId);
+                    if (!seen || new Date(item.createdAt) > new Date(seen)) {
+                        lastOnlineByUser.set(userId, item.createdAt);
+                    }
+                }
                 break;
             }
             case 'bug': {
@@ -206,10 +230,19 @@ const getAdminDashboard = asyncHandler(async (req, res) => {
     const paidUsers = users.filter(u => isPaidTier(u.rank)).length;
 
     // Recent signups (last 20, newest first)
+    // `lastOnline` is null for an account with no activity row inside the
+    // analytics retention window — the table renders that as "—" rather than
+    // pretending the account was never seen.
     const recentSignups = [...users]
         .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
         .slice(0, 20)
-        .map(u => ({ nickname: u.nickname, email: u.email, rank: u.rank, createdAt: u.createdAt }));
+        .map(u => ({
+            nickname: u.nickname,
+            email: u.email,
+            rank: u.rank,
+            createdAt: u.createdAt,
+            lastOnline: lastOnlineByUser.get(String(u.id)) || null,
+        }));
 
     // ── Revenue estimation ──
     // Prices from the Stripe product config

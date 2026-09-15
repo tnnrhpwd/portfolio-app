@@ -2,9 +2,9 @@
    Plans — the goals workspace
    ---------------------------------------------------------------------------
    A SERVICE PAGE (FRONTEND_UI_STANDARD.md §5.7): the shared ambient ROOM for a
-   ground (`.service-room`, worn by `.plans-page`), a sticky toolbar carrying the
-   name + live state + primary action, then a dense grid of panels ordered by how
-   often you touch them. No bands, no scroll reveals.
+   ground (`.service-room`, worn by `.plans-page`), a row carrying the name +
+   live state + primary action (in the flow, never pinned), then a dense grid of
+   panels ordered by how often you touch them. No bands, no scroll reveals.
 
    MATERIAL: every block is a PANE OF GLASS resting on the room — the page colour
    at 84%, `--glass-radius`, `--glass-shadow`, and no border anywhere. The old
@@ -35,9 +35,9 @@
      nudged toward the body text, so it is safe on a pane and on the room alike —
      the name is a leftover from the plane material, the value is not. */
   --plans-muted: var(--plane-muted);
-  /* NO `overflow-x: hidden` here: it makes this element a scroll container, and
-     a `position: sticky` toolbar inside one offsets itself instead of sticking.
-     Nothing overflows now that the decorative circles are gone. */
+  /* NO `overflow-x: hidden` here: nothing overflows now that the decorative
+     circles are gone, and making this element a scroll container is a side
+     effect with no upside. */
   padding: calc(var(--nav-size) * 1.15) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
   color: var(--text-color);
   /* NO background here, deliberately: `.service-room` (worn by this element —
@@ -90,24 +90,42 @@
 .plans-skeleton-list,
 .plans-info-note { grid-column: 1 / -1; }
 
-/* ── Toolbar — the page's "hero", collapsed onto one sticky row ───────────── */
+/* ── Row — the name, its live state and the primary action, in the flow ───── */
 
 .plans-bar {
-  position: sticky;
-  top: var(--nav-size);            /* just under the fixed site header */
-  z-index: 5;                      /* below the header's 10, above the panels */
+  /* NOT sticky: the site header is the only thing that stays at the top of the
+     page. A pinned bar here would cost the goals a strip of the viewport on the
+     surface whose whole job is density, and it would make them scroll under an
+     opaque band. The name, the live state and the action scroll away with the
+     page — `relative` is only here to anchor the accent rule below. */
+  position: relative;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.25);
-  padding: calc(var(--nav-size) * 0.18) 0;
-  background: var(--bg-page);      /* opaque — no glassmorphism (§8) */
+  /* Horizontal padding is the PANEL padding (`.plans-goal-card`), so the room's
+     name sits on the same left edge as every goal below it instead of jammed
+     into the corner of a full-bleed bar. */
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.3);
+  /* A PANE, like every card below it: the row only needed an opaque base while it
+     was pinned. This is the same reversal `/admin` made for its head — nothing
+     scrolls under it now. */
+  background: var(--glass);
+  /* A pane's radius (`.plans-goal-card`), so the bar reads as the topmost
+     surface of the room rather than a square slab laid over it. */
+  border-radius: var(--glass-radius);
 }
 /* The one piece of brand on the page: an accent rule under the toolbar. */
 .plans-bar::after {
   content: '';
   position: absolute;
-  left: 0; right: 0; bottom: 0; height: 2px;
+  /* Inset by the bar's own radius so the rule ends where the corner curve begins:
+     it never pokes past a rounded corner, needs no clipping, and keeps its own
+     rounded cap (`.admin-head::after` is the same move). */
+  left: calc(var(--glass-radius) * 0.7);
+  right: calc(var(--glass-radius) * 0.7);
+  bottom: 2px; height: 2px;
+  border-radius: 999px;
   background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint) 42%, transparent 72%);
   pointer-events: none;
 }
@@ -1239,11 +1257,8 @@
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 
-/* A sticky toolbar that wraps to three rows would eat the screen, so it only
-   sticks where there is room for it. */
-@media (max-width: 900px) {
-  .plans-bar { position: static; }
-}
+/* (No `.plans-bar { position: static }` override any more: the row is never
+   pinned, so a wrapped one on a narrow screen costs nothing.) */
 
 @media (orientation: portrait) and (max-width: 720px) {
   .plans-bar-actions { width: 100%; }

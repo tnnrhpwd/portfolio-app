@@ -8,7 +8,8 @@ import KpiTile from "../../components/Admin/KpiTile.jsx";
 import { KpiSkeleton, PanelSkeleton } from "../../components/Admin/AdminSkeleton.jsx";
 import { useAdminReadout } from "./adminBarContext";
 import countryName from "../../utils/countryName.js";
-import { fmt, pct, formatTimestamp, sharePct } from "./adminShared";
+import { relativeTime } from "../../utils/talkUtils.js";
+import { fmt, pct, formatTimestamp, formatDate, sharePct } from "./adminShared";
 
 /**
  * Dashboard — what you look at, in the order you look at it.
@@ -227,13 +228,38 @@ function Dashboard() {
               </table>
             </AdminPanel>
 
-            <AdminPanel title="Recent signups">
+            <AdminPanel
+              title="Recent signups"
+              hint="Newest accounts first. Last online is their most recent activity on the site."
+            >
               <div className="recent-signups-list">
+                {/* The panel carries two timestamps now, and an unlabelled pair
+                    of dates is a puzzle — so it grows the header row it should
+                    always have had. It is the list's first row rather than a
+                    separate <thead> so the column tracks stay one declaration
+                    (`.signup-row`, Admin.css §9); it retires on a phone, where
+                    the two times move to their own labelled lines. */}
+                <div className="signup-row signup-row--head">
+                  <span>User</span>
+                  <span>Plan</span>
+                  <span>Signed up</span>
+                  <span>Last online</span>
+                </div>
                 {d.users.recentSignups.slice(0, 8).map((u, i) => (
                   <div key={i} className="signup-row">
                     <span className="signup-name">{u.nickname || u.email}</span>
                     <span className={`plan-badge plan-${u.rank?.toLowerCase()}`}>{u.rank}</span>
-                    <span className="signup-date">{ts(u.createdAt)}</span>
+                    <span className="signup-date" title={ts(u.createdAt)}>
+                      {formatDate(u.createdAt)}
+                    </span>
+                    {/* `lastOnline` is null when the account has no activity row
+                        inside the analytics retention window (or has not been
+                        back since signing up) — an em dash, not a fake date.
+                        `relativeTime` is the repo's one coarse "2h ago" ladder
+                        (utils/talkUtils); the exact time lives in `title`. */}
+                    <span className="signup-seen" title={u.lastOnline ? ts(u.lastOnline) : ""}>
+                      {u.lastOnline ? relativeTime(u.lastOnline) : "—"}
+                    </span>
                   </div>
                 ))}
               </div>

@@ -13,6 +13,7 @@ import MyReportsTab from '../../components/Support/MyReportsTab.jsx';
 import { useSupportState } from '../../hooks/useSupportState.js';
 import { useBrowserDetection } from '../../hooks/useBrowserDetection.js';
 import { useBugReports } from '../../hooks/useBugReports.js';
+import { useMyReviews } from '../../hooks/useMyReviews.js';
 import { useSupportHandlers } from '../../hooks/useSupportHandlers.js';
 import { faqData } from '../../data/supportData.js';
 import { scrollToContent } from '../../utils/supportUtils.js';
@@ -75,7 +76,6 @@ function Support() {
     handleInputChange,
     handleStarClick,
     handleRelatedReportToggle,
-    handleReviewSubmit,
     handleContactSubmit,
     handleBugReportSubmit,
   } = useSupportHandlers(
@@ -86,6 +86,21 @@ function Support() {
     activeTab,
     fetchUserBugReports
   );
+
+  // The signed-in user's own reviews, plus edit/delete over them. Submitting a
+  // review lives here rather than in `useSupportHandlers` because the same action
+  // is either a create or an edit of an existing row, and that decision needs the
+  // review list.
+  const {
+    isSignedIn: canManageReviews,
+    myReviews,
+    loadingReviews,
+    editingReviewId,
+    startEditReview,
+    cancelEditReview,
+    submitReview,
+    removeReview,
+  } = useMyReviews(user, formData, setFormData);
 
   // FAQ search and toggle
   const filteredFaqs = faqData.filter(faq =>
@@ -202,10 +217,17 @@ function Support() {
                 formData={formData}
                 handleInputChange={handleInputChange}
                 handleStarClick={handleStarClick}
-                handleReviewSubmit={handleReviewSubmit}
+                handleReviewSubmit={submitReview}
                 isSubmitting={isSubmitting}
                 hoverRating={hoverRating}
                 setHoverRating={setHoverRating}
+                isSignedIn={canManageReviews}
+                myReviews={myReviews}
+                loadingReviews={loadingReviews}
+                editingReviewId={editingReviewId}
+                onEditReview={startEditReview}
+                onCancelEdit={cancelEditReview}
+                onDeleteReview={removeReview}
               />
             )}
 

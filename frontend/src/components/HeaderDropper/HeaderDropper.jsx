@@ -86,6 +86,10 @@ function HeaderDropper(props) {
         {user && (
           <li className="dropper-group">
             <Link className="dropper-link" to="/net" onClick={closeMenu}>Net</Link>
+            {/* A member conversation also lives on /net (`?with=…`), so the
+                dropper's entry points at the front door — Talk is where you
+                connect and see who you can talk to. */}
+            <Link className="dropper-link" to="/talk" onClick={closeMenu}>Talk</Link>
             {/* Also the phone route into Control, where the header switcher is
                 hidden for lack of room. */}
             <Link className="dropper-link" to="/simple" onClick={closeMenu}>Simple</Link>

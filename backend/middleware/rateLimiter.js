@@ -230,6 +230,69 @@ const pollsWriteLimiter = rateLimit({
   handler: buildRateLimitHandler('polls-write', 'Too many poll actions. Slow down.'),
 });
 
+// Review edits (PUT/DELETE /api/data/reviews/:id) — per-user. Reviews are
+// editable indefinitely by design, but a rewrite is a full row write and there
+// is no reason to do it dozens of times a minute; this exists to bound a stuck
+// client, not to ration the feature.
+const reviewWriteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+  keyGenerator: userKeyGenerator,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: buildRateLimitHandler('review-write', 'Too many review edits. Please wait a few minutes.'),
+});
+
+// ── Messenger ───────────────────────────────────────────────────────────────
+// Three different jobs, so three different ceilings rather than one shared one:
+
+// Reads (the directory + the message poll). The /net direct-message view polls
+// while a conversation is open, and several tabs may be open at once, so this
+// has to be generous — it is a flood guard, not a usage meter.
+const messengerReadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 400,
+  keyGenerator: userKeyGenerator,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: buildRateLimitHandler('messenger-read', 'Too many message checks. Slow down.'),
+});
+
+// Sends + read receipts. Comfortably above human typing speed.
+const messengerWriteLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 90,
+  keyGenerator: userKeyGenerator,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: buildRateLimitHandler('messenger-write', 'You are sending messages very quickly. Please slow down.'),
+});
+
+// Friend requests — the spam surface, and the tightest limit here. The service
+// additionally enforces pending/hourly/daily caps; this is the outer wall so a
+// script can't even reach those checks at speed.
+const friendRequestLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20,
+  keyGenerator: userKeyGenerator,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: buildRateLimitHandler('friend-request', 'Too many friend requests. Please try again later.'),
+});
+
+// Public profiles (`GET /api/data/u/:username`) — IP-keyed, because the route is
+// open to signed-out visitors. Each view fans out into a few table scans (the game
+// boards and the author's published work), so this is a real cost per request
+// rather than a cheap read — hence a ceiling that is generous for a person and
+// stingy for a crawler. The board scans themselves are cached per process.
+const profileReadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 90,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: buildRateLimitHandler('profile-read', 'Too many profile requests. Please slow down.'),
+});
+
 module.exports = {
   apiLimiter,
   authLimiter,
@@ -248,4 +311,9 @@ module.exports = {
   marketWriteLimiter,
   pollsReadLimiter,
   pollsWriteLimiter,
+  reviewWriteLimiter,
+  messengerReadLimiter,
+  messengerWriteLimiter,
+  friendRequestLimiter,
+  profileReadLimiter,
 };

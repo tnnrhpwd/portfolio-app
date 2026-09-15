@@ -1,7 +1,8 @@
 ﻿import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
-import { logout, resetDataSlice, getUserSubscription, getUserUsage, getUserStorage } from './../../features/data/dataSlice.js';
+import { profilePath, profileVisibilityOf } from '../../utils/userProfileUtils.js';
+import { logout, resetDataSlice, getUserSubscription, getUserUsage, getUserStorage, updateProfile } from './../../features/data/dataSlice.js';
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import Header from '../../components/Header/Header.jsx';
 import Footer from '../../components/Footer/Footer.jsx';
@@ -195,6 +196,47 @@ function Profile() {
     navigate(`/settings#${section}`);
   };
 
+  /**
+   * Who may see `/u/<nickname>`. The server owns the truth; this mirrors what it
+   * last told us. Seeded from the login response (postData.js) and kept in step
+   * by the `updateProfile.fulfilled` reducer, which merges the returned profile
+   * back into `state.user`. Accounts with no stored attribute read as private.
+   */
+  const [visibility, setVisibility] = useState(profileVisibilityOf(user));
+  const [savingVisibility, setSavingVisibility] = useState(false);
+
+  // The store can populate `user` after the first render (silent re-auth from
+  // localStorage), so follow it rather than trusting the initial seed.
+  useEffect(() => {
+    setVisibility(profileVisibilityOf(user));
+  }, [user?.profileVisibility]);
+
+  const publicPagePath = profilePath(user?.nickname);
+
+  const handleVisibilityChange = async (event) => {
+    const next = event.target.value;
+    const previous = visibility;
+    setVisibility(next);
+    setSavingVisibility(true);
+
+    try {
+      await dispatch(updateProfile({ profileVisibility: next })).unwrap();
+      toast.success(
+        next === 'public'
+          ? 'Your page is public — anyone with the link can see it.'
+          : 'Your page is private — only you and your connections can see it.',
+      );
+    } catch (error) {
+      // Put the dropper back where it was: leaving it showing a value the
+      // server rejected would tell the user they had published a page they had
+      // not.
+      setVisibility(previous);
+      toast.error(error || 'Could not change who can see your page.');
+    } finally {
+      setSavingVisibility(false);
+    }
+  };
+
   const handleSubscriptionChange = (event) => {
     const newPlan = event.target.value;
 
@@ -380,6 +422,50 @@ function Profile() {
                         <span className="planit-profile-info-value">{accountAgeLabel}</span>
                       </div>
                     </div>
+                  </div>
+
+                  <div className="planit-profile-section planit-profile-section-privacy">
+                    <div className="planit-profile-section-header">
+                      <div>
+                        <span className="planit-profile-section-kicker">Public page</span>
+                        <h2 className="planit-profile-section-title">Who can see your page</h2>
+                        <p className="planit-profile-section-hint">
+                          Your page lives at <code>{publicPagePath}</code>. It shows your picture,
+                          the games you play and what you have published — never your email, your
+                          plan or anything else private. Private is the default.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Reuses the preferences grid's own control classes rather than
+                        introducing a second select style on the same page. */}
+                    <div className="planit-profile-setting-item">
+                      <label className="planit-profile-setting-label" htmlFor="profile-visibility">
+                        Who can open it
+                      </label>
+                      <select
+                        id="profile-visibility"
+                        className="planit-profile-setting-select"
+                        value={visibility}
+                        onChange={handleVisibilityChange}
+                        disabled={savingVisibility}
+                      >
+                        <option value="private">Private — only you and your connections</option>
+                        <option value="public">Public — anyone with the link</option>
+                      </select>
+                    </div>
+
+                    <p className="planit-profile-privacy-status" aria-live="polite">
+                      {savingVisibility
+                        ? 'Saving…'
+                        : visibility === 'public'
+                          ? 'Anyone with the link can see your page.'
+                          : 'Only you and the people you are connected with can see your page.'}
+                    </p>
+
+                    <Link className="planit-profile-section-link" to={publicPagePath}>
+                      ↗ View your page
+                    </Link>
                   </div>
 
                   <div className="planit-profile-section planit-profile-section-storage">
@@ -808,6 +894,17 @@ function Profile() {
               <div className="planit-profile-actions-buttons">
                 <button className="planit-profile-edit-button planit-profile-edit-button-solid" onClick={navigateToSettings}>
                   ✏️ Edit profile
+                </button>
+                {/* The public page a stranger can see. `/u/<username>` is built in
+                    one place (`profilePath`) so a link can never disagree with the
+                    route about how a nickname is encoded. */}
+                {user.nickname && (
+                  <Link className="planit-profile-net-button" to={profilePath(user.nickname)}>
+                    ↗ View public page
+                  </Link>
+                )}
+                <button className="planit-profile-net-button" onClick={() => navigate('/talk')}>
+                  💬 Talk
                 </button>
                 <button className="planit-profile-net-button" onClick={() => navigate('/net')}>
                   💬 Open AI Chat

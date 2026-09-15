@@ -86,20 +86,31 @@
   align-items: center;
   flex-wrap: wrap;
   gap: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.25);
-  padding: calc(var(--nav-size) * 0.16) 0;
+  /* Horizontal padding is the PANEL padding (`.fit-section-toggle`), so the
+     room's name sits on the same left edge as every panel below it instead of
+     jammed into the corner of a full-bleed bar. */
+  padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.28);
   /* Opaque, and stated as both properties: an earlier `.fit-bar` collision
      (the progress chart's bar) painted a translucent gradient over it. */
   background-color: var(--bg-page);
   background-image: none;
+  /* A PANEL's radius — `.fit-panel` wears `--border-radius-lg`, not the glass
+     radius — so the bar reads as the topmost surface of the page rather than a
+     square slab laid over it. */
+  border-radius: var(--border-radius-lg);
 }
 /* The one piece of brand on the page: an accent rule under the toolbar. */
 .fit-toolbar::after {
   content: '';
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  /* Inset by the bar's own radius so the rule ends where the corner curve begins:
+     it never pokes past a rounded corner, needs no clipping, and keeps its own
+     rounded cap (`.admin-head::after` is the same move). */
+  left: calc(var(--border-radius-lg) * 0.7);
+  right: calc(var(--border-radius-lg) * 0.7);
+  bottom: 2px;
   height: 2px;
+  border-radius: 999px;
   background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint) 42%, transparent 72%);
   pointer-events: none;
 }

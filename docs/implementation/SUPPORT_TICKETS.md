@@ -24,6 +24,9 @@ There are three record types, distinguished by their `text` pattern:
 All three are "effectively open" unless a bug report has been explicitly closed, which
 is why the export treats contact messages and `/net` tickets as perpetually open.
 
+There is a fourth pattern the support pages write, which is **not** a ticket and is
+never open — see §2.4.
+
 ---
 
 ## 2. How tickets are created
@@ -58,6 +61,28 @@ The `/net` AI chat tool (`backend/services/netTools.js`) exposes a
    `SES_CONFIGURATION_SET`).
 
 ### 2.3 Contact messages
+### 2.4 Reviews (and editing them)
+
+Filed via Support → **Leave Review**:
+
+```
+Review:<title>|Category:<cat>|Rating:<n>/5|Content:<body>|User:<email>|Timestamp:<iso>[|EditedAt:<iso>]
+```
+
+- Reviews are **public rows** — created through `POST /api/data/public`, so the form works
+  signed out and the row carries **no `Creator:` segment**. `User:<email>` is the only
+  thing tying a review to a person.
+- Because of that, the generic `PUT /api/data/:id` (which authorises on `Creator:<userId>`)
+  **cannot** edit a review. Ownership for reviews is its own rule, implemented in
+  `backend/controllers/reviewController.js`:
+  `GET/PUT/DELETE /api/data/reviews/…`, authorising on `User:<email>` matching the caller.
+- **Anonymous reviews are read-only** — there is no way to prove who wrote one.
+- An edit preserves `User:` and `Timestamp:` and appends `EditedAt:` so the record shows
+  the review changed after publication. Edits are unlimited, rate-limited at 40/15 min.
+- `|` and newlines are replaced (client **and** server) — a pipe inside a title would split
+  the record early and corrupt it for every reader that splits on `|`, including the
+  export in §5 and `Admin/Reviews.jsx`.
+
 
 Filed via the Support → Contact form as `Contact:<subject>|…|Message:<body>` records.
 

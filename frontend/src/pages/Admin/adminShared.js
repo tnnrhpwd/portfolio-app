@@ -26,6 +26,16 @@ export const formatTimestamp = (v) => {
   }
 };
 
+/**
+ * Just the calendar day — "9/14/2026". A clock is dead weight in a narrow table
+ * cell, and Recent signups needs room for two timestamp columns; the full
+ * timestamp stays available in the cell's `title` attribute.
+ */
+export const formatDate = (v) => {
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? (v || "") : d.toLocaleDateString();
+};
+
 // Rule types available for the dynamic Home Title editor
 export const HOME_TITLE_RULE_TYPES = [
   { value: "nickname", label: "Nickname contains", needsMatch: true, matchPlaceholder: "e.g. tanner" },

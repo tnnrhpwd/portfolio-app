@@ -691,6 +691,185 @@
 }
 
 /* ===================================================================
+ * YOUR REVIEWS (edit / delete your own review)
+ * ================================================================
+ * These rows sit under the review form in the same tab. They are surfaces
+ * rather than cards with borders — see FRONTEND_UI_STANDARD.md §5: a tone
+ * change separates two things, a line does not.
+ * ================================================================ */
+
+.support-review-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: calc(var(--nav-size) * 0.2);
+}
+
+/* The wrapper owns the layout, so the buttons stop centring themselves. */
+.support-review-actions .support-submit-btn {
+    align-self: auto;
+}
+
+/* Cancel is a secondary action: same shape, no gradient fill. */
+.support-submit-btn--muted {
+    background: var(--bg-accent);
+    color: var(--text-color);
+    box-shadow: none;
+}
+
+.support-submit-btn--muted:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--text-color) 12%, var(--bg-accent));
+}
+
+.support-my-reviews {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--nav-size) * 0.2);
+    margin-top: calc(var(--nav-size) * 0.3);
+    padding-top: calc(var(--nav-size) * 0.4);
+    border-top: 1px solid var(--border-nav);
+}
+
+.support-my-reviews h3 {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--nav-size) * 0.15);
+    margin: 0;
+    font-size: var(--font-size-base);
+    color: var(--text-color);
+}
+
+.support-my-reviews-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: calc(var(--nav-size) * 0.3);
+    padding: 0 calc(var(--nav-size) * 0.1);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--fg-blue) 18%, transparent);
+    color: var(--text-color);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.support-review-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: calc(var(--nav-size) * 0.25);
+    padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.28);
+    border-radius: var(--border-radius);
+    background: var(--bg-1);
+    transition: background 0.2s ease;
+}
+
+.support-review-row:hover {
+    background: color-mix(in srgb, var(--fg-blue) 7%, var(--bg-1));
+}
+
+/* The row currently loaded into the form, so the two are obviously linked. */
+.support-review-row.is-editing {
+    background: color-mix(in srgb, var(--fg-blue) 14%, var(--bg-1));
+}
+
+.support-review-row-main {
+    min-width: 0;
+    flex: 1;
+}
+
+.support-review-row-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: calc(var(--nav-size) * 0.12);
+    font-size: var(--font-size-small);
+    color: var(--text-color);
+}
+
+.support-review-row-stars {
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.05em;
+}
+
+.support-review-row-chip {
+    padding: 0 calc(var(--nav-size) * 0.1);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--fg-mint) 22%, transparent);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-color);
+}
+
+.support-review-row-meta {
+    margin: calc(var(--nav-size) * 0.06) 0;
+    font-size: var(--font-size-xs);
+    color: var(--text-color-accent);
+}
+
+.support-review-row-body {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    color: var(--text-color-accent);
+    line-height: 1.5;
+    /* Reviews can be 1000 characters; two lines keeps the list scannable. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.support-review-row-actions {
+    display: flex;
+    flex-shrink: 0;
+    gap: calc(var(--nav-size) * 0.12);
+}
+
+.support-review-btn {
+    padding: calc(var(--nav-size) * 0.12) calc(var(--nav-size) * 0.22);
+    min-height: 0;                       /* undo the global button min-height */
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    border-radius: 999px;
+    border: 1px solid var(--border-nav);
+    background: transparent;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.support-review-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--fg-blue) 14%, transparent);
+    border-color: var(--fg-blue);
+}
+
+.support-review-btn--danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--fg-orange) 18%, transparent);
+    border-color: var(--fg-orange);
+}
+
+.support-review-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.support-review-btn:focus {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+}
+
+.support-my-reviews-note {
+    margin-top: calc(var(--nav-size) * 0.15);
+}
+
+@media (orientation: portrait) {
+    /* A phone has no room for a column of buttons beside the text. */
+    .support-review-row {
+        flex-direction: column;
+    }
+}
+
+/* ===================================================================
  * BUG REPORTS SECTION STYLES
  * ================================================================ */
 

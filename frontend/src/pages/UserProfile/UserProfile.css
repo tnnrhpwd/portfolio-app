@@ -1,0 +1,492 @@
+/* ===========================================================================
+   UserProfile — the public page at /u/<username>
+   ---------------------------------------------------------------------------
+   A DISCOVERY PAGE (FRONTEND_UI_STANDARD.md §5): the animated gradient covers the
+   hero, flat alternating bands carry the content, and the page ends on a CTA band.
+   That shape is chosen because of who arrives here — a stranger following a link,
+   who needs a face and a reason to keep scrolling before they need any detail.
+
+   MATERIAL: cards are `--bg-1` surfaces with a hairline edge and a soft shadow,
+   the treatment §5 reserves for a *Discovery* page's tiles. (The service pages use
+   glass panes on the shared room instead — different material for a different job.)
+
+   Two aliases on the root, and nothing below has to change:
+   `--fg-blue` is the interaction hue and `--fg-mint` the emphasis hue, so both
+   follow the visitor's colour scheme. `--fg-orange` deliberately does not — it is
+   the alert hue.
+   =========================================================================== */
+
+.up {
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
+  color: var(--text-color);
+  min-height: 100vh;
+  min-height: 100svh;
+  /* The home indicator / gesture bar is part of the screen but not the page. */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────────────── */
+
+.up-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* The header is fixed, so the first band clears it — on the band, never on
+     every band, or they would drift apart from each other. */
+  padding: calc(var(--nav-size) * 2.1) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
+  background: linear-gradient(-45deg, var(--bg-orange), var(--bg-pink), var(--bg-blue), var(--bg-mint));
+  background-size: 400% 400%;
+  animation: upGradientShift 14s ease infinite;
+}
+
+.light-theme .up-hero { animation-duration: 18s; }
+.dark-theme .up-hero { animation-duration: 11s; }
+
+@keyframes upGradientShift {
+  0% { background-position: 0% 50%; }
+  25% { background-position: 100% 50%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 0% 100%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Decorative, non-interactive. */
+.up-floating {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.up-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--white1-transp, #f4f7fd33) 0%, transparent 70%);
+  animation: upFloat 7s ease-in-out infinite;
+}
+
+.up-circle-1 { width: 180px; height: 180px; top: 8%; left: 5%; animation-duration: 9s; }
+.up-circle-2 { width: 120px; height: 120px; top: 58%; right: 7%; animation-duration: 11s; animation-delay: -2s; }
+.up-circle-3 { width: 220px; height: 220px; bottom: 2%; left: 58%; animation-duration: 13s; animation-delay: -4s; }
+
+@keyframes upFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-24px) rotate(180deg); }
+}
+
+.up-hero-wrap {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: calc(var(--nav-size) * 0.16);
+}
+
+.up-eyebrow {
+  margin: calc(var(--nav-size) * 0.2) 0 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+
+.up-title {
+  margin: 0;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+  font-size: var(--font-size-display);
+  line-height: var(--line-height-tight);
+  /* A long nickname must wrap, not widen the page. */
+  overflow-wrap: anywhere;
+}
+
+.up-subtitle {
+  margin: 0;
+  font-size: var(--font-size-large);
+  line-height: var(--line-height-relaxed);
+  color: var(--text-color-accent);
+}
+
+.up-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(var(--nav-size) * 0.2);
+  margin-top: calc(var(--nav-size) * 0.2);
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+
+.up-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--nav-size) * 0.12);
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.6);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  /* A filled control is the scheme's action ramp, pinned per mode so the label
+     clears AA on every scheme (§6). */
+  background: var(--action);
+  color: var(--text-color-inv);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.up-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.up-btn:disabled { opacity: 0.6; cursor: default; transform: none; box-shadow: none; }
+
+.up-btn-outline {
+  background: transparent;
+  color: var(--text-color);
+  border-color: var(--border-nav);
+}
+
+.up-btn-outline:hover:not(:disabled) {
+  background: var(--bg-accent);
+  box-shadow: none;
+}
+
+/* On the CTA band the ink is the band's own, so the controls invert with it. */
+.up-btn-inv { background: var(--text-color); color: var(--bg-page); }
+
+.up-btn-ghost {
+  background: transparent;
+  color: var(--text-color);
+  border-color: color-mix(in srgb, var(--text-color) 55%, transparent);
+}
+
+.up-btn-ghost:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text-color) 10%, transparent);
+  border-color: var(--text-color);
+}
+
+.up-btn:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
+}
+
+/* ── Hero readout ─────────────────────────────────────────────────────────── */
+
+.up-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(var(--nav-size) * 0.5);
+  margin-top: calc(var(--nav-size) * 0.3);
+}
+
+.up-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.up-stat-value {
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}
+
+.up-stat-label {
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+
+.up-quiet {
+  margin: calc(var(--nav-size) * 0.2) 0 0;
+  max-width: 460px;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-base);
+  color: var(--text-color-accent);
+}
+
+.up-notice {
+  margin: calc(var(--nav-size) * 0.2) 0 0;
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.35);
+  border-radius: 999px;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color);
+}
+
+.up-notice--ok { background: color-mix(in srgb, var(--fg-mint) 26%, transparent); }
+.up-notice--error { background: color-mix(in srgb, var(--fg-orange) 26%, transparent); }
+
+/* ── Private pages ────────────────────────────────────────────────────────── */
+
+/* The lock stands in for the avatar a gated page must not send. Sized to the
+   avatar slot it replaces (…-lg) so the hero keeps the same rhythm whether the
+   page opens or not, and pinned inside a circle so it reads as a placeholder
+   rather than as an emoji someone typed into a paragraph. */
+.up-lock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--nav-size) * 2.4);
+  height: calc(var(--nav-size) * 2.4);
+  margin: 0;
+  border: 1px dashed var(--border-nav);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-color) 6%, transparent);
+  font-size: calc(var(--nav-size) * 0.95);
+  line-height: 1;
+}
+
+/* The owner's own visibility readout. Deliberately quiet: it is a status line
+   about a setting, not an achievement, and it must not compete with the stats
+   directly beneath it. */
+.up-visibility {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--nav-size) * 0.12);
+  margin: calc(var(--nav-size) * 0.24) 0 0;
+  padding: calc(var(--nav-size) * 0.14) calc(var(--nav-size) * 0.4);
+  border: 1px solid var(--border-nav);
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  color: var(--text-color-accent);
+}
+
+.up-visibility--private {
+  background: color-mix(in srgb, var(--text-color) 6%, transparent);
+}
+
+.up-visibility--public {
+  border-color: color-mix(in srgb, var(--fg-blue) 45%, transparent);
+  background: color-mix(in srgb, var(--fg-blue) 12%, transparent);
+}
+
+.up-visibility-link {
+  color: var(--fg-blue);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.up-visibility-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Bands ────────────────────────────────────────────────────────────────── */
+
+.up-band {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: calc(var(--nav-size) * 1.2) calc(var(--nav-size) * 0.3);
+}
+
+.up-wrap {
+  width: 100%;
+  max-width: 1080px;
+}
+
+/* Alternate the tone down the page: two flat washes are enough, and more than
+   that reads as decoration (§5). */
+.up-band--surface { background: var(--bg-page); }
+.up-band--tint { background: color-mix(in srgb, var(--fg-mint) 10%, var(--bg-page)); }
+
+/* The closing band wears the scheme's page-relative pair, inked with plain
+   --text-color: the -bg tokens mix each identity hue into THIS mode's page colour,
+   so the band is pale on a light page and deep on a dark one — and its copy stays
+   readable in both. Inking it with --text-color-inv would make it brighter as the
+   page got darker (§2). */
+.up-band--cta {
+  background: linear-gradient(45deg, var(--scheme-accent-bg), var(--scheme-primary-bg));
+  color: var(--text-color);
+}
+
+.up-reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.up-reveal.is-visible { opacity: 1; transform: translateY(0); }
+
+/* ── Section heads: eyebrow → heading → lead ──────────────────────────────── */
+
+.up-head {
+  max-width: 760px;
+  margin: 0 auto calc(var(--nav-size) * 0.5);
+  text-align: center;
+}
+
+.up-band-eyebrow {
+  margin: 0 0 calc(var(--nav-size) * 0.12);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+
+.up-heading {
+  margin: 0 0 calc(var(--nav-size) * 0.2);
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+}
+
+.up-lead {
+  margin: 0;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-relaxed);
+  color: var(--text-color-accent);
+}
+
+/* ── Cards ────────────────────────────────────────────────────────────────── */
+
+.up-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: calc(var(--nav-size) * 0.3);
+}
+
+.up-card {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.14);
+  padding: calc(var(--nav-size) * 0.35);
+  background: var(--bg-1);
+  border: 1px solid var(--border-nav);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.up-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: color-mix(in srgb, var(--fg-blue) 45%, transparent);
+}
+
+.up-card-title {
+  margin: 0;
+  font-size: var(--font-size-large);
+  font-weight: var(--font-weight-semibold);
+}
+
+.up-card-sub {
+  margin: 0;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-base);
+  color: var(--text-color-accent);
+}
+
+/* The number IS the card, so it is display-sized and left to do the work. */
+.up-card-value {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: calc(var(--nav-size) * 0.1) 0 0;
+  font-size: var(--font-size-display);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.up-card-value-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+
+.up-card-facts {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.06);
+  margin: 0;
+  font-size: var(--font-size-small);
+  color: var(--text-color-accent);
+}
+
+.up-card-facts li {
+  display: flex;
+  gap: calc(var(--nav-size) * 0.1);
+}
+
+.up-card-link {
+  margin-top: auto;
+  padding-top: calc(var(--nav-size) * 0.15);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  /* The global `a:hover` paints anchors in the scheme's partner hue at (0,1,1), so
+     this has to NAME its colour to win. */
+  color: var(--fg-blue);
+  text-decoration: none;
+}
+
+.up-card-link:hover { color: var(--fg-mint); text-decoration: underline; }
+
+.up-chip {
+  align-self: flex-start;
+  margin: 0;
+  padding: calc(var(--nav-size) * 0.06) calc(var(--nav-size) * 0.2);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--fg-mint) 20%, transparent);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-color);
+}
+
+/* ── CTA band ─────────────────────────────────────────────────────────────── */
+
+.up-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 760px;
+}
+
+.up-band-eyebrow--cta { color: color-mix(in srgb, var(--text-color) 70%, transparent); }
+.up-lead--cta { color: color-mix(in srgb, var(--text-color) 82%, transparent); }
+
+.up-cta .up-actions { margin-top: calc(var(--nav-size) * 0.3); }
+
+/* ── Portrait ─────────────────────────────────────────────────────────────── */
+
+@media (orientation: portrait) {
+  .up-hero { padding-top: calc(var(--nav-size) * 1.9); }
+  .up-actions { flex-direction: column; align-items: stretch; width: 100%; }
+  .up-actions .up-btn { width: 100%; }
+  .up-stats { gap: calc(var(--nav-size) * 0.35); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .up-hero { animation: none; }
+  .up-circle { animation: none; }
+  .up-reveal { opacity: 1; transform: none; transition: none; }
+  .up-card,
+  .up-btn { transition: none; }
+}

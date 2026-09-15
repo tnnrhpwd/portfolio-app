@@ -71,6 +71,8 @@ const Profile = lazy(() => import('./pages/Profile/Profile.jsx'));
 const Register = lazy(() => import('./pages/Register/Register.jsx'));
 const Settings = lazy(() => import('./pages/Settings/Settings.jsx'));
 const Sit = lazy(() => import('./pages/Sit/Sit.jsx'));
+const Talk = lazy(() => import('./pages/Simple/Talk/Talk.jsx'));
+const UserProfile = lazy(() => import('./pages/UserProfile/UserProfile.jsx'));
 const Support = lazy(() => import('./pages/Support/Support.jsx'));
 const Privacy = lazy(() => import('./pages/Privacy/Privacy.jsx'));
 const Terms = lazy(() => import('./pages/Terms/Terms.jsx'));
@@ -184,6 +186,10 @@ function App() {
               <Route path="/sonic" element={<Sonic/>} />
               <Route path='/strip' element={<Strip />} />
               <Route path='/support' element={<Support />} />
+              <Route path='/talk' element={<Talk />} />
+              {/* A member's public page. `/u/<username>`, open to anyone with the
+                  link — which is what makes it worth sharing. */}
+              <Route path='/u/:username' element={<UserProfile />} />
               <Route path='/type' element={<TypeTest/>} />
               <Route path="/uimapper" element={<UIMapper />} />
               <Route path="/terms" element={<Terms />} />

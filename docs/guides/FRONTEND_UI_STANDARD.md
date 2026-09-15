@@ -31,7 +31,7 @@ ends up wrong. Decide first, then read §5.7 if you're building the second kind.
 | --- | --- | --- |
 | Examples | `/`, `/projects`, project pages, `/pricing` | `/simple`, `/plans`, `/net`, `/profile` |
 | Job | Convince a stranger the product is worth trying | *Do the job* for someone who already showed up |
-| Hero | Marketing: eyebrow → big `<h1>` → subtitle → CTAs | A **sticky toolbar**: name + live state + primary action |
+| Hero | Marketing: eyebrow → big `<h1>` → subtitle → CTAs | A **row** at the top: name + live state + primary action — in the flow, never pinned |
 | Copy | Persuasive; explains the product | Labels only; a hint under a control at most |
 | Layout | Full-bleed bands, one idea each | **No bands** — one flat surface, a dense panel grid |
 | Ends on | A CTA band (`SimpleCtaBand`) | The last panel — no pitch, nothing to scroll past |
@@ -797,14 +797,15 @@ still has to look good.** Think a well-made instrument, not a poster.
   A full-bleed color change would carve one workspace into "sections" that aren't there.
 - **No animated gradient background behind data** — it fights the numbers — and **no
   floating circles** (§5's decoration belongs to a marketing hero).
-- **Keep one small piece of brand**: an accent-gradient hairline on the toolbar, or a single
+- **Keep one small piece of brand**: an accent-gradient hairline on the row, or a single
   gradient-filled primary action. That is enough to place the page in the family.
 - The page root only clears the fixed header: `padding-top: calc(var(--nav-size) * 1.15)`.
 
-### The hero collapses into a toolbar
+### The hero collapses into a row — and nothing pins
 
-Everything §4's hero would carry becomes one **sticky row** — the only thing that stays put
-while the user works:
+Everything §4's hero would carry becomes one **row** at the top of the page: the room's name,
+its live state and the primary action. It sits in the flow and **scrolls away with the page**.
+The site header is the only thing that stays at the top.
 
 ```jsx
 <header className="foo-bar">
@@ -824,14 +825,34 @@ while the user works:
 
 ```css
 .foo-bar {
-  position: sticky;
-  top: var(--nav-size);            /* just under the site header — no gap, no drift */
-  z-index: 5;                      /* below the header's 10, above the panels */
+  /* NOT sticky. The site header is the only thing that stays at the top: a second
+     pinned bar costs the tool a strip of the viewport on the surface whose whole
+     job is density, makes the panels scroll under an opaque band, and competes
+     with the header that already says where you are. `relative` is here only to
+     anchor the accent rule below. */
+  position: relative;
   display: flex; align-items: center; gap: calc(var(--nav-size) * 0.25);
   flex-wrap: wrap;
-  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.3);
-  background: var(--bg-page);      /* opaque — NO backdrop-filter (see §8) */
-  border-bottom: 1px solid var(--border-nav);
+  /* Horizontal padding IS the panel padding, so the room's name shares a left edge
+     with every panel title and control below it. `0` jams it into the corner. */
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.28);
+  /* A PANE, like every panel below it — the row only had to be opaque while it was
+     pinned (see /admin's reversal). */
+  background: var(--glass);
+  /* A PANE's radius, so the row reads as the topmost surface of the room rather
+     than a square slab laid over it. */
+  border-radius: var(--glass-radius);
+}
+/* The one piece of brand on the page: an accent rule inside the row's lower edge.
+   Inset by the row's own radius, so it ends where the corner curve begins — it
+   never pokes past a rounded corner, needs no clipping, and keeps its own rounded
+   cap. `.admin-head::after` is the same move. */
+.foo-bar::after {
+  content: ''; position: absolute;
+  left: calc(var(--glass-radius) * 0.7); right: calc(var(--glass-radius) * 0.7);
+  bottom: 2px; height: 2px; border-radius: 999px;
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint) 42%, transparent 72%);
+  pointer-events: none;
 }
 .foo-bar-title { margin: 0; font-size: var(--font-size-heading); font-weight: var(--font-weight-bold); }
 .foo-bar-actions { margin-left: auto; display: flex; gap: calc(var(--nav-size) * 0.18); }
@@ -839,10 +860,18 @@ while the user works:
 
 - **The `<h1>` is the room's name**, two words at most, at `--font-size-heading` or smaller.
   No eyebrow (the header switcher already says where you are), no subtitle, no lead.
-- **Live state goes in the toolbar, not in a hero paragraph** — connection, stage, step,
+- **Live state goes in the row, not in a hero paragraph** — connection, stage, step,
   goals running, kill-switch state. That readout *is* the page's headline.
-- **The primary action lives there too**, so it is reachable from anywhere on the page:
-  `+ New goal`, `▶ Start loop`, `● Record`.
+- **The primary action lives there too**: `+ New goal`, `▶ Start loop`, `● Record`.
+- **The row wears the room's two measurements.** Its horizontal padding is the *panel*
+  padding, and its radius is the *pane* radius (`--glass-radius`, or whatever the room's
+  panels wear — `/fit`'s are `--border-radius-lg`). Its accent hairline is inset by that
+  radius so it ends where the corner curve begins: never clipped, never poking past the
+  curve, and with its own rounded cap (`.admin-head::after` is the same move).
+- **Nothing of the page's own pins.** The site header is the only thing that stays at the
+  top, so a row that wraps on a phone needs no `position: static` override at a breakpoint.
+  This is the trade `/admin` already made: a pinned head permanently claims a strip of the
+  viewport and forces an opaque base, for a control you can reach by scrolling up.
 
 ### Layout: a dense panel grid
 
@@ -1197,8 +1226,8 @@ one control rather than a row of links with one highlighted.
 - [ ] **Carousel arrows and dots are labelled `<button>`s**, step by pixels rather than index, and zero
       the global `min-height` (§5).
 - [ ] **Service page? No bands, no gradient background behind data, no circles, no scroll reveals.**
-      One flat surface, a sticky toolbar carrying the name + live state + primary action, and a dense
-      panel grid (§5.7).
+      One flat surface, a row at the top carrying the name + live state + primary action, and a dense
+      panel grid (§5.7). **Nothing of the page's own is pinned** — only the site header stays.
 - [ ] **Service page? The primary tool is above the fold at 1366×768** and reachable without scrolling,
       and nothing on screen is a sentence that could be a label (§5.7).
 
@@ -1265,8 +1294,8 @@ one control rather than a row of links with one highlighted.
 | Projects hub | `frontend/src/pages/Projects/Projects/` | Card-grid variant with search + category filters (closest to the new editorial grid) |
 | Home | `frontend/src/pages/Home/Home.jsx` | Gradient hero + typewriter headline + counted stats + paginated carousel. **The source for §5's motion recipes** — typing, counting and the carousel are all documented from here |
 | Annuities | `frontend/src/pages/Projects/Annuities/` | **Built entirely to this standard** — full-bleed bands via a local `RevealBand`, borderless surfaces, staggered reveals, and a theme-aware canvas chart (`useChartTheme.js`) |
-| Control (`/simple`) | `frontend/src/pages/Simple/Simple/` | **Service page (§5.7)** — sticky toolbar + dense panel grid on one flat surface, no bands |
-| Goals (`/plans`) | `frontend/src/pages/Simple/Plans/` | **Service page (§5.7)** — same shape: live state in the toolbar, panels grouped into grid rows |
+| Control (`/simple`) | `frontend/src/pages/Simple/Simple/` | **Service page (§5.7)** — name/state/action row + dense panel grid on one flat surface, no bands, nothing pinned |
+| Goals (`/plans`) | `frontend/src/pages/Simple/Plans/` | **Service page (§5.7)** — same shape: live state in the top row, panels grouped into grid rows |
 | Dream board (`/plans` 🌟) | `frontend/src/pages/Simple/Plans/DreamBoard.jsx` | **Service page view (§5.7)** — a third tab over the *same* goals: a cover-art tile grid where each tile is a goal you can hand to the agent. Panels stay colour planes; no bands, no reveals. Covers are real artwork (`assets/art/dream-*.jpg`), never emoji tiles (§5) |
 
 The earlier entries predate the editorial structure; **Annuities is the markup reference for it.** When

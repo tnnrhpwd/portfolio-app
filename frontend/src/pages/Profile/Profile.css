@@ -325,15 +325,34 @@
     gap: calc(var(--nav-size) * 0.3);
     padding: calc(var(--nav-size) * 0.4) calc(var(--nav-size) * 0.5);
     border-radius: var(--border-radius-2xl);
-    background: linear-gradient(120deg, var(--bg-orange), var(--bg-pink));
+    /* ⚠️ This fill used to be
+       `linear-gradient(120deg, var(--bg-orange), var(--bg-pink))` — which on THIS
+       page is literally the backdrop's own corner pair, because the alias block on
+       `.planit-profile-bg` re-points all four `--bg-*` corners at
+       `--scheme-accent-bg` / `--scheme-primary-bg`. So the banner was filled with
+       the page behind it and the block had no readable edge.
+       It now wears the same card surface the hero and the sections wear — a tone
+       the backdrop never takes — and the tier is carried by the accent edge and
+       the star chip instead of by the fill. */
+    background: color-mix(in srgb, var(--bg-page) 84%, transparent);
+    border: 1px solid color-mix(in srgb, var(--scheme-accent) 45%, transparent);
+    /* Declared after `border` so it overrides the inline-start side of it. */
+    border-left: calc(var(--nav-size) * 0.07) solid var(--scheme-accent);
     box-shadow: var(--shadow-md);
     animation: fadeInSection 0.6s ease both;
 }
 
 .planit-profile-special-icon {
-    font-size: var(--font-size-large);
     flex-shrink: 0;
-    line-height: 1.2;
+    width: calc(var(--nav-size) * 0.72);
+    height: calc(var(--nav-size) * 0.72);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-base);
+    line-height: 1;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--scheme-accent) 20%, transparent);
 }
 
 .planit-profile-special-copy {
@@ -412,6 +431,28 @@
 
 .planit-profile-section-hint {
     margin: calc(var(--nav-size) * 0.1) 0 0;
+    font-size: var(--font-size-small);
+    color: var(--text-color-accent);
+}
+
+/* ── Public page visibility ─────────────────────────────────────────── */
+
+/* The `/u/<nickname>` literal inside the section hint. index.css gives `code`
+   nothing but a monospace stack, which on a prose line reads as a typo, so the
+   page tints it to mark it as an address you could actually open. */
+.planit-profile-section-privacy .planit-profile-section-hint code {
+    padding: 0 calc(var(--nav-size) * 0.08);
+    border-radius: calc(var(--border-radius) * 0.6);
+    background: color-mix(in srgb, var(--fg-blue) 14%, transparent);
+    color: var(--fg-blue);
+    word-break: break-all;
+}
+
+/* The dropper's current effect. The option labels name the setting ("Private —
+   only you and your connections"); this states what it does right now, and
+   doubles as the in-flight note while a save is in progress. */
+.planit-profile-privacy-status {
+    margin: 0;
     font-size: var(--font-size-small);
     color: var(--text-color-accent);
 }

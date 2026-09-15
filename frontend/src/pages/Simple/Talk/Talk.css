@@ -1,0 +1,478 @@
+/* ===========================================================================
+   Talk — the messenger's front door
+   ---------------------------------------------------------------------------
+   A SERVICE PAGE (FRONTEND_UI_STANDARD.md §5.7): the shared ambient ROOM for a
+   ground (`.service-room`, worn by `.talk`), one row carrying the name + live
+   state — in the flow, never pinned — then a dense grid of panels ordered by how
+   often you touch them (connect → requests → connections).
+
+   MATERIAL: the same PANE OF GLASS the other Simple surfaces use — the page
+   colour at `--glass-a`, `--glass-radius`, `--glass-shadow`, no border anywhere.
+   Colour is reserved for SIGNAL (an unread badge, a pending request), never for
+   decoration, and the only motion is a state change.
+
+   Two aliases on the root, and nothing else has to change: `--fg-blue` is this
+   page's interaction hue and `--fg-mint` its emphasis hue, so both follow the
+   visitor's colour scheme. `--fg-orange` deliberately does NOT — it is the
+   alert hue.
+   =========================================================================== */
+
+.talk {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100svh;
+  /* Clear the fixed site header. The site header is the ONLY thing that stays at
+     the top of this page — nothing of the page's own pins. */
+  padding: calc(var(--nav-size) * 1.15) calc(var(--nav-size) * 0.3) calc(var(--nav-size) * 1.2);
+  color: var(--text-color);
+  /* NO background here, deliberately: `.service-room` (worn by this element —
+     see Talk.jsx) paints the page with two `position: fixed` layers at
+     `z-index: -1`, and an opaque fill on this box would cover both. */
+  /* NOT `overflow-x: hidden`: nothing overflows, and making this element a scroll
+     container is a side effect with no upside. */
+
+  --fg-blue: var(--scheme-accent);
+  --fg-mint: var(--scheme-primary);
+  --talk-muted: var(--plane-muted);
+}
+
+/* ── Shell: one grid, panels as its items ─────────────────────────────────── */
+
+.talk-shell {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  /* `min()` inside `minmax()`: a bare 320px track minimum is wider than a 320px
+     phone's content box and every panel overflows sideways. */
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: calc(var(--nav-size) * 0.25);
+  align-items: start;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.talk-bar,
+.talk-alert,
+.talk-loading,
+.talk-panel--add,
+/* A failed load is the only thing on the page, so it takes the whole row rather
+   than sitting in one grid track beside nothing. */
+.talk-panel--failed { grid-column: 1 / -1; }
+
+/* ── Row — the name, its live state and the primary action, in the flow ───── */
+
+.talk-bar {
+  /* NOT sticky: the site header is the only thing that stays at the top of the
+     page. A pinned bar here would cost the tool a strip of the viewport on the
+     surface whose whole job is density, and it would make the panels scroll
+     under an opaque band. The name, the live state and the action scroll away
+     with the page — `relative` is only here to anchor the accent rule below. */
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.25);
+  /* Horizontal padding matches a panel's, so the page's name lines up with every
+     panel title and input below it instead of sitting hard in the bar's corner. */
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.28);
+  /* A PANE, like every panel below it: the row only needed an opaque base while it
+     was pinned. This is the same reversal `/admin` made for its head — nothing
+     scrolls under it now. */
+  background: var(--glass);
+  /* A pane's radius, so the bar reads as the topmost surface of the room rather
+     than a square slab laid over it. */
+  border-radius: var(--glass-radius);
+}
+
+/* The one piece of brand on the page: an accent rule under the toolbar. */
+.talk-bar::after {
+  content: '';
+  position: absolute;
+  /* Inset by the bar's own radius so the rule ends where the corner curve begins:
+     it never pokes past a rounded corner, needs no clipping, and keeps its own
+     rounded cap (`.admin-head::after` is the same move). */
+  left: calc(var(--glass-radius) * 0.7);
+  right: calc(var(--glass-radius) * 0.7);
+  bottom: 2px; height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint) 42%, transparent 72%);
+  pointer-events: none;
+}
+
+.talk-bar-title {
+  margin: 0;
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+.talk-bar-status {
+  font-size: var(--font-size-small);
+  color: var(--text-color-accent);
+}
+
+.talk-bar-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.1);
+}
+
+/* One row of live state, never a 2×2 stat grid. */
+.talk-chip {
+  font-size: var(--font-size-xs);
+  line-height: 1.6;
+  color: var(--text-color-accent);
+  background: color-mix(in srgb, var(--fg-blue) 8%, transparent);
+  border-radius: 999px;
+  padding: 1px 9px;
+  white-space: nowrap;
+}
+
+.talk-chip strong { color: var(--text-color); font-weight: var(--font-weight-semibold); }
+
+/* An unread badge is SIGNAL, so it wears the accent at full strength. */
+.talk-chip--accent {
+  background: color-mix(in srgb, var(--fg-mint) 22%, transparent);
+  color: var(--text-color);
+}
+
+.talk-bar-actions {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.12);
+}
+
+/* ── Panels ───────────────────────────────────────────────────────────────── */
+
+.talk-panel {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.2);
+  padding: calc(var(--nav-size) * 0.28);
+  background: var(--glass);
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow);
+}
+
+/* Nothing loaded: a short message and the retry, centred, and no invented
+   "empty account" panels next to it. */
+.talk-panel--failed {
+  align-items: center;
+  text-align: center;
+  gap: calc(var(--nav-size) * 0.25);
+  padding: calc(var(--nav-size) * 0.5);
+}
+
+.talk-panel--failed .talk-empty { max-width: 460px; }
+
+/* The connect panel is the primary tool, so it is a grid row of its own with a
+   horizontal form — the thing you came here to do, on one line. */
+.talk-panel--add {
+  gap: calc(var(--nav-size) * 0.18);
+}
+
+.talk-panel-title {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.14);
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+
+.talk-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: calc(var(--nav-size) * 0.3);
+  padding: 0 calc(var(--nav-size) * 0.1);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--fg-blue) 18%, transparent);
+  color: var(--text-color);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0;
+}
+
+.talk-empty,
+.talk-hint {
+  margin: 0;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-base);
+  color: var(--talk-muted);
+}
+
+/* ── Connect form ─────────────────────────────────────────────────────────── */
+
+.talk-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.15);
+  align-items: center;
+}
+
+.talk-input {
+  flex: 1 1 240px;
+  min-width: 0;
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.25);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-nav);
+  background: var(--bg-1);
+  color: var(--text-color);
+}
+
+.talk-input:focus {
+  outline: none;
+  border-color: var(--fg-blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--fg-blue) 25%, transparent);
+}
+
+/* ── Rows (a request, or a connection) ────────────────────────────────────── */
+
+.talk-row {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.2);
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.2);
+  /* A sunken tint INSIDE the pane, never a second pane (§5). */
+  background: var(--glass-row);
+  border-radius: var(--border-radius);
+  transition: background 0.2s ease;
+}
+
+.talk-row:hover { background: var(--glass-row-strong); }
+
+/* Outgoing requests are informational — not something to act on with urgency. */
+.talk-row--muted { background: transparent; }
+.talk-row--muted:hover { background: var(--glass-row); }
+
+/* The face + name are ONE link to that person's public page, so the pair is a
+   single flex item inside the row (the row itself keeps the action buttons). */
+.talk-row-person {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.2);
+  text-decoration: none;
+  /* ⚠️ The global `a:hover` is (0,1,1) and repaints anchors in the scheme's
+     partner hue, so both states have to NAME their colour to win. */
+  color: var(--text-color);
+}
+
+.talk-row-person:hover { color: var(--text-color); }
+.talk-row-person:hover .talk-row-name { text-decoration: underline; }
+
+.talk-avatar {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--nav-size) * 0.7);
+  height: calc(var(--nav-size) * 0.7);
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+  color: var(--text-color-inv);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.02em;
+  /* A picture has to be clipped by the frame, not spill out of it. */
+  overflow: hidden;
+}
+
+/* The picture fills and covers the frame. The server already delivers a square
+   160px JPEG, so `object-fit: cover` is a guarantee against an odd row rather than
+   a crop the layout depends on. */
+.talk-avatar__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.talk-row-main {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.talk-row-name {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.12);
+  font-size: var(--font-size-small);
+  color: var(--text-color);
+}
+
+.talk-row-meta {
+  font-size: var(--font-size-xs);
+  color: var(--talk-muted);
+  /* The preview is arbitrary message text: one clipped line, never a wrapped
+     block that makes one row taller than the rest. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.talk-unread {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: calc(var(--nav-size) * 0.34);
+  padding: 0 calc(var(--nav-size) * 0.09);
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--fg-blue), var(--fg-mint));
+  color: var(--text-color-inv);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.talk-row-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.12);
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+
+.talk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--nav-size) * 0.12);
+  /* Undo the global `button` min-height/overflow so compact rows stay compact. */
+  min-height: 0;
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.5);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.talk-btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+/* The page's action colour: the scheme's ramp in one hue, pinned per mode so the
+   label clears AA on both stops. */
+.talk-btn--primary {
+  background: var(--action);
+  color: var(--text-color-inv);
+}
+
+.talk-btn--primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.talk-btn--ghost {
+  background: var(--bg-1);
+  color: var(--text-color);
+}
+
+.talk-btn--ghost:hover:not(:disabled) {
+  background: var(--glass-btn-hover);
+  color: var(--text-color);
+}
+
+.talk-btn--sm { padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.36); }
+
+.talk-btn:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
+}
+
+/* ── Alerts, loading, and the "how it works" fold ─────────────────────────── */
+
+/* A notice is a STATUS change (a request sent, a request refused), so it is
+   allowed to be the loudest thing on the page for a moment. The mixes are
+   stronger than they look like they need to be because they composite over the
+   ROOM's tinted gradient, not over a flat surface: at 16% the band read as an
+   empty strip in dark mode. */
+.talk-alert {
+  margin: 0;
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.3);
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color);
+}
+
+.talk-alert--ok {
+  background: color-mix(in srgb, var(--fg-mint) 24%, transparent);
+}
+
+.talk-alert--error {
+  background: color-mix(in srgb, var(--fg-orange) 24%, transparent);
+}
+
+.talk-loading span { margin: 0 auto; }
+
+.talk-panel--info { gap: calc(var(--nav-size) * 0.15); }
+
+.talk-panel--info > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.talk-panel--info > summary::-webkit-details-marker { display: none; }
+
+.talk-panel--info > summary::after {
+  content: '▸';
+  margin-left: auto;
+  font-size: var(--font-size-small);
+}
+
+.talk-panel--info[open] > summary::after { content: '▾'; }
+
+.talk-facts {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.15);
+  margin: 0;
+  padding-left: calc(var(--nav-size) * 0.25);
+  list-style: disc;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-base);
+  color: var(--talk-muted);
+}
+
+.talk-facts strong { color: var(--text-color); }
+
+/* ── Portrait ─────────────────────────────────────────────────────────────── */
+
+@media (orientation: portrait) {
+  /* A row's actions move under its text: a 320px column has no room for two
+     buttons beside a name, and instead of wrapping mid-word the whole row was
+     growing wider than the panel. The person link carries the avatar and the name
+     together, so it is the thing that takes a full line now. */
+  .talk-row { flex-wrap: wrap; }
+  .talk-row-person { flex: 1 1 100%; }
+  .talk-row-actions { flex: 1 1 100%; }
+  .talk-add { flex-direction: column; align-items: stretch; }
+  /* ⚠️ `flex: 1 1 240px` is a WIDTH in a row and a HEIGHT in a column — stacking
+     the form without resetting it made the username box 240px tall on a phone.
+     The desktop basis has to be dropped, not just overridden in the other axis. */
+  .talk-add .talk-input { flex: 0 0 auto; }
+  .talk-add .talk-btn { width: 100%; }
+  .talk-bar-actions { margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .talk-row,
+  .talk-btn { transition: none; }
+}

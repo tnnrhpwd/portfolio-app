@@ -23,6 +23,11 @@ const { checkIP } = require('../utils/accessData.js');
 const { logger } = require('../utils/logger');
 const { invalidateUserCache } = require('../middleware/authMiddleware');
 const { GUEST_EMAIL } = require('../constants/guestAccount.js');
+const {
+    PROFILE_VISIBILITY,
+    isProfileVisibility,
+    normalizeProfileVisibility,
+} = require('../constants/profileVisibility.js');
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -104,8 +109,12 @@ const updateProfile = asyncHandler(async (req, res) => {
     const hasNickname = Object.prototype.hasOwnProperty.call(body, 'nickname');
     const hasEmail = Object.prototype.hasOwnProperty.call(body, 'email');
     const hasPicture = Object.prototype.hasOwnProperty.call(body, 'profilePicture');
+    // Whether `/u/<username>` is visible to anyone, or only to this account and
+    // its connections. Absent on every row written before the feature existed,
+    // which reads as private — see constants/profileVisibility.js.
+    const hasVisibility = Object.prototype.hasOwnProperty.call(body, 'profileVisibility');
 
-    if (!hasNickname && !hasEmail && !hasPicture) {
+    if (!hasNickname && !hasEmail && !hasPicture && !hasVisibility) {
         res.status(400);
         throw new Error('Nothing to update');
     }
@@ -160,6 +169,19 @@ const updateProfile = asyncHandler(async (req, res) => {
         }
     }
 
+    // ⚠️ An unrecognised value is REJECTED rather than coerced to the default: the
+    // default is private, and silently "correcting" a typo to private would leave
+    // the user thinking they had published a page that nobody can reach.
+    let nextVisibility = normalizeProfileVisibility(item.profileVisibility);
+    if (hasVisibility) {
+        const candidate = String(body.profileVisibility ?? '').trim().toLowerCase();
+        if (!isProfileVisibility(candidate)) {
+            res.status(400);
+            throw new Error(`Profile visibility must be "${PROFILE_VISIBILITY.PUBLIC}" or "${PROFILE_VISIBILITY.PRIVATE}".`);
+        }
+        nextVisibility = candidate;
+    }
+
     // ── Duplicate guard (only when a field actually changes) ───────────────
     const nicknameChanged = nextNickname.toLowerCase() !== (current.nickname || '').toLowerCase();
     const emailChanged = nextEmail.toLowerCase() !== (current.email || '').toLowerCase();
@@ -211,6 +233,11 @@ const updateProfile = asyncHandler(async (req, res) => {
         ...item,
         text: nextText,
         profilePicture: nextPicture,
+        // A top-level attribute, like `profilePicture` and deliberately NOT a
+        // segment in the `text` blob: the blob is re-parsed by login, admin,
+        // home-title and the bug-report readers, and this field is nobody else's
+        // business.
+        profileVisibility: nextVisibility,
         updatedAt: new Date().toISOString(),
     };
 
@@ -228,6 +255,7 @@ const updateProfile = asyncHandler(async (req, res) => {
             nickname: nextNickname,
             email: nextEmail,
             profilePicture: nextPicture,
+            profileVisibility: nextVisibility,
         },
     });
 });

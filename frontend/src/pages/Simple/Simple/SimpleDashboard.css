@@ -1,8 +1,8 @@
 /* ── SimpleDashboard — the dense Control workspace ──────────────────────────
    A service page (FRONTEND_UI_STANDARD.md §5.7): the ambient room for a ground,
-   a sticky toolbar carrying name + live state + primary action, then a dense
-   panel grid ordered by how often you touch it. No bands, no scroll reveals —
-   scrolling is the cost we're minimising.
+   a row carrying name + live state + primary action (in the flow, never pinned),
+   then a dense panel grid ordered by how often you touch it. No bands, no scroll
+   reveals — scrolling is the cost we're minimising.
 
    MATERIAL: the panels are PANES OF GLASS resting on the room (`.service-room`,
    which the page shell wears) — a translucent page-colour fill, a generous
@@ -30,31 +30,40 @@
 }
 .dark-theme .sd { --sd-ok: var(--green1); }
 
-/* ── Sticky toolbar — the page's "hero", collapsed onto one row ───────────── */
+/* ── Row — the name, its live state and the primary action, in the flow ───── */
 
 .sd-bar {
-  position: sticky;
-  top: var(--nav-size);            /* just under the fixed site header */
-  z-index: 5;                      /* below the header's 10, above the panels */
+  /* NOT sticky: the site header is the only thing that stays at the top of the
+     page. A pinned bar here would cost the panels a strip of the viewport on the
+     surface whose whole job is density, and it would make them scroll under an
+     opaque band. The name, the live state and the action scroll away with the
+     page — `relative` is only here to anchor the accent rule below. */
+  position: relative;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.25);
-  padding: calc(var(--nav-size) * 0.18) 0;
-  /* OPAQUE, and that is the one place this page differs from `/admin`: the
-     toolbar is STICKY and content scrolls beneath it, so a translucent pane
-     would let the panels' text run under this one's labels. It takes the glass
-     LAND (`--glass-land`, the same fill a pane is made of) rather than a
-     transparency, so it still reads as the same material — and in the dark
-     theme the land is lifted off the page, which is what makes the bar read as
-     the workspace's FRAME rather than as one more panel. */
-  background: var(--glass-land);
-}
+  /* Horizontal padding is the PANEL padding (`.sd-panel-body`), so the room's
+     name sits on the same left edge as every panel below it instead of jammed
+     into the corner of a full-bleed bar. */
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.28);
+  /* Ordinary glass, like every panel: the row only needed an opaque base while it
+     was pinned and panels scrolled beneath it. This is the same reversal
+     `/admin` made when its head stopped sticking — nothing scrolls under it now. */
+  background: var(--glass);  /* A pane's radius (`.sd-panel`), so the bar reads as the topmost surface of
+     the room rather than a square slab laid over it. */
+  border-radius: var(--glass-radius);}
 /* The one piece of brand on the page: an accent rule under the toolbar. */
 .sd-bar::after {
   content: '';
   position: absolute;
-  left: 0; right: 0; bottom: -1px; height: 2px;
+  /* Inset by the bar's own radius so the rule ends where the corner curve begins:
+     it never pokes past a rounded corner, needs no clipping, and keeps its own
+     rounded cap (`.admin-head::after` is the same move). */
+  left: calc(var(--glass-radius) * 0.7);
+  right: calc(var(--glass-radius) * 0.7);
+  bottom: 2px; height: 2px;
+  border-radius: 999px;
   background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint) 42%, transparent 72%);
   pointer-events: none;
 }
@@ -469,11 +478,8 @@
 }
 
 /* Responsive — key off WIDTH, not orientation: a tall desktop window is still
-   wide. A sticky toolbar that wraps to three rows would eat the screen, so it
-   only sticks where there's room for it. */
-@media (max-width: 900px) {
-  .sd-bar { position: static; }
-}
+   wide. (No `.sd-bar { position: static }` override any more: the row is never
+   pinned, so a wrapped one on a narrow screen costs nothing.) */
 @media (max-width: 760px) {
   .sd-grid,
   .sd-grid--three { grid-template-columns: 1fr; }

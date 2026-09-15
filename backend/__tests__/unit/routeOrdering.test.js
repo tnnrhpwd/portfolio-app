@@ -39,4 +39,48 @@ describe('routeData.js route ordering', () => {
     expect(prefsIndex).toBeGreaterThan(-1);
     expect(prefsIndex).toBeLessThan(indexOf("router.route('/:id')"));
   });
+
+  // A review is a PUBLIC row (created through POST /public, so it carries no
+  // `Creator:` segment) — the generic `PUT /:id` can never edit one. The
+  // dedicated routes are two-segment, so they cannot be captured by `/:id`, but
+  // they are declared above it so the ordering is obvious rather than accidental.
+  it('registers the review routes before the generic /:id route', () => {
+    const listIndex = indexOf("router.route('/reviews/mine')");
+    const editIndex = indexOf("router.route('/reviews/:id')");
+    expect(listIndex).toBeGreaterThan(-1);
+    expect(editIndex).toBeGreaterThan(-1);
+    expect(listIndex).toBeLessThan(indexOf("router.route('/:id')"));
+    expect(editIndex).toBeLessThan(indexOf("router.route('/:id')"));
+  });
+
+  it('registers every messenger route before the generic /:id route', () => {
+    const generic = indexOf("router.route('/:id')");
+    const messengerRoutes = [
+      "'/messenger/directory'",
+      "'/messenger/peers/:userId'",
+      "'/messenger/avatars'",
+      "'/messenger/requests'",
+      "'/messenger/requests/:userId/accept'",
+      "'/messenger/requests/:userId/decline'",
+      "'/messenger/contacts/:userId'",
+      "'/messenger/conversations/:userId/messages'",
+      "'/messenger/conversations/:userId/read'",
+    ];
+    for (const route of messengerRoutes) {
+      const at = indexOf(route);
+      expect(at).toBeGreaterThan(-1);
+      expect(at).toBeLessThan(generic);
+    }
+  });
+
+  // ⚠️ `/messenger/requests` (send) and `/messenger/requests/:userId/accept`
+  // differ by method AND depth, but `/messenger/requests/:userId` (cancel) is a
+  // DELETE on the same path the POST above uses — that is intentional and not a
+  // collision, so what actually matters is that no message route is declared
+  // AFTER a broader route on the same path, which the loop above covers.
+  it('does not declare the same messenger path twice with the same verb', () => {
+    const declarations = source.match(/router\.(get|post|delete|put)\('(\/messenger\/[^']*)'/g) || [];
+    expect(declarations.length).toBeGreaterThan(0);
+    expect(new Set(declarations).size).toBe(declarations.length);
+  });
 });

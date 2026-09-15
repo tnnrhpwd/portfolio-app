@@ -11,6 +11,7 @@ const { checkIP } = require('../utils/accessData.js');
 const { isSpecialUser } = require('../utils/apiUsageTracker');
 const { logger } = require('../utils/logger');
 const { GUEST_EMAIL, GUEST_PASSWORD, GUEST_NICKNAME } = require('../constants/guestAccount.js');
+const { DEFAULT_PROFILE_VISIBILITY, normalizeProfileVisibility } = require('../constants/profileVisibility.js');
 const { sendEmail } = require('../services/emailService');
 
 // Configure AWS DynamoDB Client
@@ -202,6 +203,10 @@ const registerUser = asyncHandler(async (req, res) => {
             isSpecial: false,
             createdAt: creationDate, // Include the birth date
             profilePicture: null, // New accounts start with the default checkmark avatar
+            // A new page is PRIVATE until its owner says otherwise (see
+            // constants/profileVisibility.js) — so the client can render the
+            // setting correctly on the very first visit to /profile.
+            profileVisibility: DEFAULT_PROFILE_VISIBILITY,
             token: generateToken(String(params.Item.id)),   //uses JWT secret
         });
     } catch (error) {
@@ -321,6 +326,9 @@ const loginUser = asyncHandler(async (req, res) => {
                     stripe: 'guest_customer_id',
                     createdAt: guestUser.createdAt,
                     profilePicture: null,
+                    // The demo account is shared and public, so its page stays
+                    // private like every other account's.
+                    profileVisibility: DEFAULT_PROFILE_VISIBILITY,
                     token: generateToken(String(guestUser.id)),
                 });
             }
@@ -389,6 +397,9 @@ const loginUser = asyncHandler(async (req, res) => {
                 // Base64 data URL baked on the client; null when unset. Kept out
                 // of the pipe-delimited text blob (see profileController.js).
                 profilePicture: user.profilePicture || null,
+                // Who may see `/u/<nickname>`. Absent on older rows, which read as
+                // private — normalised here so the client never has to guess.
+                profileVisibility: normalizeProfileVisibility(user.profileVisibility),
                 token: generateToken(String(user.id)),
             };
             

@@ -101,6 +101,29 @@ describe('updateProfile', () => {
         expect(mockInvalidateUserCache).toHaveBeenCalledWith(USER_ID);
     });
 
+    it('rewrites only the Email segment, trimming and lowercasing the new address', async () => {
+        primeDynamo();
+
+        const req = {
+            user: { id: USER_ID, createdAt: CREATED_AT },
+            body: { email: '  New.Address@Example.COM ' },
+        };
+        const res = mockRes();
+
+        await updateProfile(req, res);
+
+        // Only the Email segment changes, and the stored value is lowercased so
+        // it matches what login/forgot-password look up (both run the address
+        // through normalizeEmail before scanning the blob).
+        expect(lastPut().text).toBe(
+            `Nickname:Old Name|Email:new.address@example.com|Password:${PASSWORD_HASH}|Birth:${CREATED_AT}|stripeid:cus_123`,
+        );
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+            success: true,
+            profile: expect.objectContaining({ nickname: 'Old Name', email: 'new.address@example.com' }),
+        }));
+    });
+
     it('preserves fields appended after stripeid (e.g. the admin Special flag)', async () => {
         primeDynamo({ item: buildItem({ text: `${baseText}|Special:true` }) });
 
@@ -109,8 +132,7 @@ describe('updateProfile', () => {
 
         expect(lastPut().text).toBe(
             `Nickname:Renamed|Email:old@example.com|Password:${PASSWORD_HASH}|Birth:${CREATED_AT}|stripeid:cus_123|Special:true`,
-        );
-    });
+        );    });
 
     it('stores a valid image data URL and can clear it again', async () => {
         const picture = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ==';
@@ -196,5 +218,75 @@ describe('updateProfile', () => {
 
         await expect(updateProfile(req, mockRes())).rejects.toThrow(/Nothing to update/);
         expect(mockSend).not.toHaveBeenCalled();
+    });
+
+    // ── Profile visibility (`/u/<username>`) ────────────────────────────────
+    // The default is the security-relevant half: an account row written before
+    // this feature existed has no attribute at all, and must read as private.
+
+    it('defaults to private, and reports that back', async () => {
+        primeDynamo(); // the row has no profileVisibility attribute
+
+        const req = { user: { id: USER_ID, createdAt: CREATED_AT }, body: { nickname: 'Renamed' } };
+        const res = mockRes();
+        await updateProfile(req, res);
+
+        expect(lastPut().profileVisibility).toBe('private');
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+            profile: expect.objectContaining({ profileVisibility: 'private' }),
+        }));
+    });
+
+    it('publishes the page when asked, without touching the text blob', async () => {
+        primeDynamo();
+
+        const req = { user: { id: USER_ID, createdAt: CREATED_AT }, body: { profileVisibility: 'public' } };
+        const res = mockRes();
+        await updateProfile(req, res);
+
+        expect(lastPut().profileVisibility).toBe('public');
+        // A top-level attribute, like profilePicture — the blob is re-parsed by
+        // login/admin/home-title and this field is not their business.
+        expect(lastPut().text).toBe(baseText);
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+            profile: expect.objectContaining({ profileVisibility: 'public' }),
+        }));
+    });
+
+    it('can flip back to private', async () => {
+        primeDynamo({ item: buildItem({ profileVisibility: 'public' }) });
+
+        const req = { user: { id: USER_ID, createdAt: CREATED_AT }, body: { profileVisibility: 'private' } };
+        await updateProfile(req, mockRes());
+
+        expect(lastPut().profileVisibility).toBe('private');
+    });
+
+    it('normalises case and whitespace', async () => {
+        primeDynamo();
+
+        const req = { user: { id: USER_ID, createdAt: CREATED_AT }, body: { profileVisibility: '  PUBLIC ' } };
+        await updateProfile(req, mockRes());
+
+        expect(lastPut().profileVisibility).toBe('public');
+    });
+
+    it('rejects an unrecognised value rather than silently making it private', async () => {
+        // Coercing a typo to the default would leave the user believing they had
+        // published a page that nobody can reach.
+        primeDynamo();
+
+        const req = { user: { id: USER_ID, createdAt: CREATED_AT }, body: { profileVisibility: 'yes' } };
+        await expect(updateProfile(req, mockRes())).rejects.toThrow(/must be "public" or "private"/);
+        expect(mockSend.mock.calls.some(([cmd]) => cmd.__type === 'Put')).toBe(false);
+    });
+
+    it('keeps the existing setting when the field is not sent', async () => {
+        primeDynamo({ item: buildItem({ profileVisibility: 'public' }) });
+
+        const req = { user: { id: USER_ID, createdAt: CREATED_AT }, body: { nickname: 'Renamed' } };
+        await updateProfile(req, mockRes());
+
+        expect(lastPut().profileVisibility).toBe('public');
     });
 });

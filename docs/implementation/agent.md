@@ -212,7 +212,8 @@ is read correctly) and the goal's **text** in place of a compiled `steps` array:
 | `POST /market/skills/:marketId/rate` / `/flag` | Shared route — a goal's marketId works here too |
 
 **Frontend:** `/market` is now a **service page** (§5.7 of the UI standard — flat
-surface, sticky toolbar with a **Skills | Goals** switch, dense panel grid) and the
+surface, a row carrying the name + a **Skills | Goals** switch + the search, nothing
+pinned, dense panel grid) and the
 fourth room in the header switcher (`SIMPLE_NAV_SURFACES`). Sharing is picked from
 the user's own goals (`listWorkspace(kind:'goal')`); saving shows the goal text, its
 "done when" criteria, and one **＋ Save to my goals** button.
@@ -2634,6 +2635,293 @@ noticed.
 - **Not touched:** the `@media (max-width: 640px)` block in `SimpleNav.css` is effectively dead — the
   compact switcher lives in the header's center slot, which is `display: none` below 820px, so those
   rules only ever apply to the non-compact standalone bar that nothing renders today.
+
+---
+
+## 18. Talk — member messaging, and editing your own review
+
+Shipped 2026-09-14. Two requests, one pass: **let a user edit their own review**, and **build a
+messenger** (`/talk`) with friend requests, spam limits, and a direct conversation that replaces the
+AI chat on `/net`.
+
+### 18.1 Why the review edit needed a new endpoint
+
+A review is a **public** row: the Support form works signed-out, so it is written through
+`POST /api/data/public`, which stamps **no `Creator:` segment**. The generic `PUT /api/data/:id`
+authorises on `Creator:<userId>` (`putHashData.js`), so it 401s on every review — there was no way to
+edit one, not a missing button.
+
+So `controllers/reviewController.js` adds three routes with their own authorisation: the row's
+`User:<email>` segment must match the caller's email.
+
+```
+GET    /api/data/reviews/mine      → the caller's reviews, newest edit first
+PUT    /api/data/reviews/:id       → rewrite the blob (title/category/rating/content)
+DELETE /api/data/reviews/:id       → remove it
+```
+
+- **Anonymous rows stay read-only.** `User:Anonymous` cannot be proven to belong to anyone, so an
+  edit is refused. That is a deliberate trade-off, and the UI says so rather than hiding the button.
+- **An edit preserves the author and `Timestamp:`** and appends `|EditedAt:<iso>`, which is what
+  lets the admin view show that a review changed after publication. Edits are unlimited (the product
+  decision) but rate-limited (`reviewWriteLimiter`, 40/15min).
+- **`|` and newlines are replaced, not rejected** — in both the client (`utils/reviewUtils.js`) and
+  the server. A `|` inside a title used to split the blob early and corrupt the row for every reader
+  that splits on `|` (the admin table, `pull-support-tickets.js`).
+- Segments are declared above `router.route('/:id')` and guarded by `routeOrdering.test.js`, the same
+  trap `/profile` and `/email-preferences` were registered for.
+
+Frontend: the list lives in the **existing** "Leave Review" tab (`components/Support/ReviewTab.jsx`) —
+that is where a user who wants to change a review already is. `useMyReviews.js` owns the list and the
+create-vs-edit decision, so `useSupportHandlers` no longer has a `handleReviewSubmit`.
+
+### 18.2 The messenger
+
+**`/talk` is a SERVICE PAGE** (§5.7): the shared room for a ground, one row at the top (name + handle
++ request/unread counts + Refresh) — in the flow, nothing pinned — then the panels — connect →
+requests → connections — and the limits folded into a `<details>`. No bands, no circles, no reveals.
+
+**There is no user directory.** You type a username you already know. That is what makes the request
+limits a real constraint rather than theatre, and it is why `/talk` never lists accounts.
+
+**The handle is the account's existing `Nickname`** — already enforced unique (case-insensitively) by
+`registerUser` — so the feature needed no migration and every existing account has one.
+
+**A member conversation lives on `/net?with=<userId>`**, where it *replaces* `SimpleChat`:
+
+- Nothing on that path touches an LLM. The provider catalogue is not even fetched (`Net.jsx` skips
+  `getLLMProviders()`), so "no AI in this conversation" is true rather than merely intended.
+- It reuses Net's shell (`100svh` ladder, composer above the keyboard, `overscroll-behavior`) by
+  filling `.net-hero-section`, and must never restate a height of its own — the same rule §5.7 states
+  for the shell.
+- `/talk`'s Message button is a `<Link to="/net?with=…">` rather than a `navigate()`, so Talk stays
+  open behind the conversation.
+
+### 18.3 Storage: three item shapes and one derived index
+
+All in the `Simple` table (composite key `id` + `createdAt`):
+
+| Item id | Holds |
+| --- | --- |
+| `msg_index_<userId>` | one row per account: contacts, pending in/out, the outgoing request log, cooldowns — JSON in `text` |
+| `msg_friend_<a>_<b>` | one row per friendship, ids **sorted** so the pair has a single canonical row. This is the authorisation check for messaging |
+| `msg_req_<to>_<from>` | one row per friend request (its status is the record of truth) |
+| `msg_msg_<convId>` + `createdAt` | one row per message |
+
+- **The conversation is the partition, the sort key is the timestamp.** That is what makes
+  `GET …/messages?since=` a pure key condition (`id = :conv AND createdAt > :since`) with
+  `ScanIndexForward: false` and a `Limit` — no filter, no GSI, no cursor table.
+- ⚠️ **The sort key must be unique and monotonic.** `toISOString()` has millisecond resolution, and
+  two messages in one millisecond are the *same row* — the second silently overwrites the first.
+  Worse, ordering the conversation *by* a random tiebreaker scrambles messages sent together. So
+  `messageSortKey()` is a millisecond stamp + a monotonic process counter + randomness only for the
+  cross-instance case. A test asserts 1000 same-millisecond keys are unique *and* strictly increasing.
+- **The per-user index is a cache, not a source of truth.** The friend rows authorise; the index just
+  makes "who are my contacts?" one `GetItem` instead of a scan. It is read-modify-written behind a
+  `version` condition (your own actions and a friend's message are independent writers), and
+  `rebuildIndex()` reconstructs a lost one from the friend/request rows the first time it is missing.
+- ⚠️ **A conditional write must not carry an unused value.** `attribute_not_exists(#v)` is the FIRST
+  write of a user's index and references no placeholder, but the original code passed `:expected`
+  alongside it — DynamoDB rejects the whole write with *"Value provided in
+  ExpressionAttributeValues unused in expressions"*. That 500'd **every friend request to an account
+  that had never opened Talk**, i.e. the common case, and the unit fake (which accepted the extra
+  value) did not model the validation. The fake now rejects unused placeholders, which is what
+  covered it.
+- ⚠️ **A read receipt must be an `UpdateCommand`.** `markConversationRead` marks rows read — and the
+  first version did it with a `PutCommand` carrying `body: null`, which *erases the message it was
+  marking as read*. The regression test ("reading a conversation does not destroy the messages it
+  marks as read") is there for exactly that.
+
+### 18.4 Encryption: in transit and at rest — NOT end-to-end
+
+The chosen model (asked, and answered): **the server holds the key**. `services/messageCrypto.js` is
+AES-256-GCM, key = HKDF(`MESSAGE_ENCRYPTION_KEY` ‖ `JWT_SECRET`, fixed salt/info), stored as
+`v1.<iv>.<tag>.<ciphertext>` base64url, with the **conversation id as AAD** so a blob cannot be moved
+into another conversation and decrypted there. `lastPreview` is encrypted the same way, so nothing
+readable is written to a row.
+
+- ✅ A dump of the table, a DynamoDB console session, an export, a log line, or a support engineer
+  reading raw rows sees ciphertext. A pre-filter scan cannot match message text, because there is none.
+- ❌ The running server can decrypt anything, because it has to in order to display it.
+- **`MESSAGE_ENCRYPTION_KEY` is unset in this environment**, so the key is derived from `JWT_SECRET`
+  and the service logs a warning on first use. That is deliberate — dev and preview work with no new
+  configuration — but **setting the dedicated variable is the intended production state, and rotating
+  it makes previously stored messages undecryptable**.
+- **Do not describe this as end-to-end** anywhere in the UI. `/talk` says "encrypted in transit and at
+  rest"; it does not say "only you can read it".
+- ⚠️ **A message body must NOT go through the shared `sanitizeInput`.** That middleware calls
+  sanitize-html with `disallowedTagsMode: 'recursiveEscape'`, which HTML-escapes **plain text**: a
+  member typing `Tom & Jerry` had `Tom &amp; Jerry` stored and displayed, and `5 < 6` came back as
+  `5 &lt; 6`. Verified by running the middleware's own options (not read off the source). The two
+  messenger routes that carry user text therefore skip it — nothing renders either value as markup
+  (React escapes text nodes), and both are bounded in `messengerService` instead. Covered by the
+  "round-trips message text verbatim" test.
+
+### 18.5 Anti-spam limits
+
+Enforced in `messengerService.sendFriendRequest` (the service, not only the route), with
+`friendRequestLimiter` (20/hour) as the outer wall:
+
+| Limit | Value |
+| --- | --- |
+| Outstanding outgoing requests | 20 |
+| New requests | 10/hour, 40/day |
+| Connections | 200 |
+| Retry after a decline | 7 days, on **both** sides |
+| Message length | 4000 chars |
+
+Two behaviours worth knowing: a request **to someone who already asked you** is auto-accepted instead
+of creating a mirror-image pair that both sides would have to resolve, and a decline stamps a cooldown
+on both indexes so the same request cannot be re-sent immediately.
+
+### 18.6 Files
+
+- Backend: `services/messageCrypto.js`, `services/messengerService.js`, `services/avatarService.js`,
+  `controllers/messengerController.js`, `controllers/reviewController.js`, `utils/userIdentity.js`,
+  routes in `routes/routeData.js`, limits in `middleware/rateLimiter.js`.
+- Frontend: `pages/Simple/Talk/Talk.{jsx,css}`, `components/Simple/Talk/DirectChat.{jsx,css}`,
+  `components/Simple/Talk/TalkAvatar.jsx`, `services/messengerApi.js`, `services/reviewApi.js`,
+  `utils/talkUtils.js`, `utils/reviewUtils.js`, `utils/avatarCache.js`, `hooks/useAvatars.js`,
+  `hooks/useMyReviews.js`; `/net` DM mode in `pages/Simple/Net/Net.jsx`; dropper entry in
+  `components/HeaderDropper/HeaderDropper.jsx`.
+- Tests: backend `messengerService` (35), `avatarService` (9), `reviewController` (22),
+  `messageCrypto` (9), `routeOrdering` (+3); frontend `talkUtils` (16), `avatarCache` (20),
+  `reviewUtils` (12), `ReviewTab` (11), `TalkAvatar` (6).
+
+### 18.7 Deliberate omissions
+
+- **No avatars for anyone you are not connected to** — see §18.8. This is the one place the feature
+  is narrower than it looks, on purpose.
+- **Nicknames are stamped into a contact entry when the connection is made**, so a later rename is not
+  reflected until the two reconnect. Refreshing it would mean a user read per contact per load.
+- **Messages are not deleted when a connection is removed** — "Remove" drops the contact, not the
+  transcript. Nothing in the UI implies otherwise.
+- **No notifications.** An unread count in the toolbar and on the contact row is the whole of it.
+
+### 18.8 Avatars
+
+Once a request is **accepted**, the connection's profile picture appears in the `/talk` contact row
+and in the `/net` conversation header (falling back to initials — see below).
+
+**The gate is the feature.** `GET /messenger/avatars?ids=…` returns a picture **only for an accepted
+connection**: a pending request, a declined one, a stranger's id you guessed, or your own id are all
+reported as `skipped` and send no image. Asking for usernames therefore does not show you faces, and
+because the id list is capped (24) it cannot be used to enumerate accounts either. The gate is
+enforced server-side in `collectAvatars`; the client's copy of that rule is only about not making a
+pointless request.
+
+**The stored picture is never sent.** `profilePicture` is a 512px JPEG data URL (20–80 KB). Rendering
+it in a 32px circle is ~20x the pixels the layout can show, and a data URL cannot be HTTP-cached, so
+the browser would pay that per friend per load. `services/avatarService.js` re-encodes once with
+`sharp` (already a dependency) to a **96px JPEG, ~3–5 KB**, and caches it in-process by a hash of the
+source that doubles as the client's cache key.
+
+**The client keeps them.** `utils/avatarCache.js` stores `{ src, etag, at }` per account in
+`localStorage` (capped at 400 entries, ~1.6 MB), and `hooks/useAvatars.js` asks only for accounts
+that are missing or older than 12h. Consequences worth knowing:
+
+- A normal visit (everything cached) makes **no request at all** — verified live: with no contacts the
+  page issued zero `/messenger/avatars` calls.
+- A cached picture is sent back as its `etag`, so an unchanged picture costs bytes rather than an
+  image, and a **changed** picture still arrives on its own.
+- "No picture" is a stored answer (`src: null, etag: ''`), not a missing one, so an account without one
+  is not re-fetched forever. A picture that fails to decode is cached the same way, with its real etag.
+- A **stale** entry is still rendered — a face from yesterday beats initials — and refreshed behind it.
+- A `skipped` id is **pruned** from the cache: skipped means "no longer connected", and keeping the
+  entry would keep showing the face of someone you just removed.
+
+**Initials, not the brand mark.** `components/Simple/Talk/TalkAvatar.jsx` draws the picture when there
+is one and initials otherwise. `ProfileAvatar` (used by `/profile`) falls back to the brand checkmark
+instead, and that difference is deliberate: `/profile` shows one person you already know, whereas a
+contact list is a column of them, where ten identical checkmarks identify nobody and "GU" vs "GW"
+does. The picture is `alt`-described; the initials are `aria-hidden`, because the name is always
+beside the frame.
+
+---
+
+## 19. The member page — `/u/<username>`
+
+### 19.1 What it is
+
+The page a member sends someone. Discovery page (`FRONTEND_UI_STANDARD.md` §5), because a stranger
+can arrive from a shared link knowing nothing: a face and a name first, then what the person has
+done, then a closing band inviting the visitor to have one of their own. `/talk` is the service page;
+this is the shareable one. It is linked from the Talk contact row, the `/net` conversation header and
+`/profile`.
+
+**Where the numbers come from differs, so the page says which.** Identity and join date come from the
+account row. Games come from the **public leaderboards**, whose rows are posted by the players
+themselves — the section says "self-reported rather than verified" out loud rather than dressing them
+up as a record. Published skills and goals carry an `authorUserId` stamped by the server on publish,
+so those are genuinely attributable. A band with nothing in it is not rendered at all.
+
+### 19.2 Visibility — private by default
+
+**Private means the owner and the people they are connected with, and nobody else.** The default is
+`private`, and — this is the part that matters — an account row written before this setting existed
+has no `profileVisibility` attribute at all, which must read as private rather than as "no
+preference, so show everything".
+
+One constant module owns that rule, `backend/constants/profileVisibility.js`, because two places have
+to agree: the controller that **writes** the setting and the service that **enforces** it. A second
+copy of the string `'public'` is how a gate stops matching its own setting. Note the asymmetry:
+
+- **On write** the controller validates and **rejects** anything that is not exactly `public` or
+  `private` (`400`) instead of coercing it. Coercing a typo to the default would leave a user
+  believing they had published a page nobody can reach.
+- **On read** `normalizeProfileVisibility` serves anything that is not a literal `'public'` as
+  private. The client mirrors *this* rule, not the write rule — `profileVisibilityOf` in
+  `utils/userProfileUtils.js` matches exactly, with no trimming or case-folding, so the `/profile`
+  dropper can never read "Public" for a page the server refuses to serve.
+
+**The gate runs before anything is gathered.** For a viewer who is neither the owner nor a
+connection, `buildPublicProfile` returns early with a **restricted** payload: the nickname, the
+visibility, and flags — no picture, no board scan, no published list, because none of it should exist
+for that caller in the first place. Skipping the work is the point; there is nothing to leak because
+nothing was fetched.
+
+**Restricted is a `200`, not a `403`.** The page still has something true to show (who this is, and
+the one action that would open it), so a shared private link lands somewhere sensible instead of on a
+dead end that looks identical to a mistyped username — and the client gets one render path instead of
+an error branch that forgives itself. `UserProfile.jsx` renders that state as a lock, the nickname,
+an explanation, **Connect** (only when signed in), and — after a request is sent — **Check again**.
+
+**A private page is never indexed.** `SEO` takes `noindex` whenever the setting is not `public`, for
+every viewer including the owner: being able to read your own private page does not make it public.
+
+**How a private page opens.** Accepting the friend request is the gate, so the page opens on the next
+load — and if a request is **auto-accepted** (both sides had already asked), the client re-fetches
+immediately rather than telling you it sent a request against a page you may now read.
+
+### 19.3 The control, on `/profile`
+
+A panel between the identity and storage sections, titled "Who can see your page", holding two things:
+a `<select>` (private — only you and your connections; public — anyone with the link) and a link to
+the page itself. It reuses the preferences grid's existing control classes rather than adding a second
+select style to the same page, and the live meaning of the current setting is printed underneath,
+because "Public" alone reads like "listed somewhere".
+
+The value is seeded from the login response (`postData.js` returns `profileVisibility` alongside
+`profilePicture`) and kept in step by the `updateProfile.fulfilled` reducer, which merges the returned
+profile back into `state.user` — so the setting survives a reload without a second round trip. A
+failed save **puts the dropper back** and says so: leaving it on a value the server rejected is the
+same lie the validation exists to prevent.
+
+The public guest account cannot change its own visibility — or anything else — because
+`PUT /api/data/profile` returns `403` for `GUEST_EMAIL`. It is a shared demo login.
+
+### 19.4 Files
+
+| Concern | File |
+| --- | --- |
+| The setting, in one place | `backend/constants/profileVisibility.js` |
+| Write path (`PUT /api/data/profile`) | `backend/controllers/profileController.js` |
+| The gate + the page's data | `backend/services/publicProfile.js` |
+| Boards / published work | `backend/services/gameBoards.js` |
+| Route | `backend/routes/routeData.js` — `GET /u/:username` |
+| The page | `frontend/src/pages/UserProfile/UserProfile.jsx` |
+| Wording + path building | `frontend/src/utils/userProfileUtils.js` |
+| The control | `frontend/src/pages/Profile/Profile.jsx` |
 
 ---
 

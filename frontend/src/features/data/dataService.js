@@ -699,8 +699,9 @@ const updateEmailPreferences = async (token, preferences) => {
     }
 };
 
-// Update the current user's own profile (profile name, email, profile picture).
-// `updates` may contain any subset of { nickname, email, profilePicture }.
+// Update the current user's own profile (profile name, email, profile picture,
+// public-page visibility). `updates` may contain any subset of
+// { nickname, email, profilePicture, profileVisibility }.
 const updateProfile = async (token, updates) => {
     const config = { headers: { Authorization: `Bearer ${token}` } };
     try {

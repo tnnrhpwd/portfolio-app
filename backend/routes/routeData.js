@@ -9,7 +9,7 @@ const multer = require('multer');
 // ============================================================================
 const { protect } = require('../middleware/authMiddleware');
 const { requireAdmin, requireAdminOrSpecial } = require('../middleware/adminAccess');
-const { authLimiter, paymentLimiter, llmLimiter, imageGenLimiter, ocrLimiter, uploadLimiter, musicGenLimiter, musicLimiter, workspaceReadLimiter, workspaceWriteLimiter, workspaceActionLimiter, marketReadLimiter, marketPublishLimiter, marketWriteLimiter, pollsReadLimiter, pollsWriteLimiter } = require('../middleware/rateLimiter');
+const { authLimiter, paymentLimiter, llmLimiter, imageGenLimiter, ocrLimiter, uploadLimiter, musicGenLimiter, musicLimiter, workspaceReadLimiter, workspaceWriteLimiter, workspaceActionLimiter, marketReadLimiter, marketPublishLimiter, marketWriteLimiter, pollsReadLimiter, pollsWriteLimiter, reviewWriteLimiter, messengerReadLimiter, messengerWriteLimiter, friendRequestLimiter, profileReadLimiter } = require('../middleware/rateLimiter');
 const { 
   validateRegistration, 
   validateLogin, 
@@ -117,7 +117,33 @@ const {
 const {
   autoMap,
 } = require('../controllers/uiMapperController');
-
+// Public profile (`/u/:username`) — assembled from what is public by construction.
+const {
+  getPublicProfile,
+} = require('../controllers/publicProfileController');
+// Reviews — a signed-in user editing their OWN review. Separate from
+// `putHashData` because a review is a public row with no `Creator:` segment
+// (see controllers/reviewController.js).
+const {
+  listMyReviews,
+  updateMyReview,
+  deleteMyReview,
+} = require('../controllers/reviewController');
+// Talk messenger — friend graph + encrypted direct messages (docs/implementation
+// /agent.md §18). Every route is signed-in only.
+const {
+  getMessengerDirectory,
+  getMessengerPeer,
+  getMessengerAvatars,
+  postFriendRequest,
+  postAcceptRequest,
+  postDeclineRequest,
+  deleteFriendRequest,
+  deleteMessengerContact,
+  getConversationMessages,
+  postConversationMessage,
+  postConversationRead,
+} = require('../controllers/messengerController');
 // Simple Marketplace controller (public/shared skill marketplace, §4)
 const {
   publishSkill,
@@ -354,6 +380,12 @@ router.get('/stripe-config', optionalAuth, getStripeConfig);
 // Dynamic homepage title (public, auth-aware for nickname/email/plan rules)
 router.get('/home-title', optionalAuth, getHomeTitle);
 
+// Public profiles — `/u/<username>` (docs/implementation/agent.md §19).
+// Open to signed-out visitors, and auth-AWARE: `optionalAuth` is what lets the
+// response say "this is you" or "you are already connected" to a signed-in
+// viewer. Two segments, so it cannot collide with the generic `/:id` below.
+router.get('/u/:username', profileReadLimiter, optionalAuth, getPublicProfile);
+
 // Purchase gate status (public — used by frontend to hide/disable upgrade CTAs)
 router.get('/purchase-gate', getPurchaseGateStatus);
 
@@ -436,6 +468,52 @@ router.post('/process-file', protect, uploadLimiter, fileProcessUpload, processF
 // field itself, and sanitize-html would have to be trusted not to mangle the
 // base64 data URL that carries the picture.
 router.put('/profile', protect, updateProfile);
+
+// My own reviews — read, edit, delete.
+//
+// ⚠️ Route-ordering note (the same trap /profile and /email-preferences are
+// registered above for): these are two-segment paths, so they cannot be
+// swallowed by `PUT /:id`, but they are still declared here — above the generic
+// routes — so the ordering is obvious to the next reader rather than a surprise
+// that happens to work.
+// Reviews are created through `POST /public` (no account needed) and carry no
+// `Creator:` segment, which is why the generic `PUT /:id` can never edit one.
+router.route('/reviews/mine')
+  .get(protect, workspaceReadLimiter, listMyReviews);
+
+router.route('/reviews/:id')
+  .put(protect, reviewWriteLimiter, sanitizeInput, updateMyReview)
+  .delete(protect, reviewWriteLimiter, deleteMyReview);
+
+// ── TALK MESSENGER (docs/implementation/agent.md §18) ───────────────────────
+// Friend graph + direct messages. Every route is signed in: the service keys
+// everything off `req.user.id`, and a userId in the path is only ever the PEER,
+// re-authorised on each call. Order matters — the specific paths are declared
+// before the parameterised ones, and none of them can collide with `/:id`
+// above because they are all multi-segment.
+router.get('/messenger/directory', protect, messengerReadLimiter, getMessengerDirectory);
+router.get('/messenger/peers/:userId', protect, messengerReadLimiter, getMessengerPeer);
+router.get('/messenger/avatars', protect, messengerReadLimiter, getMessengerAvatars);
+
+// ⚠️ `sanitizeInput` is deliberately NOT applied to the two messenger routes that
+// carry user text (`requests`, and a conversation's message body).
+//
+// It is not a safety loss and it is a real fidelity gain: `sanitizeInput` runs
+// sanitize-html with `disallowedTagsMode: 'recursiveEscape'`, so plain text is
+// HTML-ESCAPED — a member typing "Tom & Jerry" would have `&amp;` stored, and
+// "5 < 6" would come back as "5 &lt; 6" *in the message itself*. Nothing in Talk
+// renders either value as HTML (React escapes text nodes on render, and both are
+// only ever compared or displayed), and both are bounded and validated in
+// `messengerService` (username shape + a lookup key; body 1–4000 chars).
+router.post('/messenger/requests', protect, friendRequestLimiter, postFriendRequest);
+router.post('/messenger/requests/:userId/accept', protect, messengerWriteLimiter, sanitizeInput, postAcceptRequest);
+router.post('/messenger/requests/:userId/decline', protect, messengerWriteLimiter, sanitizeInput, postDeclineRequest);
+router.delete('/messenger/requests/:userId', protect, messengerWriteLimiter, deleteFriendRequest);
+router.delete('/messenger/contacts/:userId', protect, messengerWriteLimiter, deleteMessengerContact);
+
+router.get('/messenger/conversations/:userId/messages', protect, messengerReadLimiter, getConversationMessages);
+router.post('/messenger/conversations/:userId/messages', protect, messengerWriteLimiter, postConversationMessage);
+router.post('/messenger/conversations/:userId/read', protect, messengerWriteLimiter, sanitizeInput, postConversationRead);
 
 // Email notification preferences — same ordering constraint as /profile above:
 // registered here so `PUT /email-preferences` isn't swallowed by `PUT /:id`.

@@ -1,10 +1,10 @@
 /* Simple Marketplace — a service workspace (FRONTEND_UI_STANDARD.md §5.7)
    ------------------------------------------------------------------------
    The page's ground is the shared ambient ROOM (`.service-room`, worn by
-   `.mkt-surface` below) and everything on it is GLASS: one sticky toolbar, then
-   one panel holding the results, with the cards as panes inside it. No bands, no
-   decorative circles, no scroll reveal — and nothing separated by a border: the
-   toolbar's rule is a gradient.
+   `.mkt-surface` below) and everything on it is GLASS: one row carrying the name,
+   the search and the actions, then one panel holding the results, with the cards
+   as panes inside it. No bands, no decorative circles, no scroll reveal — and
+   nothing separated by a border: that row's rule is a gradient.
 
    Colour is reserved for SIGNAL. The old version gave every card a hue by kind
    (`--mkt-hue`) and every capability chip a hue by category, which meant a page
@@ -45,30 +45,41 @@
   min-width: 0;
 }
 
-/* ── Toolbar: the page's "hero", collapsed onto one sticky row ───────────── */
+/* ── Row: the name, its live state and the primary action, in the flow ────── */
 
 .mkt-bar {
-  position: sticky;
-  top: var(--nav-size);            /* just under the fixed site header */
-  z-index: 5;                      /* below the header's 10, above the panel */
+  /* NOT sticky: the site header is the only thing that stays at the top of the
+     page. A pinned bar here would cost the results a strip of the viewport and
+     would make them scroll under an opaque band. Everything on this row — the
+     name, the search box, the actions — scrolls away with the page. */
+  position: relative;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: calc(var(--nav-size) * 0.1) calc(var(--nav-size) * 0.25);
-  padding: calc(var(--nav-size) * 0.18) 0;
-  /* OPAQUE, and that is this page's one departure from `/admin`: the toolbar is
-     STICKY and the panel scrolls beneath it, so a translucent pane would let
-     result text run under the search box. It takes the glass LAND — the same
-     fill a pane is made of — so it still reads as the same material, and in the
-     dark theme the land sits above the page, which is what makes the bar read as
-     the page's frame rather than as one more panel. */
-  background: var(--glass-land);
+  /* Horizontal padding is the PANEL padding (`.mkt-panel-body`), so the room's
+     name sits on the same left edge as the results below it instead of jammed
+     into the corner of a full-bleed bar. */
+  padding: calc(var(--nav-size) * 0.18) calc(var(--nav-size) * 0.28);
+  /* Ordinary glass, like the results panel: the row only needed an opaque base
+     while it was pinned and results scrolled under the search box. This is the
+     same reversal `/admin` made for its head — nothing scrolls under it now. */
+  background: var(--glass);
+  /* A pane's radius (`.mkt-panel`), so the bar reads as the topmost surface of
+     the page rather than a square slab laid over it. */
+  border-radius: var(--glass-radius);
 }
 /* The one piece of brand on the page. */
 .mkt-bar::after {
   content: '';
   position: absolute;
-  left: 0; right: 0; bottom: 0; height: 2px;
+  /* Inset by the bar's own radius so the rule ends where the corner curve begins:
+     it never pokes past a rounded corner, needs no clipping, and keeps its own
+     rounded cap (`.admin-head::after` is the same move). */
+  left: calc(var(--glass-radius) * 0.7);
+  right: calc(var(--glass-radius) * 0.7);
+  bottom: 2px; height: 2px;
+  border-radius: 999px;
   background: linear-gradient(90deg, var(--fg-blue), var(--fg-mint) 42%, transparent 72%);
   pointer-events: none;
 }
@@ -750,9 +761,8 @@
 /* ── Responsive + reduced motion ─────────────────────────────────────────── */
 
 @media (max-width: 900px) {
-  /* A wrapped toolbar would eat the screen if it stayed pinned — the same
-     trade /plans and /simple make below this width. */
-  .mkt-bar { position: static; }
+  /* The row is never pinned, so a wrapped one costs nothing — it just gets a
+     full-width search line. */
   .mkt-bar-search { flex: 1 1 100%; }
   .mkt-bar-actions { margin-left: 0; }
   .mkt-switch { order: -1; }

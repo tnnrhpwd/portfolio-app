@@ -53,36 +53,10 @@ export const useSupportHandlers = (user, formData, setFormData, setIsSubmitting,
     });
   };
 
-  const handleReviewSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      const reviewData = {
-        text: `Review:${formData.reviewTitle}|Category:${formData.reviewCategory}|Rating:${formData.reviewRating}/5|Content:${formData.reviewContent}|User:${user?.email || 'Anonymous'}|Timestamp:${new Date().toISOString()}`
-      };
-
-      await dispatch(createPublicData(reviewData)).unwrap();
-      
-      toast.success('Thank you for your review! We appreciate your feedback.', { autoClose: 4000 });
-      
-      // Reset form
-      setFormData(prev => ({
-        ...prev,
-        reviewTitle: '',
-        reviewContent: '',
-        reviewRating: 5,
-        reviewCategory: 'general'
-      }));
-      
-    } catch (error) {
-      console.error('Error submitting review:', error);
-      toast.error('Failed to submit review. Please try again.', { autoClose: 3000 });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
+  // NOTE: submitting a review is NOT here. A review submit is either a create or
+  // an edit of an existing row, and deciding between them needs the user's review
+  // list — so it lives in `useMyReviews`, which owns that list. This hook keeps
+  // the contact and bug-report forms, which have exactly one behaviour each.
   const handleContactSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -182,7 +156,6 @@ export const useSupportHandlers = (user, formData, setFormData, setIsSubmitting,
     handleInputChange,
     handleStarClick,
     handleRelatedReportToggle,
-    handleReviewSubmit,
     handleContactSubmit,
     handleBugReportSubmit,
   };
