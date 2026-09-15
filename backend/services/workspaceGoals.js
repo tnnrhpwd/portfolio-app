@@ -39,7 +39,17 @@ const TABLE_NAME = 'Simple';
 const CSIMPLE_CREATED_AT = '2000-01-01T00:00:00.000Z';
 const GOAL_KIND = 'goal';
 const GOAL_STATUSES = new Set(['active', 'paused', 'blocked', 'done', 'failed']);
+// Optional horizon — mirrored from workspaceController so this service can be
+// used by netTools.js and standalone scripts without pulling in the controller.
+const GOAL_HORIZONS = ['week', 'quarter', 'year', 'life'];
+const GOAL_HORIZON_CONTAINER_MIN = 'year';
 const SLUG_RE = /^[a-z0-9][a-z0-9_-]{0,99}$/;
+
+/** True when the horizon (or its absence) makes a goal a container. */
+function isContainerHorizon(horizon) {
+    const i = GOAL_HORIZONS.indexOf(horizon);
+    return i >= GOAL_HORIZONS.indexOf(GOAL_HORIZON_CONTAINER_MIN);
+}
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -118,6 +128,8 @@ function toListEntry(item) {
         vision: item.vision || null,
         cover: item.cover || null,
         targetDate: item.targetDate || null,
+        // Null when the goal makes no claim about how far out it is aimed.
+        horizon: item.horizon || null,
     };
 }
 
@@ -178,6 +190,7 @@ async function getGoalRowBySlug(userId, slug) {
  * @param {string} [opts.constraints]
  * @param {string} [opts.sourceMemoryId] legacy memory item id (links back to the migrated source)
  * @param {string} [opts.createdBy]     'user' | 'agent'
+ * @param {string} [opts.horizon]        week|quarter|year|life ('' clears; unrecognised is ignored)
  * @param {string[]} [opts.tags]
  * @returns {object} the written entry (toListEntry shape)
  */
@@ -246,7 +259,19 @@ async function upsertGoal(userId, opts = {}) {
         ...(opts.targetDate != null
             ? (opts.targetDate ? { targetDate: String(opts.targetDate).slice(0, 10) } : {})
             : (existing?.targetDate ? { targetDate: existing.targetDate } : {})),
-        ...(Array.isArray(opts.tags) && opts.tags.length ? { tags: opts.tags.slice(0, 20) } : {}),
+        // How far out the goal is aimed. An unrecognised value is DROPPED rather
+        // than stored, so a bad caller can't put a goal in a bucket no UI knows
+        // about; `''` clears it, and an omitted key carries the old one forward.
+        ...(opts.horizon != null
+            ? (GOAL_HORIZONS.includes(opts.horizon) ? { horizon: opts.horizon } : {})
+            : (existing?.horizon ? { horizon: existing.horizon } : {})),
+        // `tags` used to be dropped whenever a caller omitted them — the reverse
+        // of every field above, and a silent loss on the agent's `save_goal`
+        // path. Same rule as the rest now: an ARRAY replaces ([] clears), an
+        // omitted key carries the stored tags forward.
+        ...(Array.isArray(opts.tags)
+            ? (opts.tags.length ? { tags: opts.tags.slice(0, 20) } : {})
+            : (existing?.tags?.length ? { tags: existing.tags.slice(0, 20) } : {})),
         ...(existing?.agent ? { agent: existing.agent } : {}),
     };
 
@@ -291,6 +316,8 @@ module.exports = {
     TABLE_NAME,
     CSIMPLE_CREATED_AT,
     GOAL_STATUSES,
+    GOAL_HORIZONS,
+    isContainerHorizon,
     normalizeGoalTitle,
     slugifyGoal,
     priorityFromLabel,

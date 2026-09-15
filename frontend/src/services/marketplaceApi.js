@@ -188,11 +188,14 @@ export async function publishMarketSkill(token, payload) {
 
 const GOALS_BASE = 'market/goals';
 
-/** Browse shared goals. Returns { goals, total, page, perPage }. */
-export async function searchMarketGoals(token, { q, sort = 'trust', page = 1, perPage = 20 } = {}) {
+/** Browse shared goals. Returns { goals, total, page, perPage }.
+ *  `horizon` filters by how far out the shared goal is aimed: one of the four
+ *  horizon values, 'none' for the ones that made no claim, or 'any' (default). */
+export async function searchMarketGoals(token, { q, sort = 'trust', horizon = 'any', page = 1, perPage = 20 } = {}) {
   if (!token) throw new Error('Sign in required to browse shared goals');
   const params = new URLSearchParams({ sort, page: String(page), perPage: String(perPage) });
   if (q && String(q).trim()) params.set('q', String(q).trim());
+  if (horizon && horizon !== 'any') params.set('horizon', String(horizon));
 
   let res;
   try {

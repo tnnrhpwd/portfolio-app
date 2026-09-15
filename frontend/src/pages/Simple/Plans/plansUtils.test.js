@@ -16,6 +16,22 @@ import {
   sortGoals,
   groupGoals,
   goalStats,
+  GOAL_HORIZONS,
+  HORIZON_LABELS,
+  HORIZON_HINTS,
+  HORIZON_NONE,
+  HORIZON_NONE_LABEL,
+  HORIZON_GROUP_ORDER,
+  HORIZON_GROUP_LABELS,
+  goalHorizon,
+  groupGoalsByHorizon,
+  horizonCounts,
+  isContainerHorizon,
+  CONTAINER_HORIZONS,
+  readGroupBy,
+  writeGroupBy,
+  GROUP_BY_KEY,
+  DEFAULT_GROUP_BY,
   isTerminalStatus,
   isAgentReady,
   hasBeenEnlisted,
@@ -185,6 +201,13 @@ describe('plansUtils · workspaceGoalToItem', () => {
     expect(item.data.vision).toBe('Cross the line feeling strong');
     expect(item.data.cover).toBe('health');
     expect(item.data.targetDate).toBe('2027-04-18');
+  });
+
+  test('carries the horizon through, and nulls an unknown one', () => {
+    expect(workspaceGoalToItem({ slug: 'a', horizon: 'life' }).data.horizon).toBe('life');
+    // A value from a future vocabulary is not rendered as a bucket we invent.
+    expect(workspaceGoalToItem({ slug: 'b', horizon: 'decade' }).data.horizon).toBeNull();
+    expect(workspaceGoalToItem({ slug: 'c' }).data.horizon).toBeNull();
   });
 
   test('leaves the dream-board fields null when a goal has none', () => {
@@ -464,5 +487,115 @@ describe('folded groups', () => {
     // storage in this context. The fold still works for the visit.
     expect([...readCollapsedGroups(null)]).toEqual([]);
     expect(() => writeCollapsedGroups(new Set(['done']), null)).not.toThrow();
+  });
+});
+
+describe('plansUtils · goal horizon', () => {
+  test('the vocabulary is ordered short → long and fully labelled', () => {
+    expect(GOAL_HORIZONS).toEqual(['week', 'quarter', 'year', 'life']);
+    for (const h of GOAL_HORIZONS) {
+      expect(HORIZON_LABELS[h]).toBeTruthy();
+      expect(HORIZON_HINTS[h]).toBeTruthy();
+    }
+    // Every bucket the grouping can produce has a label, including the unclaimed one.
+    expect(HORIZON_GROUP_ORDER).toEqual(['week', 'quarter', HORIZON_NONE, 'year', 'life']);
+    for (const key of HORIZON_GROUP_ORDER) expect(HORIZON_GROUP_LABELS[key]).toBeTruthy();
+  });
+
+  test('unset and unrecognised horizons both read as "no horizon"', () => {
+    expect(goalHorizon(goal({ horizon: 'life' }))).toBe('life');
+    expect(goalHorizon(goal({ horizon: null }))).toBe(HORIZON_NONE);
+    expect(goalHorizon(goal())).toBe(HORIZON_NONE);
+    expect(goalHorizon(goal({ horizon: 'decade' }))).toBe(HORIZON_NONE);
+    expect(goalHorizon(null)).toBe(HORIZON_NONE);
+  });
+
+  test('only year and life are containers', () => {
+    expect(CONTAINER_HORIZONS).toEqual(['year', 'life']);
+    expect(isContainerHorizon('week')).toBe(false);
+    expect(isContainerHorizon('quarter')).toBe(false);
+    expect(isContainerHorizon('year')).toBe(true);
+    expect(isContainerHorizon('life')).toBe(true);
+    // No claim is NOT a container: it behaves like ordinary work everywhere else.
+    expect(isContainerHorizon(null)).toBe(false);
+    expect(isContainerHorizon(HORIZON_NONE)).toBe(false);
+  });
+
+  test('groups come nearest-first, with the unclaimed bucket before the long aims', () => {
+    const groups = groupGoalsByHorizon([
+      goal({ slug: 'retire', horizon: 'life' }),
+      goal({ slug: 'groceries', horizon: 'week' }),
+      goal({ slug: 'unsorted' }),
+      goal({ slug: 'ship', horizon: 'quarter' }),
+      goal({ slug: 'newsletter', horizon: 'year' }),
+    ]);
+    expect(groups.map((g) => g.horizon)).toEqual(['week', 'quarter', HORIZON_NONE, 'year', 'life']);
+    expect(groups.map((g) => g.label)).toEqual([
+      HORIZON_LABELS.week, HORIZON_LABELS.quarter, HORIZON_NONE_LABEL, HORIZON_LABELS.year, HORIZON_LABELS.life,
+    ]);
+    expect(groups[0].items.map((g) => g._id)).toEqual(['groceries']);
+  });
+
+  test('empty buckets are dropped, and the shape matches the status grouping', () => {
+    const groups = groupGoalsByHorizon([goal({ slug: 'a', horizon: 'life' })]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({ horizon: 'life', label: HORIZON_LABELS.life });
+
+    // Same keys as groupGoals() returns, so the view can render either through
+    // one code path: items, plus a label to print.
+    const statusGroup = groupGoals([goal({ slug: 'a' })])[0];
+    expect(Object.keys(statusGroup).sort()).toEqual(['items', 'label', 'status']);
+    expect(Object.keys(groups[0]).sort()).toEqual(['horizon', 'items', 'label']);
+  });
+
+  test('sorting inside a bucket follows the page’s own goal order', () => {
+    const groups = groupGoalsByHorizon([
+      goal({ slug: 'low', horizon: 'week', priority: 'low' }),
+      goal({ slug: 'high', horizon: 'week', priority: 'high' }),
+    ]);
+    expect(groups[0].items.map((g) => g._id)).toEqual(['high', 'low']);
+  });
+
+  test('every bucket is counted, including the empty ones', () => {
+    const counts = horizonCounts([
+      goal({ slug: 'a', horizon: 'life' }),
+      goal({ slug: 'b', horizon: 'life' }),
+      goal({ slug: 'c' }),
+    ]);
+    expect(counts).toEqual({ week: 0, quarter: 0, [HORIZON_NONE]: 1, year: 0, life: 2 });
+  });
+});
+
+describe('grouping axis preference', () => {
+  test('defaults to horizon when nothing is stored', () => {
+    expect(DEFAULT_GROUP_BY).toBe('horizon');
+    expect(readGroupBy(fakeStorage())).toBe('horizon');
+  });
+
+  test('round-trips through storage', () => {
+    const storage = fakeStorage();
+    writeGroupBy('status', storage);
+    expect(storage.store[GROUP_BY_KEY]).toBe('status');
+    expect(readGroupBy(storage)).toBe('status');
+  });
+
+  test('an unrecognised or hostile value degrades to the default', () => {
+    const storage = fakeStorage();
+    storage.store[GROUP_BY_KEY] = 'by-mood';
+    expect(readGroupBy(storage)).toBe('horizon');
+
+    const hostile = {
+      getItem() { throw new Error('denied'); },
+      setItem() { throw new Error('denied'); },
+    };
+    expect(readGroupBy(hostile)).toBe('horizon');
+    expect(() => writeGroupBy('status', hostile)).not.toThrow();
+    expect(readGroupBy(null)).toBe('horizon');
+
+    // A mode the app doesn't know is refused rather than persisted — otherwise a
+    // typo would be remembered as the visitor's preference.
+    const clean = fakeStorage();
+    writeGroupBy('by-mood', clean);
+    expect(clean.setItem).not.toHaveBeenCalled();
   });
 });

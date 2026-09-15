@@ -47,12 +47,20 @@ import {
   slugifyGoalTitle,
   priorityToNumber,
   timeSince,
+  GOAL_HORIZONS,
+  HORIZON_HINTS,
+  HORIZON_LABELS,
+  HORIZON_NONE_LABEL,
 } from './plansUtils';
 import { DREAM_COVERS, coverSource } from './dreamCovers';
 import { downscaleImageFile } from './dreamBoardUtils';
 import './DreamBoard.css';
 
 const PRIORITY_OPTIONS = ['low', 'medium', 'high'];
+
+/** The horizon that puts a goal on this board. The board is not a separate kind
+ *  of object — it is the Life-horizon view of the same goals. */
+const BOARD_HORIZON = 'life';
 
 /** A blank create form. */
 function emptyDreamForm() {
@@ -67,6 +75,8 @@ function emptyDreamForm() {
     successCriteria: '',
     maxSteps: '',
     autoAbandon: false,
+    // A dream IS a life-horizon goal, so creating one here claims that horizon.
+    horizon: BOARD_HORIZON,
   };
 }
 
@@ -84,6 +94,7 @@ function formFromGoal(item) {
     successCriteria: d.successCriteria || '',
     maxSteps: d.maxSteps != null ? String(d.maxSteps) : '',
     autoAbandon: !!d.autoAbandon,
+    horizon: GOAL_HORIZONS.includes(d.horizon) ? d.horizon : BOARD_HORIZON,
   };
 }
 
@@ -141,6 +152,10 @@ function DreamBoard({
         vision: form.vision.trim(),
         cover: form.cover.trim(),
         targetDate: form.targetDate,
+        // The horizon is what puts a goal on this board, so it is always sent:
+        // '' here would move the goal off the board, which is a real (if
+        // surprising) choice the user can make in the picker below.
+        horizon: form.horizon || BOARD_HORIZON,
         ...(form.successCriteria.trim() ? { successCriteria: form.successCriteria.trim() } : {}),
         ...(form.maxSteps.trim() ? { maxSteps: Number(form.maxSteps) } : {}),
         ...(form.autoAbandon ? { autoAbandon: true } : {}),
@@ -255,7 +270,7 @@ function DreamBoard({
           <p className="plans-empty-title">
             {hasFilters
               ? 'Nothing on your board matches that'
-              : 'Your board is empty — add the first thing you’re aiming at'}
+              : 'Nothing here yet — the board is for goals aimed at your whole life, not at this week'}
           </p>
           {hasFilters ? (
             <button type="button" className="plans-btn plans-btn--ghost" onClick={() => { setSearch(''); setFilter('all'); }}>
@@ -525,6 +540,30 @@ function DreamForm({ form, setForm, token, uploadsRef, onSave, onCancel }) {
               </select>
             </label>
           </div>
+
+          {/* The board is the Life-horizon view, so this field is the reason a
+              goal is here at all. Shown rather than hidden: picking "This
+              quarter" moves the goal to the list view, and quietly assuming
+              `life` would make the board a one-way door. */}
+          <label className="plans-field">
+            <span className="plans-field-label">Horizon</span>
+            <select
+              className="plans-select"
+              value={form.horizon || ''}
+              onChange={(e) => set({ horizon: e.target.value })}
+              aria-describedby="dream-horizon-hint"
+            >
+              {GOAL_HORIZONS.map((h) => (
+                <option key={h} value={h}>{HORIZON_LABELS[h]}</option>
+              ))}
+              <option value="">{HORIZON_NONE_LABEL}</option>
+            </select>
+            <span className="plans-field-note" id="dream-horizon-hint">
+              {form.horizon === BOARD_HORIZON
+                ? 'This is what puts it on the board. Pick a nearer horizon and it moves to the goals list.'
+                : `Only ${HORIZON_LABELS[BOARD_HORIZON]} goals appear on this board — this one will be on the goals list instead. ${HORIZON_HINTS[form.horizon] || ''}`.trim()}
+            </span>
+          </label>
 
           <label className="plans-field">
             <span className="plans-field-label">

@@ -3399,4 +3399,103 @@ a lane with no nodes draws no lane at all.
 
 ---
 
+## 23. Goal horizon — one field, four surfaces
+
+A dream is not a kind of goal. It is a goal with a very long horizon, and the
+horizon is optional on **every** goal. That single change is what lets the same
+record be grouped sensibly ("retire at 60" does not belong next to "pick up
+groceries"), be filtered in the marketplace, and be handed to an agent that knows
+the difference between an aim and a chore.
+
+`horizon` ∈ `week | quarter | year | life`, ordered short → long, and **unset is a
+real state**: nothing behaves differently while it is absent, which is why every
+goal written before this existed keeps working untouched.
+
+### 23.1 The rule that makes it more than a label
+
+`year` and `life` are **containers**. A goal that far out cannot be finished by a
+loop that runs for an afternoon, and it is usually gated on resources or events
+(money, a date, another person) rather than on more effort. So:
+
+| Where | Behaviour |
+| --- | --- |
+| `getNextGoal` (the addon's idle loop) | nearest horizon first, then priority. A container is only picked when nothing nearer is waiting; a goal with **no** horizon ranks as actionable, so nothing is demoted for predating the field. |
+| `goalAgentService` (a run) | a container gets a planning prompt: call `propose_plan`, then `create_goal` for the nearest one or two steps (`horizon` `week`/`quarter`, parented to the container), then work the first step. Explicitly told **not** to try to finish the goal. |
+| `simple-addon` `agent-loop` | the same instruction in the desktop agent's own prompt, plus `goal_create` accepts a horizon. |
+| `workspaceContext` (`/net`) | ACTIVE GOALS are printed **grouped by horizon**, nearest first. Containers get one line each — context for what the user is aiming at, not a queue — and the model is told they are containers. |
+| `/net` goal thread | `buildGoalKickoffMessage` adds a "plan it first" preamble for containers. |
+| `/plans`, `GoalDetail` | a card shows the horizon as a tag; a container's detail page says what enlisting will actually do before the button is pressed. |
+| `/market` | a published goal carries its horizon; the goals list can be filtered by it ("something I can finish this week"), and an install inherits it. |
+
+`create_goal` is new: the backend run could not previously write a goal, so a
+container run had nothing to split *into*. It is capped at 5 goals per run, always
+parents to the goal being worked on, and marks `createdBy: 'agent'`.
+
+### 23.2 What the reframe retired
+
+The Dream board is now the **Life-horizon view** of the same goals (`🌟 Dreams`,
+counted like every other tab). Nothing about the record differs, so
+`vision`/`cover`/`targetDate` — the fields the board is built around — are simply
+available on any goal, and `GoalDetail` no longer drops them. The word "scope"
+was freed up for the field it actually described: the run-instructions textarea
+on `GoalDetail` is now "Instructions for this run", because it is passed to one
+run and never stored.
+
+Vocabulary lives in one place, `frontend/src/constants/goalHorizons.js`, mirrored
+by the backend's `GOAL_HORIZONS` (`services/workspaceGoals.js`). The frontend copy
+exists because two pages need it, and a second copy of a four-value vocabulary is
+how the two drift apart.
+
+### 23.3 The trap this had to survive
+
+Both goal writers `Put` the **whole** item with explicit carry-forward, so a field
+not carried forward is *destroyed* by the next partial write — and there are
+partial writers everywhere (`handleStatusChange`, the addon's `goal_update`,
+`save_goal` from /net, marketplace install). `horizon` is carried in both
+(`resolveGoalField` in the controller, the spread in `workspaceGoals.upsertGoal`),
+and `workspaceGoalHorizon.test.js` covers persist → unrelated write → explicit
+clear → and the unknown-value case, where an unrecognised horizon is **dropped**
+rather than stored (a goal in a bucket no UI knows about is invisible).
+
+Two pre-existing bugs on the same path were fixed while in there: `listWorkspace`
+accepted a `status` filter and **silently ignored it** (so the addon's
+`listGoals({ status: 'active' })` received every goal ever written, finished ones
+included), and `upsertGoal` dropped `tags` whenever a caller omitted them.
+
+### 23.4 Verified
+
+- **The grouping is the point, and it was driven**: nine goals across all five
+  buckets render as This week → This quarter → No horizon → This year → Life, with
+  the horizon tag beside priority on every card that claimed one and none on the
+  card that didn't. Switching the axis to Status gives the old view back, and the
+  choice survives a reload (`localStorage['plansGroupBy']`).
+- **Folds are namespaced**: folding "Life" stores `h:life` next to the goals
+  view's `active`, so the two axes can't share a fold.
+- **The form writes what it says**: picking "This quarter" sends
+  `horizon: 'quarter'`; picking "No horizon" sends `horizon: ''` — the explicit
+  clear the backend treats as authoritative.
+- **Search reaches the vision line**: "anyone else" matches a goal whose only
+  mention of it is in `vision` (it never did before).
+- **`GoalDetail`** now shows the horizon badge (with its hint as a tooltip), the
+  vision as a quote, "📅 Aiming at …" from `targetDate`, and the container note —
+  all four of which it previously dropped.
+- **`/market`** offers the horizon filter on the Goals tab only, and the request
+  was observed going out as `…&horizon=life`. ⚠️ The chip on a market **card** was
+  not seen rendered against a live shared goal: the guest account has none
+  published, and route-mocking the market list did not take in this session
+  (the same-origin request was measurable, but not interceptable). It is the same
+  four lines of markup and the same CSS vocabulary as the /plans tag, which was
+  verified visually.
+- Tests: `workspaceGoalHorizon.test.js` 18/18 (validation, carry-forward,
+  next-goal ordering, the service's own writes), backend unit suite 722/722,
+  Plans folder 155/155 including `plansUtils` horizon helpers and the grouping
+  preference, `goalChat` 27/27, addon unit suite green, `vite build` clean.
+- **Both themes measured, 320→1920px**: no page overflow at any width, the tab
+  row never overflows with four tabs, and the long-horizon marker is a **fill**,
+  not hue-shifted ink — the `neutral` scheme has zero chroma by design, so the
+  `oklch(from …)` treatment the other tags use resolves to `--text-color` there
+  and the chip would have been invisible.
+
+---
+
 **Companion doc:** [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md) — threat model, trust boundaries, and the permissions matrix.

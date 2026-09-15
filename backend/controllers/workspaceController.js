@@ -168,6 +168,26 @@ const GOAL_STATUSES = new Set(['active', 'paused', 'blocked', 'done', 'failed'])
 // Highest first when picking the next goal to run.
 const GOAL_STATUS_RUNNABLE = new Set(['active']);
 
+// Optional goal HORIZON — how far out a goal is aimed, ordered short → long.
+//
+// This is the only thing that makes a "dream" a dream: a dream is a goal with
+// the longest horizon, not a separate kind of object. Nothing about a goal's
+// behaviour changes while its horizon is unset, which is why every goal written
+// before this existed keeps working untouched.
+const GOAL_HORIZONS = ['week', 'quarter', 'year', 'life'];
+// From here up a goal is a CONTAINER: its real job is to spawn work at a nearer
+// horizon (`parentGoalId` already models that), because "retire at 60" cannot be
+// finished by a loop that runs for an afternoon. The agent still runs on it —
+// see goalAgentService.buildUserPrompt — but it plans first and executes what is
+// executable, rather than trying to complete the goal in one pass.
+const GOAL_HORIZON_CONTAINER_MIN = 'year';
+
+/** True when the horizon (or its absence) makes a goal a container. */
+function isContainerHorizon(horizon) {
+    const i = GOAL_HORIZONS.indexOf(horizon);
+    return i >= GOAL_HORIZONS.indexOf(GOAL_HORIZON_CONTAINER_MIN);
+}
+
 const ALLOWED_KNOWLEDGE_STAGES = new Set([
     'inbox', 'ideas', 'active', 'proveout', 'completed', 'library',
 ]);
@@ -357,6 +377,11 @@ function toListEntry(item) {
         vision: item.vision || null,
         cover: item.cover || null,
         targetDate: item.targetDate || null,
+        // How far out the goal is aimed (see GOAL_HORIZONS). Also in the list
+        // entry: /plans groups by it, so every list read needs it. Null on every
+        // goal written before horizons existed — which is a meaningful state, not
+        // a missing value.
+        horizon: item.horizon || null,
     };
 }
 
@@ -401,7 +426,7 @@ function toFullEntry(item) {
 // @access  Private
 const listWorkspace = asyncHandler(async (req, res) => {
     if (!req.user) unauthorized(res);
-    const { kind, agent, stage, tag, q } = req.query;
+    const { kind, agent, stage, tag, q, status } = req.query;
     if (kind) validateKind(res, kind);
 
     const prefix = userPrefix(req.user.id, kind);
@@ -427,6 +452,10 @@ const listWorkspace = asyncHandler(async (req, res) => {
     if (agent) entries = entries.filter(e => e.agent === agent);
     if (stage) entries = entries.filter(e => e.stage === stage);
     if (tag)   entries = entries.filter(e => (e.tags || []).includes(tag));
+    // `status` is what the desktop agent's idle loop asks for ("active"). It was
+    // accepted in the query string and silently ignored, so that caller received
+    // every goal ever written — finished and abandoned ones included.
+    if (status) entries = entries.filter(e => (e.status || 'active') === status);
     if (q) {
         const needle = String(q).toLowerCase();
         entries = entries.filter(e =>
@@ -502,6 +531,7 @@ const upsertWorkspaceItem = asyncHandler(async (req, res) => {
     const goalVision     = req.body?.vision;
     const goalCover      = req.body?.cover;
     const goalTargetDate = req.body?.targetDate;
+    const goalHorizon    = req.body?.horizon;
     if (kind === 'goal') {
         if (goalStatus != null && !GOAL_STATUSES.has(goalStatus)) {
             badRequest(res, `Invalid goal status. Allowed: ${[...GOAL_STATUSES].join(', ')}`);
@@ -535,6 +565,9 @@ const upsertWorkspaceItem = asyncHandler(async (req, res) => {
         // the day a dream is aimed at.
         if (goalTargetDate != null && goalTargetDate !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(goalTargetDate)) {
             badRequest(res, 'goal targetDate must be YYYY-MM-DD');
+        }
+        if (goalHorizon != null && goalHorizon !== '' && !GOAL_HORIZONS.includes(goalHorizon)) {
+            badRequest(res, `Invalid goal horizon. Allowed: ${GOAL_HORIZONS.join(', ')} (or '' to clear)`);
         }
     }
 
@@ -593,6 +626,8 @@ const upsertWorkspaceItem = asyncHandler(async (req, res) => {
             ...resolveGoalField(req.body || {}, existing, 'vision', goalVision),
             ...resolveGoalField(req.body || {}, existing, 'cover', goalCover),
             ...resolveGoalField(req.body || {}, existing, 'targetDate', goalTargetDate),
+            // Same clearable rule: `horizon: ''` means "no claim".
+            ...resolveGoalField(req.body || {}, existing, 'horizon', goalHorizon),
             createdBy:     existing?.createdBy || goalCreatedBy || 'user',
             // Preserve the agent run-state JSON across human edits (the goal
             // agent writes `agent` directly via workspaceGoals.setGoalAgent).
@@ -714,6 +749,8 @@ const getWorkspaceTemplates = asyncHandler(async (req, res) => {
         knowledgeStages: [...ALLOWED_KNOWLEDGE_STAGES],
         sizeCaps: KIND_SIZE_CAP_BYTES,
         goalStatuses: [...GOAL_STATUSES],
+        goalHorizons: [...GOAL_HORIZONS],
+        goalContainerHorizons: GOAL_HORIZONS.slice(GOAL_HORIZONS.indexOf(GOAL_HORIZON_CONTAINER_MIN)),
     });
 });
 
@@ -738,8 +775,18 @@ const getNextGoal = asyncHandler(async (req, res) => {
     } while (lastEvaluatedKey);
 
     const runnable = rows.filter(it => GOAL_STATUS_RUNNABLE.has(it.status || 'active'));
-    // Highest priority first; tie-break on oldest updatedAt (fairness).
+    // Nearest horizon first, then highest priority, tie-break on oldest updatedAt
+    // (fairness).
+    //
+    // The horizon leads the sort because a `year`/`life` goal is a CONTAINER —
+    // starting one is a planning session, not work — so it must never be picked
+    // while something at `week`/`quarter` is waiting. A goal with NO horizon
+    // ranks as actionable (0): every goal written before horizons existed has
+    // none, and none of them may be demoted for lacking a label.
     runnable.sort((a, b) => {
+        const ca = isContainerHorizon(a.horizon) ? 1 : 0;
+        const cb = isContainerHorizon(b.horizon) ? 1 : 0;
+        if (ca !== cb) return ca - cb;
         const pa = typeof a.priority === 'number' ? a.priority : 50;
         const pb = typeof b.priority === 'number' ? b.priority : 50;
         if (pb !== pa) return pb - pa;

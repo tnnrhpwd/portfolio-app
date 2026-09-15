@@ -20,6 +20,13 @@ import {
   installMarketGoal,
 } from '../../../services/marketplaceApi.js';
 import { slugifyGoalTitle } from '../Plans/plansUtils.js';
+import {
+  GOAL_HORIZONS,
+  HORIZON_LABELS,
+  HORIZON_HINTS,
+  HORIZON_NONE_LABEL,
+  isContainerHorizon,
+} from '../../../constants/goalHorizons.js';
 import PublishModal from './PublishModal.jsx';
 import './Market.css';
 
@@ -335,6 +342,9 @@ export default function Market() {
 
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState('trust');
+  // Goals only: "show me something I can finish this week" is the useful query,
+  // and the horizon is what makes it answerable. 'any' is no filter.
+  const [horizon, setHorizon] = useState('any');
   const [skills, setSkills] = useState([]);
   const [goals, setGoals] = useState([]);
   const [total, setTotal] = useState(0);
@@ -367,9 +377,10 @@ export default function Market() {
     setError('');
     const q = opts.q !== undefined ? opts.q : query;
     const sortBy = opts.sort !== undefined ? opts.sort : sort;
+    const horizonBy = opts.horizon !== undefined ? opts.horizon : horizon;
     try {
       if (kind === 'goal') {
-        const res = await searchMarketGoals(token, { q, sort: sortBy, page: 1, perPage: PER_PAGE });
+        const res = await searchMarketGoals(token, { q, sort: sortBy, horizon: horizonBy, page: 1, perPage: PER_PAGE });
         setGoals(res.goals || []);
         setTotal(res.total || 0);
       } else {
@@ -391,7 +402,7 @@ export default function Market() {
     try {
       const next = page + 1;
       if (kind === 'goal') {
-        const res = await searchMarketGoals(token, { q: query, sort, page: next, perPage: PER_PAGE });
+        const res = await searchMarketGoals(token, { q: query, sort, horizon, page: next, perPage: PER_PAGE });
         setGoals((prev) => [...prev, ...(res.goals || [])]);
       } else {
         const res = await searchMarketSkills(token, { q: query, sort, page: next, perPage: PER_PAGE });
@@ -403,12 +414,12 @@ export default function Market() {
     } finally {
       setLoadingMore(false);
     }
-  }, [token, loadingMore, page, query, sort, kind]);
+  }, [token, loadingMore, page, query, sort, horizon, kind]);
 
   useEffect(() => {
     if (token) loadFirstPage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, sort, kind]);
+  }, [token, sort, horizon, kind]);
 
   const onSearch = (e) => {
     e.preventDefault();
@@ -561,6 +572,9 @@ export default function Market() {
         successCriteria: goal.successCriteria || undefined,
         constraints: goal.constraints || undefined,
         priority: typeof goal.priority === 'number' ? goal.priority : undefined,
+        // Published WITH its horizon so the market can be filtered by it, and so
+        // whoever saves it inherits the same timescale instead of a bare task.
+        horizon: goal.horizon || undefined,
         naturalLanguageDescription: description || goal.description || '',
         declaredCategories: [],
       });
@@ -644,6 +658,19 @@ export default function Market() {
                 <option value="downloads">Most saved</option>
                 <option value="recent">Newest</option>
               </select>
+              {isGoals && (
+                <select
+                  value={horizon}
+                  onChange={(e) => setHorizon(e.target.value)}
+                  aria-label="Filter by horizon"
+                >
+                  <option value="any">Any horizon</option>
+                  {GOAL_HORIZONS.map((h) => (
+                    <option key={h} value={h}>{HORIZON_LABELS[h]}</option>
+                  ))}
+                  <option value="none">{HORIZON_NONE_LABEL}</option>
+                </select>
+              )}
             </form>
 
             <div className="mkt-bar-actions">
@@ -771,6 +798,9 @@ function GoalCard({ goal, onOpen }) {
         <h3 className="mkt-card-name">{goal.name}</h3>
         {goal.lowTrust && <span className="mkt-badge mkt-badge--low">New</span>}
       </div>
+      {/* Only shown when the sharer claimed one: an empty chip on every goal
+          published before horizons existed would read as missing data. */}
+      {goal.horizon && <span className={`mkt-horizon ${isContainerHorizon(goal.horizon) ? 'is-long' : ''}`}>{HORIZON_LABELS[goal.horizon]}</span>}
       <p className="mkt-card-slug">@{goal.slug}</p>
       {/* Only when the sharer said something the title doesn't already say —
           the goal's own text is long, so it stays in the detail modal. */}
@@ -803,6 +833,14 @@ function GoalModal({ goal, onClose, onSave, saving, onFlag, flagBusy }) {
           <h2>{goal.name}</h2>
           <p className="mkt-modal-slug">@{goal.slug} · v{goal.latestVersion}</p>
         </div>
+
+        {/* What timescale the goal was shared at — the difference between a
+            shared "retire early" and a shared "tidy your downloads". */}
+        {goal.horizon && (
+          <p className="mkt-modal-horizon">
+            Aimed at <strong>{HORIZON_LABELS[goal.horizon]}</strong> — {HORIZON_HINTS[goal.horizon]}
+          </p>
+        )}
 
         <p className="mkt-modal-desc">{goal.naturalLanguageDescription || 'No description provided.'}</p>
 
@@ -877,7 +915,17 @@ function ShareGoalModal({ myGoals, loading, onClose, onShare, busySlug }) {
           <ul className="mkt-share-list">
             {myGoals.map((g) => (
               <li key={g.slug} className="mkt-share-item">
-                <span className="mkt-share-name">{g.name || g.slug}</span>
+                <span className="mkt-share-name">
+                  {g.name || g.slug}
+                  {/* The horizon is shared with the goal, so it is worth seeing
+                      before you publish — a "Life" aim reads very differently to
+                      a chore in someone else's goal list. */}
+                  {GOAL_HORIZONS.includes(g.horizon) && (
+                    <span className={`mkt-horizon ${isContainerHorizon(g.horizon) ? 'is-long' : ''}`}>
+                      {HORIZON_LABELS[g.horizon]}
+                    </span>
+                  )}
+                </span>
                 <button
                   type="button"
                   className="mkt-btn mkt-btn--primary mkt-btn--sm"

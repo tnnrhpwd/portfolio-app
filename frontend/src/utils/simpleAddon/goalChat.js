@@ -90,6 +90,9 @@ export function normalizeGoal(goal) {
     successCriteria: text(g.successCriteria),
     constraints: text(g.constraints),
     maxSteps: Number.isFinite(maxSteps) && maxSteps > 0 ? Math.floor(maxSteps) : null,
+    // Only the two container horizons are kept: they change what the run should
+    // do, while `week`/`quarter` say nothing the kickoff needs to act on.
+    horizon: g.horizon === 'year' || g.horizon === 'life' ? g.horizon : null,
   };
 }
 
@@ -103,6 +106,7 @@ export function goalRefFromWorkspaceEntry(entry, fallbackSlug = '') {
     successCriteria: e.successCriteria,
     constraints: e.constraints,
     maxSteps: e.maxSteps,
+    horizon: e.horizon,
   });
 }
 
@@ -115,6 +119,15 @@ export function goalRefFromWorkspaceEntry(entry, fallbackSlug = '') {
 export function buildGoalKickoffMessage(goal) {
   const g = normalizeGoal(goal);
   const lines = [`🎯 Goal: ${g.title || 'Untitled goal'}`];
+  const horizonLine = { year: 'this year', life: 'life / open-ended' }[g.horizon];
+  if (horizonLine) lines.push('', `Horizon: ${horizonLine} — this is a long-term aim. Plan it first:`);
+  if (horizonLine) {
+    lines.push(
+      'break it into the nearest concrete steps before doing anything, and work the',
+      'first step that is actually startable now. Do not attempt to finish the goal',
+      'in this session.',
+    );
+  }
   if (g.description && g.description !== g.title) lines.push('', g.description);
   if (g.successCriteria) lines.push('', `Success criteria: ${g.successCriteria}`);
   if (g.constraints) lines.push('', `Constraints: ${g.constraints}`);

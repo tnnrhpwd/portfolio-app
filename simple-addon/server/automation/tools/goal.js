@@ -10,6 +10,8 @@
 const ws = require('../workspace-client');
 
 const STATUSES = ['active', 'paused', 'blocked', 'done', 'failed'];
+// Optional horizon, mirrored from the backend's GOAL_HORIZONS (workspaceGoals).
+const HORIZONS = ['week', 'quarter', 'year', 'life'];
 
 function slugify(s, fallback = 'goal') {
     const out = String(s || '').toLowerCase().replace(/[^a-z0-9-_]+/g, '-').replace(/^-+|-+$/g, '');
@@ -62,6 +64,13 @@ const goalCreate = {
             priority: { type: 'integer' },
             successCriteria: { type: 'string' },
             parentGoalSlug: { type: 'string', description: 'Defaults to current goal.' },
+            horizon: {
+                type: 'string',
+                enum: ['week', 'quarter', 'year', 'life'],
+                description:
+                    'How far out this step is aimed. A step you can start now is "week". ' +
+                    'Use it when splitting a long-term aim into workable pieces.',
+            },
         },
         required: ['title'],
     },
@@ -74,10 +83,11 @@ const goalCreate = {
             priority: typeof args.priority === 'number' ? args.priority : 50,
             successCriteria: args.successCriteria,
             parentGoalId: args.parentGoalSlug || ctx?.goalSlug || undefined,
+            horizon: HORIZONS.includes(args.horizon) ? args.horizon : undefined,
             createdBy: 'agent',
         };
         const out = await ws.upsertGoal(slug, body);
-        return { slug, name: out.name, status: out.status };
+        return { slug, name: out.name, status: out.status, horizon: out.horizon || null };
     },
 };
 

@@ -653,6 +653,9 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
                     slug: g.slug,
                     name: g.name || g.title || g.slug,
                     status: g.status,
+                    // How far out the goal is aimed — the Triggers tab shows it so
+                    // a long-term aim isn't picked as if it were a task.
+                    horizon: g.horizon || null,
                     autoAbandon: !!g.autoAbandon,
                     maxSteps: typeof g.maxSteps === 'number' ? g.maxSteps : null,
                 })),

@@ -799,6 +799,13 @@
   color: var(--text-color-accent);
 }
 .plans-field-hint { text-transform: none; letter-spacing: 0; font-weight: var(--font-weight-medium); opacity: 0.8; }
+/* What a field's value MEANS, printed under the control. The label is uppercase
+   micro-type for scanning; this is a sentence, so it undoes all of that. */
+.plans-field-note {
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-base);
+  color: var(--text-color-accent);
+}
 
 .plans-input,
 .plans-textarea,
@@ -910,6 +917,9 @@
 .plans-group-title {
   display: flex;
   align-items: center;
+  /* Wraps so a horizon's explanatory hint can move to its own line on a phone
+     instead of being crushed or clipped. Invisible when it all fits. */
+  flex-wrap: wrap;
   gap: calc(var(--nav-size) * 0.16);
   margin: 0;
   font-size: var(--font-size-xs);
@@ -917,6 +927,18 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-color-accent);
+}
+/* Undoes the heading's uppercase/letterspaced/tracked treatment for the one
+   sentence underneath it: it is prose, not a label. */
+.plans-group-hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--font-size-xs);
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-color-accent);
+  overflow-wrap: anywhere;
 }
 .plans-group-title--blocked { color: var(--fg-pink); }
 .plans-group-title--done    { color: var(--text-color-accent); }
@@ -1103,6 +1125,22 @@
   background: var(--bg-1);
   color: color-mix(in srgb, var(--badge-tone) var(--plane-ink-fallback), var(--text-color));
   color: oklch(from var(--badge-tone) var(--plane-ink-l) c h);
+}
+
+/* The horizon chip. Deliberately NOT a second status pill, and deliberately not
+   in the card header: status is a filled chip with a dot and a signal hue, and
+   the header's job is to keep the title and the two icon buttons on ONE line
+   (a third chip in there wrapped them onto a second row on every card). Lives in
+   the tag row instead, where it reads as the same kind of fact as priority.
+
+   A LONG horizon is marked by its FILL, not by hue-shifted ink. The obvious
+   `oklch(from var(--fg-blue) ...)` treatment is what the other tags use, but the
+   `neutral` colour scheme has zero chroma on purpose — there, hue-rotating the
+   accent yields exactly `--text-color` and the chip becomes invisible. A tint is
+   something every scheme can show. */
+.plans-tag--long {
+  background: color-mix(in oklab, var(--fg-blue) 20%, var(--bg-1));
+  color: var(--text-color);
 }
 
 .plans-goal-actions {

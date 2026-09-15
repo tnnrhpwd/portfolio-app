@@ -107,6 +107,21 @@ describe('goalChat · kickoff message', () => {
   test('falls back to a usable title when the goal has none', () => {
     expect(buildGoalKickoffMessage({ slug: 's' })).toContain('Untitled goal');
   });
+
+  test('a long-horizon goal is handed over as an aim to plan, not a task to finish', () => {
+    const msg = buildGoalKickoffMessage(goal({ horizon: 'life' }));
+    expect(msg).toContain('Horizon: life / open-ended');
+    expect(msg).toContain('break it into the nearest concrete steps');
+    expect(msg).toContain('Do not attempt to finish the goal');
+  });
+
+  test('nearer horizons add nothing — there is nothing to work around', () => {
+    for (const horizon of ['week', 'quarter', null, undefined]) {
+      const msg = buildGoalKickoffMessage(goal({ horizon }));
+      expect(msg).not.toContain('Horizon:');
+      expect(msg).toContain('🎯 Goal: Organize my downloads');
+    }
+  });
 });
 
 describe('goalChat · goal shapes', () => {
@@ -116,6 +131,7 @@ describe('goalChat · goal shapes', () => {
     });
     expect(fromWorkspace).toEqual({
       slug: 'g', title: 'Name', description: 'Body', successCriteria: 'ok', constraints: 'no', maxSteps: 5,
+      horizon: null,
     });
   });
 

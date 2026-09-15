@@ -43,12 +43,25 @@ import {
   isOverdue,
   deadlineLabel,
   groupGoals,
+  groupGoalsByHorizon,
+  goalHorizon,
+  horizonCounts,
+  HORIZON_HINTS,
+  HORIZON_LABELS,
+  HORIZON_NONE,
+  HORIZON_NONE_LABEL,
+  GOAL_HORIZONS,
+  isContainerHorizon,
   goalStats,
   isAgentReady,
   hasBeenEnlisted,
   readCollapsedGroups,
   writeCollapsedGroups,
   toggleCollapsedGroup,
+  readGroupBy,
+  writeGroupBy,
+  GROUP_BY_MODES,
+  GROUP_BY_LABELS,
 } from './plansUtils';
 import './Plans.css';
 
@@ -113,6 +126,9 @@ function emptyForm() {
     successCriteria: '',
     maxSteps: '',
     autoAbandon: false,
+    // '' = no horizon. Deliberately NOT defaulted to a bucket: a goal that made
+    // no claim must stay unclaimed, or the grouping would invent one for it.
+    horizon: '',
   };
 }
 
@@ -144,6 +160,18 @@ function Plans() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [sortBy, setSortBy] = useState('smart');
+
+  // ── Grouping axis ────────────────────────────────────────────────────────
+  // Horizon by default, because that is the question the page answers first:
+  // "retire at 60" and "pick up groceries" are both plain active goals, and
+  // grouping by status put them side by side. Status keeps its own filter chips
+  // either way, so nothing is lost by not grouping on it — and the choice is
+  // remembered per device, like the folds.
+  const [groupBy, setGroupBy] = useState(readGroupBy);
+  const changeGroupBy = useCallback((mode) => {
+    setGroupBy(mode);
+    writeGroupBy(mode);
+  }, []);
 
   // ── Folded groups ────────────────────────────────────────────────────────
   // Which group headings are folded shut, read once on mount from the visitor's
@@ -280,6 +308,15 @@ function Plans() {
 
   const currentTab = LIBRARY_TABS.find((t) => t.key === libraryTab) || LIBRARY_TABS[0];
 
+  // The board is the Life-horizon view — not a separate kind of object. "Dream"
+  // is the word the UI uses for a goal that far out; nothing about the record
+  // differs, which is what lets a dream be edited, filtered and grouped like any
+  // other goal instead of living in its own store.
+  const dreamGoals = useMemo(
+    () => goals.filter((g) => goalHorizon(g) === 'life'),
+    [goals],
+  );
+
   const filteredGoals = useMemo(() => {
     const q = search.trim().toLowerCase();
     return goals.filter((item) => {
@@ -290,20 +327,43 @@ function Plans() {
       }
       if (priorityFilter !== 'all' && (d.priority || 'medium') !== priorityFilter) return false;
       if (!q) return true;
-      return (d.title || '').toLowerCase().includes(q) || (d.description || '').toLowerCase().includes(q);
+      // `vision` is searched as well: a long-horizon goal usually carries its
+      // meaning there (the tile line), and leaving it out made the one field a
+      // dream is described by the only one you couldn't search on.
+      return (d.title || '').toLowerCase().includes(q)
+        || (d.description || '').toLowerCase().includes(q)
+        || (d.vision || '').toLowerCase().includes(q);
     });
   }, [goals, search, statusFilter, priorityFilter]);
 
+  // Groups are normalised to { key, label, tone?, hint?, items } so the goals
+  // view can render either axis through the same markup. `key` doubles as the
+  // fold's storage key, which is why the horizon axis is prefixed: a remembered
+  // fold must not be shared between "This week" and a status called 'week'.
   const goalGroups = useMemo(() => {
-    if (sortBy === 'smart') return groupGoals(filteredGoals);
-    const sorted = [...filteredGoals];
-    if (sortBy === 'priority') {
-      sorted.sort((a, b) => (PRIORITY_ORDER[a.data?.priority] ?? 3) - (PRIORITY_ORDER[b.data?.priority] ?? 3));
-    } else if (sortBy === 'newest') {
-      sorted.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+    if (sortBy !== 'smart') {
+      const sorted = [...filteredGoals];
+      if (sortBy === 'priority') {
+        sorted.sort((a, b) => (PRIORITY_ORDER[a.data?.priority] ?? 3) - (PRIORITY_ORDER[b.data?.priority] ?? 3));
+      } else if (sortBy === 'newest') {
+        sorted.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+      }
+      return [{ key: 'all', label: 'Goals', items: sorted }];
     }
-    return [{ status: 'all', label: 'Goals', items: sorted }];
-  }, [filteredGoals, sortBy]);
+    if (groupBy === 'status') {
+      return groupGoals(filteredGoals).map((g) => ({
+        key: g.status, label: g.label, tone: g.status, items: g.items,
+      }));
+    }
+    return groupGoalsByHorizon(filteredGoals).map((g) => ({
+      key: `h:${g.horizon}`,
+      label: g.label,
+      hint: g.horizon === HORIZON_NONE
+        ? 'No horizon set — these behave exactly like every goal always has.'
+        : HORIZON_HINTS[g.horizon],
+      items: g.items,
+    }));
+  }, [filteredGoals, sortBy, groupBy]);
 
   const filteredLibrary = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -365,6 +425,7 @@ function Plans() {
       successCriteria: d.successCriteria || '',
       maxSteps: d.maxSteps != null ? String(d.maxSteps) : '',
       autoAbandon: !!d.autoAbandon,
+      horizon: GOAL_HORIZONS.includes(d.horizon) ? d.horizon : '',
     });
     setEditingId(item._id);
     setShowForm(true);
@@ -400,6 +461,10 @@ function Plans() {
           content: form.description.trim() || form.title.trim(),
           status: editingId ? form.status : 'active',
           priority: priorityToNumber(form.priority),
+          // Sent on every goals save, including the empty string: '' is how a
+          // horizon gets CLEARED, and the backend treats a mentioned key as
+          // authoritative (an omitted one is carried forward).
+          horizon: form.horizon,
         };
         if (form.successCriteria.trim()) payload.successCriteria = form.successCriteria.trim();
         if (form.maxSteps.trim()) payload.maxSteps = Number(form.maxSteps);
@@ -738,11 +803,11 @@ function Plans() {
                   className={`plans-switch-btn ${isDreamView ? 'is-active' : ''}`}
                   onClick={() => setView('dream')}
                   aria-label="Dream board"
-                  title="Dream board"
+                  title="Dreams — your life-horizon goals"
                 >
                   {/* The tab label stays one word so all four tabs are the same
                       height; the page's own <h1> spells out "Dream board". */}
-                  🌟 Board
+                  🌟 Dreams <span className="plans-switch-count">{dreamGoals.length}</span>
                 </button>
                 <button
                   type="button"
@@ -833,6 +898,23 @@ function Plans() {
                     <option value="priority">Priority</option>
                     <option value="newest">Newest first</option>
                   </select>
+
+                  {/* Goals only, and only under smart order: the other sorts
+                      deliberately collapse everything into one "Goals" list,
+                      so offering a grouping axis beside them would be a control
+                      that does nothing. */}
+                  {isGoalsView && sortBy === 'smart' && (
+                    <select
+                      className="plans-filter-select"
+                      value={groupBy}
+                      onChange={(e) => changeGroupBy(e.target.value)}
+                      aria-label="Group goals by"
+                    >
+                      {GROUP_BY_MODES.map((mode) => (
+                        <option key={mode} value={mode}>Group: {GROUP_BY_LABELS[mode]}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div className="plans-chips">
@@ -910,6 +992,30 @@ function Plans() {
                   </label>
 
                   <div className="plans-form-row">
+                    {/* Horizon sits with priority, not in the advanced drawer:
+                        it is the one optional field that changes what the page
+                        does with the goal, and "retire at 60" is not an
+                        advanced setting. */}
+                    {isGoalsView && (
+                      <label className="plans-field">
+                        <span className="plans-field-label">Horizon <span className="plans-field-hint">optional</span></span>
+                        <select
+                          className="plans-select"
+                          value={form.horizon || ''}
+                          onChange={(e) => setForm((f) => ({ ...f, horizon: e.target.value }))}
+                          aria-describedby="plans-horizon-hint"
+                        >
+                          <option value="">{HORIZON_NONE_LABEL}</option>
+                          {GOAL_HORIZONS.map((h) => (
+                            <option key={h} value={h}>{HORIZON_LABELS[h]}</option>
+                          ))}
+                        </select>
+                        <span className="plans-field-note" id="plans-horizon-hint">
+                          {form.horizon ? HORIZON_HINTS[form.horizon] : 'How far out this is aimed. Leave it unset if you would rather not say.'}
+                        </span>
+                      </label>
+                    )}
+
                     <label className="plans-field">
                       <span className="plans-field-label">Priority</span>
                       <select
@@ -1042,10 +1148,10 @@ function Plans() {
                         : <button type="button" className="plans-btn plans-btn--primary" onClick={openCreate}>+ Create your first goal</button>}
                     />
                   ) : goalGroups.map((group) => {
-                    const folded = collapsedGroups.has(group.status);
-                    const gridId = `plans-goal-group-${group.status}`;
+                    const folded = collapsedGroups.has(group.key);
+                    const gridId = `plans-goal-group-${group.key}`;
                     return (
-                      <div className="plans-group" key={group.status}>
+                      <div className="plans-group" key={group.key}>
                         {/* Drawn even when this is the only bucket: the heading is
                             the fold's handle, so its presence can't depend on how
                             many buckets happen to exist — with a hundred finished
@@ -1056,8 +1162,9 @@ function Plans() {
                           count={group.items.length}
                           folded={folded}
                           controls={gridId}
-                          tone={group.status}
-                          onToggle={() => toggleGroup(group.status)}
+                          tone={group.tone}
+                          hint={group.hint}
+                          onToggle={() => toggleGroup(group.key)}
                         />
                         <div className="plans-goal-grid" id={gridId} hidden={folded}>
                           {group.items.map((item) => (
@@ -1080,10 +1187,13 @@ function Plans() {
                 </section>
               )}
 
-              {/* Dream board view — the same goals, seen instead of listed. */}
+              {/* Dream board view — the Life-horizon goals, seen instead of
+                  listed. It gets ONLY those: the list view is where everything
+                  else lives, and a board that showed every goal is what made
+                  "dream" mean nothing. */}
               {isDreamView && (
                 <DreamBoard
-                  goals={goals}
+                  goals={dreamGoals}
                   token={user?.token}
                   loading={loading}
                   onChanged={load}
@@ -1269,7 +1379,7 @@ function EmptyState({ icon, title, action }) {
  * a shut group still says how much it is hiding, and the state is carried by
  * `aria-expanded` rather than by the caret alone.
  */
-function GroupHeading({ label, count, folded, controls, tone, onToggle }) {
+function GroupHeading({ label, count, folded, controls, tone, hint, onToggle }) {
   return (
     <h3 className={`plans-group-title${tone ? ` plans-group-title--${tone}` : ''}`}>
       <button
@@ -1283,6 +1393,10 @@ function GroupHeading({ label, count, folded, controls, tone, onToggle }) {
         {label}
         <span className="plans-group-count">{count}</span>
       </button>
+      {/* What this bucket MEANS, not what it contains: "Life" alone doesn't say
+          whether it is a timeframe or a mood. Kept outside the button so the
+          fold's accessible name stays just the label and the count. */}
+      {hint && <span className="plans-group-hint">{hint}</span>}
     </h3>
   );
 }
@@ -1292,6 +1406,7 @@ function GroupHeading({ label, count, folded, controls, tone, onToggle }) {
 function GoalCard({ item, onStatusChange, onDelete, onEdit, onOpen, onEnlist, onViewAgent, enlisting }) {
   const { data, updatedAt } = item;
   const status = data?.status || 'active';
+  const horizon = GOAL_HORIZONS.includes(data?.horizon) ? data.horizon : null;
   const done = status === 'done';
   const failed = status === 'failed';
   const phase = agentPhase(data?.agent);
@@ -1348,6 +1463,19 @@ function GoalCard({ item, onStatusChange, onDelete, onEdit, onOpen, onEnlist, on
 
       <div className="plans-goal-tags">
         {data?.priority && <span className={`plans-tag plans-tag--${data.priority}`}>{PRIORITY_LABELS[data.priority] || data.priority}</span>}
+        {/* The horizon is a tag, not a header badge: it sits beside priority —
+            the other "what shape is this goal" fact — and the header keeps room
+            for the title and the actions on one line. Only rendered when the
+            goal claimed one, because an empty chip on every unclaimed goal
+            reads as a field that failed to load. */}
+        {horizon && (
+          <span
+            className={`plans-tag ${isContainerHorizon(horizon) ? 'plans-tag--long' : 'plans-tag--outline'}`}
+            title={HORIZON_HINTS[horizon]}
+          >
+            {HORIZON_LABELS[horizon]}
+          </span>
+        )}
         {data?.successCriteria && <span className="plans-tag plans-tag--outline" title={data.successCriteria}>✓ Success criteria</span>}
         {data?.maxSteps != null && <span className="plans-tag">≤{data.maxSteps} steps</span>}
         {data?.autoAbandon && <span className="plans-tag plans-tag--outline">auto-abandon</span>}

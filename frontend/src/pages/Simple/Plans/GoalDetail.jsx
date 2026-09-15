@@ -11,6 +11,13 @@ import { runAgentMessage, getWorkspaceItem, mergeCloudConversations, getDeletedC
 import SimpleNav from '../../../components/Simple/SimpleNav/SimpleNav.jsx';
 import { readLocalConversations, writeLocalConversations } from '../../../utils/simpleAddon/chatStore';
 import { agentStateFromRun, appendGoalRunToConversation } from '../../../utils/simpleAddon/goalChat';
+import {
+  GOAL_HORIZONS,
+  HORIZON_LABELS,
+  HORIZON_HINTS,
+  isContainerHorizon,
+  deadlineLabel,
+} from './plansUtils';
 import './GoalDetail.css';
 
 /**
@@ -58,6 +65,13 @@ function workspaceEntryToGoal(entry) {
       successCriteria: entry.successCriteria || null,
       constraints: entry.constraints || null,
       maxSteps: typeof entry.maxSteps === 'number' ? entry.maxSteps : null,
+      // Carried through so the detail page agrees with the card, the board and
+      // the map. It used to drop these, which made the tile fields visible in
+      // exactly one view of the goal.
+      horizon: GOAL_HORIZONS.includes(entry.horizon) ? entry.horizon : null,
+      vision: entry.vision || null,
+      cover: entry.cover || null,
+      targetDate: entry.targetDate || null,
     },
   };
 }
@@ -420,9 +434,33 @@ function GoalDetail() {
                       {PRIORITY_LABELS[data.priority] || data.priority} priority
                     </span>
                   )}
+                  {data.horizon && (
+                    <span className="goal-detail-badge goal-detail-badge--horizon" title={HORIZON_HINTS[data.horizon]}>
+                      {HORIZON_LABELS[data.horizon]}
+                    </span>
+                  )}
+                  {data.targetDate && (
+                    <span className="goal-detail-badge">📅 Aiming at {deadlineLabel(data.targetDate, status)}</span>
+                  )}
                   {data.deadline && <span className="goal-detail-badge">📅 {data.deadline}</span>}
                   <span className="goal-detail-badge">🤖 agent: {status}</span>
                 </div>
+
+                {/* What the goal is FOR, in the user's own words — the line the
+                    board puts on the tile. It reads as a quote rather than as
+                    another description, because that is what it is. */}
+                {data.vision && <p className="goal-detail-vision">“{data.vision}”</p>}
+
+                {/* A container goal cannot be finished by one run, so say what
+                    enlisting actually does before the button is pressed. */}
+                {isContainerHorizon(data.horizon) && !running && (
+                  <p className="goal-detail-note">
+                    This is an aim, not a task: it is aimed at your whole
+                    {' '}{HORIZON_LABELS[data.horizon].toLowerCase()} rather than at this week. Enlisting it
+                    plans first — the agent breaks it into nearer goals and works the first of
+                    those, instead of trying to finish it in one pass.
+                  </p>
+                )}
 
                 {/* Where this goal is in its life — Drafted → Working → Finished */}
                 <ol className="goal-detail-rail" aria-label="Goal progress">
@@ -451,7 +489,11 @@ function GoalDetail() {
                 </div>
 
                 <label className="goal-detail-field">
-                  <span className="goal-detail-field-label">🧭 Scope / instructions for the agent (optional)</span>
+                  {/* Labelled "this run" because that is exactly what it is: it is
+                      passed to the agent for one run and never stored. An earlier
+                      label here read "Scope", which made it look like the same
+                      field as the goal's own standing horizon. */}
+                  <span className="goal-detail-field-label">🧭 Instructions for this run (optional)</span>
                   <textarea
                     className="goal-detail-textarea"
                     value={context}

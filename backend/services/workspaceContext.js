@@ -29,6 +29,24 @@ const LOG_TAIL_LINES = 30;
 const DECISIONS_KEEP = 5;
 const SKILL_MENTION_RE = /@([a-z0-9][a-z0-9_-]{0,99})/gi;
 
+// ACTIVE GOALS are grouped by HORIZON, nearest first.
+//
+// Grouping is the point: "retire at 60" and "pick up groceries" are both plain
+// `active` goals, and a flat priority-sorted list reads as if they were the same
+// kind of work. The two long buckets are rendered ONE LINE PER GOAL and capped
+// tighter — they are context for what the user is aiming at, not a queue to work
+// down. A goal with no horizon sits among the actionable ones, because that is
+// every goal written before horizons existed and the model must not read it as
+// somehow long-term.
+const GOAL_HORIZON_BLOCKS = [
+    { key: 'week',    heading: 'This week',                                            detail: true,  max: 3 },
+    { key: 'quarter', heading: 'This quarter',                                         detail: true,  max: 3 },
+    { key: null,      heading: 'No horizon',                                           detail: true,  max: 2 },
+    { key: 'year',    heading: 'This year — LONG: plan it, do not finish it',           detail: false, max: 2 },
+    { key: 'life',    heading: 'Life / open-ended — LONG: plan it, do not finish it',   detail: false, max: 2 },
+];
+const CONTAINER_HORIZONS = ['year', 'life'];
+
 function itemId(userId, kind, slug) {
     return `csimple_ws_${userId}_${kind}_${slug}`;
 }
@@ -109,7 +127,8 @@ async function buildWorkspaceContext({ dynamodb, userId, activeAgent = null, mes
         pushSection(state, 'ACTIVE PROJECT', proj.text.trim());
     }
 
-    // 2b. Active goals (sorted by priority desc) — the agent loop's worklist
+    // 2b. Active goals, grouped by horizon (nearest first) — the agent loop's
+    //     worklist, with the long-horizon goals kept as context.
     const goals = await fetchAllOfKind(dynamodb, userId, 'goal');
     if (goals.length) {
         const active = goals.filter(g => (g.status || 'active') === 'active');
@@ -120,15 +139,33 @@ async function buildWorkspaceContext({ dynamodb, userId, activeAgent = null, mes
             return (a.updatedAt || '').localeCompare(b.updatedAt || '');
         });
         if (active.length) {
-            const body = active.slice(0, 5).map(g => {
-                const parts = [`### ${g.name || g.slug} [priority=${g.priority ?? 50}]`];
-                if (g.successCriteria) parts.push(`Success: ${g.successCriteria}`);
-                if (g.constraints)     parts.push(`Constraints: ${g.constraints}`);
-                if (g.parentGoalId)    parts.push(`Parent: ${g.parentGoalId}`);
-                if (g.text && g.text.trim()) parts.push(g.text.trim());
-                return parts.join('\n');
-            }).join('\n\n');
-            pushSection(state, 'ACTIVE GOALS', body);
+            const body = [];
+            for (const block of GOAL_HORIZON_BLOCKS) {
+                const members = active.filter(g => (g.horizon || null) === block.key);
+                if (!members.length) continue;
+                body.push(`== ${block.heading}`);
+                for (const g of members.slice(0, block.max)) {
+                    if (!block.detail) {
+                        // One line: a name and why it exists, nothing to act on.
+                        const gist = String(g.vision || g.text || '').trim().replace(/\s+/g, ' ').slice(0, 140);
+                        body.push(`- ${g.name || g.slug}${gist ? ` — ${gist}` : ''}`);
+                        continue;
+                    }
+                    const parts = [`### ${g.name || g.slug} [priority=${g.priority ?? 50}]`];
+                    if (g.successCriteria) parts.push(`Success: ${g.successCriteria}`);
+                    if (g.constraints)     parts.push(`Constraints: ${g.constraints}`);
+                    if (g.parentGoalId)    parts.push(`Parent: ${g.parentGoalId}`);
+                    if (g.text && g.text.trim()) parts.push(g.text.trim());
+                    body.push(parts.join('\n'));
+                }
+                const hidden = members.length - Math.min(members.length, block.max);
+                if (hidden > 0) body.push(`(+${hidden} more at this horizon)`);
+            }
+            if (active.some(g => CONTAINER_HORIZONS.includes(g.horizon))) {
+                body.push('');
+                body.push('The long-horizon goals above are CONTAINERS: they are usually waiting on money, a date or a person, not on more effort. Work their `week`/`quarter` children, or split one with create_goal — never promise to finish one.');
+            }
+            pushSection(state, 'ACTIVE GOALS', body.join('\n'));
         }
     }
 

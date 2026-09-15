@@ -14,7 +14,7 @@
 
 const { sendEmail } = require('./emailService');
 const { createMemoryItem, getMemoryItems } = require('./memoryService');
-const { listGoals, upsertGoal, normalizeGoalTitle } = require('./workspaceGoals');
+const { listGoals, upsertGoal, normalizeGoalTitle, GOAL_HORIZONS } = require('./workspaceGoals');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand, GetCommand, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
 const { logger } = require('../utils/logger');
@@ -37,6 +37,33 @@ const CSIMPLE_CREATED_AT = '2000-01-01T00:00:00.000Z';
 const MAX_FILE_BYTES = 32 * 1024;
 const SAFE_FILENAME_RE = /^[a-zA-Z0-9_\-. ()]{1,100}$/;
 const PERSONALITY_FILES = ['identity.md', 'soul.md', 'user.md'];
+
+// ── Goal horizon ────────────────────────────────────────────────────────────
+//
+// Shared by the save_goal and save_goals schemas so the two can't drift, and
+// defined HERE because the tool description is the only prompt the model gets
+// about it. "Retire at 60" arriving as a to-do is the failure this prevents:
+// without a horizon the only thing distinguishing a life aim from a chore is the
+// title's wording, which nothing downstream can group or filter on.
+const HORIZON_VALUES = GOAL_HORIZONS;
+const HORIZON_LABELS = {
+  week: 'this week',
+  quarter: 'this quarter',
+  year: 'this year',
+  life: 'life / open-ended',
+};
+/** OpenAI function-parameter definition, reused verbatim by both save schemas. */
+const HORIZON_PARAM = {
+  type: 'string',
+  enum: HORIZON_VALUES,
+  description: [
+    'How far out the goal is aimed, and only when the user\'s own words imply a',
+    'timescale: "week" = doable in days, "quarter" = weeks-to-months of work,',
+    '"year" = an outcome for this year, "life" = long-term / open-ended',
+    '(retiring, learning a language, writing a book). Omit it when they did not',
+    'imply a timescale — never invent one to fill the field.',
+  ].join(' '),
+};
 
 // ─── Tool Schemas (OpenAI function-calling format) ──────────────────────────
 
@@ -97,6 +124,7 @@ const TOOL_SCHEMAS = [
             type: 'string',
             description: 'Optional deadline in ISO 8601 format or natural language (e.g. "2026-03-01" or "end of month")',
           },
+          horizon: HORIZON_PARAM,
         },
         required: ['title'],
       },
@@ -133,6 +161,7 @@ const TOOL_SCHEMAS = [
                   type: 'string',
                   description: 'Optional deadline in ISO 8601 format or natural language',
                 },
+                horizon: HORIZON_PARAM,
               },
               required: ['title'],
             },
@@ -520,6 +549,7 @@ const TOOL_EXECUTORS = {
   // ── Save goal ─────────────────────────────────────────────────────────────
   async save_goal(args, context) {
     const { title, description = '', priority = 'medium', deadline = null } = args;
+    const horizon = HORIZON_VALUES.includes(args.horizon) ? args.horizon : null;
     const normalizedTitle = normalizeGoalTitle(title);
 
     // Dedupe: don't create a second copy of a goal the user already has.
@@ -539,10 +569,17 @@ const TOOL_EXECUTORS = {
       content: content || title,
       status: 'active',
       priority,
+      horizon,
       createdBy: 'user',
     });
 
-    return `Goal saved: "${title}"${deadline ? ` (deadline: ${deadline})` : ''}. You can view your goals on the /plans page.`;
+    // Name the horizon back to the user: it is the difference between "added a
+    // task" and "added a long-term aim", and they should see which one happened.
+    const suffix = [
+      deadline ? `deadline: ${deadline}` : null,
+      horizon ? `horizon: ${HORIZON_LABELS[horizon]}` : null,
+    ].filter(Boolean).join(', ');
+    return `Goal saved: "${title}"${suffix ? ` (${suffix})` : ''}. You can view your goals on the /plans page.`;
   },
 
   // ── Save multiple goals ────────────────────────────────────────────────────
@@ -577,6 +614,7 @@ const TOOL_EXECUTORS = {
         content: content || title,
         status: 'active',
         priority: ['low', 'medium', 'high'].includes(g.priority) ? g.priority : 'medium',
+        horizon: HORIZON_VALUES.includes(g.horizon) ? g.horizon : null,
         createdBy: 'user',
       });
       seenInBatch.add(key);
@@ -622,14 +660,31 @@ const TOOL_EXECUTORS = {
 
     const priorityLabel = (p) => (typeof p === 'number' ? (p >= 90 ? 'high' : p <= 10 ? 'low' : 'medium') : 'medium');
 
-    const list = active.map((g, i) => {
-      const parts = [`${i + 1}. ${g.name}`];
+    // Nearest horizon first, with the horizon named on each line: "retire at 60"
+    // and "pick up groceries" are both active goals, and the model should be able
+    // to tell them apart without a second call. Goals with no horizon sort with
+    // the near ones — they made no long-term claim.
+    const rank = (g) => {
+      const i = HORIZON_VALUES.indexOf(g.horizon);
+      return i === -1 ? 2 : i;   // week 0, quarter 1, none/unset 2, year 3, life 4
+    };
+    const ordered = [...active].sort((a, b) => rank(a) - rank(b));
+
+    const list = ordered.map((g, i) => {
+      const label = HORIZON_LABELS[g.horizon];
+      const parts = [`${i + 1}. ${g.name}${label ? ` — ${label}` : ''}`];
       if (g.content && g.content !== g.name) parts.push(`   ${g.content}`);
       if (typeof g.priority === 'number') parts.push(`   Priority: ${priorityLabel(g.priority)}`);
+      if (g.parentGoalId) parts.push(`   Step towards: ${g.parentGoalId}`);
       return parts.join('\n');
     }).join('\n');
 
-    return `Your active goals:\n${list}`;
+    const hasLongTerm = active.some(g => g.horizon === 'year' || g.horizon === 'life');
+    const note = hasLongTerm
+      ? '\n(Long-horizon goals are aims, not tasks: break one into nearer goals before trying to work on it.)'
+      : '';
+
+    return `Your active goals (nearest horizon first):\n${list}${note}`;
   },
 
   // ── Get notes ─────────────────────────────────────────────────────────────

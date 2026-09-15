@@ -123,6 +123,26 @@
   white-space: pre-wrap;
 }
 
+/* The board's tile line, quoted. It is the user's own words about the OUTCOME,
+   which is a different thing from the description above it — hence the quote
+   marks and the emphasis rather than another paragraph of body text. */
+.goal-detail-vision {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-style: italic;
+  line-height: 1.55;
+  color: var(--text-color-accent);
+}
+
+/* What a long-horizon goal implies for the button below it. */
+.goal-detail-note {
+  margin: 0;
+  max-width: 62ch;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-base);
+  color: var(--text-color-accent);
+}
+
 .goal-detail-meta {
   display: flex;
   flex-wrap: wrap;
@@ -145,6 +165,13 @@
   background: var(--bg-1);
   color: color-mix(in srgb, var(--badge-tone) var(--plane-ink-fallback), var(--text-color));
   color: oklch(from var(--badge-tone) var(--plane-ink-l) c h);
+}
+/* The horizon badge takes the emphasis hue rather than a signal hue: it is a
+   property of the goal's shape, not a state anyone has to act on. */
+.goal-detail-badge--horizon {
+  background: var(--bg-1);
+  color: color-mix(in srgb, var(--fg-blue) var(--plane-ink-fallback), var(--text-color));
+  color: oklch(from var(--fg-blue) var(--plane-ink-l) c h);
 }
 
 .goal-detail-actions { display: flex; gap: var(--spacing-xs); margin-top: calc(var(--nav-size) * 0.15); }

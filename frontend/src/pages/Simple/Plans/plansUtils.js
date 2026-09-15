@@ -11,8 +11,19 @@
  *
  *   { _id, type: 'goal', workspace: true, data: { title, description, status,
  *     priority, deadline, agent, successCriteria, maxSteps, autoAbandon,
- *     createdBy, vision, cover, targetDate }, createdAt, updatedAt }
+ *     createdBy, vision, cover, targetDate, horizon }, createdAt, updatedAt }
  */
+
+import {
+  GOAL_HORIZONS,
+  HORIZON_LABELS,
+  HORIZON_HINTS,
+  HORIZON_NONE,
+  HORIZON_NONE_LABEL,
+  CONTAINER_HORIZONS,
+  isContainerHorizon,
+  horizonLabel,
+} from '../../../constants/goalHorizons.js';
 
 // ── O-O-G-P-A loop ──────────────────────────────────────────────────────────
 
@@ -186,6 +197,9 @@ export function workspaceGoalToItem(entry) {
       vision: entry.vision || null,
       cover: entry.cover || null,
       targetDate: entry.targetDate || null,
+      // How far out the goal is aimed. Null is a real state — "no claim" — and
+      // the majority state for goals written before horizons existed.
+      horizon: GOAL_HORIZONS.includes(entry.horizon) ? entry.horizon : null,
     },
     createdAt: entry.createdAtReal || entry.updatedAt || null,
     updatedAt: entry.updatedAt || null,
@@ -328,6 +342,68 @@ export function isAgentReady(goal) {
   return !isTerminalStatus(status) && status !== 'paused';
 }
 
+// ── Goal horizon ────────────────────────────────────────────────────────────
+//
+// The vocabulary itself lives in `constants/goalHorizons.js` (shared with
+// /market, which filters by it) and is re-exported here so this page has one
+// import. What stays in this file is the GROUPING — which is a view concern.
+//
+// `null` (HORIZON_NONE) is a first-class bucket, not a fallback: every goal
+// written before horizons existed has no horizon, and the page must show that
+// honestly rather than dropping those goals into "This week".
+
+export {
+  GOAL_HORIZONS,
+  HORIZON_LABELS,
+  HORIZON_HINTS,
+  HORIZON_NONE,
+  HORIZON_NONE_LABEL,
+  CONTAINER_HORIZONS,
+  isContainerHorizon,
+  horizonLabel,
+};
+
+/** A goal item's horizon, or HORIZON_NONE when it hasn't claimed one. */export function goalHorizon(goal) {
+  const h = goal?.data?.horizon;
+  return GOAL_HORIZONS.includes(h) ? h : HORIZON_NONE;
+}
+
+/** Bucket order: nearest first, with "no horizon" before the long-term aims.
+    A goal that made no claim sits with the actionable ones — matching how the
+    agent picks work — rather than being pushed out to the bottom. */
+export const HORIZON_GROUP_ORDER = ['week', 'quarter', HORIZON_NONE, 'year', 'life'];
+
+export const HORIZON_GROUP_LABELS = {
+  week: HORIZON_LABELS.week,
+  quarter: HORIZON_LABELS.quarter,
+  [HORIZON_NONE]: HORIZON_NONE_LABEL,
+  year: HORIZON_LABELS.year,
+  life: HORIZON_LABELS.life,
+};
+
+/** Bucket goals by horizon into the ordered groups the page renders. The shape
+    mirrors groupGoals() exactly, so the view can swap one for the other. */
+export function groupGoalsByHorizon(goals) {
+  const groups = HORIZON_GROUP_ORDER.map((horizon) => ({
+    horizon,
+    label: HORIZON_GROUP_LABELS[horizon],
+    items: [],
+  }));
+  const byHorizon = groups.reduce((acc, g) => { acc[g.horizon] = g; return acc; }, {});
+  for (const goal of sortGoals(goals)) {
+    byHorizon[goalHorizon(goal)].items.push(goal);
+  }
+  return groups.filter((g) => g.items.length > 0);
+}
+
+/** How many goals sit in each horizon bucket, for the filter chips. Always
+    includes every bucket key so callers can read a count without a guard. */
+export function horizonCounts(goals) {
+  const counts = HORIZON_GROUP_ORDER.reduce((acc, h) => { acc[h] = 0; return acc; }, {});
+  for (const goal of goals) counts[goalHorizon(goal)] += 1;
+  return counts;
+}
+
 // ── Folded groups ───────────────────────────────────────────────────────────
 //
 // A workspace with a hundred finished goals should not be a hundred cards the
@@ -380,6 +456,36 @@ export function writeCollapsedGroups(keys, storage = globalThis.localStorage) {
     storage?.setItem(COLLAPSED_GROUPS_KEY, serializeCollapsedGroups(keys));
   } catch {
     // Nothing to recover from: the fold just won't survive the reload.
+  }
+}
+
+// ── Grouping axis ───────────────────────────────────────────────────────────
+//
+// Which field the goals view buckets on: the horizon (the default) or the status.
+// Persisted for the same reason the folds are — a preference that resets itself
+// on every visit is one nobody sets twice.
+
+export const GROUP_BY_KEY = 'plansGroupBy';
+/** The axes, in the order the picker offers them. */
+export const GROUP_BY_MODES = ['horizon', 'status'];
+export const GROUP_BY_LABELS = { horizon: 'Horizon', status: 'Status' };
+export const DEFAULT_GROUP_BY = 'horizon';
+
+/** The stored axis, degrading to the default when absent or unrecognised. */
+export function readGroupBy(storage = globalThis.localStorage) {
+  try {
+    const raw = storage?.getItem(GROUP_BY_KEY);
+    return GROUP_BY_MODES.includes(raw) ? raw : DEFAULT_GROUP_BY;
+  } catch {
+    return DEFAULT_GROUP_BY;
+  }
+}
+
+export function writeGroupBy(mode, storage = globalThis.localStorage) {
+  try {
+    if (GROUP_BY_MODES.includes(mode)) storage?.setItem(GROUP_BY_KEY, mode);
+  } catch {
+    // The view still groups correctly for this visit; the choice just won't stick.
   }
 }
 

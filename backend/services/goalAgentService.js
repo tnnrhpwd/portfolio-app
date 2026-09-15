@@ -22,7 +22,7 @@ const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
 const { createCompletion, createBedrockChatCompletion, PROVIDERS } = require('../utils/llmProviders');
 const { BEDROCK_MODEL_ID } = require('./bedrockService');
-const { setGoalAgent } = require('./workspaceGoals');
+const { setGoalAgent, upsertGoal, isContainerHorizon, GOAL_HORIZONS } = require('./workspaceGoals');
 const { logger } = require('../utils/logger');
 
 // Local DynamoDB client for the bug-report tool (writes to the same "Simple"
@@ -48,6 +48,18 @@ const MAX_HISTORY = 5;             // cap on retained past runs per goal
 const MAX_FILE_BYTES = 120 * 1024; // max size of a file the agent may write
 const MAX_READ_BYTES = 40 * 1024;  // max bytes of a file returned to the LLM
 const STEP_TEXT_MAX = 1000;        // max chars stored per step in DynamoDB
+// A container run (year/life horizon) is expected to split the goal into a few
+// nearer ones. The cap is what stops that becoming a runaway: the agent may make
+// a handful of goals, not a tree it then tries to work in one afternoon.
+const MAX_GOALS_PER_RUN = 5;
+
+/** Horizon as the prompt should read it. */
+const HORIZON_PHRASES = {
+  week: 'this week',
+  quarter: 'this quarter',
+  year: 'this year',
+  life: 'life / open-ended',
+};
 
 // In-memory registry of active runs (goalId → { startedAt, abort })
 const _runs = new Map();
@@ -189,6 +201,29 @@ const TOOL_SCHEMAS = [
           actual: { type: 'string', description: 'What actually happened' },
         },
         required: ['title', 'description'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_goal',
+      description: [
+        'Create a NEW goal for the user, linked to the goal you are working on as its parent.',
+        'Use this to break a long-horizon goal into nearer work: create the first step or two as',
+        'their own goals with a `horizon` of "week" or "quarter", then work on the nearest of them.',
+        'Do not use it to restate the goal you are already working on.',
+      ].join(' '),
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Goal title (max 120 chars)' },
+          description: { type: 'string', description: 'What "done" looks like, and any constraint or blocker' },
+          horizon: { type: 'string', enum: GOAL_HORIZONS, description: 'How far out this step is aimed. Anything you can start now is "week".' },
+          priority: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Priority for the new goal' },
+          successCriteria: { type: 'string', description: 'How the user will know this step is done' },
+        },
+        required: ['title'],
       },
     },
   },
@@ -345,6 +380,39 @@ const TOOL_EXECUTORS = {
     ].join('\n');
   },
 
+  async create_goal(args, ctx) {
+    const title = String(args?.title || '').trim();
+    if (!title) return 'Error: a goal needs a title.';
+    if (!ctx?.userId) return 'Error: no user context — cannot create a goal.';
+
+    const made = ctx.runCtx.createdGoals || 0;
+    if (made >= MAX_GOALS_PER_RUN) {
+      return `Error: this run has already created ${MAX_GOALS_PER_RUN} goals. Work on the ones that exist instead.`;
+    }
+
+    const horizon = GOAL_HORIZONS.includes(args?.horizon) ? args.horizon : null;
+    const entry = await upsertGoal(ctx.userId, {
+      name: title,
+      content: String(args?.description || '').trim(),
+      successCriteria: args?.successCriteria != null ? String(args.successCriteria) : undefined,
+      horizon: horizon || undefined,
+      priority: args?.priority,
+      status: 'active',
+      // The container this run was started from IS the parent: that link is what
+      // makes the split visible as one goal becoming several on /plans.
+      parentGoalId: ctx.goalId || undefined,
+      createdBy: 'agent',
+    });
+
+    ctx.runCtx.createdGoals = made + 1;
+    const name = entry?.name || title;
+    return [
+      `Created the goal "${name}"${horizon ? ` at horizon ${horizon}` : ''}${ctx.goalId ? `, parented to ${ctx.goalId}` : ''}.`,
+      'It is on the user\'s /plans page now and can be coordinated by the agent.',
+      made + 1 >= MAX_GOALS_PER_RUN ? 'That was the last goal this run may create.' : '',
+    ].filter(Boolean).join(' ');
+  },
+
   async propose_plan(args, ctx) {
     const steps = (Array.isArray(args?.steps) ? args.steps : [])
       .filter((s) => typeof s === 'string' && s.trim())
@@ -395,6 +463,7 @@ function goalFields(goal) {
       description: d.description || '',
       priority: d.priority || null,
       deadline: d.deadline || null,
+      horizon: d.horizon || null,
       agent: d.agent || null,
     };
   }
@@ -404,6 +473,7 @@ function goalFields(goal) {
     description: goal.content || '',
     priority: num != null ? (num >= 90 ? 'high' : num <= 10 ? 'low' : 'medium') : null,
     deadline: null,
+    horizon: goal.horizon || null,
     agent: goal.agent || null,
   };
 }
@@ -517,7 +587,32 @@ function buildUserPrompt(goal) {
   if (d.description) parts.push(`Description: ${d.description}`);
   if (d.priority) parts.push(`Priority: ${d.priority}`);
   if (d.deadline) parts.push(`Deadline: ${d.deadline}`);
-  parts.push('', 'Decide the approach, then take concrete action (propose_plan is optional).');
+  if (d.horizon) parts.push(`Horizon: ${HORIZON_PHRASES[d.horizon] || d.horizon}`);
+
+  if (isContainerHorizon(d.horizon)) {
+    // A year/life goal cannot be finished by a loop that runs for an afternoon,
+    // and it is usually gated on resources or events (money, a date, another
+    // person) rather than on more effort. So the deliverable of THIS run is the
+    // decomposition plus whatever part of it is startable today — not the goal.
+    parts.push(
+      '',
+      'This is a LONG-HORIZON goal. It will not be finished in one run, and it may be',
+      'waiting on money, a date or another person rather than on more work.',
+      'Do not try to complete it. Spend this run on the part that is actionable:',
+      '- Call propose_plan with the shape of the goal in a few stages.',
+      '- Call create_goal for the NEAREST one or two steps, each with a `horizon` of',
+      '  "week" or "quarter". Those become the user\'s own goals, linked to this one,',
+      '  and they are what the agent will actually run later.',
+      '- Then make real progress on the first of them, if it is something you can do',
+      '  now with the tools you have.',
+      '- If that first step is blocked on something only the user can supply (money, a',
+      '  decision, an appointment), say so plainly in deliver_result rather than',
+      '  inventing a substitute.',
+    );
+  } else {
+    parts.push('', 'Decide the approach, then take concrete action (propose_plan is optional).');
+  }
+
   return parts.join('\n');
 }
 

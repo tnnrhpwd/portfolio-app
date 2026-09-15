@@ -73,7 +73,7 @@ const {
 } = require('../services/marketplaceRanking');
 const { scrubForPublish } = require('../services/marketplaceScrub');
 const { summarizeCapabilities } = require('../services/marketplaceCapabilities');
-const { upsertGoal, getGoalBySlug, slugifyGoal } = require('../services/workspaceGoals');
+const { upsertGoal, getGoalBySlug, slugifyGoal, GOAL_HORIZONS } = require('../services/workspaceGoals');
 
 const client = new DynamoDBClient({
     region: process.env.AWS_REGION,
@@ -206,6 +206,10 @@ function metaToSummary(meta) {
         successCriteria: meta.successCriteria || '',
         constraints: meta.constraints || '',
         priority: meta.priority ?? null,
+        // How far out the shared goal is aimed. Absent on everything published
+        // before horizons existed — which is a real state the UI shows as "no
+        // horizon" rather than guessing a bucket for it.
+        horizon: GOAL_HORIZONS.includes(meta.horizon) ? meta.horizon : null,
         sourceGoalSlug: meta.sourceGoalSlug || null,
         downloads: meta.downloads || 0,
         installs: meta.installs || 0,
@@ -616,6 +620,7 @@ const publishGoal = asyncHandler(async (req, res) => {
         successCriteria,
         constraints,
         priority,
+        horizon,
         naturalLanguageDescription,
         declaredCategories,
     } = req.body || {};
@@ -629,6 +634,11 @@ const publishGoal = asyncHandler(async (req, res) => {
     if ((declaredCategories || []).length > MAX_CATEGORIES) badRequest(res, `declaredCategories: max ${MAX_CATEGORIES}`);
     if (naturalLanguageDescription != null && String(naturalLanguageDescription).length > DESC_MAX) {
         badRequest(res, `naturalLanguageDescription: max ${DESC_MAX} chars`);
+    }
+    // A horizon the market doesn't know would be stored and then filtered on by
+    // nothing — reject it here instead, where the error is still the author's.
+    if (horizon != null && horizon !== '' && !GOAL_HORIZONS.includes(horizon)) {
+        badRequest(res, `Invalid horizon. Allowed: ${GOAL_HORIZONS.join(', ')}`);
     }
 
     let marketId = inputMarketId;
@@ -702,6 +712,10 @@ const publishGoal = asyncHandler(async (req, res) => {
         successCriteria: versionItem.goal.successCriteria,
         constraints: versionItem.goal.constraints,
         priority: typeof priority === 'number' ? priority : null,
+        // The horizon travels with the goal, in the summary AND on the version
+        // item: it is what makes "show me something I can finish this week" a
+        // question the market can answer.
+        horizon: GOAL_HORIZONS.includes(horizon) ? horizon : null,
         declaredCategories: versionItem.declaredCategories,
         naturalLanguageDescription: versionItem.naturalLanguageDescription,
         downloads: existingMeta?.downloads || 0,
@@ -729,7 +743,7 @@ const publishGoal = asyncHandler(async (req, res) => {
 // @access  Private
 const listMarketGoals = asyncHandler(async (req, res) => {
     if (!req.user) unauthorized(res);
-    const { q, sort = 'trust' } = req.query;
+    const { q, sort = 'trust', horizon } = req.query;
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const perPage = Math.min(50, Math.max(1, parseInt(req.query.perPage, 10) || 20));
 
@@ -752,6 +766,12 @@ const listMarketGoals = asyncHandler(async (req, res) => {
     }
 
     goals = sortSkills(goals, sort);
+
+    // `horizon=any` is the default (no filter). `horizon=none` asks for the ones
+    // that made no claim — the published back-catalogue before horizons existed.
+    if (horizon && horizon !== 'any') {
+        goals = goals.filter(g => (horizon === 'none' ? !g.horizon : g.horizon === horizon));
+    }
 
     const total = goals.length;
     const start = (page - 1) * perPage;
@@ -797,6 +817,9 @@ const installMarketGoal = asyncHandler(async (req, res) => {
         constraints: meta.constraints || undefined,
         status: 'active',
         priority: typeof meta.priority === 'number' ? meta.priority : 50,
+        // Installed goals inherit the shared horizon, so a shared life aim does
+        // not land in the installer's list as an untriaged chore.
+        horizon: GOAL_HORIZONS.includes(meta.horizon) ? meta.horizon : undefined,
         createdBy: 'user',
         tags: ['marketplace', marketId],
     });

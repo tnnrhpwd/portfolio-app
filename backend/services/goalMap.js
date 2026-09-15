@@ -74,6 +74,11 @@ function describeGoal(goal) {
         `"${goal.name || goal.slug}"`,
         goal.status || 'active',
         typeof goal.priority === 'number' ? `priority ${goal.priority}` : null,
+        // The horizon is what stops "retire at 60" being sequenced after "pick up
+        // groceries" as though one depended on the other: it says the goal is
+        // aimed years out, so its prerequisites are resources and dates, not
+        // more chores.
+        goal.horizon ? `horizon ${goal.horizon}` : null,
         goal.targetDate ? `target ${goal.targetDate}` : null,
         goal.content ? `detail: ${String(goal.content).replace(/\s+/g, ' ').slice(0, 160)}` : null,
         goal.vision ? `vision: ${String(goal.vision).replace(/\s+/g, ' ').slice(0, 120)}` : null,
@@ -97,6 +102,7 @@ function buildGoalMapPrompt(goals) {
         '- "order" is the position INSIDE its category: 1 = do this first. Number them tightly (1, 2, 3, …) so the sequence is readable.',
         `- "dependsOn" lists the slugs this goal cannot start before (its prerequisites). At most ${DEPENDS_MAX} each, never itself, and only slugs from the list. Most goals have none — an empty array or an omitted key is correct and common.`,
         '- Group by SUBJECT, never by status: a finished goal belongs in its subject\'s category.',
+        '- A "horizon" of year/life marks a long-term AIM. It is usually gated on money, a date or another person rather than on another goal, so do not invent a dependency chain that runs it from everyday errands. Never put an aim and the chores it needs in the same dependency line.',
         '- Reply with JSON only. No prose, no markdown fences.',
         '',
         `Goals (${list.length}):`,

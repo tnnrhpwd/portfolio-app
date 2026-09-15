@@ -38,6 +38,18 @@ const DEFAULT_MAX_STEPS = 60; // §11.5 follow-up: bumped from the legacy 20 to 
 const DEFAULT_MODEL_ID = undefined;
 const REFLECT_EVERY = 5;
 const STEP_DELAY_MS = 400;
+
+// Optional goal horizon (mirrors the backend's GOAL_HORIZONS). `year`/`life` mark a
+// CONTAINER: an aim the loop must split into nearer work rather than try to finish.
+const HORIZON_LABELS = {
+    week: 'this week',
+    quarter: 'this quarter',
+    year: 'this year — long-term, split it before working it',
+    life: 'life / open-ended — long-term, split it before working it',
+};
+function isContainerHorizon(horizon) {
+    return horizon === 'year' || horizon === 'life';
+}
 const crypto = require('crypto');
 // Tools whose args contain human/PII content — never captured into a
 // success-run skill draft (mirrors pattern-learner.js PII_TOOLS).
@@ -140,6 +152,7 @@ function buildSystemPrompt({ goal, workspaceContext, toolNames, skillHints, perc
         '',
         '== GOAL ==',
         `Title: ${goal.name}`,
+        goal.horizon ? `Horizon: ${HORIZON_LABELS[goal.horizon] || goal.horizon}` : '',
         goal.successCriteria ? `Success criteria: ${goal.successCriteria}` : '',
         goal.constraints ? `Constraints: ${goal.constraints}` : '',
         '',
@@ -157,6 +170,13 @@ function buildSystemPrompt({ goal, workspaceContext, toolNames, skillHints, perc
         '8. If a RECORDED SKILL below matches this goal, PREFER skill_run({ slug: "..." }) over rederiving the steps. Skills are previously-validated demonstrations from the user.',
         '9. Use audio_transcribe if the goal involves spoken input. Use audio_speak to deliver voice assistant responses.',
         '10. Use webcam_capture with describe=true only when you need to understand the user\'s physical environment.',
+        isContainerHorizon(goal.horizon)
+            ? '11. The goal above is a LONG-TERM AIM, not a task. Do not try to finish it in this run. ' +
+              'Use goal_create to split off the nearest one or two steps with horizon="week" or "quarter" ' +
+              '(they inherit this goal as their parent), then make real progress on the first step. ' +
+              'If that step is waiting on something only the user can supply — money, a date, an appointment — ' +
+              'call goal_ask_user instead of looking for a substitute.'
+            : '',
         '',
         '== AVAILABLE TOOLS ==',
         toolNames.join(', '),
