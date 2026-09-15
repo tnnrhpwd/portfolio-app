@@ -142,7 +142,7 @@ export default function GoalManager({ user, addonConnected, addonBaseUrl }) {
       const slug = editSlug || slugify(form.name);
       await upsertWorkspaceItem(token, 'goal', slug, {
         name: form.name.trim().slice(0, 80),
-        content: form.content.trim().slice(0, 2000),
+        content: form.content.trim().slice(0, 10000),
         successCriteria: form.successCriteria.trim().slice(0, 300),
         constraints: form.constraints.trim().slice(0, 300),
         priority: Math.min(100, Math.max(0, Number(form.priority) || 50)),
