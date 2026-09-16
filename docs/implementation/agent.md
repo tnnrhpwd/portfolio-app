@@ -424,6 +424,19 @@ Each milestone ships with Jest unit tests and, where it touches the loop, an
 
 - 🟡 Recorder sensitive-capture consent: frontend consent UX polish.
 
+#### P1 — observed while driving the loop (2026-09-15)
+
+- ⬜ **The loop burns its whole budget on perception and reaches nothing.** A
+  driven run of the idle listener went 17 steps on nothing but `screen_capture`,
+  then stalled out and stopped; the console now shows this plainly (§24.5) but
+  nothing about it has been diagnosed yet. Candidate causes worth ruling out, in
+  order of cheapness: the goal it picked had no actionable step available; the
+  perception block in `orient()` is crowding out the goal text under
+  `ORIENT_CAP_BYTES`; `screen_capture` is returning `ok` every time so
+  `critic.score` never sees a negative delta and the stall counter never fires.
+  Evidence to start from: the run's `agent.stepLog` and the `RECENT ACTIONS` /
+  `CURRENT PERCEPTION` split in the assembled situation block.
+
 #### P2 — after core loop is stable
 
 - 🟡 Trust-ranking tuning + low-trust dry-run-first hardening (formula + classifier shipped; tune against real usage).
@@ -460,6 +473,79 @@ Longer-horizon capabilities, listed by the roadmap.
 - **Cloud continuity** — skills, settings, history, and consents sync across a
   user's machines (the same workspace items already do this), so a reinstall or
   new PC restores the agent in minutes.
+
+### 10.5 Agreed epics (2026-09-15)
+
+Three pieces of work were specified alongside the console pass (§24.5) and
+deliberately **not** built in it. The decisions are recorded here because they
+were made once, in conversation, and are expensive to re-derive.
+
+#### E1 — Goal scope: timeline and dependencies
+
+Every goal carries an optional timeline **and** optional dependencies. Horizon
+(`week|quarter|year|life`, §23) already ships the timeline half and is already
+optional on every goal, which is what answers "a retirement aim must not sit next
+to picking up groceries". What is missing is the *reason* a long goal is not
+moving.
+
+- `targetDate` exists on the backend but only the Dream board's form writes it
+  and only `GoalDetail` reads it. It needs to be proposed and shown like the
+  horizon tag is, on the list card as well as the detail page.
+- `dependsOn` is new, and the decision was **one field with discriminated
+  entries**, not two fields: a goal may wait on another goal
+  (`{kind:'goal', goalSlug, note}`) *and* on a condition
+  (`{kind:'resource'|'event', label, dueAt}`). "Waiting on the deposit AND on
+  the house sale" is one list, and a goal whose list is not satisfied is not
+  actionable.
+- **Non-negotiable:** an unmet dependency must change behaviour, or the field is
+  a label. `getNextGoal` must not hand a blocked-on-dependency goal to the loop,
+  and the container prompt (§23.1) must not try to work it.
+- Files: `backend/services/workspaceGoals.js` (validation + carry-forward, next
+  to `GOAL_HORIZONS`), `workspaceController.resolveGoalField`,
+  `services/goalReview.js` (a `dependency` proposal kind), `plansUtils.js`,
+  `Plans.jsx`, `GoalDetail.jsx`.
+- ⚠️ Design against the trap in §23.3: both goal writers `Put` the whole item, so
+  a field a writer forgets to carry forward is destroyed by the next partial
+  write. `workspaceGoalHorizon.test.js` is the test pattern to copy.
+
+#### E2 — Batch approval is mode-aware
+
+Staging plus a single-`POST` apply already ships (§24.1) and is what makes a
+loop-initiated review safe. What it does not know is the mode.
+
+- Decision: in **Assist**, the review proposes and the user approves the batch
+  once. Risky **tool** approvals keep their own per-call prompts — they are not
+  folded into the batch (the batch is *goal-list* changes only).
+- Autopilot does **not** gain an auto-apply path. A review nobody read must never
+  write on its own, which is the property §24.1 exists to protect.
+- Missing: the mode read into the panel (it already derives from
+  `currentMode(perms)`, so the primary action can read "Approve these N changes"),
+  copy that distinguishes a batch the loop proposed while the user was away from
+  one they just asked for, and a count badge on the loop panel when one is
+  waiting.
+- Files: `GoalReviewPanel.jsx`, `goalReviewUtils.js`, `SimpleDashboard.jsx`.
+
+#### E3 — The cloud run with local hands
+
+Decision: **the cloud run dispatches individual tool calls to the connected
+addon** and feeds the results back to the model — not "cloud enqueues the goal
+and the addon runs the whole loop".
+
+- The transport already exists: `addonRelayController.js` (`POST /addon/command`,
+  `GET /addon/pending`, `POST /addon/result/:id`, heartbeat + device registry,
+  5-minute command TTL) and `simple-addon/server/cloud-relay.js` (polls, executes,
+  posts back). Today it carries whole commands (`chat`, `confirm`, `agent`).
+- New: a `tool` command kind carrying `{tool, args}`; `cloud-relay` executes it
+  through the tool registry — so the permission gate, kill switch, dry-run and
+  approval queue all still apply — and posts `{ok, result, error}` back. The
+  cloud's `goalAgentService` gains the addon's tool schemas plus a
+  `call_local_tool` path that enqueues and polls.
+- **Non-negotiables:** a cloud-originated call is gated exactly like a local one
+  and must never bypass `permissions.requestApproval`; a kill-switch or `deny`
+  result comes back as an ordinary failed call; an approval raised while the
+  cloud waits surfaces on `/simple` and in the tray.
+- Files: `backend/controllers/addonRelayController.js`,
+  `backend/services/goalAgentService.js`, `simple-addon/server/cloud-relay.js`.
 
 ## 11. The O-O-G-P-A loop (design reference)
 
@@ -3664,6 +3750,66 @@ a toggle that stays wrong), caps at 400 lines, and never uses `aria-live="assert
   `AgentTerminal.test.jsx` 7/7 — 45/45 in `frontend/src/pages/Simple/Simple`.
   `vite build` clean. Both routes reachable (401 without a token).
 
+### 24.5 The console says what it is doing (2026-09-15)
+
+§24.3 streamed the *shape* of a run — stages, step numbers, tool names,
+durations. Driven against the real addon, that turned out to be a log nobody can
+read: seventeen `▶ screen_capture` lines in a row, with nothing on screen saying
+which goal was being pursued, what the agent thought it was looking at, or what
+any call had returned. The loop knew all three and published none of them.
+
+| Fact | Event | Cadence |
+| --- | --- | --- |
+| which goal the run is on | `agent.goal` | once per run (and again if the goal changes) |
+| what it read before deciding | `agent.observe` | per step |
+| the model's own words | `agent.thought` | per deciding step |
+
+`agent.thought` is the line the console was actually missing — the model's text
+alongside its tool call is its *reason*, and the loop already had it in hand
+(`plan()` set it on the action and dropped it). The `<<GOAL_DONE>>` sentinel is
+stripped before publishing (it is a protocol token, not reasoning) and `willCall`
+names what is about to run, so a line reads
+`✻ The dialog is open, so I will save. · → uia_invoke`. `tool.end` gained
+`resultPreview`, and `agent.step` gained `maxSteps` so a step reads `step 7/60`.
+
+The announcement is also kept **outside** the log: the goal line scrolls away
+within a couple of dozen steps, so the panel's footer carries
+`Working on Retire at 60` for as long as the run lasts. "What is it doing" must
+not depend on a line still being in view.
+
+#### The rule the events had to obey first
+
+`tool-registry` published `safeArgs` **verbatim**, so a `text_type` step put
+whatever the user typed onto every SSE subscriber — including the cloud relay —
+while `previewArgs`'s own comment claimed the addon stripped exactly those
+(`text_type`, `clipboard_write`, `audio_speak`). `approval.pending` did the same,
+with a comment asserting the opposite. The claim was aspirational; nothing
+implemented it.
+
+`server/automation/event-detail.js` is now the single place that decides what an
+event may say, and the distinction it encodes is the important part: **an event is
+a report, the action log is the record.**
+
+| Value | In an event |
+| --- | --- |
+| args/result of a PII tool | **absent**, not redacted — a redaction still tells you the length |
+| image-shaped keys (`image`, `frame`, `screenshot`, `base64`, …) | dropped wherever they appear |
+| any string over 2 kB | dropped, whatever key it hides under (a key list can't be complete; size can be) |
+| everything else | clipped: 120 per leaf, 400 per arg set, 240 per result |
+
+`ctx.addAction` still writes the arguments verbatim (that is what the workspace
+action log is for), and the approval *queue* still holds them, because the
+permission center's job is to show the user what they are being asked to approve
+— only the event is redacted.
+
+**Verified:** addon suite green (`agent-loop.test.js` 40/40 including two new
+console cases, `agent-loop.baseline.test.js` 7/7, new `event-detail.test.js`
+29/29, whole `test:unit` chain completes), frontend console suites 28/28 and the
+`Simple/Simple` folder 51/51, `vite build` clean. ⚠️ Driven by tests and a build,
+**not** yet against the live addon: the redaction is proven on the published
+event, but nobody has watched a real run render the four new line types on
+`/simple` yet. That live pass is the next step.
+
 ---
 
 ## 25. Vision boards — `/plans` 🌟
@@ -3687,7 +3833,8 @@ goals that already exist, in the same spirit as the Map and the review pass.
 The prompt brief (`services/visionBoard.js` → `buildVisionBoardPrompt`) carries the
 goals with their horizons and the user's own `vision` line, and pins every choice a
 model gets wrong on its own: 45–90 words, one paragraph, and a picture that **is a
-handmade vision board** rather than a scene.
+collage of photographs of those goals** — a vision board — rather than a scene or a
+still life.
 
 #### What the first version got wrong
 
@@ -3696,12 +3843,14 @@ loose grid of editorial photographs, whichever carries more of the goals". The f
 real board chose the scene and came back as a photorealistic stock photograph: a
 family around a laptop on a wooden deck, an Apple logo legible on the lid, a
 blueprint on the table. A perfectly good picture of somebody else's afternoon, and
-not a vision board. Two rules were added, and both are now mandatory:
+not a vision board. The rules below were added, and all of them are mandatory:
 
 | Rule | Why |
 | --- | --- |
-| **The board look.** A physical surface (cork / linen pinboard / pale paper) filling the frame, 6–10 overlapping pictures of different sizes, torn edges, white borders, washi tape, brass pins, soft shadow under each piece, bare board showing between them, spread evenly with no blank half, and no wall or margin around it. | That *is* what people mean by a vision board. The craft is what carries it: without tape and pins the result is a contact sheet, and without the balance rule the first board clustered into one corner and left half the linen empty. |
-| **No faces, by default.** Any people are far away, from behind, in silhouette, in the background, or hands only — never a portrait, never looking at the camera. | An image model asked for "a family" invents a specific, photorealistic family. A vision board is about the aims; an invented face reads as a stock photo of somebody else's life, and at worst as a likeness of a real person. |
+| **The board rules** (`BOARD_RULES`). The picture is ONE photo collage of three to six LARGE photographs, different sizes, edges crossing, no two alike and never the same subject twice, every photograph a real and specific thing from the goals, all sharing one light and one colour grade, and colour as the point (“bright, alive and aspirational at a glance, never grey or dusty”). | That *is* what a vision board is: a collage of photographs of the life somebody wants. The rules are what keep it from collapsing into either of the two failures this feature has actually produced — one lone scene, or one subject rendered over and over. |
+| **Nothing holding it up.** No visible surface or board, no pins, tape, paper, twine or frame: the photographs *are* the whole picture. | This was the second complaint and the more damaging one. Once the brief described cork, pins and washi tape, the props became the subject: every board was a picture of stationery with a life somewhere behind it. The fix is not to *refuse* the props in the negative prompt — see the image-model notes below, where a long denial list destroyed the picture — but to never name them anywhere, and describe a collage that has no room for them. |
+| **No faces, by default.** Any people are far away, from behind, in silhouette, in the background, or hands only — never a portrait, never looking at the camera. And **no subject that needs a face to make sense**: not “a family around a table”, but the table, the food, the hands, the doorway. | An image model asked for "a family" invents a specific, photorealistic family, and asked for a family at a table it draws faces whatever the rules say. A vision board is about the aims; an invented face reads as a stock photo of somebody else's life, and at worst as a likeness of a real person. |
+| **A look, chosen per board.** Light, palette and mood come from `BOARD_STYLES` — see below. | The rules above are what every board *is*; the look is what makes the next one differ from the last. Pinning both into one fixed answer is what made every board the same picture. |
 
 #### The two defaults, and the one thing that changes them
 
@@ -3726,8 +3875,61 @@ without the people they wanted.
 wrapping quotes, markdown emphasis, a trailing "Let me know if you'd like
 changes!" — all a *reply to the user*, not part of the picture), and an unusable
 answer falls back to a deterministic prompt that asks for the same *kind* of
-picture. The record stores `promptSource`, `rules` and the negative prompt that was
-actually sent, so a board with a face in it is explainable rather than mysterious.
+picture — with the same look, so a fallback board is not the one board in the
+gallery that looks different. The record stores `promptSource`, `rules` and the
+negative prompt that was actually sent, so a board with a face in it is explainable
+rather than mysterious.
+
+#### What the image model actually does
+
+Everything here was learned by drawing real images and looking at them (19 of them,
+2026-09-15), not by reasoning about the prompt. All of it is now encoded in the
+brief, and three of the four findings are the opposite of what the first version of
+this feature did.
+
+| Finding | Evidence, and what the code does about it |
+| --- | --- |
+| **The opening words decide the picture.** | A prompt that opened with its palette ("a vivid pop collage bathed in cobalt, scarlet and turquoise…") drew a graphic grid of one building's blue and yellow walls. The same subjects opened with "A bold photo collage filling the frame: large glossy photographs of …" drew a board of four or five real photographs of a life, twice. The brief now pins that opening sentence **verbatim** and puts the light and palette at the end. |
+| **A long negative list does not subtract — it takes over.** | The identical collage prompt with 15 denial terms came back as a rigid grid of one building; with 65 it drew a blue mountain. Cut to nine terms (lettering, watermarks, faces) it draws the board. `boardNegativePrompt` is short for that reason, a test caps its length, and props are kept out by never naming them anywhere. |
+| **Fewer subjects, of different kinds.** | Twelve named subjects drew none of them. Five subjects of *different kinds* (a table, a house, a landscape, hands, a garden) drew four or five distinct photographs. When the writer listed five variations of one thing — a clifftop house, a beach, a workshop, a deck, a pool — the board came back as six panels of coastal timber buildings. The brief now asks for three to six and demands different kinds of thing. |
+| **There is no better model available in this region.** | `gemini-2.5-flash-image` is in the catalog but answers "The provided model identifier is invalid" in us-west-2, so the Stability models are the only ones that actually work. |
+| **The residual.** | About half the boards come back exactly right; the rest come back with a repeated subject or a two-panel split. That is the model's ceiling for a multi-image composition and no amount of brief writing has moved it further. If the boards must be more reliably varied, the next lever is not the prompt: it is drawing each photograph separately and compositing them server-side (three to six image credits per board, or the covers the goals already have). |
+
+#### Every board gets its own look
+
+A board's light and palette are chosen per board, so no two boards in a gallery are
+the same picture. `BOARD_STYLES` holds ten complete **art directions** — golden
+warmth, bright and airy, vivid pop, soft pastel, evening city, coastal light,
+sun-drenched travel, warm interior, lush green, rich jewel. Each is two lines of
+light, palette and mood, and each obeys the board rules, the no-faces rule and the
+no-text rule.
+
+Three versions of this catalog were needed to get here, and the difference between
+them is the lesson. The first was one fixed answer *in the brief* ("cork / linen
+pinboard / pale paper", "calm, soft and neutral"), so every board was the same dusty
+noticeboard. The second varied the **craft** — cork, pegboard, riso prints,
+watercolour washes, polaroid garlands, terrazzo, glitter — which produced eleven
+different prop still lifes and no realer boards. What actually varies between the
+vision boards people make and post is their **colour and their light**, so that is
+what varies now, and the craft words are gone from the brief entirely: a test
+asserts that no style, and no brief, contains a single prop word.
+
+| Decision | How, and why that way |
+| --- | --- |
+| Which look | `pickBoardStyle({ hint, recent, rand })`, called in the controller **before** the brief is written, so the look is an instruction to the prompt writer rather than a hope. `rand` is injected: the picker stays pure and testable. |
+| Never the same look twice | `recent` is the user's own history, newest first; while any look is still unused it is only picked from those, and past that only the previous board's look is ruled out. It is a genuine random pick inside that set, not a queue — repeating ten looks in the same order would be its own kind of boring. |
+| The hint can name one | `"coastal"`, `"vivid colour"`, `"pastel please"`, `"make it feel like evening"`. A named look wins over the rotation, because a board you liked has to be gettable again. The matching vocabulary is each style's own `keywords`, so adding a style makes its name askable for free. |
+| `"no pastel"` | Read as a refusal, checked first and per style — the same trap as `"no people"`, where the phrase contains the word. A refused look is also dropped from that board's pool. |
+| Keywords stay words of mood | A *subject* word would force a look on any steer that mentions it (`"beach"` as a keyword would make every beach steer coastal), and two looks sharing a keyword would send every steer to whichever is listed first. A test asserts that ordinary mood words — "film photography", "warm light" — remain free picks. |
+| Reading the history | `_recentBoardStyles` scans the user's `vision` items and reads **only** `slug, style, updatedAt`. The id is lifted onto the item by `_writeVisionBoard` for exactly this read — walking the boards themselves would pull up to 32KB of record JSON each. |
+| Two scopes, one request | The look just picked is pushed onto the history immediately, so "Dreams + All goals" makes two boards that are actually two different boards. |
+| The history read failing | Best-effort and bounded (5 pages), because it is an optimisation: a throttled scan loses the don't-repeat rule for one board and never the board itself. |
+
+The record stores `style: { id, name }`. The id is what the next board refuses to
+repeat; the name is what the gallery line shows — `Dreams · 6 goals · Coastal light ·
+2m ago` — because *"which one was the coastal one"* is the second question a history
+of boards has to answer. A board made before looks existed has no style and simply
+renders without it.
 
 ### 25.2 Which goals — "all goals and/or just dream goals"
 
@@ -3828,17 +4030,32 @@ exists with `files: []` (the bytes stopped counting), the CloudFront URL answers
   it prints the brief, the resolved rules, the negative prompt and the image prompt
   the chat model produced, and stops before the image — an LLM call instead of an
   LLM call *plus* an image.
-  - After the board-look rule, a real guest board came back as *a pale linen pinboard
-    overlaid with pinned and taped photographs, torn edges, soft shadows* — with the
-    one person in it a fine silhouette on the shoreline, and no lettering. The two
-    things the user asked for, in one picture.
-  - The **second** board exposed the balance flaw (right half empty) and the third a
-    white margin of wall around the linen; both are now rules, so the fixes are
-    properties of the brief rather than lucky seeds.
-- Tests: `visionBoard.test.js` **32/32**, including the rules that keep this true —
-  the board-look clauses, no faces by default, `no persons` read as a refusal, a
-  refusal about one subject not cancelling a request for the other, and the two
-  defaults switching off *together* in the brief and the negative prompt.
+- **The look, added 2026-09-15, corrected the same day.** The first version of it
+  varied the *craft* (`--prompt all "riso pop"` printed `THE LOOK — Riso pop
+  (riso-pop, asked)` and drew a chartreuse sheet of risograph prints), which the user
+  rightly called out as still lame: naming cork, pins and tape had turned the boards
+  into pictures of stationery. The catalog is now ten art directions of light and
+  palette. Verified by DRAWING boards, not by reading the prompt: the writer chose
+  *Golden warmth*, then *Warm interior*, and both came back as collages of three to
+  six real photographs of the goal-set — a laid table under warm light with two
+  smaller photographs beside it, and a sunlit kitchen with a couple baking in an
+  inset. Four of the nineteen test boards were the picture the feature is for; the
+  other fifteen were the failures logged in the "what the image model actually does"
+  table above, each of which changed the brief.
+- The look has tests at both ends: `visionBoard.test.js` **44/44** (the rotation
+  never repeats, an asked-for look wins, `"no pastel"` is refused not honoured, mood
+  words do not hijack the steer, every style reaches the brief, the fallback and the
+  record, **and no style or brief contains a prop word** — the regression guard for
+  the stationery) and `visionBoardEndpoint.test.js` **7/7** for the wiring a pure
+  service cannot cover — two scopes make two different looks, the history read is a
+  projection that never touches the record payload, the id is on the item, a failed
+  scan still makes a board. Frontend: `visionBoardUtils.test.js` +
+  `VisionBoards.test.jsx` **30/30** (the look is in the one-line summary, and an
+  older board without one still renders).
+- ⚠️ **A dev API started with `npm start` serves the module it loaded at boot.** The
+  first live board after the look change came back as the old cork brief — correct
+  code, stale process. Restart the backend before believing a live run of this
+  feature.
 
 ---
 

@@ -1,30 +1,137 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "addon-test-unit",
-      "type": "shell",
-      "command": "npm --prefix \"c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon\" run test:unit",
-      "problemMatcher": []
-    },
-    {
-      "label": "addon-nl-compiler-test",
-      "type": "shell",
-      "command": "node \"c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon\\server\\automation\\nl-compiler.test.js\"",
-      "problemMatcher": []
-    },
-    {
-      "label": "fe-build-4",
-      "type": "shell",
-      "command": "Set-Location \"c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\frontend\"; node \"c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\frontend\\node_modules\\vite\\bin\\vite.js\" build",
-      "problemMatcher": []
-    },
-    {
-      "label": "jest-userprofile-utils",
-      "type": "shell",
-      "command": "node node_modules/jest/bin/jest.js --config package.json frontend/src/utils/userProfileUtils.test.js",
-      "problemMatcher": ["$tsc"],
-      "group": "test"
-    }
-  ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "addon-test-unit",
+			"type": "shell",
+			"command": "npm --prefix \"c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon\" run test:unit",
+			"problemMatcher": []
+		},
+		{
+			"label": "addon-nl-compiler-test",
+			"type": "shell",
+			"command": "node \"c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon\\server\\automation\\nl-compiler.test.js\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "fe-build-4",
+			"type": "shell",
+			"command": "Set-Location \"c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\frontend\"; node \"c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\frontend\\node_modules\\vite\\bin\\vite.js\" build",
+			"problemMatcher": []
+		},
+		{
+			"label": "jest-userprofile-utils",
+			"type": "shell",
+			"command": "node node_modules/jest/bin/jest.js --config package.json frontend/src/utils/userProfileUtils.test.js",
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "test"
+		},
+		{
+			"label": "jest-vision-boards",
+			"type": "shell",
+			"command": "node node_modules/jest/bin/jest.js --config package.json frontend/src/pages/Simple/Plans/visionBoardUtils.test.js frontend/src/pages/Simple/Plans/VisionBoards.test.jsx",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "vb-prompt-check",
+			"type": "shell",
+			"command": "node backend/scripts/test-vision-board.js --prompt all > $env:TEMP\\vb-prompt.txt 2>&1; Get-Content $env:TEMP\\vb-prompt.txt -Tail 30",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "vb-draw-check",
+			"type": "shell",
+			"command": "node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw-check.js",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "vb-draw-ab",
+			"type": "shell",
+			"command": "node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw.js a default \"A vision board collage filling the frame: one large photograph of a sunlit family kitchen with a table set for many, surrounded by four smaller photographs of a wooden house being built, a coastal house with a turquoise door, a group of friends walking a golden trail at sunset, and a seedling garden in morning light. The photographs are different sizes and overlap at their edges, no border between them, all sharing warm golden light and vivid saturated colour, photographic.\"; node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw.js b gemini-2.5-flash-image \"A vision board collage filling the frame: one large photograph of a sunlit family kitchen with a table set for many, surrounded by four smaller photographs of a wooden house being built, a coastal house with a turquoise door, a group of friends walking a golden trail at sunset, and a seedling garden in morning light. The photographs are different sizes and overlap at their edges, with no border between them, all sharing warm golden light and vivid saturated colour, photographic.\"",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "vb-draw-pile",
+			"type": "shell",
+			"command": "node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw.js pile default \"A bold photo collage filling the frame: large glossy photographs of a sunlit family kitchen with a table set for many, a wooden house being built, a coastal house with a turquoise door, friends walking a golden trail at sunset and a young garden in morning light, overlapping and layered at slight angles with their edges crossing, vivid saturated colour, warm golden light, photographic.\"; node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw.js pileultra stable-image-ultra-v1:1 \"A bold photo collage filling the frame: large glossy photographs of a sunlit family kitchen with a table set for many, a wooden house being built, a coastal house with a turquoise door, friends walking a golden trail at sunset and a young garden in morning light, overlapping and layered at slight angles with their edges crossing, vivid saturated colour, warm golden light, photographic.\"",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "vb-draw-iso",
+			"type": "shell",
+			"command": "node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw.js pileclean default noneg \"A bold photo collage: large glossy photographs of a sunlit family kitchen with a table set for many, a wooden house being built, a coastal house with a turquoise door, friends walking a golden trail at sunset and a young garden in morning light, overlapping and layered at slight angles with their edges crossing, vivid saturated colour, warm golden light, photographic.\"; node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw.js three default noneg \"A photo collage of three large photographs covering the frame: a sunlit kitchen with a long wooden table, a wooden house being built among trees, and a young garden in morning light. The photographs overlap with their edges crossing, warm golden light, vivid colour, photographic.\"",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "vb-draw-neg2",
+			"type": "shell",
+			"command": "node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw.js shortneg default short \"A bold photo collage filling the frame: large glossy photographs of a sunlit family kitchen with a table set for many, a wooden house being built, a coastal house with a turquoise door, friends walking a golden trail at sunset and a young garden in morning light, overlapping and layered at slight angles with their edges crossing, vivid saturated colour, warm golden light, photographic.\"; node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw.js faces default short \"A bold photo collage filling the frame: large glossy photographs of a sunlit family kitchen with a table set for many, a wooden house being built, a coastal house with a turquoise door, friends walking a golden trail at sunset and a young garden in morning light, overlapping and layered at slight angles with their edges crossing. Any people are far away, from behind, in silhouette or out of focus, never a face looking at the camera. Vivid saturated colour, warm golden light, photographic.\"",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "vb-final-draw",
+			"type": "shell",
+			"command": "node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw-check.js \"\" f1; node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw-check.js coastal f2",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "vb-draw-distinct",
+			"type": "shell",
+			"command": "node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw-check.js \"\" g1; node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw-check.js \"vivid colour\" g2",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "vb-draw-open",
+			"type": "shell",
+			"command": "node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw-check.js \"\" h1; node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw-check.js \"golden hour\" h2",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "vb-draw-template",
+			"type": "shell",
+			"command": "node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw.js tgolden default short \"A bold photo collage filling the frame: large glossy photographs of a multigenerational family kitchen at breakfast, a craftsman house on a leafy street, hands exchanging a set of house keys, a couple walking through a wheat field at sunset and a young garden of seedlings, overlapping and layered at slight angles with their edges crossing, warm golden-hour light, honey and amber colour, photographic.\"; node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw.js tcoast default short \"A bold photo collage filling the frame: large glossy photographs of a timber house under construction on a clifftop, a bright beach at noon, a workshop with wide open windows, a family table laid on a deck above the sea and a turquoise swimming pool in the sun, overlapping and layered at slight angles with their edges crossing, hard coastal sunlight, bleached white and turquoise colour, photographic.\"",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "vb-draw-final",
+			"type": "shell",
+			"command": "node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw-check.js \"\" k1; node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw-check.js \"warm light\" k2",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "vb-draw-kinds",
+			"type": "shell",
+			"command": "node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw.js kinds default short \"A bold photo collage filling the frame: large glossy photographs of a family kitchen at breakfast, a wide valley seen from a hilltop, hands passing a set of house keys, a timber house being built on a clifftop and a young garden of seedlings in morning light, overlapping and layered at slight angles with their edges crossing, warm golden-hour light, honey and amber colour, photographic.\"; node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw.js faces2 default faces \"A bold photo collage filling the frame: large glossy photographs of a family kitchen at breakfast with children, a wide valley seen from a hilltop, hands passing a set of house keys, a timber house being built on a clifftop and a young garden of seedlings in morning light, overlapping and layered at slight angles with their edges crossing, warm golden-hour light, honey and amber colour, photographic.\"",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "vb-draw-confirm",
+			"type": "shell",
+			"command": "node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-draw-check.js \"\" m1",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "jest-vision-boards-final",
+			"type": "shell",
+			"command": "node node_modules/jest/bin/jest.js --config package.json frontend/src/pages/Simple/Plans/visionBoardUtils.test.js frontend/src/pages/Simple/Plans/VisionBoards.test.jsx 2>&1 | Select-String 'Tests:|Suites:'",
+			"problemMatcher": [],
+			"group": "test"
+		}
+	]
 }

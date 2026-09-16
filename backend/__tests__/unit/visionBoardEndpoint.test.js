@@ -105,6 +105,13 @@ function mockRes() {
  * @param {object[]} options.extraItems Rows the scan returns that are not boards
  */
 function arrange({ styles = [], failScan = false, extraItems = [] } = {}) {
+    // Every mock is reset here, not just the DynamoDB one: call history that
+    // survives between tests is how "the brief that was sent" quietly becomes the
+    // brief from an earlier test in the file.
+    mockCompletion.mockReset();
+    mockGenerateImage.mockReset();
+    mockUpload.mockReset();
+    mockListGoals.mockReset();
     mockSend.mockReset();
     mockSend.mockImplementation(async (cmd) => {
         if (cmd.kind === 'scan') {
@@ -184,13 +191,13 @@ describe('vision board endpoint · the look', () => {
 
     test('a look used by a recent board is not used again', async () => {
         // The complaint this feature exists for: boards coming back as the same
-        // noticeboard. `riso-pop` is the look already on their last board.
-        const { boards } = await generate({ styles: ['riso-pop'] });
-        expect(boards[0].data.style.id).not.toBe('riso-pop');
+        // picture. `vivid-pop` is the look already on their last board.
+        const { boards } = await generate({ styles: ['vivid-pop'] });
+        expect(boards[0].data.style.id).not.toBe('vivid-pop');
     });
 
     test('the history read asks only for the style, never the whole board', async () => {
-        await generate({ styles: ['riso-pop', 'neon-night'] });
+        await generate({ styles: ['vivid-pop', 'evening-city'] });
         const scan = mockSend.mock.calls.map((c) => c[0]).find((c) => c.kind === 'scan');
         expect(scan).toBeTruthy();
         expect(scan.input.ProjectionExpression).toBe('slug, #style, updatedAt');
@@ -199,10 +206,10 @@ describe('vision board endpoint · the look', () => {
     });
 
     test('a look the user asked for by name is the one that gets made', async () => {
-        const { boards } = await generate({ hint: 'cosmic please' });
-        expect(boards[0].data.style.id).toBe('cosmic');
+        const { boards } = await generate({ hint: 'vivid please' });
+        expect(boards[0].data.style.id).toBe('vivid-pop');
         // The steer reaches the writer's brief too, not just the record.
-        expect(mockCompletion.mock.calls[0][0][1].content).toMatch(/follow it exactly: Cosmic dream/);
+        expect(mockCompletion.mock.calls[0][0][1].content).toMatch(/follow it exactly: Vivid pop/);
     });
 
     test('an unreadable history is not a broken board', async () => {

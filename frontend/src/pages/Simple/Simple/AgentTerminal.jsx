@@ -34,6 +34,7 @@ import './AgentTerminal.css';
  *  `eventToLine` and with the addon's `events.js` vocabulary. */
 const SSE_TYPES = [
   'tool.start', 'tool.end',
+  'agent.goal', 'agent.observe', 'agent.thought',
   'agent.stage', 'agent.step', 'agent.message', 'agent.reply', 'agent.meta',
   'agent.skill-draft', 'agent.stopped',
   'goal.done', 'goal.failed', 'goal.blocked', 'goal.stalled',
@@ -130,6 +131,11 @@ export default function AgentTerminal({ token, addonConnected, currentGoalSlug, 
     cloud: 'Cloud run',
   }[source] || (addonConnected ? 'Idle' : 'No agent');
 
+  // What the run announced it is working on, kept on screen. The line itself
+  // scrolls away within a couple of dozen steps, and "what is it doing" is the
+  // question this whole panel exists to answer.
+  const activeGoal = [...lines].reverse().find((l) => l.kind === 'agent.goal')?.goalName || '';
+
   return (
     <section className="sd-panel sd-panel--term" aria-label="Live agent console">
       <header className="sd-panel-head">
@@ -186,6 +192,7 @@ export default function AgentTerminal({ token, addonConnected, currentGoalSlug, 
       </div>
 
       <p className="sd-term-foot">
+        {activeGoal && <><strong title={activeGoal}>Working on {activeGoal}</strong> · </>}
         {streamOpen && source === 'local' ? 'Streaming live from the desktop agent.'
           : source === 'cloud' ? `Reading the run's steps (updated every ${CLOUD_POLL_MS / 1000}s).`
             : `Last ${Math.min(lines.length, TERMINAL_MAX_LINES)} lines kept.`}

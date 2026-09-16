@@ -153,230 +153,174 @@ function selectGoalsForBoard(goals, scope = 'dream', { max = GOAL_MAX } = {}) {
 /**
  * What EVERY board is, whatever its look.
  *
- * This is the whole answer to "make it look like the vision boards people post
- * online", and it is spelled out rather than gestured at because the first
- * version of this feature did not have it: the model was offered "a single scene
- * OR a grid of photographs", chose the scene, and produced an editorial stock
- * photograph of a family at a laptop — a fine picture, and not a vision board.
+ * Two failures are baked into this list, because this feature has made both:
  *
- * What is *not* here is the surface, the palette or the arrangement — those are
- * the style's job (see BOARD_STYLES). They used to live here as one fixed answer
- * ("cork / linen pinboard / pale paper", "calm, soft and neutral"), which is
- * exactly why every board came back as the same dusty noticeboard. Picture count
- * is 6–10 on purpose — a real board is not a mosaic, and at 16:9 each piece has
- * to stay big enough to be legible as *something*.
+ *   1. The writer was offered "a single photorealistic scene, OR a loose grid of
+ *      editorial photographs" and chose the scene — an editorial stock shot of a
+ *      family at a laptop. A fine photograph, and not a vision board.
+ *   2. The brief then pinned the *craft* of a physical board — cork, pins,
+ *      pushpins, washi tape, paper, torn edges, "handmade" — and every board came
+ *      back as a prop: a noticeboard photographed on a wall, standing in for a
+ *      life. Real vision boards, the ones people actually make and post, are not
+ *      that. They are a COLLAGE OF PHOTOGRAPHS, and what is in the pictures is the
+ *      point; what they are stuck to was never the point.
+ *
+ * So: many photographs, one cohesive light and palette, colour doing the work, and
+ * nothing holding it up. The light and palette are the look's job — see
+ * BOARD_STYLES.
  */
 const BOARD_RULES = [
-    '- The picture IS a handmade vision board filling the whole frame: a physical surface covered in',
-    '  pictures — not one scene photographed in a take, and not a neat wall of equal thumbnails.',
-    '- 6 to 10 separate pictures of different sizes: two or three larger pieces carrying the main aims,',
-    '  smaller ones filling the gaps, with the surface showing between them.',
-    '- Use the whole surface, evenly: pieces spread across the frame in portrait and landscape, with no',
-    '  large empty area left on one side. A corner-clustered board with half the surface bare is a miss.',
-    '- The board itself reaches every edge of the frame — no wall, margin, table or room visible around',
-    '  it, and no straight-on "photograph of a board on a wall" framing.',
-    '- Show the craft: hand-placed pieces, slightly imperfect, with a soft shadow under each one so it',
-    '  reads as pinned, taped or pegged on rather than pasted flat.',
-    '- Colour and light are the point. This is a poster of a life somebody wants: bright, alive and',
-    '  full of energy at a glance, never grey, dusty or moody.',
-    '- Each piece shows ONE concrete thing — a place, a moment, a room, a view, a thing — simple and',
-    '  legible rather than a busy composite.',
+    '- The picture IS a vision board: ONE photo collage of three to six LARGE photographs of different',
+    '  sizes, composed to fill the frame and to read together as a single designed picture.',
+    '- No two photographs alike, and the same subject never twice: an image model asked for several',
+    '  pictures of one life will happily draw the same room over and over.',
+    '- The photographs overlap with their edges crossing, some larger than others — never a row or a',
+    '  grid of equal tiles, and never a single scene photographed in a take.',
+    '- Every photograph is a real, specific thing from the goals — a place, a room, a view, a table, a',
+    '  journey, a landscape, an object — said concretely enough to be drawn: what it is, and where.',
+    '- One photograph per goal at most, and do not pad the list. Three subjects described richly beat',
+    '  ten named in a row, and an image model given a long bare list draws none of them.',
+    '- The photographs ARE the whole picture: no border, no frame, no wall, no visible background around',
+    '  them, and nothing in the frame holding them up.',
+    '- Every photograph shares one light and one colour grade, so the collage reads as one board',
+    '  rather than a pile of unrelated pictures.',
+    '- Colour and light are the point: bright, alive and aspirational at a glance, never grey or dusty.',
 ];
 
 /**
  * The looks a board can have. One is chosen per board (see pickBoardStyle).
  *
- * This catalog exists because the fixed look was the complaint: every board was
- * the same warm noticeboard, so a gallery of them read as one picture repeated.
- * A board is *supposed* to look like the person's own wall, and no two people's
- * walls look alike — so a board now gets a surface, a palette, a way of treating
- * the pictures and an arrangement, drawn from this list and never the one the
- * last board used.
+ * A look is an ART DIRECTION — light, palette and mood — and nothing else. An
+ * earlier version of this catalog chose surfaces and craft instead (cork, washi
+ * tape, brass pins, torn paper, riso prints), and the boards came back looking
+ * like a craft-supply still life rather than a life somebody wants: the props
+ * became the subject of the picture. What actually differs between the vision
+ * boards people make is their colour and their light, so that is what varies.
  *
- * Every style obeys BOARD_RULES and the people/text rules on top; the styles only
- * decide the four things that make boards look different from each other:
- *
- *   `lines`    what the prompt writer is told (surface, palette, arrangement)
- *   `fallback` the same surface, short, for the deterministic prompt
- *   `craft`    how the pieces are held on, for the deterministic prompt
+ *   `lines`    what the prompt writer is told (light, palette, mood)
+ *   `mood`     the same light, short, for the deterministic prompt
  *   `palette`  the colour language, for the deterministic prompt
- *   `keywords` the words in a user's steer that ask for this style by name
+ *   `keywords` the words in a user's steer that ask for this look by name
  *
- * `keywords` must stay SPECIFIC. "film", "warm" and "photography" are how people
- * describe a mood, not a request for one particular board, so they belong to no
- * style; a keyword that swallowed them would hijack the steer it appears in.
+ * `keywords` must stay words of MOOD, not of subject ("beach" would force this
+ * look on any steer that mentions one) and must not overlap between looks, or
+ * every steer would land on whichever look is listed first.
  */
 const BOARD_STYLES = [
     {
-        id: 'sunny-grid',
-        name: 'Sunny grid',
-        keywords: ['grid', 'pegboard', 'checkerboard'],
+        id: 'bright-airy',
+        name: 'Bright and airy',
+        keywords: ['airy', 'minimal', 'clean', 'bright and airy'],
         lines: [
-            '- The board is a clean white pegboard with a soft grey grid, and the light is bright and even.',
-            '- Lay the pieces out as a cheerful grid that breaks its own rules: mostly rows and columns, with',
-            '  two or three tiles knocked off-axis by a few degrees and small tiles wedged into the gaps.',
-            '- Palette: bold primary red, yellow and blue, a rounded colour-block shape behind some pieces,',
-            '  and bright plastic clips instead of pins.',
+            '- Bright, even daylight and a lot of air: clean, calm and unhurried, with soft white light',
+            '  and almost no heavy shadow.',
+            '- Palette: white, cream, pale blue and soft sand, with one fresh accent colour.',
         ],
-        fallback: 'a bright white pegboard in clean even daylight',
-        craft: 'rounded paper edges, bright plastic clips and colour-block shapes',
-        palette: 'bold primary red, yellow and blue on white',
+        mood: 'bright, airy daylight in white, cream and pale blue',
+        palette: 'white, cream, pale blue and soft sand',
     },
     {
-        id: 'cork-classic',
-        name: 'Cork & brass',
-        keywords: ['cork', 'pinboard', 'noticeboard'],
+        id: 'golden-warm',
+        name: 'Golden warmth',
+        keywords: ['golden hour', 'sunlit', 'sunkissed', 'autumn'],
         lines: [
-            '- The board is warm honey-coloured cork with visible grain, lit by low golden afternoon sun.',
-            '- Scatter the pieces at playful angles, overlapping two or three deep, and tuck small extras',
-            '  into the gaps: a coloured paper scrap, a fabric swatch, a pressed leaf, a strip of washi tape.',
-            '- Palette: terracotta, marigold, olive and dusty blue against the cork, with creamy white',
-            '  borders around every photograph.',
+            '- Warm, low golden-hour light across every image: long soft shadows, everything glowing, a',
+            '  honey-and-amber colour grade.',
+            '- Palette: amber, terracotta, olive and cream — sunlit, generous, relaxed.',
         ],
-        fallback: 'a warm honey-coloured cork pinboard in low golden light',
-        craft: 'white photo borders, washi tape, brass pins and pressed leaves',
-        palette: 'terracotta, marigold and olive against warm cork',
+        mood: 'warm golden-hour light and a honey-and-amber grade',
+        palette: 'amber, terracotta, olive and cream',
     },
     {
-        id: 'riso-pop',
-        name: 'Riso pop',
-        keywords: ['riso', 'risograph', 'duotone', 'screenprint', 'screen print', 'fluorescent'],
+        id: 'vivid-pop',
+        name: 'Vivid pop',
+        keywords: ['vivid', 'pop', 'saturated', 'bold colour', 'bold color'],
         lines: [
-            '- The board is a huge sheet of chartreuse paper and every piece on it is a bold two-ink',
-            '  risograph-style print: flat fluorescent pink and electric blue, visible misregistration,',
-            '  coarse halftone dots, prints overlapping each other like a screen-printed poster.',
-            '- Compose it like a loud graphic poster: big prints butting edge to edge, one diagonal band',
-            '  cutting across the sheet, two solid colour shapes sitting behind the layers.',
-            '- Palette: fluorescent pink, electric blue, chartreuse and black. High contrast, flat, no',
-            '  soft neutrals anywhere.',
+            '- Vivid and punchy: saturated colour in every image, strong contrast, the energy of a life',
+            '  being lived out loud.',
+            '- Palette: cobalt blue, scarlet, sunshine yellow and turquoise, all at full strength.',
         ],
-        fallback: 'a big chartreuse sheet printed with fluorescent pink and electric blue ink',
-        craft: 'deckled print edges, coarse halftone texture and striped tape',
-        palette: 'fluorescent pink, electric blue and chartreuse',
+        mood: 'vivid saturated colour with strong contrast and high energy',
+        palette: 'cobalt, scarlet, sunshine yellow and turquoise',
     },
     {
-        id: 'watercolour',
-        name: 'Watercolour wash',
-        keywords: ['watercolour', 'watercolor', 'water-colour', 'gouache', 'painterly', 'ink sketch'],
+        id: 'soft-pastel',
+        name: 'Soft pastel',
+        keywords: ['pastel', 'dreamy', 'gentle', 'pink'],
         lines: [
-            '- The board is a sheet of heavyweight textured watercolour paper washed with wet pigment:',
-            '  indigo, turquoise and marigold bleeding into each other, salt blooms blooming at the edges.',
-            '- Paint loose ink-and-wash sketches, and pin a few real photographs among them; some pieces are',
-            '  deliberately unfinished, one or two held with torn masking tape.',
-            '- The washes reach every corner and the colours glow through the paper; nothing is grey or bare.',
+            '- Soft and dreamy: diffused light, gentle contrast, a quiet and tender feeling.',
+            '- Palette: blush pink, lilac, mint and cream.',
         ],
-        fallback: 'heavyweight watercolour paper washed with glowing wet pigment',
-        craft: 'soft paper edges, torn masking tape and watercolour blooms',
-        palette: 'indigo, turquoise, coral and marigold washes',
+        mood: 'soft diffused light in blush pink, lilac and mint',
+        palette: 'blush pink, lilac, mint and cream',
     },
     {
-        id: 'neon-night',
-        name: 'Neon night',
-        keywords: ['neon', 'glow', 'glowing', 'holographic', 'midnight', 'iridescent'],
+        id: 'evening-city',
+        name: 'Evening city',
+        keywords: ['evening', 'night', 'city lights', 'dusk', 'neon'],
         lines: [
-            '- The board is deep midnight blue and it glows: every piece is lit from within, bright against',
-            '  the dark, like windows shining in a city at night. Thin ribbons of neon light run between them.',
-            '- Arrange the pieces like a constellation — a loose spiral of pictures radiating out from one',
-            '  large central piece, glowing threads and tiny points of light connecting them.',
-            '- Palette: hot pink, cyan and violet neon with warm amber windows, holographic foil and',
-            '  iridescent tape catching the light everywhere.',
+            '- Evening: blue-hour skies, lit windows and warm points of light against cool shadow, the',
+            '  energy of a city at night.',
+            '- Palette: deep blue and violet with warm amber windows and a little pink neon.',
         ],
-        fallback: 'a deep midnight-blue board lit by neon, every piece glowing',
-        craft: 'clean cut edges, iridescent tape and glowing thread between the pieces',
-        palette: 'hot pink, cyan and violet neon glowing out of midnight blue',
+        mood: 'blue-hour evening light, lit windows and warm glow',
+        palette: 'deep blue, violet, warm amber and pink neon',
     },
     {
-        id: 'magazine-pop',
-        name: 'Magazine pop',
-        keywords: ['magazine', 'collage', 'cut-out', 'cutout', 'glossy', 'tear sheet'],
+        id: 'coastal',
+        name: 'Coastal light',
+        keywords: ['coastal', 'seaside', 'turquoise', 'sailing'],
         lines: [
-            '- The board is built from overlapping torn glossy magazine sheets laid over big flat blocks of',
-            '  red, cobalt and yellow paint, so the surface itself is as loud as the pictures on it.',
-            '- Cut the pieces out by hand and let them collide: sharp diagonal overlaps, one huge piece',
-            '  running off the edge of the frame, a spray of small cut shapes and coloured dots.',
-            '- Palette: saturated primaries and glossy full-colour prints. No headlines, no mastheads,',
-            '  no brand marks — only pictures and flat colour.',
+            '- Sea light: hard sun glittering off water, bleached whites and a fresh salt-air feeling.',
+            '- Palette: turquoise, deep sea blue, white and warm sand.',
         ],
-        fallback: 'a collage of torn glossy magazine sheets over flat blocks of bright paint',
-        craft: 'hand-cut glossy sheet edges, torn paper and glued colour blocks',
-        palette: 'cobalt, scarlet and sunflower yellow colour blocks',
+        mood: 'bright sea light glittering off turquoise water',
+        palette: 'turquoise, deep sea blue, white and warm sand',
     },
     {
-        id: 'polaroid-garland',
-        name: 'Polaroid garland',
-        keywords: ['polaroid', 'polaroids', 'instant film', 'bunting', 'garland', 'peg', 'pegs', 'twine'],
+        id: 'sun-travel',
+        name: 'Sun-drenched travel',
+        keywords: ['travel', 'holiday', 'vacation', 'tropical', 'faraway'],
         lines: [
-            '- The board is a party: two criss-crossing lines of baker\'s twine strung across pale cream',
-            '  paper, with instant-film polaroids pegged along them in a shallow arc, a few hanging crooked.',
-            '- Fill the space around the lines with small pegged prints, taped squares of colour, paper',
-            '  bunting and tiny flags, so no area of the board is left bare.',
-            '- Palette: sunny pastels — mint, peach, lemon and sky blue — with bright primary confetti.',
+            '- Far from home in the best possible light: hard bright sun, hot white walls, water, foreign',
+            '  streets and very wide skies.',
+            '- Palette: hot white, turquoise, coral and deep blue.',
         ],
-        fallback: 'pale cream paper strung with twine and pegged instant-film photographs',
-        craft: 'thick instant-film borders, wooden pegs on twine and taped paper flags',
-        palette: 'mint, peach, lemon and sky blue with bright confetti',
+        mood: 'hard bright sun on hot white walls, turquoise water and coral',
+        palette: 'hot white, turquoise, coral and deep blue',
     },
     {
-        id: 'terrazzo',
-        name: 'Terrazzo confetti',
-        keywords: ['terrazzo', 'confetti', 'speckled'],
+        id: 'warm-interior',
+        name: 'Warm interior',
+        keywords: ['interior', 'cosy', 'cozy', 'lamplight'],
         lines: [
-            '- The board is pale terrazzo — a smooth surface speckled with chips of coral, cobalt, mint and',
-            '  ochre — and the pieces sit on it like a joyful scatter of confetti.',
-            '- Scatter the pieces outward from a loose centre in every direction, each at its own rotation,',
-            '  with punched paper circles, washi dots and a few tiny frames filling the gaps.',
-            '- Palette: coral, cobalt, mint, ochre and white — cheerful, matte, evenly bright across the frame.',
+            '- Indoors and warm: lamplight, wood, soft furnishing, the feeling of a lived-in home.',
+            '- Palette: caramel, walnut, cream and deep green, lit by warm pools of light.',
         ],
-        fallback: 'a pale speckled terrazzo surface scattered with colour',
-        craft: 'matte paper edges, washi-tape corners and punched confetti circles',
-        palette: 'coral, cobalt, mint and ochre confetti on pale stone',
+        mood: 'warm lamplight indoors, caramel and walnut with deep green',
+        palette: 'caramel, walnut, cream and deep green',
     },
     {
-        id: 'golden-film',
-        name: 'Golden film',
-        keywords: ['light leak', 'light leaks', 'analog', 'analogue', 'kodak', 'portra', 'sun-bleached'],
+        id: 'lush-green',
+        name: 'Lush green',
+        keywords: ['green', 'plants', 'garden', 'lush', 'foliage'],
         lines: [
-            '- The board is sun-faded linen under late golden light — warm, glowing, with a soft grain over',
-            '  everything like a much-loved film photograph.',
-            '- Layer warm prints densely, overlapping and slightly off-square, held with wooden pegs, twine,',
-            '  kraft tape and a couple of dried flower sprigs tucked behind the edges.',
-            '- Palette: honey, amber, burnt orange and deep green, with real light leaks burning in at the',
-            '  edges of a few pieces.',
+            '- Lush and growing: dappled sunlight through leaves, rich greenery, a garden in full summer.',
+            '- Palette: emerald, lime, deep forest green and warm terracotta.',
         ],
-        fallback: 'sun-faded linen under late golden light, warm and grainy',
-        craft: 'warm film grain, kraft tape, wooden pegs and dried flowers',
-        palette: 'honey, amber, burnt orange and deep green',
+        mood: 'dappled sunlight through deep green leaves',
+        palette: 'emerald, lime, forest green and terracotta',
     },
     {
-        id: 'greenhouse',
-        name: 'Greenhouse',
-        keywords: ['greenhouse', 'botanical', 'plant', 'plants', 'leaves', 'foliage', 'garden', 'jungle'],
+        id: 'rich-jewel',
+        name: 'Rich jewel',
+        keywords: ['jewel', 'emerald', 'gold', 'luxurious', 'opulent'],
         lines: [
-            '- The board is painted deep emerald green and alive with plants: leaves and fronds pressed flat',
-            '  across it and hanging over the edges of the pieces.',
-            '- The pieces climb the frame like a vine — a vertical, organic arrangement that leans and curves',
-            '  upward, with pressed leaves, seed heads and small terracotta details filling every gap.',
-            '- Palette: emerald, lime, jade and terracotta, with bright white paper edges cutting through',
-            '  the green.',
+            '- Rich and deep: saturated jewel tones in low warm light, a sense of luxury and plenty.',
+            '- Palette: emerald, sapphire, plum and gold.',
         ],
-        fallback: 'a deep emerald board overgrown with pressed leaves',
-        craft: 'pressed leaves, deckled paper edges and twine',
-        palette: 'emerald, lime and terracotta against deep green',
-    },
-    {
-        id: 'cosmic',
-        name: 'Cosmic dream',
-        keywords: ['cosmic', 'galaxy', 'nebula', 'stars', 'starry', 'aurora', 'space'],
-        lines: [
-            '- The board is deep indigo dusted with stars, and the pieces orbit one large central picture,',
-            '  spiralling outward like a galaxy, trailing iridescent foil and star-shaped confetti.',
-            '- Make the arrangement obviously orbital: concentric rings, pieces set at different angles,',
-            '  stardust and fine glitter scattered right across the surface.',
-            '- Palette: indigo, magenta, teal and gold, with a shimmer on everything.',
-        ],
-        fallback: 'a deep indigo board dusted with stars and iridescent foil',
-        craft: 'clean cut edges, foil stars and fine glitter',
-        palette: 'indigo, magenta, teal and gold',
+        mood: 'low warm light over deep emerald, sapphire and gold',
+        palette: 'emerald, sapphire, plum and gold',
     },
 ];
 
@@ -430,7 +374,7 @@ function askedStyleId(steer) {
  * `rand` is injected so this stays pure and testable.
  *
  * @param {{hint?: string, recent?: string[], rand?: () => number}} options
- * @returns {{id: string, name: string, source: 'asked'|'picked', lines: string[], fallback: string, craft: string, palette: string}}
+ * @returns {{id: string, name: string, source: 'asked'|'picked', lines: string[], mood: string, palette: string}}
  */
 function pickBoardStyle({ hint = '', recent = [], rand = Math.random } = {}) {
     const steer = String(hint || '');
@@ -474,15 +418,19 @@ function resolveBoardStyle(style, hint = '') {
  */
 const PEOPLE_RULE = {
     off: '- NO faces anywhere. Any people are far away, from behind, in silhouette, out of focus, or'
-        + ' hands only — never a portrait, never looking at the camera. Prefer empty scenes, places and things.',
+        + ' hands only — never a portrait, never looking at the camera. Prefer empty scenes, places and things.\n'
+        + '- Do not choose a subject that NEEDS a face to make sense — "a family around a table", a'
+        + ' portrait, a head-and-shoulders shot. Show the room, the food on the table, the hands, the'
+        + ' doorway, the view. An image model asked for a family at a table draws faces whatever the'
+        + ' rules say, and there is no fix for that later.',
     on: '- People may appear. Keep them generic and unidentifiable — no likeness of any real or famous person.',
 };
 
 /** How text may appear: off by default, because lettering renders as garbage. */
 const TEXT_RULE = {
     off: '- NO text, letters, numbers, symbols or captions anywhere — the pictures and the arrangement carry it.',
-    on: '- The person asked for words: add one or two SHORT handwritten-style phrases (two to four words)'
-        + ' on torn paper or a sticky note, as if written by hand. Nothing printed, nothing long.',
+    on: '- The person asked for words: write one or two SHORT handwritten-style phrases (two to four words)'
+        + ' across the collage, as if added by hand. Nothing printed, nothing long.',
 };
 
 // A steer that names these switches a default off or on. The word lists are
@@ -554,15 +502,27 @@ function buildVisionBoardPrompt(goals, { scope = 'dream', hint = '', rules, styl
         // whole point of the styles is that no two boards come back the same.
         `- This board's look, already chosen for it — follow it exactly: ${look.name}.`,
         ...look.lines,
-        '- Begin with the board itself — its surface and how the pictures are arranged — then describe',
-        '  what is inside the pieces. An image model weights the opening words hardest.',
+        // Verified against the real model, four times each way: a prompt that OPENS
+        // with this shape draws a board of several real photographs, and one that
+        // opens any other way does not — it draws a single lovely scene, a colour
+        // swatch, or the same building tiled. The writer gets the opening verbatim
+        // and spends its freedom on the subjects, which is where the goals are.
+        '- Open the prompt with exactly this shape, then fill it in:',
+        '  "A bold photo collage filling the frame: large glossy photographs of <subjects>, overlapping',
+        '  and layered at slight angles with their edges crossing, <light and palette>, photographic."',
+        '- The subjects are what the goals become, and they must be different KINDS of thing from each',
+        '  other — an interior, an exterior, a landscape, a person seen from far away, an object in the',
+        '  hand. Five variations of one building is how a board comes back as the same picture five times.',
         '- Turn each goal into a concrete, picturable subject. Use their own words and details.',
-        '- Be specific about place, time of day, light, weather, materials and mood.',
+        '- Be specific about place, time of day, light, weather and mood.',
         resolved.allowPeople ? PEOPLE_RULE.on : PEOPLE_RULE.off,
         resolved.allowText ? TEXT_RULE.on : TEXT_RULE.off,
-        '- Never show a person holding, presenting or looking at the board: the board is the picture.',
+        '- No person holds, presents or looks at the collage: the collage IS the picture.',
         '- Do not name the person, the goals, or the words "vision board" in the prompt.',
-        '- Do not ask for a frame, a border, or a mock-up of a poster on a wall.',
+        // Frame, border, mock-up and every prop are refused in the negative prompt
+        // instead. Asking for "no frame" here would only put the word in front of
+        // the writer, and the props are exactly what a writer reaches for when a
+        // vision board is mentioned.
         steer ? `- The person asked for this as well. Honour it: ${steer}` : '',
         '',
         'Reply with the prompt and nothing else — no preamble, no explanation.',
@@ -571,12 +531,14 @@ function buildVisionBoardPrompt(goals, { scope = 'dream', hint = '', rules, styl
 
 /** The system turn for the prompt writer. */
 const VISION_BOARD_SYSTEM =
-    'You write single-paragraph prompts for a photorealistic AI image model, describing a handmade '
-    + 'vision board — a physical surface covered in pictures — rather than a single scene. Every board '
-    + 'has its own look, which you are told: follow the look you are given rather than falling back on '
-    + 'cork and pins. You never ask for identifiable faces, and never for text, lettering, logos or '
-    + 'borders inside an image unless the person explicitly asked for them, because those render as '
-    + 'garbage. You always answer with the prompt alone.';
+    'You write single-paragraph prompts for a photorealistic AI image model, describing a vision board '
+    + '— a collage of many photographs of the life somebody wants — rather than a scene or a still life. '
+    + 'The collage is made of photographs and nothing else: never a cork board, pins, tape, pegs, paper, '
+    + 'frames or any other prop, because those turn a picture of a life into a picture of stationery. '
+    + 'Every board has its own light and palette, which you are told: follow the look you are given. You '
+    + 'never ask for identifiable faces, and never for text, lettering, logos or borders inside an image '
+    + 'unless the person explicitly asked for them, because those render as garbage. You always answer '
+    + 'with the prompt alone.';
 
 /**
  * A deterministic prompt used when the model returns something unusable. Not a
@@ -592,15 +554,15 @@ function fallbackBoardPrompt(goals, scope = 'dream', rules = {}, style) {
         .slice(0, 8);
     const list = subjects.length ? subjects.join(', ') : 'an open horizon';
     const look = resolveBoardStyle(style);
-    const frame = scope === 'dream'
-        ? `${look.fallback}, carrying the life being aimed at`
-        : `${look.fallback}, from this week to a lifetime away`;
+    const horizon = scope === 'dream'
+        ? 'the life they are aiming at'
+        : 'everything from this week to a lifetime away';
     const people = rules.allowPeople
         ? 'people kept distant and unidentifiable'
         : 'no faces at all';
-    return `A handmade vision board filling the frame: ${frame}, covered in six to ten overlapping `
-        + `pictures of different sizes, ${look.craft}, the surface showing between the pieces. `
-        + `The pictures show ${list}, in ${look.palette}. ${people}, no text or lettering`;
+    return `A photo collage filling the frame, a vision board of ${horizon}: three to six large `
+        + `photographs of different sizes overlapping with their edges crossing. ${look.mood}. `
+        + `The photographs show ${list}, in ${look.palette}. ${people}, no text or lettering`;
 }
 
 /**
@@ -661,41 +623,45 @@ function normalizeBoardPrompt(raw, goals, scope = 'dream', rules = {}, style) {
     return { prompt: text, source: 'model' };
 }
 
-// The negative prompt is the second half of the two defaults: the brief asks, the
-// negative prompt forbids, and both are built from the same resolved rules so a
-// user who *wants* a face or a handwritten word is not fighting the safety net.
-const NEGATIVE_TEXT = 'text, lettering, words, numbers, captions, signage';
-const NEGATIVE_MARKS = 'watermark, signature, logo, brand logo, product placement, stock photo watermark';
-// A likeness of a real person is refused whoever the subject is: allowing people
-// is not the same as asking for a face that belongs to somebody.
-const NEGATIVE_LIKENESS = 'celebrity likeness, likeness of a real person';
-// Dropped only when the user asked for people.
-const NEGATIVE_ANONYMITY = 'identifiable faces, portrait, close-up face, looking at camera, '
-    + 'stock-photo family, corporate headshot';
-// Quality terms that apply whatever the user asked for. "distorted faces" and
-// "deformed hands" only mean anything when hands or faces could appear, and a
-// negative prompt that names something the scene cannot contain is spent tokens —
-// but it is cheap, and dropping it invites a mangled face the moment the steer
-// asks for people.
-const NEGATIVE_ALWAYS = 'low quality, blurry, distorted faces, extra limbs, deformed hands, cluttered, noisy';
+// ─── The negative prompt ─────────────────────────────────────────────────────
+// Verified against the real model (Stability SD3.5 Large, 2026-09-15), because
+// what goes in here is not obvious and the wrong thing does real damage:
+//
+//   • A long, conceptual negative list — frames, walls, props, "clutter" — does
+//     not subtract those things. It takes over the guidance, and the picture stops
+//     being the prompt at all: the same photo-collage prompt that had been drawing
+//     four-photograph boards of a life came back as a rigid grid of one building,
+//     and then as a blue mountain, as the denials grew.
+//   • A SHORT denial of the things that render as marks rather than pictures —
+//     lettering above all — costs nothing.
+//   • Refusing faces is also safe (tested on its own, with the collage intact and
+//     the people in it seen from behind or at a distance), and it is needed: the
+//     positive rule alone does not stop an image model drawing a face, and a
+//     board should not be a portrait of somebody who does not exist.
+
+/** Watermarks and signatures are refused however the user steered: a signed photograph is not a board. */
+const NEGATIVE_MARKS = 'watermark, signature, logo';
+const NEGATIVE_TEXT = 'text, words, numbers, letters';
+const NEGATIVE_FACES = 'faces, portraits';
 
 /**
  * The negative prompt for a board, built from the resolved rules.
+ *
+ * Short by design: see the note above. Everything else the brief says in the
+ * positive — a prop or a composition is kept out by describing a picture that has
+ * no room for it, not by naming it here.
  *
  * @param {{allowText?: boolean, allowPeople?: boolean}} rules
  */
 function boardNegativePrompt({ allowText = false, allowPeople = false } = {}) {
     return [
         allowText ? '' : NEGATIVE_TEXT,
+        allowPeople ? '' : NEGATIVE_FACES,
         NEGATIVE_MARKS,
-        allowPeople ? '' : NEGATIVE_ANONYMITY,
-        NEGATIVE_LIKENESS,
-        'poster, mock-up, picture frame, border',
-        NEGATIVE_ALWAYS,
     ].filter(Boolean).join(', ');
 }
 
-/** A board is landscape — it is a wall, a desktop, a header. */
+/** A board is landscape — it is a desktop wallpaper, a header, a wall of a life. */
 const BOARD_ASPECT_RATIO = '16:9';
 
 // ─── The record ──────────────────────────────────────────────────────────────

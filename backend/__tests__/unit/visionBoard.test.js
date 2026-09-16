@@ -128,45 +128,87 @@ describe('visionBoard · the prompt writer', () => {
         const prompt = buildVisionBoardPrompt(goals, { scope: 'all' });
         expect(prompt).toMatch(/NO text, letters, numbers, symbols or captions/);
         // …and the negative prompt is the backstop for a model that ignores it.
-        expect(boardNegativePrompt()).toMatch(/lettering/);
+        expect(boardNegativePrompt()).toMatch(/text, words, numbers, letters/);
         expect(boardNegativePrompt()).toMatch(/watermark/);
     });
 
-    test('the picture asked for is a handmade board, not one scene', () => {
+    test('the picture asked for is a photo collage, not one scene', () => {
         // The first version of this feature offered "a single scene OR a grid" and
         // got an editorial stock photograph of a family at a laptop: a fine
-        // picture, and not a vision board. The look is now mandatory.
+        // picture, and not a vision board.
         const prompt = buildVisionBoardPrompt(goals, { scope: 'dream' });
-        expect(prompt).toMatch(/IS a handmade vision board filling the whole frame/);
-        expect(prompt).toMatch(/6 to 10 separate pictures/);
-        expect(prompt).toMatch(/Begin with the board itself/);
-        // A board clustered into one corner with half a blank wall left over was
-        // the first real board's flaw, so balance is a rule and not a hope.
-        expect(prompt).toMatch(/Use the whole surface, evenly/);
-        expect(prompt).toMatch(/no\s+large empty area left on one side/);
-        // The second real board arrived with a white margin of wall around it.
-        expect(prompt).toMatch(/reaches every edge of the frame/);
-        expect(BOARD_RULES.join(' ')).toMatch(/pinned, taped or pegged on rather than pasted flat/);
+        expect(prompt).toMatch(/The picture IS a vision board: ONE photo collage/);
+        expect(prompt).toMatch(/three to six LARGE photographs/);
+        expect(prompt).toMatch(/A bold photo collage filling the frame: large glossy photographs of/);
         // …and the scene option is gone.
         expect(prompt).not.toMatch(/either a single photorealistic scene/);
+        // Still a collage of several photographs, never a lone scene or a tidy
+        // grid: that is the failure this rule was written for, and removing the
+        // props must not remove the thing that makes it a board.
+        expect(prompt).toMatch(/never a single scene photographed in a take/);
+        expect(prompt).toMatch(/never a row or a\s+grid of equal tiles/);
+        // The count is deliberately small: an image model given a long bare list of
+        // subjects draws none of them (verified against the real model), so the
+        // writer is told to describe a handful richly instead.
+        expect(prompt).toMatch(/Three subjects described richly beat/);
+    });
+
+    // The complaint that produced this list: every board came back as a noticeboard
+    // photographed on a wall — cork, pins, washi tape, paper scraps — with the props
+    // as the subject of the picture. A vision board is what is IN the photographs.
+    const PROPS = /\bcork\b|pinboard|corkboard|bulletin board|push ?pin|thumbtack|\bpins?\b|\btape\b|washi|\bpegs?\b|twine|\bstring\b|scrapbook|sticker|\bglitter\b|\bfoil\b|\blinen\b|kraft paper|\bpaper\b|torn edge|deckled|halftone|mock-up|picture frame/i;
+
+    test('the brief asks for no props, in the rules or in any look', () => {
+        expect(BOARD_RULES.join(' ')).not.toMatch(PROPS);
+        for (const style of BOARD_STYLES) {
+            // The look is light, palette and mood only. A prop here is how the
+            // stationery became the subject of the picture.
+            expect(`${style.id} ${style.name} ${style.lines.join(' ')} ${style.mood} ${style.palette}`)
+                .not.toMatch(PROPS);
+        }
+        // …and it holds for the brief that is actually sent, whichever look it got.
+        for (const style of BOARD_STYLES) {
+            const sent = buildVisionBoardPrompt(goals, { scope: 'dream', style: style.id });
+            expect(sent.slice(sent.indexOf('The prompt you write must follow'))).not.toMatch(PROPS);
+        }
+    });
+
+    test('the negative prompt is short, and describes no concepts', () => {
+        // ⚠️ Verified against the real model: a long negative list does not
+        // subtract what it names — it takes over the guidance. The same collage
+        // prompt that drew a four-photograph board of a life came back as a grid of
+        // one building, and then as a blue mountain, as the denials grew. The
+        // negative prompt is for what renders as garbage (lettering, watermarks),
+        // and nothing else belongs in it.
+        for (const rules of [{}, { allowPeople: true }, { allowText: true }, { allowPeople: true, allowText: true }]) {
+            const terms = boardNegativePrompt(rules).split(',').map((t) => t.trim());
+            expect(terms.length).toBeLessThanOrEqual(9);
+            // No props, no places, no colours, no rooms: nothing a picture could
+            // be built out of, only the marks of a photograph that is not a board.
+            expect(boardNegativePrompt(rules)).not.toMatch(PROPS);
+        }
+        // A user who asked for people and for words keeps both; the marks still go.
+        expect(boardNegativePrompt({ allowPeople: true, allowText: true })).toBe('watermark, signature, logo');
     });
 
     test('the brief carries this board\'s look, by name and in detail', () => {
-        const prompt = buildVisionBoardPrompt(goals, { scope: 'dream', style: 'riso-pop' });
-        expect(prompt).toMatch(/already chosen for it — follow it exactly: Riso pop/);
-        expect(prompt).toMatch(/a huge sheet of chartreuse paper/);
-        expect(prompt).toMatch(/risograph-style print/);
-        expect(prompt).toMatch(/fluorescent pink, electric blue, chartreuse and black/);
-        // The system turn has to know a look is always given, or the writer falls
-        // back on the cork board it was trained on.
+        const prompt = buildVisionBoardPrompt(goals, { scope: 'dream', style: 'vivid-pop' });
+        expect(prompt).toMatch(/already chosen for it — follow it exactly: Vivid pop/);
+        // Light and palette, and nothing else: the look is an art direction.
+        expect(prompt).toMatch(/saturated colour in every image/);
+        expect(prompt).toMatch(/cobalt blue, scarlet, sunshine yellow and turquoise/);
+        // The system turn has to know a look is always given, or the writer reaches
+        // for the cork board that "vision board" means to it.
         expect(require('../../services/visionBoard').VISION_BOARD_SYSTEM)
-            .toMatch(/Every board has its own look, which you are told/);
+            .toMatch(/Every board has its own light and palette, which you are told/);
+        expect(require('../../services/visionBoard').VISION_BOARD_SYSTEM)
+            .toMatch(/never a cork board, pins, tape, pegs, paper/);
     });
 
     test('the writing brief is not the place the look is decided', () => {
         // The surface, palette and arrangement used to be pinned here as one fixed
         // answer ("cork / linen pinboard / pale paper", "calm, soft and neutral") —
-        // which is exactly why every board came back as the same noticeboard.
+        // which is why every board came back as the same dusty noticeboard.
         expect(BOARD_RULES.join(' ')).not.toMatch(/cork/);
         expect(BOARD_RULES.join(' ')).not.toMatch(/calm, soft and neutral/);
         // What is left is the part every board shares, colour included: that old
@@ -180,9 +222,10 @@ describe('visionBoard · the prompt writer', () => {
         expect(prompt).toMatch(/never a portrait, never looking at the camera/);
         // A face-free board still needs a way to show human life.
         expect(prompt).toMatch(/silhouette, out of focus, or\s+hands only/);
-        // And the negative prompt names the thing the brief forbids.
-        expect(boardNegativePrompt()).toMatch(/identifiable faces/);
-        expect(boardNegativePrompt()).toMatch(/stock-photo family/);
+        // …and the negative prompt names the face, because the positive rule alone
+        // does not stop an image model drawing one. (Verified in isolation: this
+        // denial leaves the collage intact, unlike a long list of props.)
+        expect(boardNegativePrompt()).toMatch(/faces, portraits/);
     });
 
     test('the user\'s own steer is honoured, and bounded', () => {
@@ -214,16 +257,15 @@ describe('visionBoard · the look', () => {
         expect(new Set(ids).size).toBe(ids.length);
         expect(new Set(names).size).toBe(names.length);
         for (const style of BOARD_STYLES) {
-            expect(style.lines.length).toBeGreaterThanOrEqual(3);
+            expect(style.lines.length).toBeGreaterThanOrEqual(2);
             expect(style.keywords.length).toBeGreaterThan(0);
             for (const k of style.keywords) expect(k).toBe(k.toLowerCase());
-            expect(style.fallback.length).toBeGreaterThan(10);
-            expect(style.craft.length).toBeGreaterThan(10);
+            expect(style.mood.length).toBeGreaterThan(10);
             expect(style.palette.length).toBeGreaterThan(10);
             // A style that never reaches the brief, the fallback or the record is
             // a style nobody will ever see.
             expect(buildVisionBoardPrompt(goals, { scope: 'dream', style: style.id })).toContain(style.name);
-            expect(fallbackBoardPrompt(goals, 'dream', {}, style.id)).toContain(style.fallback);
+            expect(fallbackBoardPrompt(goals, 'dream', {}, style.id)).toContain(style.mood);
             expect(recordFor(style.id).style).toEqual({ id: style.id, name: style.name });
         }
     });
@@ -258,35 +300,35 @@ describe('visionBoard · the look', () => {
     });
 
     test('the steer can ask for a look by name', () => {
-        expect(pickBoardStyle({ hint: 'riso pop, no people' })).toMatchObject({ id: 'riso-pop', source: 'asked' });
-        expect(pickBoardStyle({ hint: 'make it neon' })).toMatchObject({ id: 'neon-night', source: 'asked' });
+        expect(pickBoardStyle({ hint: 'vivid pop, no people' })).toMatchObject({ id: 'vivid-pop', source: 'asked' });
+        expect(pickBoardStyle({ hint: 'make it feel like evening' })).toMatchObject({ id: 'evening-city', source: 'asked' });
         // …and asking wins over the rotation, which is the point of asking: a
         // board you liked has to be gettable again.
-        expect(pickBoardStyle({ hint: 'watercolour please', recent: ['watercolour'] }))
-            .toMatchObject({ id: 'watercolour', source: 'asked' });
+        expect(pickBoardStyle({ hint: 'pastel please', recent: ['soft-pastel'] }))
+            .toMatchObject({ id: 'soft-pastel', source: 'asked' });
         expect(pickBoardStyle({}).source).toBe('picked');
     });
 
     test('"no <look>" rules it out, and is never read as a request for it', () => {
         // The same trap as "no people": the phrase contains the keyword.
         for (let i = 0; i < 40; i += 1) {
-            const style = pickBoardStyle({ hint: 'no neon, no riso' });
-            expect(['neon-night', 'riso-pop']).not.toContain(style.id);
+            const style = pickBoardStyle({ hint: 'no neon, no pastel' });
+            expect(['evening-city', 'soft-pastel']).not.toContain(style.id);
         }
     });
 
-    test('ordinary mood words do not hijack the steer', () => {
-        // "film photography" and "warm light" are how people describe a mood, not a
-        // request for the Golden film board — a keyword that ate them would send
-        // every steer to the same look, which is the bug this catalog just fixed.
-        for (const hint of ['film photography, mountains', 'warm light, cosy', 'photographic, aspirational']) {
+    test('words that are not a look do not hijack the steer', () => {
+        // "film photography" and "mountains" describe a mood and a subject, not a
+        // look in this catalog — a keyword that ate them would send every steer to
+        // the same look, which is the bug the catalog exists to fix.
+        for (const hint of ['film photography, mountains', 'warm light', 'photographic, aspirational']) {
             expect(pickBoardStyle({ hint, rand: () => 0 }).source).toBe('picked');
         }
     });
 
     test('an unknown style id still produces a board, and an object is used as given', () => {
         expect(BOARD_STYLES.map((s) => s.id)).toContain(resolveBoardStyle('not-a-style', '').id);
-        const mine = { id: 'mine', name: 'Mine', lines: ['- x'], fallback: 'f', craft: 'c', palette: 'p' };
+        const mine = { id: 'mine', name: 'Mine', lines: ['- x'], mood: 'm', palette: 'p' };
         expect(resolveBoardStyle(mine)).toBe(mine);
         expect(buildVisionBoardPrompt(goals, { style: mine })).toContain('Mine');
         // A record with no style given is still a record with a look in it, so the
@@ -306,17 +348,16 @@ describe('visionBoard · the two defaults, and the one input that changes them',
         expect(resolveBoardRules(null)).toEqual({ allowPeople: false, allowText: false });
     });
 
-    test('asking for people switches the face rule on — and off the negative prompt', () => {
+    test('asking for people switches the face rule on', () => {
         const rules = resolveBoardRules('a family on the beach');
         expect(rules.allowPeople).toBe(true);
         const prompt = buildVisionBoardPrompt(goals, { scope: 'dream', hint: 'a family on the beach', rules });
         expect(prompt).toMatch(/People may appear/);
         expect(prompt).not.toMatch(/NO faces anywhere/);
-        // The safety net follows the rule, or the user would be fighting it.
-        expect(boardNegativePrompt(rules)).not.toMatch(/identifiable faces/);
-        // …while a likeness of a real person stays banned either way.
+        // A likeness of a real person stays banned whatever the user asked for,
+        // and the face denial lifts with the rule that asked for people.
         expect(prompt).toMatch(/no likeness of any real or famous person/);
-        expect(boardNegativePrompt(rules)).toMatch(/celebrity likeness/);
+        expect(boardNegativePrompt(rules)).not.toMatch(/faces|portraits/i);
     });
 
     test('"no people" is read as a refusal, not as a request for faces', () => {
@@ -330,7 +371,7 @@ describe('visionBoard · the two defaults, and the one input that changes them',
         const rules = resolveBoardRules('no people');
         const prompt = buildVisionBoardPrompt(goals, { scope: 'dream', hint: 'no people', rules });
         expect(prompt).toMatch(/NO faces anywhere/);
-        expect(boardNegativePrompt(rules)).toMatch(/identifiable faces/);
+        expect(boardNegativePrompt(rules)).toMatch(/faces, portraits/);
     });
 
     test('a refusal about one subject does not cancel a request for the other', () => {
@@ -343,8 +384,8 @@ describe('visionBoard · the two defaults, and the one input that changes them',
         expect(prompt).toMatch(/People may appear/);
         expect(prompt).toMatch(/NO text, letters, numbers/);
         const negative = boardNegativePrompt(rules);
-        expect(negative).not.toMatch(/identifiable faces/);
-        expect(negative).toMatch(/lettering/);
+        expect(negative).not.toMatch(/faces|portraits/i);
+        expect(negative).toMatch(/text, words, numbers, letters/);
     });
 
     test('asking for words switches the text rule on, in the brief and the negative prompt', () => {
@@ -355,7 +396,7 @@ describe('visionBoard · the two defaults, and the one input that changes them',
         expect(prompt).toMatch(/The person asked for words/);
         expect(prompt).toMatch(/SHORT handwritten-style phrases/);
         expect(prompt).not.toMatch(/NO text, letters, numbers/);
-        expect(boardNegativePrompt(rules)).not.toMatch(/lettering/);
+        expect(boardNegativePrompt(rules)).not.toMatch(/text|words|letters/i);
         // Marks of the trade are still refused: a signed photograph is not a board.
         expect(boardNegativePrompt(rules)).toMatch(/watermark, signature, logo/);
     });
@@ -364,10 +405,9 @@ describe('visionBoard · the two defaults, and the one input that changes them',
         const hint = 'a couple with a handwritten caption';
         expect(resolveBoardRules(hint)).toEqual({ allowPeople: true, allowText: true });
         const negative = boardNegativePrompt(resolveBoardRules(hint));
-        expect(negative).not.toMatch(/identifiable faces/);
-        expect(negative).not.toMatch(/lettering/);
-        // Quality terms survive whatever was asked for.
-        expect(negative).toMatch(/deformed hands/);
+        expect(negative).not.toMatch(/faces|text|words/i);
+        // …and the list is still only the marks of a photograph, nothing else.
+        expect(negative).toBe('watermark, signature, logo');
     });
 
     test('the record stores the rules and the negative prompt that were used', () => {
@@ -383,7 +423,7 @@ describe('visionBoard · the two defaults, and the one input that changes them',
             bytes: 10,
         });
         expect(record.rules).toEqual({ allowPeople: true, allowText: false });
-        expect(record.negativePrompt).not.toMatch(/identifiable faces/);
+        expect(record.negativePrompt).toBe('text, words, numbers, letters, watermark, signature, logo');
         // A board made with the defaults is recorded with the defaults.
         expect(buildBoardRecord({ scope: 'dream', goals, prompt: 'x', url: 'u', s3Key: 'k', bytes: 1 }).rules)
             .toEqual({ allowPeople: false, allowText: false });
@@ -435,27 +475,30 @@ describe('visionBoard · normalizing the answer', () => {
     });
 
     test('the fallback is the same KIND of picture the brief asks for', () => {
-        // A fallback that drew a single scene would quietly undo the look the
-        // feature was just corrected to produce.
-        const dreams = fallbackBoardPrompt(goals, 'dream', {}, 'cork-classic');
-        const all = fallbackBoardPrompt(goals, 'all', {}, 'cork-classic');
-        expect(dreams).toMatch(/A handmade vision board filling the frame/);
-        expect(dreams).toMatch(/six to ten overlapping/);
-        expect(dreams).toMatch(/washi tape, brass pins/);
+        // A fallback that drew a single scene, or a board of stationery, would
+        // quietly undo the picture the feature was corrected to produce.
+        const dreams = fallbackBoardPrompt(goals, 'dream', {}, 'golden-warm');
+        const all = fallbackBoardPrompt(goals, 'all', {}, 'golden-warm');
+        expect(dreams).toMatch(/A photo collage filling the frame/);
+        expect(dreams).toMatch(/three to six large/);
+        expect(dreams).toMatch(/edges crossing/);
         expect(dreams).toMatch(/no faces at all/);
-        expect(dreams).toMatch(/a warm honey-coloured cork pinboard in low golden light, carrying the life being aimed at/);
+        expect(dreams).toMatch(/the life they are aiming at/);
         expect(all).toMatch(/this week to a lifetime away/);
         expect(fallbackBoardPrompt([], 'dream')).toContain('an open horizon');
         // …and it follows the rules too, when the user switched one on.
         expect(fallbackBoardPrompt(goals, 'dream', { allowPeople: true }))
             .toMatch(/people kept distant and unidentifiable/);
+        // No props here either: the deterministic prompt is not allowed to be the
+        // one place a cork board survives.
+        expect(dreams).not.toMatch(/cork|pinboard|push ?pin|washi|scrapbook|mock-up/i);
     });
 
     test('the fallback keeps the look it was given, so one board is not the odd one out', () => {
-        const p = fallbackBoardPrompt(goals, 'dream', {}, 'neon-night');
-        expect(p).toMatch(/deep midnight-blue board lit by neon/);
-        expect(p).toMatch(/hot pink, cyan and violet neon/);
-        expect(p).not.toMatch(/cork/);
+        const p = fallbackBoardPrompt(goals, 'dream', {}, 'evening-city');
+        expect(p).toMatch(/blue-hour evening light, lit windows and warm glow/);
+        expect(p).toMatch(/deep blue, violet, warm amber and pink neon/);
+        expect(p).not.toMatch(/golden-hour/);
     });
 });
 
@@ -483,7 +526,7 @@ describe('visionBoard · the record', () => {
             goals: [{ slug: 'a', title: 'Retire by the coast', horizon: 'life' }],
             prompt: 'A wide beach at golden hour.',
             hint: 'film photography',
-            style: 'cosmic',
+            style: 'rich-jewel',
             url: 'https://cdn.example/a.png',
             s3Key: 'users/u1/generated/a.png',
             bytes: 1234,
@@ -502,7 +545,7 @@ describe('visionBoard · the record', () => {
         });
         // The look travels with the board: it is what the gallery line shows, and
         // what the next board refuses to repeat.
-        expect(record.style).toEqual({ id: 'cosmic', name: 'Cosmic dream' });
+        expect(record.style).toEqual({ id: 'rich-jewel', name: 'Rich jewel' });
         // The provenance is the honest part: what it was made from, and what the
         // user asked for on top.
         expect(record.source.goals).toEqual([{ slug: 'a', title: 'Retire by the coast', horizon: 'life' }]);

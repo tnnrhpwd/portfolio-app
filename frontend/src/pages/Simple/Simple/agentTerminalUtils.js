@@ -16,6 +16,9 @@
  * A line:
  *   { key, ts, source: 'local'|'cloud', glyph, kind, text, detail, status }
  * where `status` drives the colour: running | ok | error | note | plain.
+ * A kind that carries a fact the panel needs outside the log adds a field of its
+ * own — `agent.goal` adds `goalName`, which the footer keeps on screen after the
+ * line itself has scrolled away.
  */
 
 /** Lines kept. A long run is thousands of events; nobody scrolls past a few hundred
@@ -70,6 +73,15 @@ export function formatDuration(ms) {
   return `${Math.floor(n / 60_000)}m ${Math.round((n % 60_000) / 1000)}s`;
 }
 
+/** Sizes as a terminal reads them: bytes, kB, MB. */
+export function formatBytes(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v) || v <= 0) return '';
+  if (v < 1024) return `${Math.round(v)}B`;
+  if (v < 1024 * 1024) return `${Math.round(v / 1024)}kB`;
+  return `${(v / (1024 * 1024)).toFixed(1)}MB`;
+}
+
 /** A tool's arguments as one short parenthetical. Empty for no arguments, and
  *  for the PII tools the addon deliberately strips (`text_type`, `clipboard_write`,
  *  `audio_speak`) — the absence is the feature, so nothing is invented here. */
@@ -109,13 +121,55 @@ export function eventToLine(ev) {
         key: `${base.key}-${ev.callId || ''}`,
         glyph: ev.ok ? '✓' : '✗',
         text: `${ev.tool || 'tool'}${ev.ok ? '' : ' failed'}`,
-        detail: [clip(ev.error, 160), formatDuration(ev.durationMs)].filter(Boolean).join(' · '),
+        // The result leads when there is one — "it read the file and found X" is
+        // the point of watching; the duration is the footnote. Errors keep the
+        // same slot, since a failed call has no result to show.
+        detail: [clip(ev.error || ev.resultPreview, 160), formatDuration(ev.durationMs)].filter(Boolean).join(' · '),
         status: ev.ok ? 'ok' : 'error',
+      };
+    case 'agent.goal':
+      return {
+        ...base,
+        glyph: '◎',
+        text: `working on: ${ev.goalName || ev.goalSlug || 'a goal'}`,
+        goalName: ev.goalName || ev.goalSlug || '',
+        detail: [
+          ev.horizon ? `horizon ${ev.horizon}` : '',
+          ev.status ? `status ${ev.status}` : '',
+          ev.maxSteps ? `budget ${ev.maxSteps} steps` : '',
+        ].filter(Boolean).join(' · '),
+        status: 'note',
+      };
+    case 'agent.thought':
+      return {
+        ...base,
+        glyph: '✻',
+        text: clip(ev.text, TEXT_MAX),
+        detail: Array.isArray(ev.willCall) && ev.willCall.length ? `→ ${ev.willCall.join(', ')}` : '',
+        status: 'note',
+      };
+    case 'agent.observe':
+      return {
+        ...base,
+        glyph: '◉',
+        text: 'observed',
+        detail: [
+          formatBytes(ev.contextBytes) ? `context ${formatBytes(ev.contextBytes)}` : '',
+          Array.isArray(ev.skills) && ev.skills.length ? `skills: ${ev.skills.join(', ')}` : '',
+          ev.hasPerception ? 'perception on' : '',
+        ].filter(Boolean).join(' · '),
+        status: 'plain',
       };
     case 'agent.stage':
       return { ...base, glyph: '◆', text: `stage → ${STAGE_LABELS[ev.stage] || ev.stage || 'unknown'}`, detail: ev.loop ? `${ev.loop} loop` : '', status: 'note' };
     case 'agent.step':
-      return { ...base, glyph: '·', text: `step ${ev.step ?? '?'}`, detail: ev.modelId || '', status: 'plain' };
+      return {
+        ...base,
+        glyph: '·',
+        text: ev.maxSteps ? `step ${ev.step ?? '?'}/${ev.maxSteps}` : `step ${ev.step ?? '?'}`,
+        detail: ev.modelId || '',
+        status: 'plain',
+      };
     case 'agent.message':
       return { ...base, glyph: '»', text: `${ev.role || 'assistant'}: ${clip(ev.content, TEXT_MAX)}`, status: 'plain' };
     case 'agent.reply':

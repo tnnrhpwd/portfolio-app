@@ -266,7 +266,7 @@ export default function VisionBoards({
                 value={hint}
                 maxLength={HINT_MAX}
                 disabled={making}
-                placeholder="e.g. riso pop, mountains, no people"
+                placeholder="e.g. coastal, vivid colour, no people"
                 onChange={(e) => setHint(e.target.value)}
               />
             </label>
@@ -276,15 +276,16 @@ export default function VisionBoards({
                 guess whether the sameness is on purpose — and so the way to ask for a
                 look again is discoverable rather than folklore. */}
             <p className="vb-defaults">
-              Each board gets <strong>its own look</strong> — cork, riso pop, watercolour, neon
-              night, cosmic — picked fresh so no two come back alike. Name one above to ask for it.
+              Each board gets <strong>its own look</strong> — golden warmth, bright and airy, vivid
+              colour, coastal light, evening city — picked fresh so no two come back alike. Name one
+              above to ask for it.
             </p>
 
             {/* Both defaults, and the fact that they can be switched — an
                 instruction the user can't discover is one they'll assume is a bug
                 when the board comes back without the people they wanted. */}
             <p className="vb-defaults">
-              Made as a board of pinned pictures, with <strong>no recognisable faces</strong> and
+              Made as a photo collage of your goals, with <strong>no recognisable faces</strong> and
               <strong> no text</strong>. Ask for either above and it will.
             </p>
 

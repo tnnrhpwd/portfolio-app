@@ -51,9 +51,13 @@ function isContainerHorizon(horizon) {
     return horizon === 'year' || horizon === 'life';
 }
 const crypto = require('crypto');
-// Tools whose args contain human/PII content — never captured into a
-// success-run skill draft (mirrors pattern-learner.js PII_TOOLS).
-const PII_TOOLS = new Set(['text_type', 'clipboard_write', 'audio_speak']);
+// The PII tool set lives in one place (`event-detail.js`) because the EVENT
+// stream needs it too — a `text_type` step must not publish what the user typed.
+const { PII_TOOLS, clip } = require('./event-detail');
+
+/** Chars of the model's own reasoning that reach an event. Long enough to say
+ *  what it is doing and why; short enough that the event ring stays useful. */
+const THOUGHT_MAX = 500;
 
 // Future-phase tunables (docs/implementation/simple-agent-prompt.md
 // §7.4). Not yet consumed by the loop — wired in Phases 2–6. Present here so
@@ -262,6 +266,7 @@ class AgentLoop {
             finalAnswer: null,
             stepsSinceReeval: 0,
             nextReevaluateAt: null,
+            lastPublishedGoalSlug: null,
         };
     }
 
@@ -349,6 +354,28 @@ class AgentLoop {
         }
     }
 
+    /**
+     * Announce which goal this run is working on.
+     *
+     * Published once per run rather than per step: the console needs one line
+     * saying WHAT is being worked on (and against what step budget), not sixty.
+     * Called from the outer loop, so a run that ever swaps goals reports the
+     * swap instead of quietly working on something else.
+     */
+    _publishGoal() {
+        const g = this.state.currentGoal;
+        if (!g || this.state.lastPublishedGoalSlug === g.slug) return;
+        this.state.lastPublishedGoalSlug = g.slug;
+        this._publish('agent.goal', {
+            goalSlug: g.slug,
+            goalName: g.name || g.slug,
+            horizon: g.horizon || null,
+            status: g.status || 'active',
+            priority: typeof g.priority === 'number' ? g.priority : null,
+            maxSteps: this.state.maxSteps,
+        });
+    }
+
     // ── O-O-G-P-A stage methods ──────────────────────────────────────────
 
     /** OBSERVE — assemble one Frame: tool surface + workspace context + skill hints + perception. */
@@ -356,7 +383,7 @@ class AgentLoop {
         this.state.step++;
         this.state.stepsSinceReeval++;
         this.state.lastTick = nowIso();
-        this._publish('agent.step', { goalSlug: this.state.currentGoal?.slug, step: this.state.step, lastTickAt: this.state.lastTick, modelId: this.state.modelId });
+        this._publish('agent.step', { goalSlug: this.state.currentGoal?.slug, step: this.state.step, maxSteps: this.state.maxSteps, lastTickAt: this.state.lastTick, modelId: this.state.modelId });
 
         const toolSchemas = this.registry.toolSchemasForLlm();
         const toolNames = toolSchemas.map(t => t.function.name);
@@ -387,6 +414,17 @@ class AgentLoop {
                 if (frame) perceptionContext = p.frameToContextString(frame);
             }
         } catch { /* perception bus not started — non-fatal */ }
+
+        // What this step is about to reason over — the console's situation line.
+        // A run whose log is only tool names has no way to distinguish "it saw
+        // the dialog and clicked Save" from "it could not see anything".
+        this._publish('agent.observe', {
+            goalSlug: this.state.currentGoal?.slug,
+            step: this.state.step,
+            contextBytes: wsContextString.length,
+            skills: (skillHints || []).map((s) => s.slug || s.name).filter(Boolean).slice(0, 3),
+            hasPerception: !!perceptionContext,
+        });
 
         return { ts: nowIso(), toolSchemas, toolNames, wsContextString, skillHints, perceptionContext };
     }
@@ -646,6 +684,20 @@ class AgentLoop {
         const text = (result?.text || '').trim();
         const toolCalls = result?.toolCalls || [];
 
+        // The model's own words for this step, which are the reason for the
+        // action it is about to take. Before this, a run read as `▶ screen_capture`
+        // repeated with nothing on screen saying why any of it was happening.
+        // The stop sentinel is stripped: it is a protocol token, not reasoning.
+        const reasoning = clip(text.replace(/<<GOAL_DONE>>/gi, '').trim(), THOUGHT_MAX);
+        if (reasoning) {
+            this._publish('agent.thought', {
+                goalSlug: this.state.currentGoal?.slug,
+                step: this.state.step,
+                text: reasoning,
+                willCall: toolCalls.map((tc) => tc.function.name),
+            });
+        }
+
         // Echo assistant message into history.
         this.state.history.push({
             role: 'assistant',
@@ -789,6 +841,7 @@ class AgentLoop {
         this._toolCtx = this.contextFactory({ goalSlug: this.state.currentGoal.slug });
 
         while (this.state.running && this.state.step < this.state.maxSteps) {
+            this._publishGoal();
             this._setStage('SELECTING_GOAL');
             const decision = this._shouldReevaluate()
                 ? await this.selectGoal()
@@ -996,6 +1049,7 @@ class AgentLoop {
             finalAnswer: null,
             stepsSinceReeval: this.config.REEVAL_STEPS,
             nextReevaluateAt: null,
+            lastPublishedGoalSlug: null,
         };
         this._toolCtx = null;
         this._lastOrientSig = null;

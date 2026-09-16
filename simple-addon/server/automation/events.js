@@ -12,10 +12,20 @@
  * Event shape (all events MUST have ts + type):
  *   { ts, type, ...data }
  *
+ * ⚠️ What goes in `data` is governed by `event-detail.js`, not by convenience:
+ * an event is a REPORT (the /simple console, the tray, the dashboard, anything
+ * subscribed over SSE). The full-fidelity record belongs to the workspace action
+ * log via `ctx.addAction`. Concretely: PII-tool arguments/results are omitted,
+ * image-shaped and oversized values are dropped, and a tool result is carried as
+ * a short `resultPreview` rather than the result itself.
+ *
  * Known types:
  *   tool.start        { tool, args, goalSlug?, runId?, callId }
- *   tool.end          { tool, ok, error?, durationMs, callId, mode, runId? }
- *   agent.step        { goalSlug, step, lastTickAt, modelId }
+ *   tool.end          { tool, ok, error?, resultPreview?, durationMs, callId, mode, runId? }
+ *   agent.goal        { goalSlug, goalName, horizon, status, priority, maxSteps }
+ *   agent.observe     { goalSlug, step, contextBytes, skills[], hasPerception }
+ *   agent.thought     { goalSlug, step, text, willCall[] }
+ *   agent.step        { goalSlug, step, maxSteps, lastTickAt, modelId }
  *   agent.message     { goalSlug, role, content }      // assistant text
  *   agent.stopped     { goalSlug, reason }
  *   approval.pending  { id, toolName, args, createdAt }

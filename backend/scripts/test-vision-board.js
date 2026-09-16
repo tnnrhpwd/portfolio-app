@@ -25,10 +25,11 @@
  * it makes the LLM call but stops before the image. It logs in as the shared guest
  * account, so anything it makes must be deleted again (`--delete`).
  *
- * A board's LOOK (surface, palette, arrangement) is picked per board and never the
- * one the previous board used, so two runs of this script are two different boards
- * on purpose. The hint names a look ("neon", "watercolour", "no cork") when you
- * want the same one twice.
+ * A board's LOOK (light, palette and mood) is picked per board and never the one the
+ * previous board used, so two runs of this script are two different boards on
+ * purpose. The hint names a look ("coastal", "pastel", "evening city") when you
+ * want the same one twice — no props are involved any more: a board is a collage of
+ * photographs of the goals, not a board of stationery.
  */
 const path = require('path');
 

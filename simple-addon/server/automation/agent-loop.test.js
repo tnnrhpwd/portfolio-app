@@ -380,6 +380,71 @@ function newLoop(overrides = {}) {
         assert.ok(written[0].slug.startsWith('lesson-'));
     });
 
+    // ── console: what a run reports about itself ─────────────────────────
+    // The /simple live console is built from these three events. Without them a
+    // run reads as a bare list of tool names, which is exactly the complaint
+    // they were added to answer.
+    await asyncTest('a run publishes the goal, what it observed, and its reasoning', async () => {
+        const fakes = makeFakes({
+            llmClient: {
+                calls: 0,
+                async chat() {
+                    this.calls++;
+                    if (this.calls === 1) {
+                        return {
+                            text: 'The dialog is open, so I will click Save.',
+                            toolCalls: [{ id: 'c', function: { name: 'toolA', arguments: '{}' } }],
+                        };
+                    }
+                    return { text: '<<GOAL_DONE>>', toolCalls: [] };
+                },
+            },
+        });
+        const loop = new AgentLoop(fakes);
+        await loop.start({ goalSlug: 'g', skipPlanner: true });
+        await waitFor(() => loop.status().running === false, { label: 'loop to finish' });
+
+        const of = (type) => fakes.events._log.filter((e) => e.type === type);
+
+        const goals = of('agent.goal');
+        assert.strictEqual(goals.length, 1, `agent.goal published ONCE per run, got ${goals.length}`);
+        assert.strictEqual(goals[0].data.goalName, 'Test goal', 'names the goal being worked on');
+        assert.ok(goals[0].data.maxSteps > 0, 'carries the step budget');
+
+        const seen = of('agent.observe');
+        assert.ok(seen.length >= 1, 'agent.observe published');
+        assert.strictEqual(seen[0].data.contextBytes, 'CTX'.length, 'reports the size of the situation');
+        assert.strictEqual(seen[0].data.hasPerception, false, 'says so when there is no perception');
+
+        const thoughts = of('agent.thought');
+        assert.strictEqual(thoughts.length, 1, 'one reasoning line per deciding step');
+        assert.strictEqual(thoughts[0].data.text, 'The dialog is open, so I will click Save.');
+        assert.deepStrictEqual(thoughts[0].data.willCall, ['toolA'], 'says what it is about to call');
+
+        const steps = of('agent.step');
+        assert.ok(steps.every((e) => typeof e.data.maxSteps === 'number'), 'every step carries maxSteps');
+    });
+
+    await asyncTest('the stop sentinel is never shown as the model\'s reasoning', async () => {
+        const fakes = makeFakes({
+            llmClient: {
+                calls: 0,
+                async chat() {
+                    this.calls++;
+                    if (this.calls === 1) return { text: 'All done. <<GOAL_DONE>>', toolCalls: [] };
+                    return { text: '<<GOAL_DONE>>', toolCalls: [] };
+                },
+            },
+        });
+        const loop = new AgentLoop(fakes);
+        await loop.start({ goalSlug: 'g', skipPlanner: true });
+        await waitFor(() => loop.status().running === false, { label: 'loop to finish' });
+
+        const texts = fakes.events._log.filter((e) => e.type === 'agent.thought').map((e) => e.data.text);
+        assert.deepStrictEqual(texts, ['All done.'], `sentinel stripped, got ${JSON.stringify(texts)}`);
+        assert.ok(!texts.some((t) => t.includes('GOAL_DONE')), 'no sentinel text anywhere in the console');
+    });
+
     // ── stage transitions (happy path) ───────────────────────────────────
     await asyncTest('happy path emits the expected agent.stage order', async () => {
         const fakes = makeFakes({

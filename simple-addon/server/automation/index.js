@@ -64,6 +64,7 @@ const { summarizeCapabilities } = require('./capability-summary');
 const { skillRun, cacheSkill, getCachedSkill, uncacheSkill, getAllCachedSkills, analyzeSkillCompatibility } = require('./tools/skill');
 
 const events = require('./events');
+const { eventArgs } = require('./event-detail');
 const triggers = require('./triggers');
 const skillHotkeys = require('./skill-hotkeys');
 const runHistory = require('./run-history');
@@ -188,10 +189,15 @@ function defaultApprovalRequester({ pendingApprovals, timeoutMs = 60_000, autoAp
                 id, toolName, args, createdAt: Date.now(),
                 resolve: (answer) => { clearTimeout(timer); resolve(answer); },
             });
-            events.publish('approval.pending', { id, toolName, args, createdAt: Date.now() });
+            // The EVENT carries the redacted form; the queued entry above keeps
+            // the raw args, because the permission center's job is to show the
+            // user exactly what they are being asked to approve and it reads the
+            // queue (`GET /api/automation/pending-approvals`), not this stream.
+            // Publishing the raw args here would put typed text and clipboard
+            // content on every SSE subscriber, including the cloud.
+            events.publish('approval.pending', { id, toolName, args: eventArgs(toolName, args), createdAt: Date.now() });
             // §13.1 #7: log only the arg KEYS, never values — tool args can
-            // contain typed text / clipboard content / paths (PII). The full
-            // args still reach the UI via the approval.pending event above.
+            // contain typed text / clipboard content / paths (PII).
             const argKeys = (args && typeof args === 'object' && !Array.isArray(args))
                 ? ` {${Object.keys(args).slice(0, 8).join(', ')}}`
                 : '';

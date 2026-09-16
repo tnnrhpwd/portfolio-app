@@ -17,6 +17,7 @@
  */
 
 const permissions = require('./permissions');
+const { eventArgs, previewResult } = require('./event-detail');
 
 const _tools = new Map();
 const _executedListeners = new Set();
@@ -70,7 +71,11 @@ async function executeTool(name, args, ctx = {}) {
     }
     const safeArgs = args || {};
 
-    events?.publish('tool.start', { tool: name, args: safeArgs, goalSlug: ctx.goalSlug, runId: ctx.runId, callId });
+    // What the EVENT says is not what the log says: the audit trail below keeps
+    // the arguments verbatim, the event gets the redacted, readable form
+    // (`event-detail.js`). Without this, a `text_type` step published whatever
+    // the user typed straight to every SSE subscriber — including the cloud.
+    events?.publish('tool.start', { tool: name, args: eventArgs(name, safeArgs), goalSlug: ctx.goalSlug, runId: ctx.runId, callId });
 
     // Permission gate
     const approval = await permissions.requestApproval(tool, safeArgs, {
@@ -132,7 +137,7 @@ async function executeTool(name, args, ctx = {}) {
             goalSlug: ctx.goalSlug,
         };
         ctx.addAction?.(record).catch(() => {});
-        events?.publish('tool.end', { tool: name, ok: true, mode: approval.mode, durationMs, runId: ctx.runId, callId });
+        events?.publish('tool.end', { tool: name, ok: true, mode: approval.mode, durationMs, resultPreview: previewResult(name, result), runId: ctx.runId, callId });
         // Notify predictor and other subscribers of successful execution
         for (const fn of _executedListeners) { try { fn(name, safeArgs, result); } catch {} }
         return { ok: true, result, mode: approval.mode, durationMs };

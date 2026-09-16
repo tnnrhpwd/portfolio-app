@@ -119,6 +119,29 @@ describe('AgentTerminal', () => {
     expect(screen.getByRole('button', { name: 'Clear' })).toBeDisabled();
   });
 
+  test('the run names what it is working on, and keeps saying so', async () => {
+    renderTerminal({ addonConnected: true, running: true, currentGoalSlug: 'retire' });
+    await screen.findByText(/Waiting for the first step/);
+
+    act(() => {
+      lastStream().emit('agent.goal', {
+        type: 'agent.goal', seq: 2, ts: '2026-09-15T14:00:00.000Z',
+        goalSlug: 'retire', goalName: 'Retire at 60', horizon: 'life', status: 'active', maxSteps: 60,
+      });
+      // …then a good many steps, which is what pushes the announcement out of view.
+      for (let i = 0; i < 30; i++) {
+        lastStream().emit('agent.step', { type: 'agent.step', seq: 10 + i, ts: '2026-09-15T14:00:10.000Z', step: i + 1, maxSteps: 60 });
+      }
+    });
+
+    expect(await screen.findByText('working on: Retire at 60')).toBeInTheDocument();
+    expect(screen.getByText('step 30/60')).toBeInTheDocument();
+    // The footer is what survives scrolling: the answer to "what is it doing"
+    // must not depend on the line still being in the log.
+    expect(screen.getByText('Working on Retire at 60')).toBeInTheDocument();
+    expect(screen.getByText(/budget 60 steps/)).toBeInTheDocument();
+  });
+
   test('with no live local run, the cloud steps are read and shown', async () => {
     renderTerminal({ token: 't', currentGoalSlug: 'garden', addonConnected: false });
 

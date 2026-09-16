@@ -26,7 +26,7 @@ const board = (over = {}) => ({
   promptSource: 'model',
   aspectRatio: '16:9',
   model: 'stability.sd3-5-large-v1:0',
-  style: { id: 'cork-classic', name: 'Cork & brass' },
+  style: { id: 'golden-warm', name: 'Golden warmth' },
   image: { url: 'https://cdn.example/board.png', s3Key: 'users/u1/generated/board.png', bytes: 1500000, recordId: 'vision_board_u1_1_ab' },
   generatedAt: '2026-09-16T10:00:00.000Z',
   ...over,
@@ -85,9 +85,9 @@ describe('visionBoardUtils · reading a stored board', () => {
   });
 
   test('the board\'s look is read off the record, tolerantly', () => {
-    expect(parseBoard(entry(board())).style).toBe('Cork & brass');
+    expect(parseBoard(entry(board())).style).toBe('Golden warmth');
     // Ids have been through a rename or two, and a name is what the line wants.
-    expect(parseBoard(entry(board({ style: 'riso-pop' }))).style).toBe('riso-pop');
+    expect(parseBoard(entry(board({ style: 'coastal' }))).style).toBe('coastal');
     expect(parseBoard(entry(board({ style: { id: 'x' } }))).style).toBeNull();
     expect(parseBoard(entry(board({ style: { name: '   ' } }))).style).toBeNull();
     // A board made before looks existed still has to render.
@@ -115,11 +115,11 @@ describe('visionBoardUtils · saying what a board is', () => {
   test('the meta line names the source, the count, the look and the age', () => {
     // The look is what makes two boards of the same scope tellable apart, so it
     // belongs in the one line that describes a board.
-    expect(boardMetaLine(parseBoard(entry(board())))).toBe('Dreams · 3 goals · Cork & brass');
+    expect(boardMetaLine(parseBoard(entry(board())))).toBe('Dreams · 3 goals · Golden warmth');
     expect(boardMetaLine(parseBoard(entry(board())), { ago: '2 days ago' }))
-      .toBe('Dreams · 3 goals · Cork & brass · 2 days ago');
+      .toBe('Dreams · 3 goals · Golden warmth · 2 days ago');
     expect(boardMetaLine(parseBoard(entry(board({ source: { total: 1, used: 1, goals: [] } })))))
-      .toBe('Dreams · 1 goal · Cork & brass');
+      .toBe('Dreams · 1 goal · Golden warmth');
     expect(boardMetaLine(null)).toBe('');
     // An older board with no look says everything else and simply omits it.
     expect(boardMetaLine(parseBoard(entry(board({ style: undefined }))))).toBe('Dreams · 3 goals');
@@ -127,12 +127,12 @@ describe('visionBoardUtils · saying what a board is', () => {
 
   test('a board made from part of the list says so', () => {
     const parsed = parseBoard(entry(board({ source: { total: 40, used: 24, truncated: 16, goals: [] } })));
-    expect(boardMetaLine(parsed)).toBe('Dreams · 24 goals · Cork & brass · 16 left out');
+    expect(boardMetaLine(parsed)).toBe('Dreams · 24 goals · Golden warmth · 16 left out');
   });
 
   test('a board the fallback prompt made says so too', () => {
     const parsed = parseBoard(entry(board({ promptSource: 'fallback' })));
-    expect(boardMetaLine(parsed)).toBe('Dreams · 3 goals · Cork & brass · prompt written for you');
+    expect(boardMetaLine(parsed)).toBe('Dreams · 3 goals · Golden warmth · prompt written for you');
   });
 
   test('the count reads as English, and disappears at zero', () => {

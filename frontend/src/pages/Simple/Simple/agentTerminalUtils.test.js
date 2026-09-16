@@ -10,6 +10,7 @@ import {
   TERMINAL_MAX_LINES,
   formatClock,
   formatDuration,
+  formatBytes,
   previewArgs,
   eventToLine,
   cloudStepToLine,
@@ -27,6 +28,15 @@ describe('agentTerminalUtils · small formatters', () => {
     expect(formatDuration(95_000)).toBe('1m 35s');
     expect(formatDuration(undefined)).toBe('');
     expect(formatDuration(-5)).toBe('');
+  });
+
+  test('sizes read like a terminal, and nothing is a blank', () => {
+    expect(formatBytes(512)).toBe('512B');
+    expect(formatBytes(12288)).toBe('12kB');
+    expect(formatBytes(3 * 1024 * 1024)).toBe('3.0MB');
+    expect(formatBytes(0)).toBe('');
+    expect(formatBytes(undefined)).toBe('');
+    expect(formatBytes('nope')).toBe('');
   });
 
   test('args are one short parenthetical, and absent when stripped', () => {
@@ -52,6 +62,20 @@ describe('agentTerminalUtils · SSE events', () => {
     expect(bad).toMatchObject({ glyph: '✗', status: 'error', text: 'fs_write failed', detail: 'EACCES · 12ms' });
   });
 
+  test('a result preview leads, with the duration after it', () => {
+    const line = eventToLine(ev('tool.end', {
+      tool: 'fs_read', ok: true, durationMs: 240, callId: 'c1', resultPreview: '{"lines":42}',
+    }));
+    expect(line).toMatchObject({ glyph: '✓', text: 'fs_read', detail: '{"lines":42} · 240ms' });
+    // A failed call has no result, so the error keeps the first slot.
+    const failed = eventToLine(ev('tool.end', {
+      tool: 'fs_read', ok: false, error: 'ENOENT', durationMs: 3, callId: 'c2', resultPreview: 'ignored',
+    }));
+    expect(failed.detail).toBe('ENOENT · 3ms');
+    // A preview the addon deliberately withheld leaves no gap in the line.
+    expect(eventToLine(ev('tool.end', { tool: 'text_type', ok: true, durationMs: 90 })).detail).toBe('90ms');
+  });
+
   test('a start and its end are two distinct lines', () => {
     const a = eventToLine(ev('tool.start', { tool: 't', callId: 'c1' }));
     const b = eventToLine(ev('tool.end', { tool: 't', ok: true, callId: 'c1' }));
@@ -64,10 +88,44 @@ describe('agentTerminalUtils · SSE events', () => {
     expect(eventToLine(ev('agent.stage', { stage: 'SOMETHING_NEW' })).text).toBe('stage → SOMETHING_NEW');
     expect(eventToLine(ev('agent.step', { step: 4, modelId: 'claude-haiku' })))
       .toMatchObject({ glyph: '·', text: 'step 4', detail: 'claude-haiku' });
+    // With a budget, the step reads against it — "step 4 of 60" is the thing you
+    // want to know when a run has been going a while.
+    expect(eventToLine(ev('agent.step', { step: 4, maxSteps: 60 })).text).toBe('step 4/60');
     expect(eventToLine(ev('agent.message', { role: 'assistant', content: 'Looking at the file' })).text)
       .toBe('assistant: Looking at the file');
     expect(eventToLine(ev('agent.meta', { summary: 'Repeating the same click' })))
       .toMatchObject({ glyph: '◇', detail: 'self-review', status: 'note' });
+  });
+
+  test('the run announces what it is working on, once', () => {
+    const line = eventToLine(ev('agent.goal', {
+      goalName: 'Retire at 60', goalSlug: 'retire', horizon: 'life', status: 'active', maxSteps: 60,
+    }));
+    expect(line).toMatchObject({
+      glyph: '◎',
+      text: 'working on: Retire at 60',
+      detail: 'horizon life · status active · budget 60 steps',
+      status: 'note',
+    });
+    // A goal with nothing set still names itself rather than showing blanks.
+    expect(eventToLine(ev('agent.goal', { goalSlug: 'fallback' })))
+      .toMatchObject({ text: 'working on: fallback', detail: '' });
+  });
+
+  test('the model’s reasoning is a line, with what it is about to call', () => {
+    expect(eventToLine(ev('agent.thought', { step: 2, text: 'The dialog is open, so I will save.', willCall: ['uia_invoke'] })))
+      .toMatchObject({ glyph: '✻', text: 'The dialog is open, so I will save.', detail: '→ uia_invoke', status: 'note' });
+    expect(eventToLine(ev('agent.thought', { text: 'Nothing left to do.' })).detail).toBe('');
+    expect(eventToLine(ev('agent.thought', { text: 'x'.repeat(2000) })).text.length).toBeLessThanOrEqual(400);
+  });
+
+  test('what the loop saw, in one line', () => {
+    expect(eventToLine(ev('agent.observe', { step: 1, contextBytes: 12288, skills: ['morning-mail'], hasPerception: true })))
+      .toMatchObject({ glyph: '◉', text: 'observed', detail: 'context 12kB · skills: morning-mail · perception on', status: 'plain' });
+    // No perception and no matching skills is a plain, quiet line — not an error.
+    expect(eventToLine(ev('agent.observe', { contextBytes: 512 })))
+      .toMatchObject({ text: 'observed', detail: 'context 512B' });
+    expect(eventToLine(ev('agent.observe', { contextBytes: 0 })).detail).toBe('');
   });
 
   test('outcomes carry their reason', () => {
