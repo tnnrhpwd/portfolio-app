@@ -6,7 +6,7 @@
 # decrypt backups encrypted against this list — these are public keys,
 # so committing this file is safe.
 #
-# To add a new machine, see docs/guides/SECRETS_MANAGEMENT.md (Part 2,
+# To add a new machine, see docs/guides/OPERATIONS.md (Part 2,
 # "Set up a new laptop").
 
 # tanne@STH_PC (primary dev machine)

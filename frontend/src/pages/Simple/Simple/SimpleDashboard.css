@@ -1,5 +1,5 @@
 /* ── SimpleDashboard — the dense Control workspace ──────────────────────────
-   A service page (FRONTEND_UI_STANDARD.md §5.7): the ambient room for a ground,
+   A service page (UI_LAYOUT.md §5.7): the ambient room for a ground,
    a row carrying name + live state + primary action (in the flow, never pinned),
    then a dense panel grid ordered by how often you touch it. No bands, no scroll
    reveals — scrolling is the cost we're minimising.

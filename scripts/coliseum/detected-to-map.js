@@ -11,7 +11,7 @@
  *
  * The output is exactly the shape `/uimapper` exports, so it round-trips: load
  * it, rename the boxes, download, and convert back for `sheets.json` (the
- * `x→nx` rename documented in STATIC_ASSETS_AND_IMAGE_GENERATION.md).
+ * `x→nx` rename documented in ASSETS.md).
  *
  * Usage:
  *   node scripts/coliseum/detected-to-map.js --sheet ui-panel

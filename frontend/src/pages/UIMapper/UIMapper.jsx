@@ -55,7 +55,7 @@ export default function UIMapper() {
   const [drag, setDrag] = useState(null); // { kind, id, handle?, startX, startY, orig, moved, ... }
   const dragRef = useRef(null);
 
-  // Scroll-triggered reveals (see FRONTEND_UI_STANDARD.md §5).
+  // Scroll-triggered reveals (see UI_LAYOUT.md §5).
   const [heroRef, heroVisible] = useScrollReveal();
   const [mainRef, mainVisible] = useScrollReveal();
 

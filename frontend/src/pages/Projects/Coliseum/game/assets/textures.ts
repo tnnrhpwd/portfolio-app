@@ -256,7 +256,7 @@ export function addMapBackgroundRaster(scene: Phaser.Scene): Phaser.GameObjects.
  * Raster UI chrome — the ornate red/gold plates.
  *
  * These come from the AI "poster" pipeline (see
- * `docs/guides/STATIC_ASSETS_AND_IMAGE_GENERATION.md`): a generated sheet of many
+ * `docs/guides/ASSETS.md`): a generated sheet of many
  * plaques, sliced into named PNGs in `frontend/public/coliseum/` by
  * `scripts/rocket/extract-sprites.js`. They are fetched by URL, so they stay out
  * of the JS bundle.

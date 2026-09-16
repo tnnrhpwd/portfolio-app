@@ -51,7 +51,7 @@ async function fixCorsPolicy() {
         console.log('\n✅ S3 bucket is now ready for file uploads!');
         
         console.log('\n🚀 Next steps:');
-        console.log('1. Create CloudFront distribution (see AWS_SETUP_GUIDE.md)');
+        console.log('1. Create CloudFront distribution (see ASSETS.md)');
         console.log('2. Update AWS_CLOUDFRONT_DOMAIN in your .env file');
         console.log('3. Test file upload in your application');
         

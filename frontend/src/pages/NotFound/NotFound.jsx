@@ -7,7 +7,7 @@ import './NotFound.css';
 
 // Somewhere real to land. A 404 has one job — get the visitor back onto a page
 // that exists — so these are destinations, not a pitch (no price-led CTA here;
-// see docs/guides/SALES_FUNNEL.md → the CTA policy for where selling belongs).
+// see docs/guides/BUSINESS.md → the CTA policy for where selling belongs).
 const DESTINATIONS = [
   { to: '/', title: 'Home', desc: 'Start again from the top of the site.' },
   { to: '/projects', title: 'Projects', desc: 'Every tool, game, and experiment I have built.' },

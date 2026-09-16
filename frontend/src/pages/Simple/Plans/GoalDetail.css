@@ -1,6 +1,6 @@
 /* Goal Detail — single-goal view with live LLM agent progress.
 
-   A service page (FRONTEND_UI_STANDARD.md §5.7), and it wears the SAME room as
+   A service page (UI_LAYOUT.md §5.7), and it wears the SAME room as
    its parent `/plans` — it used to carry its own four-stop animated gradient,
    which made one goal look like a different product from the list it came from.
    The blocks are panes of glass on that room now, and the borders are gone. */

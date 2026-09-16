@@ -47,7 +47,7 @@ import './UserProfile.css';
 /**
  * UserProfile — the member page, at `/u/<username>`.
  *
- * A SERVICE PAGE (FRONTEND_UI_STANDARD.md §5.7). This is the page a member sends
+ * A SERVICE PAGE (UI_LAYOUT.md §5.7). This is the page a member sends
  * someone, and the one they open to check what a stranger sees — a room, not a
  * pitch. So there are no bands and no gradient behind the numbers: one flat ground
  * (the shared `.service-room`), one row at the top carrying the name, its live

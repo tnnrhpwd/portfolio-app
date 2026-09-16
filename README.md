@@ -149,7 +149,7 @@ Environment variables are never committed to this repository.
 
 - **Is `.env` still used? Yes — 2 lines.** `backend/.env` holds just the AWS access key pair (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) needed to reach Secrets Manager. On Render, `.env` is not read — Render injects the same bootstrap creds plus runtime config (`AWS_REGION`, `NODE_ENV`, `PORT`, `FRONTEND_URL`).
 
-- **Production (Render)** — Render only needs the AWS bootstrap credentials plus runtime config; every secret and app-config value comes from the secret above. See [docs/guides/SECRETS_MANAGEMENT.md](docs/guides/SECRETS_MANAGEMENT.md).
+- **Production (Render)** — Render only needs the AWS bootstrap credentials plus runtime config; every secret and app-config value comes from the secret above. See [docs/guides/OPERATIONS.md](docs/guides/OPERATIONS.md).
 
 ## �🔐 Security
 

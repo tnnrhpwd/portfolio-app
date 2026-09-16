@@ -96,7 +96,7 @@ const SIMPLE_STEPS = [
 ];
 
 // The engine, as a text rail. Deliberately NOT a row of icon cards — see
-// FRONTEND_UI_STANDARD §5 ("Imagery over emoji"): a stage tile gets a real media
+// UI_LAYOUT.md §5 ("Imagery over emoji"): a stage tile gets a real media
 // block or nothing, never an emoji glyph standing in for one.
 const LOOP = [
   { n: '01', title: 'Observe', body: "Reads your screen, active window, and files to see what's happening right now." },
@@ -201,7 +201,7 @@ function Pricing() {
   // Every conversion CTA points at the same destination the old click handler
   // built, expressed as a real URL (+ the login redirectTo) so it can be a
   // <Link>: middle-clickable, crawlable, and working with JS disabled.
-  // `SALES_FUNNEL.md`'s funnel-page rules rule 3 (never drop the destination on a login bounce) + rule 7.
+  // `BUSINESS.md`'s funnel-page rules rule 3 (never drop the destination on a login bounce) + rule 7.
   const planCtaProps = (planId) => (
     user
       ? { to: `/pay?plan=${planId}` }

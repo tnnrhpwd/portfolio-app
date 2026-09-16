@@ -3,7 +3,7 @@ import React from 'react';
 /**
  * AdminPanel — one pane of glass in an admin view.
  *
- * The admin console is a service page (FRONTEND_UI_STANDARD.md §5.7) built on an
+ * The admin console is a service page (UI_LAYOUT.md §5.7) built on an
  * **ambient glass** material (see the header of `pages/Admin/Admin.css`): panels
  * are translucent surfaces over a still brand gradient, with a gradient hairline
  * edge, a specular top highlight and a soft layered shadow. No `backdrop-filter`

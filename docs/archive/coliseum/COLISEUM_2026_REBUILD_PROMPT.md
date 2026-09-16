@@ -162,7 +162,7 @@ with all-new expression only where the law requires it:
 ## Audio (locked)
 - Use royalty-free stock audio from reputable sources (e.g. OpenGameArt, Pixabay,
   Freesound) with clear per-file license + attribution recorded in an
-  `ASSET-LICENSES.md`. No copyrighted music or sound from the reference or from
+  `COLISEUM-ART.md`. No copyrighted music or sound from the reference or from
   commercial tracks.
 - Original or stock SFX for hits, blocks, skills, victory, defeat; ambient arena
   crowd; and a loopable menu/battle music track. Keep a global mute toggle and
@@ -291,7 +291,7 @@ works at the end).
 ## Deliverables per phase
 For each phase, produce: working code, tests, a short written summary of what
 changed, any new dependencies (with justification), updated
-`ASSET-LICENSES.md` if audio/assets were added, and a list of known issues or
+`COLISEUM-ART.md` if audio/assets were added, and a list of known issues or
 follow-ups. Keep commits small and descriptive.
 
 ## Definition of done (final)
@@ -334,9 +334,9 @@ Progress as of 2026-09-02:
    `game/assets/art.ts` + `game/assets/textures.ts` render five original,
    flat-shaded gladiator figures (one per weapon style) and an original arena
    backdrop, preloaded in `BootScene` so scenes never flash `__MISSING`
-   placeholders. `ASSET-LICENSES.md` records provenance and the asset budget.
+   placeholders. `COLISEUM-ART.md` records provenance and the asset budget.
    Audio remains the original synthesized WebAudio SFX (license-free); a stock
-   audio intake manifest in `ASSET-LICENSES.md` defines how to layer licensed
+   audio intake manifest in `COLISEUM-ART.md` defines how to layer licensed
    royalty-free files later. Remaining: actually source + record stock SFX/music,
    and richer animated atlases + original menu UI chrome if desired.
 2. **Performance pass** — DONE. The game + Phaser are lazy-loaded behind a

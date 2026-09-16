@@ -20,7 +20,7 @@
  * as broken, and asking someone to pick a picture before they can see their
  * board is the wrong order.
  *
- * Service page rules apply (FRONTEND_UI_STANDARD.md §5.7): panels are planes of
+ * Service page rules apply (UI_LAYOUT.md §5.7): panels are planes of
  * colour with no borders, no scroll reveals, and the copy is labels rather than
  * sentences.
  */

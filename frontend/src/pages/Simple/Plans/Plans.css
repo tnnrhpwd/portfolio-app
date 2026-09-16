@@ -1,7 +1,7 @@
 /* ===========================================================================
    Plans — the goals workspace
    ---------------------------------------------------------------------------
-   A SERVICE PAGE (FRONTEND_UI_STANDARD.md §5.7): the shared ambient ROOM for a
+   A SERVICE PAGE (UI_LAYOUT.md §5.7): the shared ambient ROOM for a
    ground (`.service-room`, worn by `.plans-page`), a row carrying the name +
    live state + primary action (in the flow, never pinned), then a dense grid of
    panels ordered by how often you touch them. No bands, no scroll reveals.

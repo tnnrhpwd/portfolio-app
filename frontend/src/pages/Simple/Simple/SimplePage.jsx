@@ -16,7 +16,7 @@ import './SimplePage.css';
  *   /simple Control — watch it work, decide how far it may go   ← this page
  *   /plans  Goals   — the durable record of your intent
  *
- * **This is a service page, not a landing page** — FRONTEND_UI_STANDARD.md §5.7.
+ * **This is a service page, not a landing page** — UI_LAYOUT.md §5.7.
  * Service pages are workspaces, not stories: one surface, no bands, and the
  * page's ground is the shared ambient room (`.service-room`) with the panels as
  * glass resting on it — never a story to scroll past to reach the tool.

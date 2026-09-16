@@ -46,12 +46,12 @@ poster; this one is a to-do list with pictures.
 
 1. **Presets** (12: home, work, money, health, travel, learning, people, creative,
    play, calm, adventure, milestone). Real artwork, not icon tiles —
-   `FRONTEND_UI_STANDARD.md` §5 is explicit about "imagery over emoji". Generated
+   `UI_LAYOUT.md` §5 is explicit about "imagery over emoji". Generated
    by `backend/scripts/generate-dream-art.js` (Bedrock, PNG → JPG via sharp) into
    `frontend/src/assets/art/dream-*.jpg`. **The script's `key` list and
    `frontend/src/pages/Simple/Plans/dreamCovers.js` are one list** — a key renamed
    in one and not the other leaves a goal pointing at art that isn't there.
-2. **Upload** (`POST /api/data/upload-cover`) — see `STATIC_ASSETS_AND_IMAGE_GENERATION.md` → *the eleventh audit pass* for why this is *not*
+2. **Upload** (`POST /api/data/upload-cover`) — see `ASSETS.md` → *the eleventh audit pass* for why this is *not*
    the presigned path. Resized client-side to a 1600px JPEG first.
 3. **Paste a URL** — also how an image `/net` generated for you gets onto a board.
 4. **✨ Make one from my words** — `dreamCoverPrompt()` wraps the goal's title +
@@ -65,7 +65,7 @@ placeholders and a goal keeps the same picture across reloads and devices.
 
 ### Still open
 
-- ⬜ Replacing a cover, or deleting a goal, leaves the old S3 object behind — see `STATIC_ASSETS_AND_IMAGE_GENERATION.md` → *the eleventh audit pass*.
+- ⬜ Replacing a cover, or deleting a goal, leaves the old S3 object behind — see `ASSETS.md` → *the eleventh audit pass*.
 - ⬜ A bucket CORS rule, so the presigned path works in a browser again and larger
   uploads can skip the API.
 - ⬜ `/plans` in the addon dashboard, and the surface switcher's board entry, if the

@@ -1,4 +1,4 @@
-/* ── Net · Chat — the page shell (FRONTEND_UI_STANDARD.md §5.7) ─────────────
+/* ── Net · Chat — the page shell (UI_LAYOUT.md §5.7) ─────────────
    A service page, so its ground is the shared ROOM (`.service-room`, worn by
    this element — see Net.jsx) rather than the fixed four-colour gradient it
    used to paint. That gradient ignored the visitor's colour scheme entirely,

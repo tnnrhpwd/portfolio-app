@@ -843,7 +843,7 @@ function SimpleChat({
         content = `**Usage Limit Reached**\n\n${errStr}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}`;
         // The CTA is a structured `actions` entry, NOT `[Upgrade Now](/pay…)` in
         // the body — with the chat's markdown setting off that rendered as
-        // literal brackets and the upgrade path silently did nothing (`SALES_FUNNEL.md` (funnel gaps)).
+        // literal brackets and the upgrade path silently did nothing (`BUSINESS.md` (funnel gaps)).
         actions = canUpgrade
           ? [{ label: 'Upgrade Now', to: '/pay?plan=pro' }]
           : [{ label: 'Ask us about Pro', to: GATE_SUPPORT_PATH }];

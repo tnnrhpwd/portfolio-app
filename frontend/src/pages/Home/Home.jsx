@@ -118,7 +118,7 @@ function Home() {
         (1000 * 60 * 60 * 24 * 365.25)
     ).toFixed(1);
 
-    // Scroll-triggered reveals (see FRONTEND_UI_STANDARD.md §5) — one per major section.
+    // Scroll-triggered reveals (see UI_LAYOUT.md §5) — one per major section.
     const [introRef, introVisible] = useScrollReveal();
     const [templatesRef, templatesVisible] = useScrollReveal();
     const [featuresRef, featuresVisible] = useScrollReveal();

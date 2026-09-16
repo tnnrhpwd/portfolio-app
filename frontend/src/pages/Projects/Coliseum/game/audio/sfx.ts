@@ -3,7 +3,7 @@
  *
  * These are original, generated-in-code sounds for the vertical slice. They
  * will be swapped for licensed royalty-free stock audio (recorded in
- * ASSET-LICENSES.md) during the final audio pass (Phase 6).
+ * COLISEUM-ART.md) during the final audio pass (Phase 6).
  */
 
 let ctx: AudioContext | null = null;

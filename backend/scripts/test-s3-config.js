@@ -85,5 +85,5 @@ if (missingVars.length === 0) {
 }
 
 console.log('\n' + '=' .repeat(50));
-console.log('💡 Full setup guide: AWS_SETUP_GUIDE.md');
+console.log('💡 Full setup guide: ASSETS.md');
 console.log('📚 Implementation summary: docs/archive/S3_INTEGRATION_SUMMARY.md');

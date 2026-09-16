@@ -630,7 +630,7 @@ function Plans() {
         <div className="plans-shell">
           {/* Toolbar — the page's "hero", collapsed onto one sticky row. Name,
               live state, primary action: a service page leads with the tool, not
-              with a description of itself (FRONTEND_UI_STANDARD.md §5.7). */}
+              with a description of itself (UI_LAYOUT.md §5.7). */}
           <header className="plans-bar">
             <h1 className="plans-bar-title">{viewTitle}</h1>
 

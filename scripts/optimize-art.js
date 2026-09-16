@@ -17,7 +17,7 @@
  *
  * The drift has a root cause worth knowing: `backend/scripts/generate-project-art.js`
  * and `generate-simple-art.js` both write FULL-RESOLUTION PNGs into the tracked
- * art folder, and docs/guides/FRONTEND_UI_STANDARD.md §5 tells you to convert
+ * art folder, and docs/guides/UI_LAYOUT.md §5 tells you to convert
  * them to `.jpg` — without ever mentioning a resize. Re-running either
  * generator re-introduces oversized art. So the rule this script enforces is:
  * cap the long edge, then encode.

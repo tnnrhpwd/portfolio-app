@@ -8,7 +8,7 @@ Renders each layer of the layered fighter system to transparent PNG frames, for
 two views and five animations. Layer naming mirrors the game's Phaser texture
 keys so the output drops straight into `textures.ts` / the future `sprites.ts`.
 
-Full spec: docs/guides/Coliseum-Sprite-Pipeline.md
+Full spec: docs/archive/coliseum/COLISEUM-ART.md
 
 Output layout (under OUT_DIR):
     human/<variantId>/<view>/<anim>/f_0000.png ...

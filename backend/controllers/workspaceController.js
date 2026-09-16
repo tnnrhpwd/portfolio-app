@@ -84,7 +84,7 @@ async function _callAgentLlm(messages, { temperature, maxTokens, tools, tool_cho
     };
 }
 
-// ─── `BUSINESS_PLAN.md` Monetization seam (provider-boundary gate) ───────────────────────────
+// ─── `BUSINESS.md` Monetization seam (provider-boundary gate) ───────────────────────────
 // The addon's cloud-LLM calls all proxy through agent-chat/agent-vision
 // (simple-addon/server/automation/llm-provider.js → workspace-client.js).
 // These two routes ARE the "one seam" the roadmap monetizes on: local
@@ -2235,7 +2235,7 @@ const agentChatProxy = asyncHandler(async (req, res) => {
         ? [{ role: 'system', content: String(systemPrompt).slice(0, 8000) }, ...messages]
         : messages;
 
-    // `BUSINESS_PLAN.md`: gate on the per-tier monthly AI credit limit BEFORE the Bedrock call.
+    // `BUSINESS.md`: gate on the per-tier monthly AI credit limit BEFORE the Bedrock call.
     const gate = await _enforceLlmCreditGate(req, res, { model: req.body?.model, inputTokens: 500, outputTokens: 500 });
     if (!gate) return;
 
@@ -2292,7 +2292,7 @@ const agentVisionProxy = asyncHandler(async (req, res) => {
         ],
     }];
 
-    // `BUSINESS_PLAN.md`: gate on the per-tier monthly AI credit limit BEFORE the Bedrock call.
+    // `BUSINESS.md`: gate on the per-tier monthly AI credit limit BEFORE the Bedrock call.
     // Vision frames are token-heavy on the input side — estimate accordingly.
     const gate = await _enforceLlmCreditGate(req, res, { model: req.body?.model, inputTokens: 2000, outputTokens: 300 });
     if (!gate) return;

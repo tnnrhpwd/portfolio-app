@@ -59,12 +59,11 @@ side can do the other's job by accident.
 | Member pages — `/u/<username>`, visibility, blocking | [`PROFILES.md`](PROFILES.md) |
 | The routing manifest, `/all`, the header dropper | [`PAGES.md`](PAGES.md) |
 | Support tickets & bug reports | [`SUPPORT_TICKETS.md`](SUPPORT_TICKETS.md) |
-| The admin "Special" tag and the views it grants | [`special-user-flag.md`](special-user-flag.md) |
-| How every page should look, and the design records behind it | [`../guides/FRONTEND_UI_STANDARD.md`](../guides/FRONTEND_UI_STANDARD.md) |
-| Tiers, the credit gate, growth levers | [`../guides/BUSINESS_PLAN.md`](../guides/BUSINESS_PLAN.md) |
-| The funnel as built, per-page contract, CTA policy | [`../guides/SALES_FUNNEL.md`](../guides/SALES_FUNNEL.md) |
-| Uploads, S3/CloudFront, image generation | [`../guides/STATIC_ASSETS_AND_IMAGE_GENERATION.md`](../guides/STATIC_ASSETS_AND_IMAGE_GENERATION.md) |
-| Deploy topology, secrets, AWS setup | [`../guides/DEPLOYMENT.md`](../guides/DEPLOYMENT.md), [`../guides/SECRETS_MANAGEMENT.md`](../guides/SECRETS_MANAGEMENT.md), [`../guides/AWS_SETUP_GUIDE.md`](../guides/AWS_SETUP_GUIDE.md) |
+| The admin "Special" tag and the views it grants | [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md) |
+| How every page should look — theming, sizing, the page template | [`../guides/FRONTEND_UI_STANDARD.md`](../guides/FRONTEND_UI_STANDARD.md) — with [`UI_LAYOUT.md`](../guides/UI_LAYOUT.md), [`UI_COMPONENTS.md`](../guides/UI_COMPONENTS.md), [`UI_DESIGN_RECORDS.md`](../guides/UI_DESIGN_RECORDS.md) |
+| What we sell, to whom, the tiers, and the funnel | [`../guides/BUSINESS.md`](../guides/BUSINESS.md) |
+| Uploads, S3/CloudFront, image generation | [`../guides/ASSETS.md`](../guides/ASSETS.md) |
+| Deployment, secrets & config, traffic analytics | [`../guides/OPERATIONS.md`](../guides/OPERATIONS.md) |
 | The colour scheme, the brand mark | [`../guides/FRONTEND_UI_STANDARD.md`](../guides/FRONTEND_UI_STANDARD.md) → *How theming works*, [`../guides/LOGO_SYSTEM.md`](../guides/LOGO_SYSTEM.md) |
 | **Building or repairing a canvas game** — architecture, the two-layout system, testing, saved progress + leaderboards | [`../guides/GAME_GUIDE.md`](../guides/GAME_GUIDE.md) |
 
@@ -275,7 +274,7 @@ use the real UI + APIs.** Use **"Continue as Guest"** on `/login`, or the creden
 - It is deliberately **excluded from paid/powerful paths** — don't rely on it for
   credit-gated cloud LLM calls, and the `repo_*` tools need a real admin session.
 - It's the account the read-only image-gen smoke test uses
-  (`docs/guides/STATIC_ASSETS_AND_IMAGE_GENERATION.md`), so leaving junk behind
+  (`docs/guides/ASSETS.md`), so leaving junk behind
   degrades that test too.
 
 ---

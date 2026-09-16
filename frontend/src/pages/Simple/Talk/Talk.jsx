@@ -29,7 +29,7 @@ import './Talk.css';
 /**
  * Talk — the messenger's front door (docs/implementation/TALK.md §18).
  *
- * A SERVICE PAGE (FRONTEND_UI_STANDARD.md §5.7): the shared ambient room for a
+ * A SERVICE PAGE (UI_LAYOUT.md §5.7): the shared ambient room for a
  * ground, one sticky toolbar carrying the name + live state, then a dense grid of
  * panels. No bands, no decorative circles, no scroll reveals — the only motion
  * here is "state changed" (a request arriving, a connection appearing).

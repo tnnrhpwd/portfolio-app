@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect } from 'react';
 /**
  * Live readout for the admin toolbar.
  *
- * FRONTEND_UI_STANDARD.md §5.7: a service page's hero collapses into a sticky
+ * UI_LAYOUT.md §5.7: a service page's hero collapses into a sticky
  * toolbar that carries **name + live state + primary action** — the readout
  * *is* the page's headline, and it stays on screen while the user works.
  *

@@ -11,7 +11,7 @@ part that is hardest to retrofit later. Coliseum itself is archived: see
   starting another Phaser game — the layout pattern is game-agnostic (§10).
 - **Sprites and music come from the asset pipelines** — see Part 3 (sheets → named
   transparent PNGs) and Part 5 (music/SFX rendered offline) of
-  [`STATIC_ASSETS_AND_IMAGE_GENERATION.md`](./STATIC_ASSETS_AND_IMAGE_GENERATION.md).
+  [`ASSETS.md`](./ASSETS.md).
 - **Progress that follows the player** (profile-backed save + the public
   leaderboard) is §9.
 - Verified working on desktop, Android and iPhone (portrait and landscape).
@@ -463,7 +463,7 @@ Ordered by how much time they cost.
 
 ## 6. Adding content
 
-1. **Sprite** — extract it (see Part 3 of `docs/guides/STATIC_ASSETS_AND_IMAGE_GENERATION.md`), then add the
+1. **Sprite** — extract it (see Part 3 of `docs/guides/ASSETS.md`), then add the
    name to the relevant table in `core/tables.ts` / `core/ships.ts` / `core/upgrades.ts`.
    The extractor names each PNG after its asset, so **the manifest name is the texture
    key** — no lookup table.
@@ -495,7 +495,7 @@ Ordered by how much time they cost.
   (`audio: { noAudio: true }`), so both ride one shared `AudioContext` and one master
   gain — which is what makes a single mute instant and lets the music loop
   sample-exactly. Music also has its own switch (`settings.music`). See
-  `docs/guides/STATIC_ASSETS_AND_IMAGE_GENERATION.md` Part 5 (music/SFX).
+  `docs/guides/ASSETS.md` Part 5 (music/SFX).
 
 ---
 
@@ -746,11 +746,12 @@ reflow logic is exactly the surface this pattern removes.
 
 ## Related docs
 
-- [`STATIC_ASSETS_AND_IMAGE_GENERATION.md`](./STATIC_ASSETS_AND_IMAGE_GENERATION.md) — Part 3
+- [`ASSETS.md`](./ASSETS.md) — Part 3
   (sprite sheets → named transparent PNGs), Part 5 (music/SFX rendered offline), Part 2
   (generating a new source image with Bedrock), Part 1 (serving assets from the CDN).
-- [`FRONTEND_UI_STANDARD.md`](./FRONTEND_UI_STANDARD.md) — the page around the canvas:
-  layout, motion, and the service-page rules a game page follows.
+- [`UI_LAYOUT.md`](./UI_LAYOUT.md) — the page around the canvas: layout, motion, and the
+  service-page rules a game page follows (the rest of the standard starts at
+  [`FRONTEND_UI_STANDARD.md`](./FRONTEND_UI_STANDARD.md)).
 - [`../implementation/agent.md`](../implementation/agent.md) → *The repo, in one screen* —
   where `frontend/`, `backend/` and the addon meet.
 - `frontend/src/pages/Projects/Rocket/` — the reference implementation, and

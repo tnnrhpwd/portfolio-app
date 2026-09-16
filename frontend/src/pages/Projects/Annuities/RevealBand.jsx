@@ -8,7 +8,7 @@ import useScrollReveal from '../../../hooks/useScrollReveal';
  * Bands — not cards — are how this page is divided: a change of color and a
  * change of subject, with no boxes around the content. Only compact controls
  * (inputs, pills, buttons) keep a border; everything else sits directly on the
- * band. See docs/guides/FRONTEND_UI_STANDARD.md §5.
+ * band. See docs/guides/UI_LAYOUT.md §5.
  *
  * `tone` picks the band's flat color: 'surface' (the page color), 'tint' (a
  * mint wash) or 'wash' (a blue wash). Alternate them down the page.

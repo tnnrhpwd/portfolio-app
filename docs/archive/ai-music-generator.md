@@ -4,7 +4,7 @@ Generates a fully produced, tailored song **in the user's own voice** from three
 inputs: a **voice sample** (human voice audio file), **lyrics** (optional text
 input), and **style/creative direction** (genre, mood, tempo, instruments). This
 is the audio counterpart to the existing AI image generator
-([`AWS_SETUP_GUIDE.md` Part 3](../guides/AWS_SETUP_GUIDE.md)).
+([`ASSETS.md` Part 3](../guides/ASSETS.md)).
 
 ## Status legend
 

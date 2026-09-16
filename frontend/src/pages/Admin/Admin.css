@@ -600,7 +600,7 @@
   /* NOT `--text-color-accent`. That token is measured against the plain page
      background; on the glass bar in the dark theme it lands at 4.03:1 over the
      ambient teal pool, under AA. `--plane-muted` is the token that exists for a
-     tinted surface, and it measures 7.2:1 here (the same trap as FRONTEND_UI_STANDARD.md §11.2). */
+     tinted surface, and it measures 7.2:1 here (the same trap as UI_DESIGN_RECORDS.md §11.2). */
   color: var(--plane-muted);
   white-space: nowrap;
 }
@@ -705,7 +705,7 @@
 
 /* A row of panels. auto-fit gives 3 columns on a desktop, 2 on a tablet and 1
    on a phone with no media query. `min()` inside minmax() keeps a 320px phone
-   from overflowing (a bare px there is a hard track MINIMUM — `FRONTEND_UI_STANDARD.md` §11.2). */
+   from overflowing (a bare px there is a hard track MINIMUM — `UI_DESIGN_RECORDS.md` §11.2). */
 .admin-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
@@ -2431,7 +2431,7 @@
 }
 
 /* `more`, not `high` — `high` is not a valid value and silently never applied
-   (`FRONTEND_UI_STANDARD.md` §11.1). Rather than listing selectors, this overrides the MATERIAL TOKENS:
+   (`UI_DESIGN_RECORDS.md` §11.1). Rather than listing selectors, this overrides the MATERIAL TOKENS:
    glass gives way to solid surfaces, the grain and the ambient room switch off,
    and the row tints and the hairline edge strengthen. Every rule that already
    consumes a token inherits the change for free, which is the whole reason the

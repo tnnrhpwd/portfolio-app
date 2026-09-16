@@ -438,7 +438,7 @@ function Settings() {
           <div className="settings-shell">
             {/* Sticky toolbar — the page's "hero", collapsed onto one row: the
                 room's name, its live state, and the primary action reachable from
-                anywhere on the page (FRONTEND_UI_STANDARD.md §5.7). No eyebrow,
+                anywhere on the page (UI_LAYOUT.md §5.7). No eyebrow,
                 no subtitle, no lead. */}
             <header className="settings-bar">
               <h1 className="settings-bar-title">Settings</h1>

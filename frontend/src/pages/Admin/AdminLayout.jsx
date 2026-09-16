@@ -25,7 +25,7 @@ import "./Admin.css";
  *   come from `SPECIAL_ADMIN_PATHS`, and `backend/middleware/adminAccess.js`
  *   enforces the same split server-side.
  *
- * **This is a service page, not a landing page** — FRONTEND_UI_STANDARD.md §5.7.
+ * **This is a service page, not a landing page** — UI_LAYOUT.md §5.7.
  * Service pages are workspaces, not stories: one surface (no bands, no scroll
  * reveals), a head carrying the room's name + live state + actions, then a dense
  * panel grid for the work itself. The tab row is the view switcher, and each view

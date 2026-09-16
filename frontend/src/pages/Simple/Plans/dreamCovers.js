@@ -14,7 +14,7 @@
  *
  * Why presets matter: most people will never upload a photo, so these are the
  * images that actually carry the feature. They also have to be *photographs of
- * something* — FRONTEND_UI_STANDARD.md §5 says "Imagery over emoji", which rules
+ * something* — UI_LAYOUT.md §5 says "Imagery over emoji", which rules
  * out a wall of icon tiles.
  */
 

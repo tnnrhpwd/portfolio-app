@@ -17,7 +17,7 @@ import './AllPages.css';
  * manifest** and it shows up here with its path and its badge. Nothing on this
  * page lists routes by hand.
  *
- * A SERVICE PAGE (FRONTEND_UI_STANDARD.md §5.7): one flat room, a row at the
+ * A SERVICE PAGE (UI_LAYOUT.md §5.7): one flat room, a row at the
  * top carrying the name and the live count, then a dense panel grid. No bands,
  * no reveals — this is a tool for finding a URL, not a story about one.
  *

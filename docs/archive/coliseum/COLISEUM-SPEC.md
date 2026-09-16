@@ -158,6 +158,6 @@ gladiator type names — these are factual categories, not game-invented):
 - **Art:** stylized animated 2D (no photorealistic gore); original character
   designs per style, original UI chrome, spritesheet atlases with a mobile
   asset budget.
-- **Audio:** royalty-free stock SFX/music with an `ASSET-LICENSES.md` record.
+- **Audio:** royalty-free stock SFX/music with an `COLISEUM-ART.md` record.
 - **Persistence:** local-first (IndexedDB) + efficient cloud saves (single
   compact JSON per user) via the repo's DynamoDB "Simple" convention.

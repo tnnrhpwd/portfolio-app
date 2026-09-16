@@ -1,7 +1,7 @@
 /* ===========================================================================
    Dream board — the 🌟 view of /plans
    ---------------------------------------------------------------------------
-   A service page VIEW, so it follows the rest of /plans (FRONTEND_UI_STANDARD.md
+   A service page VIEW, so it follows the rest of /plans (UI_LAYOUT.md
    §5.7): panes of glass instead of bordered cards, no scroll reveals, labels
    instead of sentences, no animated background of its own — it sits on the room
    `.plans-page` already wears, so this file adds no ground.

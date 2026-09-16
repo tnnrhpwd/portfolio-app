@@ -3,7 +3,7 @@
  * make-card-art.js — build the /projects card image for Rocket.
  *
  * The catalog expects a 3:2 `frontend/src/assets/art/project-*.jpg` for every
- * project (docs/guides/FRONTEND_UI_STANDARD.md §5). Rather than generating one
+ * project (docs/guides/UI_LAYOUT.md §5). Rather than generating one
  * with Bedrock, this composes the card from the game's own sprite set: a nebula
  * backdrop, a hero rocket, and a scatter of asteroids and sparks. That keeps the
  * card honest (it is literally the game's art) and free to regenerate.

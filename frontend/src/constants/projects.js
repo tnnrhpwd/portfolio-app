@@ -2,7 +2,7 @@
  * Shared project catalog — single source of truth for every project/tool that
  * lives under the /projects umbrella. Keep the paths in sync with the routes
  * declared in App.js. `art` points at the AI-generated artwork in
- * frontend/src/assets/art/ (see docs/guides/FRONTEND_UI_STANDARD.md §5).
+ * frontend/src/assets/art/ (see docs/guides/UI_LAYOUT.md §5).
  *
  * Used by the /projects page and the homepage's "Start with a tool you'll
  * love" ranking section.

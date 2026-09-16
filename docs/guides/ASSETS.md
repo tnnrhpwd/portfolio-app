@@ -1,4 +1,4 @@
-# Static Assets & Asset Pipelines
+# Assets — S3, CloudFront, generation, sprites, audio, uploads
 
 One reference for every asset pipeline in this app:
 
@@ -40,6 +40,234 @@ Part 5 for "where does the music come from?".
 - **Faster Initial Load**: Smaller bundle = faster initial page load.
 - **Lazy Loading**: Images load as needed, not blocking initial render.
 - **Global Performance**: CloudFront edge locations serve files closer to users.
+
+### First-time provisioning (S3 + CloudFront)
+
+
+#### Step 1: Create S3 Bucket
+
+##### 1.1 Create the Bucket
+```bash
+# Using AWS CLI (or use AWS Console)
+aws s3 mb s3://sthopwood-portfolio-files --region us-east-1
+```
+
+**Or via AWS Console:**
+1. Go to S3 in AWS Console
+2. Click "Create bucket"
+3. Bucket name: `sthopwood-portfolio-files`
+4. Region: `US East (N. Virginia) us-east-1`
+5. Block all public access: ✅ **KEEP CHECKED** (CloudFront will access privately)
+6. Create bucket
+
+##### 1.2 Configure CORS Policy
+```json
+[
+    {
+        "AllowedHeaders": ["*"],
+        "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
+        "AllowedOrigins": [
+            "https://sthopwood.com",
+            "https://www.sthopwood.com",
+            "http://localhost:3000",
+            "http://localhost:5000"
+        ],
+        "ExposeHeaders": ["ETag", "x-amz-meta-*"]
+    }
+]
+```
+
+**To apply CORS:**
+1. Go to your S3 bucket → Permissions tab
+2. Scroll to "Cross-origin resource sharing (CORS)"
+3. Click Edit and paste the JSON above
+4. Save changes
+
+#### Step 2: Create CloudFront Distribution
+
+##### 2.1 Create Distribution
+1. Go to CloudFront in AWS Console
+2. Click "Create Distribution"
+3. Configure as follows:
+
+**Origin Settings:**
+- Origin Domain: `sthopwood-portfolio-files.s3.us-east-1.amazonaws.com`
+- Origin Path: (leave empty)
+- Name: `sthopwood-s3-origin`
+- Origin Access: **Origin Access Control (OAC)** ← IMPORTANT!
+- Create new OAC if needed
+
+**Default Cache Behavior:**
+- Viewer Protocol Policy: `Redirect HTTP to HTTPS`
+- Allowed HTTP Methods: `GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE`
+- Cache Headers: `Cache based on selected request headers`
+- Select: `Origin`
+- TTL Settings: Default (86400 seconds)
+
+**Distribution Settings:**
+- Price Class: Use all edge locations (best performance)
+- WAF: Do not enable WAF
+- Description: "Portfolio App File Delivery"
+
+4. **Create Distribution** (takes 10-15 minutes to deploy)
+
+##### 2.2 Update S3 Bucket Policy
+After creating CloudFront, you need to allow CloudFront access to your private S3 bucket:
+
+1. Go back to S3 bucket → Permissions → Bucket policy
+2. Add this policy (replace `E1234567890123` with your CloudFront distribution ID):
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AllowCloudFrontServicePrincipal",
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "cloudfront.amazonaws.com"
+            },
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::sthopwood-portfolio-files/*",
+            "Condition": {
+                "StringEquals": {
+                    "AWS:SourceArn": "arn:aws:cloudfront::YOUR_ACCOUNT_ID:distribution/YOUR_DISTRIBUTION_ID"
+                }
+            }
+        }
+    ]
+}
+```
+
+#### Step 3: Update Environment Variables
+
+Update your `.env` file with the actual CloudFront domain:
+
+```env
+# After CloudFront deploys, you'll get a domain like:
+AWS_CLOUDFRONT_DOMAIN=d1234abcd5678.cloudfront.net
+
+# Verify these are correct:
+AWS_S3_BUCKET=sthopwood-portfolio-files
+AWS_S3_REGION=us-east-1
+USE_CLOUDFRONT=true
+```
+
+Optional cost/behaviour knobs (all have sane defaults — see `backend/services/s3Service.js`):
+
+```env
+# Browser/CloudFront cache TTL for uploaded files (keys are immutable, so a
+# long TTL is safe and cuts repeat egress).
+S3_CACHE_CONTROL=public, max-age=31536000, immutable
+
+# Applied to NEW objects only. Leave unset and let the lifecycle rules below
+# age objects to cheaper classes instead — Intelligent-Tiering charges a
+# per-object monitoring fee that is a bad trade for many small files.
+# S3_UPLOAD_STORAGE_CLASS=INTELLIGENT_TIERING
+
+# Presigned upload URL lifetime (seconds).
+S3_PRESIGNED_URL_EXPIRES=900
+
+# Lifecycle thresholds used by scripts/configure-s3-lifecycle.js.
+S3_IA_AFTER_DAYS=30
+S3_GLACIER_IR_AFTER_DAYS=90
+S3_ABORT_MULTIPART_DAYS=7
+```
+
+#### Step 4: Test the Setup
+
+##### 4.1 Test File Upload
+1. Start your backend server
+2. Log into your app
+3. Go to any InfoData page
+4. Click "Show Upload" and try uploading an image
+5. Verify the file appears with cloud storage indicator
+
+##### 4.2 Test CloudFront Delivery
+1. After uploading, check the Network tab in browser dev tools
+2. Image requests should come from your CloudFront domain
+3. First load may be slow (cache miss), subsequent loads should be fast
+
+##### 4.3 Test OCR Processing
+1. Upload an image file
+2. Use the OCR extraction feature
+3. Verify it works with S3 URLs (no more connection resets!)
+
+#### Step 5: Storage cost controls
+
+Storage is the one line item that grows with every upload and never shrinks on
+its own, so the bucket runs on **lifecycle rules** that age objects into cheaper
+storage classes. Transitions are free; only Intelligent-Tiering charges a
+per-object monitoring fee (poor value for many small files).
+
+| Class | us-east-1 list price | Notes |
+|---|---|---|
+| S3 Standard | ~$0.023/GB-month | New objects |
+| Standard-IA | ~$0.0125/GB-month | after 30 days, min 30-day stay |
+| Glacier Instant Retrieval | ~$0.004/GB-month | after 90 days, still millisecond access |
+
+Apply/refresh the rules (dry run by default):
+
+```bash
+# Preview what would change
+node backend/scripts/configure-s3-lifecycle.js
+
+# Show bucket size + projected storage cost per class
+node backend/scripts/configure-s3-lifecycle.js --size
+
+# Write the rules
+node backend/scripts/configure-s3-lifecycle.js --apply
+```
+
+`create-s3-bucket.js` also applies these rules automatically to a new bucket.
+The rules are:
+
+- `users/` → Standard-IA after 30 days → Glacier IR after 90 days
+- abort incomplete multipart uploads after 7 days (they accrue cost silently)
+
+> **Egress is the other cost to watch.** First 100 GB/month out to the internet
+> is free across AWS, then roughly $0.09/GB from S3 — CloudFront is cheaper
+> (and has a larger free tier), which is why the upload path sets a long
+> `Cache-Control` and why direct-from-S3 URLs are a fallback, not the plan.
+> The backend logs a startup warning if `USE_CLOUDFRONT=true` but
+> `AWS_CLOUDFRONT_DOMAIN` is missing or still the placeholder.
+
+#### The Complete Workflow (As Implemented)
+
+##### File Upload Process:
+1. **Frontend** → Requests pre-signed URL from backend
+2. **Backend** → Generates pre-signed S3 URL (15-minute expiration)
+3. **Frontend** → Uploads file directly to S3 using pre-signed URL
+4. **Backend** → Confirms upload and stores metadata in DynamoDB
+5. **Frontend** → Updates UI with file information
+
+> Upload constraints (allowed types + size caps) are served by
+> `GET /api/data/upload-config`, which reads `backend/constants/upload.js`.
+> The frontend validates against that response, so the client check and the
+> server validation can't drift. The same constants cap *inline* (base64)
+> attachments, which cost ~10x S3 in DynamoDB.
+
+##### File Display Process:
+1. **Frontend** → Requests data from backend
+2. **Backend** → Queries DynamoDB for file metadata (including S3 keys)
+3. **Frontend** → Constructs CloudFront URLs using S3 keys
+4. **Browser** → Requests files from CloudFront
+5. **CloudFront** → Serves from cache or fetches from S3
+
+##### OCR Processing:
+1. **Frontend** → Sends S3 CloudFront URL to backend OCR service
+2. **Backend** → XAI Vision API processes image from URL (no base64!)
+3. **Result** → No more connection resets, fast processing
+
+#### Security Features Implemented
+
+✅ **Private S3 Bucket** - Only CloudFront can access files
+✅ **Pre-signed URLs** - Temporary upload permissions (15 minutes)
+✅ **File Validation** - Type, size, and name sanitization
+✅ **User Isolation** - Files organized by user ID
+
+---
+
 
 ### Current Configuration
 
@@ -1445,11 +1673,11 @@ Four details that matter:
   sheet via Bedrock (Part 3's source step).
 - `backend/scripts/generate-project-art.js` — reusable repo-asset generator
   (see the AI image generation Part 2).
-- [`AWS_SETUP_GUIDE.md`](./AWS_SETUP_GUIDE.md) — one-time S3/CloudFront setup.
-- [`SECRETS_MANAGEMENT.md`](./SECRETS_MANAGEMENT.md) — where `BEDROCK_IMAGE_MODEL_ID`
+- [`OPERATIONS.md`](./OPERATIONS.md) — where `BEDROCK_IMAGE_MODEL_ID`
   and AWS credentials live in production.
 - `backend/services/bedrockImageService.js` — model catalog + generation logic.
 - `backend/controllers/imageGenController.js` — HTTP endpoint validation.
 - [`FRONTEND_UI_STANDARD.md`](./FRONTEND_UI_STANDARD.md) — the visual style prompts
   should match.
 - [`GAME_GUIDE.md`](./GAME_GUIDE.md) — the game that consumes these assets.
+

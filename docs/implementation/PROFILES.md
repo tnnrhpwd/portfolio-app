@@ -16,7 +16,7 @@ without telling them.
 ### What it is
 
 The page a member sends someone — and the page they open to check what a stranger sees. A
-**service page** (`FRONTEND_UI_STANDARD.md` §5.7), which is a deliberate re-classification: it was
+**service page** (`UI_LAYOUT.md` §5.7), which is a deliberate re-classification: it was
 built as a Discovery page, on the argument that a stranger can arrive from a shared link knowing
 nothing and has to be sold on the product before they read any detail. That argument lost to how the
 page is actually used. The owner is on it as often as a visitor is, the visitor already decided who

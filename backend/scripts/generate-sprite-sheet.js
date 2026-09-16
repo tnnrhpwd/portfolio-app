@@ -3,7 +3,7 @@
  * generate-sprite-sheet.js — generate a white-background sprite sheet for a 2D game.
  *
  * This is the SOURCE step of the sprite pipeline documented in
- * `docs/guides/STATIC_ASSETS_AND_IMAGE_GENERATION.md` (Part 3): it produces one
+ * `docs/guides/ASSETS.md` (Part 3): it produces one
  * image containing many separated cartoon objects on a pure white background,
  * which `scripts/rocket/extract-sprites.js` then slices into named, transparent,
  * individually cropped sprites.

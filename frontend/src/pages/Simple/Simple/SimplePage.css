@@ -1,4 +1,4 @@
-/* ── Simple · Control — page shell (FRONTEND_UI_STANDARD.md §5.7) ──────────
+/* ── Simple · Control — page shell (UI_LAYOUT.md §5.7) ──────────
    A service page: one surface, no bands, and the page's ground is the ambient
    "room" (`.service-room` — the class on the root element below), not a flat
    colour of its own. The dashboard owns its own toolbar and panel grid; this
@@ -131,7 +131,7 @@
 .simple-journey-current { color: var(--plane-muted); }
 
 /* No scroll reveal and no stagger here: service-page content is present the
-   moment it paints, so nothing arrives late (FRONTEND_UI_STANDARD.md §5.7). */
+   moment it paints, so nothing arrives late (UI_LAYOUT.md §5.7). */
 /* Responsive: key off WIDTH, not orientation — a tall desktop window is still
    wide. */
 @media (max-width: 860px) {

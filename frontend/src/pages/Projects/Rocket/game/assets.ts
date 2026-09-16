@@ -2,7 +2,7 @@
  * Rocket — texture loading.
  *
  * The 282 sprites live in `frontend/public/rocket/` and are fetched by URL, so
- * they stay out of the JS bundle (see docs/guides/STATIC_ASSETS_AND_IMAGE_GENERATION.md (Part 3)).
+ * they stay out of the JS bundle (see docs/guides/ASSETS.md (Part 3)).
  * The extractor names each file after its asset name, so the manifest name *is*
  * the texture key — no lookup table to keep in sync.
  *

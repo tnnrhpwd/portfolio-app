@@ -296,6 +296,42 @@
 			"type": "shell",
 			"command": "Remove-Item -Force tmp-generalize.cjs,tmp-verify-general.cjs,tmp-fix-assets.cjs -ErrorAction SilentlyContinue; Get-ChildItem -Filter 'tmp-*' -File | Select-Object -ExpandProperty Name; Write-Output '--- docs/guides ---'; Get-ChildItem docs/guides -Name",
 			"group": "test"
+		},
+		{
+			"label": "docs-inventory",
+			"type": "shell",
+			"command": "Get-ChildItem docs -Recurse -File -Include *.md | ForEach-Object { [pscustomobject]@{ Path = $_.FullName.Replace($PWD.Path + '\\', ''); Lines = (Get-Content $_.FullName).Count; KB = [math]::Round($_.Length/1024,1) } } | Sort-Object Path | Format-Table -AutoSize | Out-String -Width 120",
+			"group": "test"
+		},
+		{
+			"label": "verify-docs",
+			"type": "shell",
+			"command": "node tmp-verify.cjs",
+			"group": "test"
+		},
+		{
+			"label": "clean-tasks",
+			"type": "shell",
+			"command": "node tmp-clean-tasks.cjs",
+			"group": "test"
+		},
+		{
+			"label": "verify-final",
+			"type": "shell",
+			"command": "node tmp-verify2.cjs",
+			"group": "test"
+		},
+		{
+			"label": "docs-check-final",
+			"type": "shell",
+			"command": "node tmp-verify2.cjs",
+			"group": "test"
+		},
+		{
+			"label": "docs-cleanup-temp",
+			"type": "shell",
+			"command": "Remove-Item -Force tmp-merge-docs.cjs,tmp-verify.cjs,tmp-verify.txt,tmp-fix-coliseum.cjs,tmp-split-ui.cjs,tmp-split-ui2.cjs,tmp-clean-tasks.cjs,tmp-verify2.cjs,tmp-verify2.txt -ErrorAction SilentlyContinue; Get-ChildItem -Name tmp-*",
+			"group": "test"
 		}
 	]
 }

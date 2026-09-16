@@ -64,7 +64,7 @@ const renderBubble = (message, props = {}) =>
  *
  *  1. The upgrade CTA has to work with the chat's markdown setting OFF — the old
  *     `[Upgrade Now →](/pay?plan=pro)` in the message body rendered as literal
- *     brackets and the money path silently did nothing (`SALES_FUNNEL.md` (funnel gaps)).
+ *     brackets and the money path silently did nothing (`BUSINESS.md` (funnel gaps)).
  *  2. Internal links must stay in the app. The old blanket `target="_blank"`
  *     threw "Upgrade Now" into a second browser tab and reloaded the SPA.
  */

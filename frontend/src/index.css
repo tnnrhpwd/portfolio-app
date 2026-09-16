@@ -437,7 +437,7 @@ body[data-scheme='custom'] {
   --border-plan: var(--grey5-transp);
   --bg-nav-dropper: var(--grey1);
 
-  /* ── Service-page color planes (FRONTEND_UI_STANDARD.md §5.7) ──────────
+  /* ── Service-page color planes (UI_LAYOUT.md §5.7) ──────────
      A plane is the *same hue* as its accent, held at a fixed lightness with its
      own chroma left intact:
 
@@ -454,7 +454,7 @@ body[data-scheme='custom'] {
 
      One set per theme, so a plane's "more color" is a token change, not a
      per-rule hunt. `--plane-muted` exists because a muted token tuned for the
-     *page* background does not survive landing on a saturated plane (FRONTEND_UI_STANDARD.md §11.2) —
+     *page* background does not survive landing on a saturated plane (UI_DESIGN_RECORDS.md §11.2) —
      it is `--text-color-accent` nudged toward the body text, which darkens it
      in the light theme and lightens it in the dark one. Measured on the light
      mint head (oklch 0.76): 5.9:1, and on the dark mint head: 4.9:1.
@@ -478,7 +478,7 @@ body[data-scheme='custom'] {
   /* a hue used as TEXT on a plane */
   --plane-ink-fallback: 55%;
 
-  /* ── Service-page glass (FRONTEND_UI_STANDARD.md §5.7) ──────────────────
+  /* ── Service-page glass (UI_LAYOUT.md §5.7) ──────────────────
      The material every SERVICE page is built from: a translucent pane resting
      on an ambient "room". The tokens are global for the same reason the plane
      tokens above are — it is one material, so it gets one place to tune.
@@ -697,7 +697,7 @@ ul {
 }
 
 /* ⚠️ This stays a bare `a:hover` at (0,1,1), which is why a component's own
-   `:hover` has to NAME its colour to beat it — see FRONTEND_UI_STANDARD.md §6.
+   `:hover` has to NAME its colour to beat it — see UI_COMPONENTS.md §6.
    The ink is the scheme's PARTNER hue, the substitution every converted page makes
    (`--fg-blue` → accent, `--fg-mint` → primary), so a link still visibly changes
    colour on hover whatever the visitor picked. */
@@ -860,7 +860,7 @@ label {
 
    The BODY stays the neutral `--bg-1` plane with `--text-color` copy. A toast is
    a surface, and a surface carries text — the scheme belongs in the chrome and in
-   the accent, not under the words (FRONTEND_UI_STANDARD.md §11.9's lesson from the sign-in card). */
+   the accent, not under the words (UI_DESIGN_RECORDS.md §11.9's lesson from the sign-in card). */
 .light-theme,
 .dark-theme {
   --toastify-color-light: var(--bg-1);

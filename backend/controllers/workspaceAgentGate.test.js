@@ -1,5 +1,5 @@
 /**
- * workspaceAgentGate.test.js — unit tests for the `BUSINESS_PLAN.md` monetization seam at the
+ * workspaceAgentGate.test.js — unit tests for the `BUSINESS.md` monetization seam at the
  * LLM provider boundary (agent-chat / agent-vision proxies in
  * backend/controllers/workspaceController.js).
  *
@@ -56,7 +56,7 @@ const GATE_BLOCK = {
     currentCredits: 0.0012,
 };
 
-describe('agentChatProxy — `BUSINESS_PLAN.md` monetization gate', () => {
+describe('agentChatProxy — `BUSINESS.md` monetization gate', () => {
     beforeEach(() => {
         mockCreateBedrockCompletion.mockReset();
         mockCanMakeApiCall.mockReset();
@@ -115,7 +115,7 @@ describe('agentChatProxy — `BUSINESS_PLAN.md` monetization gate', () => {
     });
 });
 
-describe('agentVisionProxy — `BUSINESS_PLAN.md` monetization gate', () => {
+describe('agentVisionProxy — `BUSINESS.md` monetization gate', () => {
     beforeEach(() => {
         mockCreateBedrockCompletion.mockReset();
         mockCanMakeApiCall.mockReset();

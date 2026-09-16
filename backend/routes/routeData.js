@@ -675,7 +675,7 @@ router.delete('/pets/:petId', protect, workspaceWriteLimiter, removePet);
 // ── Fit ─────────────────────────────────────────────────────────────────────
 // Training advice from the athlete's own logged sessions, runs, and pain
 // reports. Signed in only: server-paid Bedrock, metered at the provider
-// boundary in the controller (see docs/guides/BUSINESS_PLAN.md).
+// boundary in the controller (see docs/guides/BUSINESS.md).
 router.post('/fit/coach', protect, llmLimiter, sanitizeInput, askFitCoach);
 
 // ============================================================================

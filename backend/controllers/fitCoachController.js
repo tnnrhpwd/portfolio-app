@@ -9,7 +9,7 @@
  * specific. Guests get the deterministic generator instead, at no cost.
  *
  * Metered at the provider boundary, exactly like agent-chat/agent-vision
- * (docs/guides/BUSINESS_PLAN.md): the gate runs *before* Bedrock, and a
+ * (docs/guides/BUSINESS.md): the gate runs *before* Bedrock, and a
  * screened response — red flags, so the model is never called — is not billed.
  */
 

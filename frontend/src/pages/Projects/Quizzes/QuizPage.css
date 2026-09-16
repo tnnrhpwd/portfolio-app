@@ -7,7 +7,7 @@
  * colour arrives as the `--quiz-accent` custom property on the root element.
  *
  * Deviations from IQTest.css, both deliberate:
- *   - no `backdrop-filter`, per FRONTEND_UI_STANDARD.md §8 ("don't stack
+ *   - no `backdrop-filter`, per UI_COMPONENTS.md §8 ("don't stack
  *     glassmorphism on cards") — a hairline border + soft shadow instead
  *   - a `--quiz-accent` variable so a quiz can tint its own badges/buttons
  */

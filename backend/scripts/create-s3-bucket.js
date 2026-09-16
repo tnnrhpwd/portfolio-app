@@ -84,7 +84,7 @@ async function createPortfolioBucket() {
 
         console.log('\n✅ S3 bucket setup completed!');
         console.log('\n🚀 Next steps:');
-        console.log('1. Create CloudFront distribution (see AWS_SETUP_GUIDE.md)');
+        console.log('1. Create CloudFront distribution (see ASSETS.md)');
         console.log('2. Update AWS_CLOUDFRONT_DOMAIN in your .env file');
         console.log('3. Review storage costs: node backend/scripts/configure-s3-lifecycle.js --size');
         console.log('4. Test file upload in your application');

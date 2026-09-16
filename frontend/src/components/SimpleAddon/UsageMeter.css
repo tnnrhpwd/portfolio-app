@@ -121,7 +121,7 @@
   margin-top: calc(var(--spacing-xs) * 0.5);
   padding: calc(var(--spacing-xs) * 0.5) var(--spacing-xs);
   /* The site's one action colour and its matched ink — a money path, so it wears
-     `--action` rather than the chat's own accent pair (`SALES_FUNNEL.md`'s CTA policy). */
+     `--action` rather than the chat's own accent pair (`BUSINESS.md`'s CTA policy). */
   background: var(--action);
   color: var(--text-color-inv);
   border-radius: var(--border-radius-sm);

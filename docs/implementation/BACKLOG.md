@@ -89,7 +89,7 @@ marketplace, and ship privacy scrubbing before *any* publish path.
    with the four-mode trust ladder, and `/net` opens as just the chat with the
    conversation rail a collapsed drawer. ⬜ Starter templates, a first-run guided
    demo, and the funnel gaps listed in
-   [`SALES_FUNNEL.md`](../guides/SALES_FUNNEL.md) → *Funnel gaps* remain.
+   [`BUSINESS.md`](../guides/BUSINESS.md) → *Funnel gaps* remain.
 9. ✅ **Goal ↔ chat link** — a goal has its own `/net` conversation (id derived from
    the slug), enlisting from `/plans` runs the goal *in* that thread, the card flips
    to **View agent** once a run exists, and runs started from either surface are
@@ -168,7 +168,7 @@ Longer-horizon capabilities, from the roadmap.
 - **Scheduled & unattended automation** — run a skill on a schedule or trigger;
   start with local reminders, graduate to background/remote execution only if paid
   demand validates the infra cost (see *Growth and conversion levers* in
-  [`BUSINESS_PLAN.md`](../guides/BUSINESS_PLAN.md)).
+  [`BUSINESS.md`](../guides/BUSINESS.md)).
 - **Remember-and-repeat** — recall how a task was done before and offer to repeat it
   (memory over the action log → reusable skills).
 - **Routines (skill composition)** — compose multiple skills into a sequence with

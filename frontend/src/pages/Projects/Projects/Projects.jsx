@@ -80,7 +80,7 @@ function Projects() {
     return matches.slice().sort((a, b) => (visitCounts[b.path] || 0) - (visitCounts[a.path] || 0));
   }, [query, category, visitCounts]);
 
-  // Scroll-triggered reveal for the project grid (see FRONTEND_UI_STANDARD.md §5).
+  // Scroll-triggered reveal for the project grid (see UI_LAYOUT.md §5).
   // The grid stacks into one tall column on mobile, so it relies on the hook's
   // fast defaults (threshold 0 + a bottom rootMargin) to reveal as soon as it nears.
   const [gridRef, gridVisible] = useScrollReveal();
@@ -216,7 +216,7 @@ function Projects() {
              The catalogue's job is Discovery, so the band it ends on leads with
              the three surfaces (Chat / Control / Goals) and the addon download —
              the visitor pays once they have used the thing, so price is one quiet
-             line underneath. See docs/guides/SALES_FUNNEL.md's funnel-page rules rule 1. ── */}
+             line underneath. See docs/guides/BUSINESS.md's funnel-page rules rule 1. ── */}
         <SimpleCtaBand />
 
         <Footer />

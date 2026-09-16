@@ -20,7 +20,7 @@
  * the board is saved to the account. Nothing here uploads anything, which is why
  * a board still exists if the tab is closed mid-flight.
  *
- * Service-page rules apply (FRONTEND_UI_STANDARD.md §5.7): glass panes, no
+ * Service-page rules apply (UI_LAYOUT.md §5.7): glass panes, no
  * borders, labels over sentences, and the artwork is the only colour.
  */
 

@@ -1,5 +1,5 @@
 /* ── CollapsibleSection — a folded-away group of panels ─────────────────────
-   FRONTEND_UI_STANDARD.md §5.7: "fold the rest away — power-user plumbing goes
+   UI_LAYOUT.md §5.7: "fold the rest away — power-user plumbing goes
    in a `<details>`, so the first screen is the job and not the config."
 
    The header used to be a whisper: 10px uppercase accent text sitting on the

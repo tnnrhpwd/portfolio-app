@@ -52,7 +52,7 @@ import './SimpleDashboard.css';
  * SimpleDashboard — the live half of /simple.
  *
  * This is a **service page**, and service pages are workspaces, not stories
- * (FRONTEND_UI_STANDARD.md §5.7): one flat surface, a sticky toolbar carrying
+ * (UI_LAYOUT.md §5.7): one flat surface, a sticky toolbar carrying
  * the room's name + live state + the primary action, then a dense grid of
  * panels ordered by how often you touch them. No bands, no gradient behind the
  * data, no scroll reveals — scrolling is the cost we're minimising.
