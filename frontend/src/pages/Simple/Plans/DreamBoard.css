@@ -36,6 +36,10 @@
 /* The search box takes the slack so the chips and the action sit right. */
 .dream-controls-row .plans-search { flex: 1 1 200px; }
 .dream-new { margin-left: auto; flex-shrink: 0; }
+/* The vision-board button sits to the left of the primary action. `margin-left:
+   auto` on `.dream-new` is what pushes the pair right, so this one only has to
+   refuse to shrink. */
+.dream-vision { flex-shrink: 0; }
 
 /* ── The grid ─────────────────────────────────────────────────────────────── */
 

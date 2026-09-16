@@ -7,6 +7,8 @@ import SEO from '../../components/SEO/SEO.jsx';
 import Spinner from '../../components/Spinner/Spinner.jsx';
 import ProfileAvatar from '../../components/ProfilePicture/ProfileAvatar.jsx';
 import ShareProfile from '../../components/ShareProfile/ShareProfile.jsx';
+import TalkUnreadBadge from '../../components/Simple/Talk/TalkUnreadBadge.jsx';
+import useTalkUnread from '../../hooks/useTalkUnread.js';
 import { getPublicProfile } from '../../services/publicProfileApi.js';
 import {
   blockMessengerUser,
@@ -211,6 +213,11 @@ function UserProfile() {
   const { user } = useSelector((state) => state.data);
   const token = user?.token;
 
+  // Four of this page's controls are doors into Talk, so each carries the same
+  // unread count the header's drawer shows (one request for both — the hook
+  // shares its poll across every badge on the page).
+  const unread = useTalkUnread();
+
   const [profile, setProfile] = useState(null);
   const [status, setStatus] = useState('loading'); // loading | ready | missing | error
   const [error, setError] = useState('');
@@ -335,13 +342,19 @@ function UserProfile() {
 
     const actions = status === 'missing' ? (
       <>
-        <Link className="up-btn up-btn--primary" to="/talk">Find someone on Talk</Link>
+        <Link className="up-btn up-btn--primary" to="/talk">
+          Find someone on Talk
+          <TalkUnreadBadge count={unread} />
+        </Link>
         {!user && <Link className="up-btn up-btn--outline" to="/register">Create your page</Link>}
       </>
     ) : status === 'error' ? (
       <>
         <button type="button" className="up-btn up-btn--primary" onClick={load}>↻ Try again</button>
-        <Link className="up-btn up-btn--outline" to="/talk">Open Talk</Link>
+        <Link className="up-btn up-btn--outline" to="/talk">
+          Open Talk
+          <TalkUnreadBadge count={unread} />
+        </Link>
       </>
     ) : null;
 
@@ -412,7 +425,10 @@ function UserProfile() {
         >
           {connecting ? 'Sending…' : (requestSent ? 'Request sent' : `Connect with ${profile.nickname}`)}
         </button>
-        <Link className="up-btn up-btn--outline" to="/talk">Open Talk</Link>
+        <Link className="up-btn up-btn--outline" to="/talk">
+          Open Talk
+          <TalkUnreadBadge count={unread} />
+        </Link>
       </>
     ) : !profile.isSignedIn ? (
       <>
@@ -552,7 +568,10 @@ function UserProfile() {
       <Link className="up-btn up-btn--primary" to={`/net?with=${encodeURIComponent(profile.connectedUserId)}`}>
         Message {profile.nickname}
       </Link>
-      <Link className="up-btn up-btn--outline" to="/talk">All connections</Link>
+      <Link className="up-btn up-btn--outline" to="/talk">
+        All connections
+        <TalkUnreadBadge count={unread} />
+      </Link>
     </>
   ) : relationship === RELATIONSHIP.STRANGER ? (
     <>
@@ -564,7 +583,10 @@ function UserProfile() {
       >
         {connecting ? 'Sending…' : (requestSent ? 'Request sent' : `Connect with ${profile.nickname}`)}
       </button>
-      <Link className="up-btn up-btn--outline" to="/talk">Open Talk</Link>
+      <Link className="up-btn up-btn--outline" to="/talk">
+        Open Talk
+        <TalkUnreadBadge count={unread} />
+      </Link>
     </>
   ) : relationship === RELATIONSHIP.VISITOR ? (
     <>

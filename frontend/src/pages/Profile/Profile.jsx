@@ -23,8 +23,10 @@ import {
   isProTier,
 } from '../../constants/pricing.js';
 import usePurchaseGate from '../../hooks/usePurchaseGate.js';
+import useTalkUnread from '../../hooks/useTalkUnread.js';
 import PurchaseGateNotice from '../../components/PurchaseGateNotice/PurchaseGateNotice.jsx';
 import ProfileAvatar from '../../components/ProfilePicture/ProfileAvatar.jsx';
+import TalkUnreadBadge from '../../components/Simple/Talk/TalkUnreadBadge.jsx';
 import { providerLabel } from '../../constants/aiModel.js';
 import './Profile.css';
 
@@ -85,6 +87,9 @@ function Profile() {
   const [subscriptionLoaded, setSubscriptionLoaded] = useState(false);
   const [userSubscription, setUserSubscription] = useState(null);
   const { purchasesEnabled, message: gateMessage } = usePurchaseGate();
+  // The "next steps" row is one of the site's doors into Talk, so it carries the
+  // same unread count as the drawer's link (shared poll — see the hook).
+  const unreadTalk = useTalkUnread();
 
   const {
     user,
@@ -905,6 +910,7 @@ function Profile() {
                 )}
                 <button className="planit-profile-net-button" onClick={() => navigate('/talk')}>
                   💬 Talk
+                  <TalkUnreadBadge count={unreadTalk} />
                 </button>
                 <button className="planit-profile-net-button" onClick={() => navigate('/net')}>
                   💬 Open AI Chat

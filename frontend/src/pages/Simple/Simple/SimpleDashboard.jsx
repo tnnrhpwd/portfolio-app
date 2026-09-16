@@ -44,6 +44,8 @@ import {
 } from '../../../services/simpleAddonApi';
 import { useAddonDetection } from '../../../hooks/simpleAddon/useAddonDetection';
 import AgentModes from '../../../components/Simple/AgentModes/AgentModes.jsx';
+import AgentTerminal from './AgentTerminal.jsx';
+import GoalReviewPanel from './GoalReviewPanel.jsx';
 import './SimpleDashboard.css';
 
 /**
@@ -56,6 +58,8 @@ import './SimpleDashboard.css';
  * data, no scroll reveals — scrolling is the cost we're minimising.
  *
  *   row 1  how far it may go (the mode ladder + kill switch) · the live loop
+ *   full  the live console — what the agent is doing, as it does it
+ *   full  work on my goals — the review pass, and the changes it proposes
  *   row 2  run an instruction · record a task
  *   row 3  goals · macros
  *   row 4  proposed goals · lessons · suggestions
@@ -708,6 +712,36 @@ export default function SimpleDashboard() {
             <Link className="sd-btn sd-btn--muted" to="/net">Full chat →</Link>
           </footer>
         </section>
+        </div>
+
+        {/* ── Live: what the agent is actually doing, as it does it ───────────
+            Full width and directly under the loop, because this is the thing the
+            Start button above is for. It picks its own source: the desktop
+            agent's event stream when that is what is running, otherwise the
+            run's own steps from the cloud. */}
+        <div className="sd-grid">
+          <AgentTerminal
+            token={token}
+            addonConnected={isConnected}
+            currentGoalSlug={agent?.currentGoal?.slug || null}
+            running={isRunning}
+          />
+        </div>
+
+        {/* ── Work on my goals: the review pass ─────────────────────────────
+            The pass itself runs in the cloud (it needs the whole list and a
+            model, not this PC); the panel reads back the stored result and
+            applies a batch only when asked. */}
+        <div className="sd-grid">
+          <GoalReviewPanel
+            token={token}
+            goalCount={goals.length}
+            onGoalsChanged={loadGoals}
+          />
+        </div>
+
+        {/* ── One-off instruction · record a task ────────────────────────────── */}
+        <div className="sd-grid">
 
         {/* ── One-off instruction ── */}
         <section className="sd-panel">

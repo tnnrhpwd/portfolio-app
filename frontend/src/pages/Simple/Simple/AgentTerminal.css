@@ -1,0 +1,115 @@
+/* AgentTerminal.css — the live console on /simple.
+   ---------------------------------------------------------------------------
+   The one place in this app that is deliberately NOT the house style: a terminal
+   earns monospace, a sunken plane, and colour used for STATUS only (a running
+   step, a failure, a note). Everything else here — the panel chrome, the badge,
+   the buttons — is borrowed from `.sd-panel` so the panel still belongs to the
+   page it sits on rather than looking like an embedded tool. */
+
+.sd-panel--term { min-width: 0; }
+
+.sd-term-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: calc(var(--nav-size) * 0.14);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-color) 30%, transparent);
+  vertical-align: middle;
+}
+/* Pulsing means "something is happening right now" — the one motion in this
+   panel, and it stops when the run does. */
+.sd-term-dot[data-live] {
+  background: var(--fg-mint);
+  animation: sd-term-pulse 1.6s ease-in-out infinite;
+}
+@keyframes sd-term-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+
+.sd-badge--term {
+  text-transform: none;
+  letter-spacing: 0.02em;
+  background: color-mix(in srgb, var(--text-color) 12%, transparent);
+  color: var(--text-color);
+}
+
+.sd-term-tools {
+  display: flex;
+  gap: calc(var(--nav-size) * 0.1);
+  margin-left: auto;
+}
+
+/* The plane the log is written on. `overflow: auto` + a fixed height (not a
+   growing box) is what makes it a console: the page never grows with the log. */
+.sd-term-body {
+  height: clamp(220px, 34vh, 380px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.24);
+  background: var(--glass-sunken-strong);
+  border-radius: var(--glass-radius);
+  /* Same stack the addon's run console uses (ShortcutsManager.css), so the two
+     logs on this app look like the same tool. */
+  font-family: ui-monospace, SFMono-Regular, 'Fira Code', 'Cascadia Code', Menlo, monospace;
+  font-size: var(--font-size-xs);
+  line-height: 1.7;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text-color) 28%, transparent) transparent;
+}
+.sd-term-body:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
+}
+.sd-term-body::-webkit-scrollbar { width: 8px; }
+.sd-term-body::-webkit-scrollbar-track { background: transparent; }
+.sd-term-body::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-color) 28%, transparent);
+  border-radius: 4px;
+}
+
+.sd-term-line {
+  display: flex;
+  gap: calc(var(--nav-size) * 0.16);
+  align-items: baseline;
+  /* A tool's arguments and an error message are the two things worth wrapping
+     rather than truncating — the rest of a line is short by construction. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.sd-term-line--idle { color: var(--text-color-accent); }
+
+.sd-term-time {
+  flex-shrink: 0;
+  color: color-mix(in srgb, var(--text-color) 45%, transparent);
+}
+.sd-term-glyph {
+  flex-shrink: 0;
+  width: 1ch;
+  text-align: center;
+}
+.sd-term-text { min-width: 0; }
+.sd-term-detail {
+  min-width: 0;
+  color: color-mix(in srgb, var(--text-color) 62%, transparent);
+}
+
+/* Status is the only thing that gets colour. */
+.sd-term-line--running .sd-term-glyph { color: var(--fg-blue); }
+.sd-term-line--running .sd-term-text  { color: var(--text-color); }
+.sd-term-line--ok .sd-term-glyph      { color: var(--fg-mint); }
+.sd-term-line--error .sd-term-glyph,
+.sd-term-line--error .sd-term-text    { color: var(--fg-pink); }
+.sd-term-line--note .sd-term-glyph    { color: var(--fg-orange); }
+.sd-term-line--plain .sd-term-text    { color: color-mix(in srgb, var(--text-color) 88%, transparent); }
+
+.sd-term-foot {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-color-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sd-term-dot[data-live] { animation: none; }
+}

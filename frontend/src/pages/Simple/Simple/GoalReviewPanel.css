@@ -1,0 +1,158 @@
+/* GoalReviewPanel.css — "Work on my goals" on /simple.
+   ---------------------------------------------------------------------------
+   A list of proposed changes, read top to bottom, with the batch action pinned at
+   the bottom so the decision is always next to the act. Sections are labelled by
+   what the change DOES (re-scope / break down / plan / new goals) rather than by
+   its internal kind, because that is the question the user is answering. */
+
+.sd-panel--wide { grid-column: 1 / -1; }
+
+.sd-review-meta {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-base);
+  color: var(--text-color-accent);
+}
+
+.sd-review-section { display: flex; flex-direction: column; gap: calc(var(--nav-size) * 0.12); }
+
+.sd-review-section-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.12);
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-color-accent);
+}
+/* The section's own explanation, in prose — the heading is micro-type for
+   scanning and must not leak its tracking into a sentence. */
+.sd-review-section-blurb {
+  font-size: var(--font-size-xs);
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-color-accent);
+  opacity: 0.9;
+}
+
+.sd-review-list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.12);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sd-review-item {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.1);
+  padding: calc(var(--nav-size) * 0.22) calc(var(--nav-size) * 0.24);
+  background: var(--glass-row);
+  border-radius: var(--glass-radius);
+  transition: background 0.18s ease;
+}
+/* A staged proposal is a decision that has been made, not a hover state: it gets
+   the scheme's emphasis wash and a solid edge. */
+.sd-review-item.is-staged {
+  background: color-mix(in srgb, var(--scheme-primary) 14%, var(--bg-1));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--scheme-primary) 40%, transparent);
+}
+
+.sd-review-item-head {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--nav-size) * 0.16);
+}
+.sd-review-item-title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+}
+
+/* Why the change is proposed — the sentence the user is judging. */
+.sd-review-why {
+  margin: 0;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-base);
+  color: var(--text-color-accent);
+}
+
+.sd-review-goal {
+  align-self: flex-start;
+  font-size: var(--font-size-xs);
+  color: var(--fg-blue);
+}
+
+.sd-review-patch {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.12);
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-base);
+  color: var(--text-color-accent);
+}
+
+.sd-review-horizon {
+  flex-shrink: 0;
+  padding: calc(var(--nav-size) * 0.04) calc(var(--nav-size) * 0.18);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-color) 10%, transparent);
+  color: var(--text-color);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+.sd-review-horizon.is-long { background: color-mix(in oklab, var(--fg-blue) 20%, var(--bg-1)); }
+
+.sd-review-children,
+.sd-review-steps {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.08);
+  margin: 0;
+  padding-left: calc(var(--nav-size) * 0.4);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-base);
+  color: var(--text-color);
+}
+.sd-review-children { list-style: none; padding-left: 0; }
+.sd-review-children li {
+  display: flex;
+  align-items: baseline;
+  gap: calc(var(--nav-size) * 0.12);
+  overflow-wrap: anywhere;
+}
+
+/* The batch footer: sticky to the panel, so "apply" is never scrolled away from
+   the proposals it applies. */
+.sd-review-batch {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.12);
+  padding: calc(var(--nav-size) * 0.2) calc(var(--nav-size) * 0.24);
+  background: var(--glass-land, var(--bg-page));
+  border-radius: var(--glass-radius);
+  box-shadow: var(--glass-shadow);
+}
+.sd-review-batch-text {
+  flex: 1;
+  min-width: min(100%, 24ch);
+  font-size: var(--font-size-small);
+  color: var(--text-color);
+}
+
+.sd-hint--error { color: var(--fg-pink); }

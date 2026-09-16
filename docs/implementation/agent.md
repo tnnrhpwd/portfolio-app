@@ -2841,6 +2841,47 @@ contact list is a column of them, where ten identical checkmarks identify nobody
 does. The picture is `alt`-described; the initials are `aria-hidden`, because the name is always
 beside the frame.
 
+### 18.9 The unread count, everywhere Talk is entered
+
+Every link into `/talk` carries an unread badge — the header drawer's `Talk` row, both links in the
+`/net` rail's People section, all five of the member page's Talk controls, the `/profile` **Talk**
+button, and the two dead ends inside a direct conversation. It shows a count, and at **zero it renders
+nothing at all**: a badge reading "0" is a badge the eye has to read and dismiss, where an absent one
+is already the answer. `components/Simple/Talk/TalkUnreadBadge.jsx` is dumb — it is handed a number —
+because its callers get that number in two different ways.
+
+**One number, and it is unread MESSAGES.** A pending friend request is not a message; `/talk`'s own
+toolbar already reports requests, waiting and unread as three separate chips, and folding them into
+one figure would make every badge mean two things at once.
+
+**Whoever has the dashboard publishes it.** The count only exists in `GET /messenger/directory`, and
+two surfaces already fetch it (`/talk` on load, the rail every 30s). Rather than have the chrome ask a
+third time, `utils/talkUnread.js` holds the value in a module-level snapshot that both of them write
+(`publishTalkUnread`) and `hooks/useTalkUnread.js` reads. So on `/talk` and `/net` the badge makes **no
+request at all**, and elsewhere the hook makes one — for the whole page, since the poll and the
+in-flight request are module state rather than per-component ones (four badges on a member page, one
+GET). A value younger than 15s is never re-asked for, which is also what keeps the hook quiet while
+the rail is polling.
+
+**The snapshot is keyed by token**, and a reader holding a different token is answered `0` (a tokenless
+publish is refused outright). The module outlives a sign-out — logging out does not reload the page —
+so this is the difference between "3 unread" on your account and showing your number to whoever signs
+in next.
+
+**Silence on failure, and wake on return.** A failed request keeps the last known count and the next
+tick retries; it never throws, toasts or blanks the link it sits on. The poll stops when the last badge
+unmounts, and a `focus`/`visibilitychange` listener refreshes when the tab comes back — the moment a
+stale badge is most obvious.
+
+**The fill is `--action`, not the row badge's gradient.** `.talk-unread` (a row in `/talk`) still uses
+the raw `--fg-blue` → `--fg-mint` pair, but this badge rides the site chrome, outside whichever page
+root re-points those hues, and the gradient is bright in both themes (white passes at the blue end and
+fails at the mint end). `--action` is the site's one fill whose lightness is pinned per mode, so
+`--text-color-inv` clears AA on every scheme — the same trade the buttons make.
+
+**Not on `/all`.** The page index links `/talk` too, but its badge column already means "who this page
+is for"; a count there would overload it, and nobody scans a 50-row route index looking for a message.
+
 ---
 
 ## 19. The member page — `/u/<username>`
@@ -3495,6 +3536,309 @@ included), and `upsertGoal` dropped `tags` whenever a caller omitted them.
   not hue-shifted ink — the `neutral` scheme has zero chroma by design, so the
   `oklch(from …)` treatment the other tags use resolves to `--text-color` there
   and the chip would have been invisible.
+
+---
+
+## 24. Working on goals — the review pass, and the live console
+
+Two panels on `/simple`, both about *the loop's own work* rather than about
+configuring it:
+
+| Panel | Question it answers |
+| --- | --- |
+| **🧭 Work on my goals** | "My goal list is a mess — what should change about it?" |
+| **Live** | "What is it doing *right now*?" |
+
+Both sit directly under the loop panel, full width, in their own `.sd-grid` rows:
+the console first (it is what the ▶ Start button above is for), the review second.
+
+### 24.1 The review pass
+
+One pass over the goal list proposes **changes to the list** — not advice:
+
+| Kind | What it proposes | Which write it becomes |
+| --- | --- | --- |
+| `horizon` | a goal aimed at the wrong horizon | `horizon` on that goal |
+| `split` | a long aim with nothing under it → 1–4 children (`week`/`quarter`) | one goal per child, parented |
+| `plan` | a goal with nothing to work from → up to 8 ordered steps | a `plan` memory item, linked to the goal |
+| `new-goal` | a goal that follows from what already exists | a new goal (`createdBy: 'agent'`) |
+
+Plus `lessons`: observations that are **not** changes. One *Keep* button writes a
+real `kind='lesson'` workspace item — the same store the agent's own critic writes
+to — so what the pass noticed outlives the panel instead of sitting in it.
+
+The pass is the **backend's** (`services/goalReview.js` + `POST
+/csimple/goal-review`): it needs the whole list and a model, not this PC. It is
+**stored** (`review` / `goal-review`, 6h TTL) so the panel opens on the last
+result and re-running is a deliberate act.
+
+**Proposing and writing are separate, and that is what makes the rest safe.**
+Staging is free; one button applies the batch in a single request
+(`POST /csimple/goal-review/apply`), server-side, through
+`planReviewApplication` → `upsertGoal` / `createMemoryItem`. A review the user
+did not ask for therefore *cannot* change anything by itself.
+
+Two rules the prompt states explicitly, because they are the ones a model gets
+wrong: only propose a change the goal's *own words* support, and never split a
+goal that already has children.
+
+The prompt is also told to re-share only what it can defend: `why` is required on
+every proposal, and the panel shows it above the patch, because "Set horizon to
+quarter" without a reason is a diff with no argument.
+
+### 24.2 The loop runs it too
+
+"Review first, then work":
+
+- `POST /api/agent/start` fires `requestGoalReview(false)` (fire-and-forget)
+  before the loop is built, so the pass the user did not press still happens — and
+  is still only *proposed*.
+- `_runMetaReflection()` fires the same call every `META_EVERY_ACTIONS` (50)
+  steps; the 6h TTL is what stops a long run from spending a credit per cycle.
+
+Both are best-effort: the addon carries the 402 (`requiresUpgrade`) instead of
+throwing, so a credit-exhausted account loses the review, not the loop.
+
+### 24.3 The console
+
+`AgentTerminal.jsx` streams the event vocabulary the addon already emits
+(`tool.start/end`, `agent.stage/step/message/reply/meta/skill-draft/stopped`,
+`goal.done/failed/blocked/stalled`, `approval.*`, `permissions.changed`,
+`skill.run`) and renders it as an LLM-harness log: clock, glyph, text, detail,
+with `running`/`ok`/`error`/`note` colour on the glyph column.
+
+Named SSE events do **not** reach `onmessage`, so the type list is explicit and
+must stay in step with the addon's `events.js`. An unknown type still renders
+(the bare type) — a silent gap in the log is worse than an ugly line.
+
+**Two sources, one on screen at a time.** The local stream is instant and has
+tool-level detail; the cloud run (`goal-agent/status` → `agent.steps`, polled at
+2s) is always available but is flushed **once per LLM round**, so it arrives in
+jumps. They are deliberately *not* merged: the addon mirrors its steps to the
+cloud when it has a goal to attach them to, so merging prints every tool twice in
+two shapes. The header chip names the source (`Local agent` / `Cloud run` /
+`Idle` / `No agent`), and the console prefers local only while local is live
+(`addonConnected && running`).
+
+Honest limitation, stated in a tooltip rather than hidden: the cloud view updates
+in jumps. It is a slower, coarser view of the *same* run.
+
+Reading behaviour: follows the newest line by default, re-engages following when
+the user scrolls back to the bottom (a toggle you have to remember to turn off is
+a toggle that stays wrong), caps at 400 lines, and never uses `aria-live="assertive"`
+— `role="log"` with `polite` so a running loop does not fight a screen reader.
+
+### 24.4 Verified
+
+- **The whole path ran end to end on the guest account**: one press returned
+  `Reviewed just now · 1 goals · nothing changes until you apply it` with a
+  re-scope (`No horizon → This quarter`, with the reason above it), a 5-step plan,
+  and one observation; staging 2 of them produced
+  `2 staged — 1 goal re-scoped, 1 goal created`; *Apply* returned
+  `Applied — 1 plan created.`, the badge dropped 2 → 1 (applied proposals stop
+  being offered), `onGoalsChanged` refreshed the goals panel, and the plan was
+  found in the memory store linked to the goal. The created plan and the stored
+  review were then deleted (`?hard=1`), leaving the shared guest account as it was
+  found.
+- **The console was driven with the real addon, not a fixture**: switching the
+  mode to *Suggest* started the listener, and 38 lines landed live —
+  `stage → picking a goal (outer loop)`, `stage → observing (inner loop)`,
+  `step 1..4`, `▶ screen_capture`, `✓ screen_capture · 395ms`,
+  `■ stopped — user requested stop` — with the chip reading `Local agent`, the
+  footer `Streaming live from the desktop agent.`, and the view auto-scrolled to
+  the newest line. The addon was then stopped and the mode returned to *Assist*.
+- **A copy bug the live run found**: the batch footer said *"1 staged — creates 1
+  goal"* for a **re-scope**, which creates nothing. `batchSummary` now counts
+  re-scopes separately and `batchSummaryText` builds the sentence
+  (`1 goal re-scoped, 1 goal created`); `batchSummary` also counts `split` as
+  created goals, because a split does create its children.
+- **No page overflow at 320 / 375 / 480 / 768 / 1024 / 1440 / 1920px**
+  (`documentElement.scrollWidth - clientWidth === 0` at every width), and neither
+  panel's subtree ever crosses the viewport edge.
+- **Both themes measured**: the glyph palette stays legible on the light
+  `glass-sunken-strong` background (the accent hues darken rather than wash out),
+  and `prefers-reduced-motion: reduce` resolves the live-dot pulse to
+  `animation-name: none` (1.6s `infinite` otherwise).
+- Tests: `goalReview.test.js` (backend) 22/22, `agentTerminalUtils.test.js` +
+  `goalReviewUtils.test.js` 27/27, `GoalReviewPanel.test.jsx` 10/10,
+  `AgentTerminal.test.jsx` 7/7 — 45/45 in `frontend/src/pages/Simple/Simple`.
+  `vite build` clean. Both routes reachable (401 without a token).
+
+---
+
+## 25. Vision boards — `/plans` 🌟
+
+A vision board is **one generated picture of the life the user is aiming at**,
+made from their goals, drawn on demand, saved to their account, and kept as a
+history so the next one has something to be different from.
+
+It belongs to the Dream board view because that is the only place in the product
+where a user is already looking at their life at that altitude — and because it is
+the same data. Nothing new is stored about a goal: the board is a *reading* of
+goals that already exist, in the same spirit as the Map and the review pass.
+
+### 25.1 Two models, in this order, for a reason
+
+| Step | Model | Why it is not optional |
+| --- | --- | --- |
+| goals → **image prompt** | the chat model (Haiku 4.5) | "Beach trip with my girlfriend and her child" is not an image prompt. Turning an aspiration into something picturable is a language job, and it is the whole reason the feature is not a text field. |
+| prompt → **picture** | an image model (Stability SD3.5 Large) | 16:9, one image per scope. |
+
+The prompt brief (`services/visionBoard.js` → `buildVisionBoardPrompt`) carries the
+goals with their horizons and the user's own `vision` line, and pins every choice a
+model gets wrong on its own: 45–90 words, one paragraph, and a picture that **is a
+handmade vision board** rather than a scene.
+
+#### What the first version got wrong
+
+The brief used to offer the writer a choice — "a single photorealistic scene, or a
+loose grid of editorial photographs, whichever carries more of the goals". The first
+real board chose the scene and came back as a photorealistic stock photograph: a
+family around a laptop on a wooden deck, an Apple logo legible on the lid, a
+blueprint on the table. A perfectly good picture of somebody else's afternoon, and
+not a vision board. Two rules were added, and both are now mandatory:
+
+| Rule | Why |
+| --- | --- |
+| **The board look.** A physical surface (cork / linen pinboard / pale paper) filling the frame, 6–10 overlapping pictures of different sizes, torn edges, white borders, washi tape, brass pins, soft shadow under each piece, bare board showing between them, spread evenly with no blank half, and no wall or margin around it. | That *is* what people mean by a vision board. The craft is what carries it: without tape and pins the result is a contact sheet, and without the balance rule the first board clustered into one corner and left half the linen empty. |
+| **No faces, by default.** Any people are far away, from behind, in silhouette, in the background, or hands only — never a portrait, never looking at the camera. | An image model asked for "a family" invents a specific, photorealistic family. A vision board is about the aims; an invented face reads as a stock photo of somebody else's life, and at worst as a likeness of a real person. |
+
+#### The two defaults, and the one thing that changes them
+
+No identifiable faces, and no text (lettering renders as garbage, and a "vision
+board" in a model's mind is full of captions). Both are **defaults, not bans**: the
+free-text steer switches either on, and `resolveBoardRules` decides which before the
+brief is written, so the brief never contradicts the user and the negative prompt
+never fights them either:
+
+| Steer | Result |
+| --- | --- |
+| *(empty)* | no faces, no text |
+| `a family on the beach` | `allowPeople` — the face rules drop out of the brief *and* the negative prompt, while a likeness of a real person stays refused |
+| `put the words "our beach house" on it` | `allowText` — one or two short handwritten-style phrases, nothing printed, nothing long |
+| `no people`, `without faces`, `no persons`… | read as a *refusal*, so nothing changes. The refusal check has to run first and per subject: "no people" contains the word "people", and a hint like "warm film, no text, a family in the background" asks for one thing while refusing another — one global "was anything refused" flag would have cancelled the family. |
+
+The dialog says both defaults out loud (`vb-defaults`), because an instruction the
+user cannot discover is one they will report as a bug when the board comes back
+without the people they wanted.
+
+`normalizeBoardPrompt` then scrubs the answer (code fences, a `Prompt:` label,
+wrapping quotes, markdown emphasis, a trailing "Let me know if you'd like
+changes!" — all a *reply to the user*, not part of the picture), and an unusable
+answer falls back to a deterministic prompt that asks for the same *kind* of
+picture. The record stores `promptSource`, `rules` and the negative prompt that was
+actually sent, so a board with a face in it is explainable rather than mysterious.
+
+### 25.2 Which goals — "all goals and/or just dream goals"
+
+The dialog asks before it spends, with the two sources the product already has
+words for: **🌟 Dreams** (Life-horizon goals) and **🎯 All goals**. Both can be
+picked, which makes two pictures and costs two credits — said out loud in the
+dialog (`1 image · 1 credit`). A source with no goals behind it is listed with
+"nothing here yet" and cannot be picked; if a scope comes back empty anyway (goals
+changed between the dialog opening and the request) it is **skipped and reported**,
+never failed — the other board is still made.
+
+Goals are read **server-side** from the caller's own store. The browser never posts
+its goal list, so a board cannot be made from someone else's goals or from a list
+that changed under the dialog. A goal that `failed` is never a subject, and neither
+is a goal with no title; the list is capped at 24 goals, longest horizon first, so
+the picture leads with the life rather than with this week (`truncated` is stored
+and shown as "N left out").
+
+### 25.3 One board per object
+
+Unlike the map and the review — single snapshots that get overwritten — boards are
+stored as **one `vision` item each** (slug `board-<stamp>-<scope>-<rand>`), because
+"look back at your boards" is the feature. The history has to be real objects rather
+than a rotating cache.
+
+Each record keeps what it was made from, not just what it looks like: the goals
+(slug, title, horizon), the prompt, the negative prompt, the model and seed, the
+image URL, its byte size, the storage record id, and whether the prompt came from
+the model or the fallback. The list entry carries the record (`toListEntry` includes
+`content` for `kind='vision'`), so the gallery is **one read** rather than a request
+per thumbnail.
+
+The picture itself is stored in S3 through the same path the dream covers and /net's
+`generate_image` use — and the bytes are recorded as a storage row, because without
+it every board would be stored for free and the plan's storage cap would quietly
+under-enforce.
+
+### 25.4 Spending, in order
+
+`LLM credit gate → image credit check → storage check → generate → upload → record →
+save`. A refusal writes the 402/413 the client already knows how to render (with
+`upgradeUrl: '/pricing'`), and nothing is spent. Both limiters apply to the route
+(`llmLimiter` + `imageGenLimiter`) since it spends both meters.
+
+The board is saved **server-side, in the request that draws it** — so a board exists
+even if the tab is closed mid-flight, and the browser never handles image bytes it
+would have to upload back.
+
+### 25.5 A storage bug this had to fix
+
+`DELETE /api/data/file/:s3Key` dropped a file from its storage row with
+`files.filter(file => file.s3Key !== s3Key)` — but only the newest writer stored
+`s3Key`. The cover upload and /net's image tool store `{ filename, contentType,
+size }`, so the filter matched **nothing** for them: the object went to S3's bin and
+its bytes stayed on the user's quota forever. Deleting a board would have hit the
+same wall.
+
+`utils/storageRecords.js` now owns the match — by `s3Key` when the entry has one, by
+the key's basename otherwise — plus the creator check (an id is guessable in a way
+an S3 key prefix is not). The file endpoint keeps its 401 for someone else's row;
+the board endpoint ignores that case, since its record id comes from the user's own
+board.
+
+**Verified live, not inferred:** after deleting a board, the storage row still
+exists with `files: []` (the bytes stopped counting), the CloudFront URL answers
+**403**, the board is gone from the list, and the response says
+`{"ok":true,"s3Deleted":true}`.
+
+### 25.6 Verified
+
+- **The whole path ran end to end on the guest account** (`scripts/test-vision-board.js`,
+  the diagnostic the feature ships with): `dream all` → **HTTP 200 in 13.9s**, one
+  board saved (`board-20260916-014117-all-553167`), and the empty scope reported as
+  `{scope:"dream", reason:"scope-empty"}` rather than thrown. The prompt the chat
+  model wrote from a single goal — *"A warm golden-hour beach scene where a man and
+  woman stand together in shallow turquoise water, her young child splashing nearby
+  with genuine joy, soft sunlight casting long shadows across wet sand…"* — drew a
+  1.9MB 16:9 photograph with no text in it, which is what the "no lettering" rule is
+  for.
+- **`--list` / `--delete` modes**: 1 board stored → deleted → 0 stored, `s3Deleted:
+  true`, image gone from CloudFront, storage row's `files` emptied. The guest account
+  was left as it was found (0 boards, one row with nothing in it — the same shape
+  every user's deleted board leaves behind).
+- Tests: `visionBoard.test.js` (backend, pure) 23/23 including the two rules that
+  matter most (no-lettering said twice; a chat-style reply scrubbed to a prompt),
+  `fileUploadStorageGate.test.js` 16/16 with a new case that fails without the
+  `filename` match, `visionBoardUtils.test.js` 17/17, `VisionBoards.test.jsx` 12/12 —
+  the Plans folder 115/115, backend unit suite **768/768** (53 suites). `vite build`
+  clean (828 modules).
+- **A bug only the live run could find**: `listGoals` was never imported in the
+  handler, so every request died at the goal read with a 502 while every unit test
+  passed — the pure service was fine and the endpoint had never been called. That is
+  the argument for the script existing at all.
+- Route reachable: `POST /api/data/csimple/vision-board` answers **401** without a
+  token.
+- **The prompt was then worked on against real boards, not against its own source.**
+  `scripts/test-vision-board.js --prompt <scope> "<steer>"` is the cheap loop for this:
+  it prints the brief, the resolved rules, the negative prompt and the image prompt
+  the chat model produced, and stops before the image — an LLM call instead of an
+  LLM call *plus* an image.
+  - After the board-look rule, a real guest board came back as *a pale linen pinboard
+    overlaid with pinned and taped photographs, torn edges, soft shadows* — with the
+    one person in it a fine silhouette on the shoreline, and no lettering. The two
+    things the user asked for, in one picture.
+  - The **second** board exposed the balance flaw (right half empty) and the third a
+    white margin of wall around the linen; both are now rules, so the fixes are
+    properties of the brief rather than lucky seeds.
+- Tests: `visionBoard.test.js` **32/32**, including the rules that keep this true —
+  the board-look clauses, no faces by default, `no persons` read as a refusal, a
+  refusal about one subject not cancelling a request for the other, and the two
+  defaults switching off *together* in the brief and the negative prompt.
 
 ---
 

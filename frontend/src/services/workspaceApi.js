@@ -177,6 +177,85 @@ export async function generateGoalMapViaBackend(token) {
 }
 
 /**
+ * Ask the backend to review the goal list and propose changes to it.
+ *
+ * The proposals (re-scopes, splits, plans, new goals) are STORED server-side as
+ * the `review/goal-review` item and applied later, in a batch — proposing and
+ * writing are separate acts on purpose. The backend caches the review for a few
+ * hours, so calling this on every loop start is cheap; pass `force` when the user
+ * explicitly asked to look again.
+ *
+ * @param {string} token - User JWT
+ * @param {{force?: boolean}} [opts]
+ * @returns {Promise<{ok: boolean, review: object|null, meta: object}>} `review`
+ *   is null when the account has no goals (nothing was generated, nothing spent).
+ */
+export async function generateGoalReviewViaBackend(token, { force = false } = {}) {
+  if (!token) throw new Error('Sign in required to review your goals');
+  let res;
+  try {
+    res = await fetch(`${getPortfolioApiUrl()}/csimple/goal-review`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ force: !!force }),
+    });
+  } catch (networkErr) {
+    throw new Error(`Network error: ${networkErr.message}`);
+  }
+  const text = await res.text().catch(() => '');
+  let json;
+  try { json = JSON.parse(text); } catch { json = null; }
+  if (!res.ok) {
+    const err = _errorFromResponse(res, json, text, `Review failed (${res.status})`);
+    if (json?.upgradeUrl) err.upgradeUrl = json.upgradeUrl;
+    if (json?.requiresUpgrade) err.requiresUpgrade = true;
+    throw err;
+  }
+  return json;
+}
+
+/**
+ * Apply a batch of staged proposals in one request.
+ *
+ * Done server-side rather than as a loop of PUTs from the browser: one call, one
+ * audit line, and a proposal that can't be applied (the goal was deleted since
+ * the review was taken) comes back in `skipped` with a reason instead of failing
+ * the batch halfway.
+ *
+ * @param {string} token - User JWT
+ * @param {string[]} ids - Proposal ids from the stored review
+ * @returns {Promise<{ok: boolean, applied: Array, skipped: Array, failures: Array,
+ *   counts: {goals: number, plans: number}, review: object}>}
+ */
+export async function applyGoalReviewViaBackend(token, ids) {
+  if (!token) throw new Error('Sign in required to apply a review');
+  if (!Array.isArray(ids) || ids.length === 0) throw new Error('Nothing staged to apply');
+  let res;
+  try {
+    res = await fetch(`${getPortfolioApiUrl()}/csimple/goal-review/apply`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ ids }),
+    });
+  } catch (networkErr) {
+    throw new Error(`Network error: ${networkErr.message}`);
+  }
+  const text = await res.text().catch(() => '');
+  let json;
+  try { json = JSON.parse(text); } catch { json = null; }
+  if (!res.ok) {
+    throw _errorFromResponse(res, json, text, `Apply failed (${res.status})`);
+  }
+  return json;
+}
+
+/**
  * Get LLM providers from the portfolio backend.
  */
 export async function getPortfolioLLMProviders(token) {

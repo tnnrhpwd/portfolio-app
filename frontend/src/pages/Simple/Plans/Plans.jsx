@@ -1194,6 +1194,7 @@ function Plans() {
               {isDreamView && (
                 <DreamBoard
                   goals={dreamGoals}
+                  allGoals={goals}
                   token={user?.token}
                   loading={loading}
                   onChanged={load}

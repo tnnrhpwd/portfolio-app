@@ -6,6 +6,9 @@ import React from 'react';
 
 import { logout } from '../../features/data/dataSlice';
 
+import TalkUnreadBadge from '../Simple/Talk/TalkUnreadBadge.jsx';
+import useTalkUnread from '../../hooks/useTalkUnread.js';
+
 import './dropper.css'
 import { canUseAdminConsole, isMuseVisitor as isMuseVisitorAllowed } from '../../constants/admin';
 
@@ -17,6 +20,10 @@ function HeaderDropper(props) {
   const [showHamburgerAnim, setShowHamburgerAnim] = useState(false);
   const toggleButtonRef = useRef(null);
   const insideComponentRef = useRef(null);
+
+  // The drawer is the only place on most pages that names Talk, so it is where
+  // the unread count lives — one poll for the site chrome (see the hook).
+  const unread = useTalkUnread();
 
   // Admin + muse gating is cosmetic (the backend independently enforces it via
   // middleware/adminAccess.js); the check prefers the server-provided isAdmin
@@ -98,7 +105,15 @@ function HeaderDropper(props) {
                 dropper's entry points at the front door — Talk is where you
                 connect and see who you can talk to. */}
             <Link className="dropper-link" to="/net" onClick={closeMenu}>Net</Link>
-            <Link className="dropper-link" to="/talk" onClick={closeMenu}>Talk</Link>
+            {/* The count is the one thing a drawer of destinations cannot say on
+                its own, and Talk is where an unread message is waiting. The
+                label stays a plain word — the badge is what carries the state. */}
+            <Link className="dropper-link" to="/talk" onClick={closeMenu}>
+              <span className="dropper-link__body">
+                Talk
+                <TalkUnreadBadge count={unread} />
+              </span>
+            </Link>
             {/* Also the phone route into Control, where the header switcher is
                 hidden for lack of room. */}
             <Link className="dropper-link" to="/simple" onClick={closeMenu}>Simple</Link>

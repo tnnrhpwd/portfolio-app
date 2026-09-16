@@ -158,6 +158,39 @@ async function agentVision({ prompt, imageBase64, mimeType, temperature, maxToke
     return json;
 }
 
+/**
+ * Ask the cloud to review the goal list ("work on my goals").
+ *
+ * The review is generated and STORED server-side, and is cached for a few hours
+ * unless `force` — so calling this before every loop start is cheap and is exactly
+ * how "review first, then work" is supposed to work: the caller does not have to
+ * know or care whether the stored review is still current, the backend decides.
+ *
+ * Best-effort by design: a review is a nice-to-have next to working the goals, so
+ * failures are the caller's to swallow, not a reason to block a run.
+ */
+async function requestGoalReview(force = false) {
+    const token = _tokenGetter();
+    if (!token) throw new Error('No auth token — sign in on the web app first, then try again.');
+    const url = `${BACKEND_URL}/api/data/csimple/goal-review`;
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ force: !!force }),
+    });
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch {}
+    if (!res.ok) {
+        const msg = json?.dataMessage || json?.message || json?.error || text || `backend error ${res.status}`;
+        const e = new Error(msg);
+        e.status = res.status;
+        if (json?.requiresUpgrade) e.requiresUpgrade = true;
+        throw e;
+    }
+    return json;
+}
+
 async function req(method, urlPath, body) {
     const token = _tokenGetter();
     if (!token) throw new Error('No auth token (sign in on the web app first)');
@@ -379,6 +412,7 @@ module.exports = {
     listLessons,
     getLesson,
     upsertLesson,
+    requestGoalReview,
     appendGoalAgentStep,
     compileNaturalViaBackend,
     editNaturalViaBackend,

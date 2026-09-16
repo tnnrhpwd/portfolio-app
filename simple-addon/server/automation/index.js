@@ -618,6 +618,15 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
     app.post('/api/agent/start', async (req, res) => {
         try {
             const { goalSlug } = req.body || {};
+            // "Review first, then work": ask the cloud to tidy the goal list as the
+            // loop starts. The backend returns the STORED review when it is still
+            // fresh, so this usually costs nothing — and it is fire-and-forget
+            // because a review is a bonus next to actually working the goals.
+            if (typeof wsClient.requestGoalReview === 'function') {
+                wsClient.requestGoalReview(false).catch((e) => {
+                    try { console.warn('[agent] goal review skipped:', e.message); } catch {}
+                });
+            }
             const loop = _getOrCreateLoop(goalSlug || null);
             const started = await loop.start(req.body || {});
             res.json({ ...started, poolSize: _agentPool.size + 1 });

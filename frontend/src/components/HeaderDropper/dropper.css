@@ -151,6 +151,16 @@
 .dropper-link:hover::after { opacity: 1; transform: translateX(0); }
 .dropper-link--strong { font-weight: var(--font-weight-semibold); }
 
+/* A link whose label carries a badge. The row is a `space-between` flex, so the
+   label group has to be ONE child to stay on the left with the arrow on the
+   right — and no `gap` here, because the badge brings its own spacing in text
+   flow, which is where it spends the rest of its life. */
+.dropper-link__body {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
 /* Theme toggle */
 .dropper-themebutton {
   font-family: inherit;

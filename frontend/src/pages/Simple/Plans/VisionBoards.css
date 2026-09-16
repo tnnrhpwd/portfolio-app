@@ -1,0 +1,356 @@
+/* ===========================================================================
+   Vision boards — the strip of past boards, and the dialogs around them
+   ---------------------------------------------------------------------------
+   Lives inside the 🌟 Dreams view, so it wears the same material as the tiles
+   below it (glass panes, no borders, no reveals) and adds no ground of its own.
+   See DreamBoard.css for the reasoning; this file only has to not fight it.
+
+   The strip is deliberately SUBORDINATE to the dream tiles: the tiles are the
+   page, the boards are a shelf above them. That is why the cards are small
+   images with a caption rather than full-width artwork — the moment a board is
+   the biggest thing on the view, the view stops being a board of dreams. Clicking
+   one opens it at full size instead.
+
+   A 16:9 thumbnail (the ratio the generator draws at) keeps every card the same
+   shape whether the picture is a single scene or a collage, and `aspect-ratio`
+   means the row cannot reflow while images load. */
+
+.vb {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.2);
+  padding: calc(var(--nav-size) * 0.24);
+  border-radius: var(--glass-radius);
+  background: var(--glass);
+  box-shadow: var(--glass-shadow);
+}
+
+/* ── Head ─────────────────────────────────────────────────────────────────── */
+
+.vb-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: calc(var(--nav-size) * 0.14);
+}
+.vb-title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+}
+.vb-meta {
+  font-size: var(--font-size-xs);
+  color: var(--plane-muted);
+  overflow-wrap: anywhere;
+}
+.vb-badge {
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--plane-muted);
+  white-space: nowrap;
+}
+
+/* ── The strip ────────────────────────────────────────────────────────────── */
+
+.vb-strip {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--nav-size) * 0.2);
+  /* Scrolls rather than wraps: a shelf of boards that grows downwards would push
+     the dreams off the screen, and the whole point of the strip is that the
+     boards are *not* the page. */
+  overflow-x: auto;
+  padding-bottom: calc(var(--nav-size) * 0.1);
+  scrollbar-width: thin;
+  scrollbar-color: var(--glass-sunken-strong) transparent;
+}
+.vb-strip::-webkit-scrollbar { height: 8px; }
+.vb-strip::-webkit-scrollbar-track { background: transparent; }
+.vb-strip::-webkit-scrollbar-thumb {
+  background: var(--glass-sunken-strong);
+  border-radius: 999px;
+}
+
+.vb-card {
+  flex: 0 0 auto;
+  width: min(220px, 42vw);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.1);
+}
+
+.vb-card-media {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  padding: 0;
+  border: none;
+  border-radius: calc(var(--glass-radius) * 0.7);
+  overflow: hidden;
+  cursor: zoom-in;
+  background: var(--glass-sunken-strong);
+  transition: transform 0.2s ease;
+}
+.vb-card-media img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.vb-card-media:hover { transform: translateY(-2px); }
+.vb-card-media:focus-visible {
+  outline: 2px solid var(--action, var(--scheme-primary));
+  outline-offset: 2px;
+}
+
+/* A board whose picture is gone: still a card, still deletable — which is
+   exactly what you want to do with it. */
+.vb-card-dead {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: var(--font-size-xs);
+  color: var(--plane-muted);
+}
+
+/* Over the artwork, so it needs its OWN opaque plane rather than a scrim — the
+   same rule the dream tile's badge follows, and for the same reason: board
+   imagery is arbitrary, and no translucent chip can promise contrast over it. */
+.vb-card-scope {
+  position: absolute;
+  bottom: calc(var(--nav-size) * 0.12);
+  left: calc(var(--nav-size) * 0.12);
+  padding: 2px calc(var(--nav-size) * 0.16);
+  border-radius: 999px;
+  background: var(--bg-1);
+  color: var(--text-color);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: var(--shadow-sm);
+}
+
+.vb-card-meta {
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+  color: var(--plane-muted);
+  overflow-wrap: anywhere;
+}
+
+.vb-more {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: calc(var(--nav-size) * 0.5) calc(var(--nav-size) * 0.2);
+  border: none;
+  border-radius: calc(var(--glass-radius) * 0.7);
+  background: var(--glass-sunken);
+  color: var(--text-color);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.vb-more:hover { background: var(--glass-hover); }
+
+/* ── Make dialog ──────────────────────────────────────────────────────────── */
+
+/* `.plans-modal` is the *destructive* confirm's shape, and it says so with a red
+   top border — the wrong signal on a dialog whose whole job is "make me
+   something". Re-coloured rather than re-implemented: the overlay, the entrance
+   animation, the focus and the Escape handling are all worth inheriting.
+
+   `max-height` + `overflow-y` because this dialog is taller than a confirm: on a
+   short window the centred card would otherwise be clipped at both ends, with no
+   way to reach the buttons. */
+.vb-dialog {
+  max-width: 460px;
+  max-height: 100%;
+  overflow-y: auto;
+  border-top-color: var(--action, var(--scheme-primary));
+  scrollbar-width: thin;
+  scrollbar-color: var(--glass-sunken-strong) transparent;
+}
+.vb-dialog::-webkit-scrollbar { width: 8px; }
+.vb-dialog::-webkit-scrollbar-thumb {
+  background: var(--glass-sunken-strong);
+  border-radius: 999px;
+}
+
+.vb-scopes {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.12);
+  margin: 0 0 calc(var(--nav-size) * 0.2);
+  padding: 0;
+  border: none;
+  text-align: left;
+}
+.vb-scopes-legend {
+  padding: 0 0 calc(var(--nav-size) * 0.08);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--plane-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.vb-scope {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: calc(var(--nav-size) * 0.14);
+  padding: calc(var(--nav-size) * 0.16) calc(var(--nav-size) * 0.2);
+  border-radius: calc(var(--glass-radius) * 0.6);
+  background: var(--glass-sunken);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.vb-scope.is-on { background: var(--glass-sunken-strong); }
+/* A scope with nothing in it is not an error — it is a door that isn't open yet,
+   so it stays visible (its count explains itself) and just can't be picked. */
+.vb-scope.is-empty { cursor: not-allowed; opacity: 0.7; }
+.vb-scope input { cursor: inherit; }
+.vb-scope-name { font-size: var(--font-size-small); font-weight: var(--font-weight-semibold); }
+.vb-scope-note { font-size: var(--font-size-xs); color: var(--plane-muted); white-space: nowrap; }
+
+/* The hint is a form field, so it reads left-aligned even though the dialog it
+   sits in centres its copy. */
+.vb-hint {
+  margin-bottom: calc(var(--nav-size) * 0.16);
+  text-align: left;
+}
+
+/* The two defaults, said out loud. Quieter than the cost line it sits above: the
+   cost is a decision, this is context for a field the user may leave empty. */
+.vb-defaults {
+  margin: 0 0 calc(var(--nav-size) * 0.12);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-relaxed);
+  color: var(--plane-muted);
+  text-align: left;
+}
+
+.vb-cost {
+  margin: 0 0 calc(var(--nav-size) * 0.16);
+  font-size: var(--font-size-xs);
+  color: var(--plane-muted);
+  text-align: left;
+}
+
+.vb-error {
+  margin: 0 0 calc(var(--nav-size) * 0.16);
+  font-size: var(--font-size-small);
+  color: var(--red0);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.vb-error a { color: inherit; text-decoration: underline; }
+
+/* ── One board, full size ─────────────────────────────────────────────────── */
+
+.vb-lightbox-overlay { align-items: center; }
+
+.vb-lightbox {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.2);
+  width: min(960px, 94vw);
+  max-height: 92vh;
+  padding: calc(var(--nav-size) * 0.24);
+  border-radius: var(--glass-radius);
+  background: var(--bg-1);
+  box-shadow: var(--glass-shadow);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--glass-sunken-strong) transparent;
+}
+.vb-lightbox::-webkit-scrollbar { width: 8px; }
+.vb-lightbox::-webkit-scrollbar-thumb {
+  background: var(--glass-sunken-strong);
+  border-radius: 999px;
+}
+
+.vb-light-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: calc(var(--glass-radius) * 0.7);
+  background: var(--glass-sunken-strong);
+}
+
+.vb-light-body {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--nav-size) * 0.16);
+  text-align: left;
+}
+.vb-light-meta {
+  margin: 0;
+  font-size: var(--font-size-small);
+  color: var(--plane-muted);
+  overflow-wrap: anywhere;
+}
+
+.vb-goal-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--nav-size) * 0.1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.vb-goal-chip {
+  display: inline-block;
+  padding: 2px calc(var(--nav-size) * 0.18);
+  border-radius: 999px;
+  background: var(--glass-sunken);
+  color: var(--text-color);
+  font-size: var(--font-size-xs);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+a.vb-goal-chip:hover { background: var(--glass-hover); }
+
+.vb-prompt summary {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--plane-muted);
+  cursor: pointer;
+}
+.vb-prompt p {
+  margin: calc(var(--nav-size) * 0.1) 0 0;
+  padding: calc(var(--nav-size) * 0.16);
+  border-radius: calc(var(--glass-radius) * 0.6);
+  background: var(--glass-sunken);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-relaxed);
+  /* The prompt is machine-written text; monospace keeps it legible as prose AND
+     marks it as something the model produced rather than copy written for you. */
+  font-family: ui-monospace, SFMono-Regular, 'Cascadia Code', Menlo, monospace;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* ── Motion + contrast ────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .vb-card-media,
+  .vb-scope,
+  .vb-more {
+    transition: none;
+  }
+  .vb-card-media:hover { transform: none; }
+}
+
+/* `high` is not a valid value for prefers-contrast (it parses as unknown and the
+   block never applies) — see frontend-css-gotchas.md. */
+@media (prefers-contrast: more) {
+  .vb-card-scope { box-shadow: none; }
+  .vb-card-meta,
+  .vb-meta,
+  .vb-cost { color: var(--text-color); }
+}

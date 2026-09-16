@@ -15,6 +15,7 @@ const { DynamoDBDocumentClient, UpdateCommand, QueryCommand, PutCommand } = requ
 const { randomUUID } = require('crypto');
 const { logger } = require('../utils/logger');
 const { checkStorageCapacity, invalidateStorageUsage } = require('../utils/storageTracker');
+const { removeRecordedFile } = require('../utils/storageRecords.js');
 const {
     INLINE_FILE_LIMITS,
     resolveAllowedFileTypes,
@@ -509,39 +510,36 @@ const deleteUploadedFile = asyncHandler(async (req, res) => {
 
         // If dataId provided, remove file reference from database
         if (dataId) {
-            const currentItem = await findItemById(dataId);
-
-            if (currentItem) {
-                // The S3-key prefix check above proves the *object* is the
-                // caller's, but says nothing about who owns the record being
-                // mutated — check that too before touching it.
-                if (creatorIdOf(currentItem) !== req.user.id) {
+            // One helper for every row shape: `files` entries are matched by
+            // `s3Key` when the writer stored one and by the key's basename
+            // otherwise. This used to filter on `file.s3Key` alone, which the
+            // cover and /net writers never stored — so their entries survived the
+            // delete and the bytes kept counting against the quota even though the
+            // object was gone (see utils/storageRecords.js). The creator check
+            // lives in there too: the S3-key prefix proves the *object* is the
+            // caller's and says nothing about who owns the row.
+            try {
+                const { removed, skipped } = await removeRecordedFile(dataId, s3Key, req.user.id);
+                if (skipped === 'not-yours') {
+                    // The object was the caller's, so it is already gone; the
+                    // record is not, and saying so beats a silent 200 that implies
+                    // the bytes were released.
                     const forbidden = new Error('User not authorized to update this item');
                     forbidden.statusCode = 401;
                     throw forbidden;
                 }
-
-                // Remove file from files array
-                const updatedFiles = (currentItem.files || []).filter(
-                    file => file.s3Key !== s3Key
-                );
-
-                const updateParams = {
-                    TableName: 'Simple',
-                    Key: { id: dataId, createdAt: currentItem.createdAt },
-                    UpdateExpression: 'SET files = :files, updatedAt = :updatedAt',
-                    ExpressionAttributeValues: {
-                        ':files': updatedFiles,
-                        ':updatedAt': new Date().toISOString()
-                    }
-                };
-
-                await dynamodb.send(new UpdateCommand(updateParams));
-
-                // The item's `files` shrank — re-derive rather than report the
-                // pre-delete total for the rest of the TTL window.
-                invalidateStorageUsage(req.user.id);
-                logger.debug(`File reference removed from data item ${dataId}`);
+                if (removed) {
+                    // The item's `files` shrank — re-derive rather than report the
+                    // pre-delete total for the rest of the TTL window.
+                    invalidateStorageUsage(req.user.id);
+                    logger.debug(`File reference removed from data item ${dataId}`);
+                }
+            } catch (e) {
+                // A deliberate 401 is the handler's answer, not a hiccup.
+                if (e.statusCode === 401) throw e;
+                // Otherwise the object is already gone; an accounting failure must
+                // not turn a successful delete into an error response.
+                logger.warn('[upload] storage record cleanup failed:', e.message);
             }
         }
 

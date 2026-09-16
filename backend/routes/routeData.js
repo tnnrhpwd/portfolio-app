@@ -110,6 +110,10 @@ const {
   compileMacroNatural,
   editMacroNatural,
   generateGoalMap,
+  generateGoalReview,
+  applyGoalReview,
+  generateVisionBoard,
+  deleteVisionBoard,
   agentChatProxy,
   agentVisionProxy,
 } = require('../controllers/workspaceController');
@@ -744,6 +748,20 @@ router.post('/csimple/edit-natural', protect, llmLimiter, sanitizeInput, editMac
 // Reads the goals server-side and stores the result as kind `map` (slug
 // `goal-map`), so the view's "Update" is the only thing that spends a credit.
 router.post('/csimple/goal-map', protect, llmLimiter, sanitizeInput, generateGoalMap);
+// "Work on my goals" — a review pass that proposes changes to the goal list
+// (scope, splits, plans, new goals), cached for 6h unless `force`. The proposals
+// are stored in kind=`review` (slug `goal-review`) and applied in a BATCH by the
+// second route, so proposing and writing are separate acts.
+router.post('/csimple/goal-review', protect, llmLimiter, sanitizeInput, generateGoalReview);
+router.post('/csimple/goal-review/apply', protect, workspaceWriteLimiter, sanitizeInput, applyGoalReview);
+// Vision boards — one generated picture per scope (dreams / all goals). Three
+// metered steps in one request: the chat model writes the image prompt, the image
+// model draws it, and the picture is stored so the board can be looked back at.
+// Both limiters apply: it spends an LLM call AND an image credit.
+router.post('/csimple/vision-board', protect, llmLimiter, imageGenLimiter, sanitizeInput, generateVisionBoard);
+// Deleting a board removes its workspace item, its S3 object and the storage row
+// that counted its bytes — the generic workspace DELETE would orphan the image.
+router.delete('/csimple/vision-board/:slug', protect, workspaceWriteLimiter, deleteVisionBoard);
 // §7.1 addon LLM provider seam backend routes — the Simple Addon's agent
 // loop / skill repair / vision lookups ALWAYS proxy through these (never a
 // direct LLM call from the addon). See simple-addon/server/automation/llm-provider.js.

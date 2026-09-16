@@ -902,6 +902,16 @@ class AgentLoop {
         this.state.lastMeta = summary;
         this._publish('agent.meta', { goalSlug: this.state.currentGoal?.slug, step: this.state.step, summary });
         this.log(`[agent] meta reflection at step ${this.state.step}`);
+
+        // ...and the same cadence re-reads the GOAL LIST, not just this run. The
+        // backend TTL (6h) is what keeps this from being an LLM call every 50
+        // steps — and it is what the /simple review panel reads back, so a long
+        // run keeps that panel current without anyone pressing a button.
+        if (typeof this.wsClient?.requestGoalReview === 'function') {
+            this.wsClient.requestGoalReview(false).catch((e) => {
+                this.log('[agent] periodic goal review skipped:', e.message);
+            });
+        }
     }
 
     /**

@@ -54,6 +54,7 @@ import {
 } from './plansUtils';
 import { DREAM_COVERS, coverSource } from './dreamCovers';
 import { downscaleImageFile } from './dreamBoardUtils';
+import VisionBoards from './VisionBoards.jsx';
 import './DreamBoard.css';
 
 const PRIORITY_OPTIONS = ['low', 'medium', 'high'];
@@ -102,6 +103,10 @@ function formFromGoal(item) {
 
 function DreamBoard({
   goals,
+  // Every goal, dreams included. Only the vision-board dialog needs it ("which
+  // goals should the board be made from?"), and it must NOT filter the tiles —
+  // the board is the Life-horizon view, and that is the whole point of it.
+  allGoals,
   token,
   loading,
   onChanged,
@@ -115,12 +120,17 @@ function DreamBoard({
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const [form, setForm] = useState(null);
+  const [boardOpen, setBoardOpen] = useState(false);
   // Cover objects this form session uploaded, so an abandoned form can clean up
   // after itself instead of leaving them on the user's storage bill.
   const uploadsRef = useRef([]);
 
   const tiles = useMemo(() => dreamTiles(goals, filter, search), [goals, filter, search]);
   const hasFilters = Boolean(search) || filter !== 'all';
+  // `allGoals` is the page's full list; when a caller doesn't pass one (tests,
+  // or a future embedding) the board's own goals are the honest fallback rather
+  // than zero, which would disable the button for no reason.
+  const totalGoals = (allGoals || goals || []).length;
   const achievedCount = useMemo(
     () => (goals || []).filter((g) => g?.data?.status === 'done' || g?.data?.status === 'completed').length,
     [goals],
@@ -238,11 +248,37 @@ function DreamBoard({
             )}
           </div>
 
+          {/* One picture of the whole board, drawn from the goals themselves.
+              Sits with `+ New dream` rather than in its own panel because this is
+              the moment the user is thinking about their board as a board — and
+              ahead of it in the DOM so the primary action stays rightmost. */}
+          <button
+            type="button"
+            className="plans-btn plans-btn--ghost dream-vision"
+            onClick={() => setBoardOpen(true)}
+            disabled={!token || totalGoals === 0}
+            title={totalGoals === 0
+              ? 'Add a goal or two first — a vision board is made from your goals'
+              : 'Turn your goals into one picture, saved to your account'}
+          >
+            🖼️ Make vision board
+          </button>
+
           <button type="button" className="plans-btn plans-btn--primary dream-new" onClick={openCreate}>
             + New dream
           </button>
         </div>
       </div>
+
+      {/* The boards already made, and the dialog that makes a new one. Both live
+          in one component: the gallery is what makes a board worth keeping. */}
+      <VisionBoards
+        token={token}
+        dreamCount={goals.length}
+        allCount={totalGoals}
+        open={boardOpen}
+        onOpenChange={setBoardOpen}
+      />
 
       {form && (
         <DreamForm

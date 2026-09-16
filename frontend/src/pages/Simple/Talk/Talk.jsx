@@ -21,6 +21,7 @@ import {
   relativeTime,
   requestBudgetHint,
 } from '../../../utils/talkUtils.js';
+import { publishTalkUnread, sumUnread } from '../../../utils/talkUnread.js';
 import { profilePath } from '../../../utils/userProfileUtils.js';
 import useAvatars from '../../../hooks/useAvatars.js';
 import './Talk.css';
@@ -124,9 +125,16 @@ function Talk() {
   const pendingOut = directory?.pendingOut || [];
   const contacts = directory?.contacts || [];
   const unreadTotal = useMemo(
-    () => contacts.reduce((sum, c) => sum + (Number(c.unread) || 0), 0),
+    () => sumUnread(contacts),
     [contacts]
   );
+
+  // The toolbar's own readout IS the freshest count on the page, so the site's
+  // badges (the header drawer, a member page's Talk buttons) read it from here
+  // instead of asking for the same dashboard again.
+  useEffect(() => {
+    if (token && directory) publishTalkUnread(token, unreadTotal);
+  }, [token, directory, unreadTotal]);
 
   // Only for CONNECTIONS. A pending request is not a connection yet, so the
   // server would skip it anyway (that gate is what makes "you only see the face

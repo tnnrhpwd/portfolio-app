@@ -301,8 +301,33 @@ describe('deleteUploadedFile — detaching from an existing record', () => {
         expect(res.status).toHaveBeenCalledWith(200);
     });
 
-    test("refuses to detach from another user's record", async () => {
-        mockSend.mockResolvedValueOnce({ Items: [{ ...OWNED_ROW, text: 'Creator:someone-else|hi' }] });
+    test('drops an entry that names the file by basename instead of by key', async () => {
+        // The cover upload and /net's image tool write `{ filename, size }` with
+        // no `s3Key`, so the old filter (`file.s3Key !== s3Key`) matched nothing:
+        // the object went to /dev/null and its bytes stayed on the user's quota
+        // forever. This is that case, and the entry has to go.
+        const basenameRow = {
+            ...OWNED_ROW,
+            files: [
+                { filename: 'x.png', contentType: 'image/png', size: 1024 },
+                { filename: 'y.png', contentType: 'image/png', size: 2048 },
+            ],
+        };
+        mockSend
+            .mockResolvedValueOnce({ Items: [basenameRow] })
+            .mockResolvedValueOnce({});
+        const res = mockRes();
+
+        await deleteUploadedFile(req('d1'), res);
+
+        const update = mockSend.mock.calls[1][0];
+        expect(update.input.ExpressionAttributeValues[':files']).toEqual([
+            { filename: 'y.png', contentType: 'image/png', size: 2048 },
+        ]);
+        expect(res.status).toHaveBeenCalledWith(200);
+    });
+
+    test("refuses to detach from another user's record", async () => {        mockSend.mockResolvedValueOnce({ Items: [{ ...OWNED_ROW, text: 'Creator:someone-else|hi' }] });
         const res = mockRes();
 
         await deleteUploadedFile(req('d1'), res);

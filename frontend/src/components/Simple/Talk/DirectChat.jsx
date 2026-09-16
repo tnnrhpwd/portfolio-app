@@ -8,8 +8,10 @@ import {
 } from '../../../services/messengerApi.js';
 import { TALK_LIMITS_FALLBACK, messengerErrorMessage } from '../../../utils/talkUtils.js';
 import useAvatars from '../../../hooks/useAvatars.js';
+import useTalkUnread from '../../../hooks/useTalkUnread.js';
 import { profilePath } from '../../../utils/userProfileUtils.js';
 import TalkAvatar from './TalkAvatar.jsx';
+import TalkUnreadBadge from './TalkUnreadBadge.jsx';
 // The AI chat's frame, imported on purpose: this component wears `ChatWindow`'s
 // classes so the two panes are the same UI rather than two that look alike.
 import '../../SimpleAddon/ChatWindow.css';
@@ -57,6 +59,9 @@ function stampOf(sentAt) {
  */
 function DirectChat({ peerId, user, isSidebarOpen = false, onToggleSidebar }) {
   const token = user?.token;
+
+  // Both dead ends below offer a way back to Talk, so both carry the count.
+  const unread = useTalkUnread();
 
   const [peer, setPeer] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -234,7 +239,10 @@ function DirectChat({ peerId, user, isSidebarOpen = false, onToggleSidebar }) {
         <div className="chat-window__empty">
           <h2>Can&apos;t open that conversation</h2>
           <p>{error}</p>
-          <Link className="chat-window__suggestion" to="/talk">Back to Talk</Link>
+          <Link className="chat-window__suggestion" to="/talk">
+            Back to Talk
+            <TalkUnreadBadge count={unread} />
+          </Link>
         </div>
       </div>,
     );
@@ -249,7 +257,10 @@ function DirectChat({ peerId, user, isSidebarOpen = false, onToggleSidebar }) {
             You are not connected with {peer.nickname} yet, so there is nothing to say here.
             Send them a request from Talk and this page becomes your conversation.
           </p>
-          <Link className="chat-window__suggestion" to="/talk">↗ Go to Talk</Link>
+          <Link className="chat-window__suggestion" to="/talk">
+            ↗ Go to Talk
+            <TalkUnreadBadge count={unread} />
+          </Link>
         </div>
       </div>,
     );

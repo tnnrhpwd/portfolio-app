@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom';
 import { getLocalModels, testAddonConnection, runAddonSingleClickUpdate } from '../../services/simpleAddonApi';
 import { getMessengerDirectory } from '../../services/messengerApi.js';
 import useAvatars from '../../hooks/useAvatars.js';
+import { publishTalkUnread, sumUnread } from '../../utils/talkUnread.js';
 import TalkAvatar from '../Simple/Talk/TalkAvatar.jsx';
+import TalkUnreadBadge from '../Simple/Talk/TalkUnreadBadge.jsx';
 import { ADDON_DOWNLOAD_URL } from '../../hooks/simpleAddon/useAddonDetection';
 import { cloudModelChoicePatch, cloudProviderSummary } from '../../utils/llmProviderOptions.js';
 import { DEFAULT_LOCAL_PROVIDER, providerLabel } from '../../constants/aiModel.js';
@@ -172,6 +174,15 @@ function Sidebar({
     // on the server — the rail should show that without waiting for a reload.
   }, [messengerToken, activePeerId]);
 
+  const unreadTotal = useMemo(() => sumUnread(people), [people]);
+
+  // The rail is already holding the dashboard, so the SITE's badges (the header
+  // drawer, a member page's Talk buttons) read the count from here instead of
+  // asking the server for the same payload a second time on every page.
+  useEffect(() => {
+    if (messengerToken) publishTalkUnread(messengerToken, unreadTotal);
+  }, [messengerToken, unreadTotal]);
+
   // Fetch local models from addon when connected
   useEffect(() => {
     if (isAddonConnected) {
@@ -280,7 +291,10 @@ function Sidebar({
                 {people.length === 0 ? (
                   <p className="sidebar__people-empty">
                     No conversations with anyone yet.{' '}
-                    <Link className="sidebar__people-link" to="/talk">Find someone →</Link>
+                    <Link className="sidebar__people-link" to="/talk">
+                      Find someone →
+                      <TalkUnreadBadge count={unreadTotal} />
+                    </Link>
                   </p>
                 ) : (
                   people.map((person) => (
@@ -310,6 +324,7 @@ function Sidebar({
                 )}
                 <Link className="sidebar__people-manage" to="/talk" onClick={onClose}>
                   Connections on Talk →
+                  <TalkUnreadBadge count={unreadTotal} />
                 </Link>
               </div>
             )}

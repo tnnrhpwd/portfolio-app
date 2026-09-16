@@ -26,6 +26,7 @@ const { logger } = require('../utils/logger');
 
 require('dotenv').config();
 const asyncHandler = require('express-async-handler');
+const { randomUUID } = require('crypto');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const {
     DynamoDBDocumentClient,
@@ -161,6 +162,14 @@ const ALLOWED_KINDS = new Set([
                   // (slug `goal-map`), written server-side by generateGoalMap and
                   // read back through the ordinary workspace GET. The payload is
                   // { categories, nodes, stats } as JSON in `content`.
+    'review',     // the "work on my goals" pass: proposed changes to the goal
+                  // list (slug `goal-review`), also written server-side and
+                  // applied in a batch through /csimple/goal-review/apply.
+    'vision',     // generated vision boards — one item PER board (slug
+                  // `board-<stamp>-<scope>`), written server-side by
+                  // generateVisionBoard. The payload is the board record as JSON
+                  // in `content`: the image URL, the prompt that produced it, and
+                  // the goals it was made from.
 ]);
 
 // Allowed goal lifecycle states.
@@ -214,6 +223,8 @@ const KIND_SIZE_CAP_BYTES = {
     settings:  8 * 1024,
     lesson:    16 * 1024,
     map:       64 * 1024, // ~120 nodes plus categories; see CATEGORY_MAX/GOAL_MAX
+    review:    32 * 1024, // ~10 proposals + 5 lessons, each with a one-line why
+    vision:    32 * 1024, // one board record: image URL, prompt, source goals
 };
 
 // Hard cap on an `action` item's text — older entries trimmed when exceeded.
@@ -362,6 +373,11 @@ function toListEntry(item) {
         sizeBytes: item.sizeBytes || 0,
         version: item.version || 1,
         updatedAt: item.updatedAt || item.createdAtReal || null,
+        // A board's pictures ARE the list: the gallery shows every past board
+        // from one read, and each entry has to carry its own image URL, prompt
+        // and provenance. A per-board GET would be one request per thumbnail.
+        // Bounded by KIND_SIZE_CAP_BYTES.vision, so this cannot balloon.
+        ...(item.kind === 'vision' ? { content: item.text || '' } : {}),
         // Goal-specific surface (null for non-goals; cheap to include):
         status: item.status || null,
         priority: typeof item.priority === 'number' ? item.priority : null,
@@ -1447,6 +1463,750 @@ const generateGoalMap = asyncHandler(async (req, res) => {
     });
 });
 
+// ─── "Work on my goals" — the review pass ───────────────────────────────────
+//
+// Unlike the map (which draws what you have), this one questions it: a goal
+// aimed at the wrong horizon, an aim with no steps under it, a goal with nothing
+// to work from, a goal that implies another one. The proposals are STORED and
+// applied in a batch later, so the pass and the writes are separate acts.
+//
+// Staleness is decided here rather than at each caller: the loop asks for a
+// review before it starts and again periodically (see the addon's meta
+// reflection), and neither should pay for a fresh LLM pass when the stored one is
+// minutes old. `force: true` is the explicit refresh.
+
+/** The single workspace slug the stored review lives under (one per user). */
+const GOAL_REVIEW_SLUG = 'goal-review';
+/** How long a stored review counts as current. */
+const GOAL_REVIEW_TTL_MS = 6 * 60 * 60 * 1000;
+
+/** Read the stored review, or null. Never throws — a corrupt blob is "none". */
+async function _readGoalReview(userId) {
+    try {
+        const { Item } = await dynamodb.send(new GetCommand({
+            TableName: TABLE_NAME,
+            Key: { id: itemId(userId, 'review', GOAL_REVIEW_SLUG), createdAt: CSIMPLE_CREATED_AT },
+        }));
+        if (!Item?.text) return null;
+        const parsed = JSON.parse(Item.text);
+        return parsed && Array.isArray(parsed.items) ? { ...parsed, updatedAt: Item.updatedAt } : null;
+    } catch (e) {
+        logger.warn('[goal-review] read failed:', e.message);
+        return null;
+    }
+}
+
+/** Store the review. Same deliberate separation as _writeGoalMap: the server's
+ *  own write, not the client-facing upsert. */
+async function _writeGoalReview(userId, payload) {
+    const text = JSON.stringify(payload);
+    const sizeBytes = Buffer.byteLength(text, 'utf-8');
+    if (sizeBytes > KIND_SIZE_CAP_BYTES.review) {
+        logger.warn('[goal-review] payload over cap; not stored', { sizeBytes });
+        return false;
+    }
+    const id = itemId(userId, 'review', GOAL_REVIEW_SLUG);
+    const { Item: existing } = await dynamodb.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { id, createdAt: CSIMPLE_CREATED_AT },
+    }));
+    const now = new Date().toISOString();
+    await dynamodb.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: {
+            id,
+            createdAt: CSIMPLE_CREATED_AT,
+            kind: 'review',
+            slug: GOAL_REVIEW_SLUG,
+            name: 'Goal review',
+            text,
+            sizeBytes,
+            version: (existing?.version || 0) + 1,
+            createdAtReal: existing?.createdAtReal || now,
+            updatedAt: now,
+        },
+    }));
+    return true;
+}
+
+// @desc    Review the caller's goals and propose changes to them.
+//          Cached for GOAL_REVIEW_TTL_MS unless `force` — the loop asks for this
+//          on every start, and a fresh LLM pass each time would be a tax on
+//          pressing Start.
+// @route   POST /api/data/csimple/goal-review
+// @access  Private
+const generateGoalReview = asyncHandler(async (req, res) => {
+    if (!req.user) return unauthorized(res);
+
+    const force = req.body?.force === true;
+    const { listGoals } = require('../services/workspaceGoals');
+    const { selectGoalsForReview, buildGoalReviewPrompt, normalizeGoalReview } = require('../services/goalReview');
+
+    const stored = await _readGoalReview(req.user.id);
+    if (!force && stored?.generatedAt) {
+        const age = Date.now() - Date.parse(stored.generatedAt);
+        // A stored review with nothing left to apply is not worth returning: the
+        // user has already dealt with it, so the next ask deserves a fresh look.
+        if (Number.isFinite(age) && age < GOAL_REVIEW_TTL_MS && stored.items.length) {
+            return res.status(200).json({ ok: true, review: stored, meta: { cached: true, ageMs: age } });
+        }
+    }
+
+    let all;
+    try {
+        all = await listGoals(req.user.id);
+    } catch (e) {
+        logger.error('[goal-review] goal read failed:', e.message);
+        res.status(502);
+        throw new Error('Could not read your goals right now. Try again in a moment.');
+    }
+
+    if (!all.length) {
+        return res.status(200).json({ ok: true, review: null, meta: { reason: 'no-goals' } });
+    }
+
+    const selection = selectGoalsForReview(all);
+    const prompt = buildGoalReviewPrompt(selection.goals);
+
+    const estimate = { inputTokens: Math.ceil(prompt.length / 4), outputTokens: 2000 };
+    const gate = await _enforceLlmCreditGate(req, res, estimate);
+    if (!gate) return; // 402 already written
+
+    let parsed;
+    let usage = null;
+    try {
+        const { createBedrockCompletion } = require('../services/bedrockService');
+        const response = await createBedrockCompletion([
+            {
+                role: 'system',
+                content: 'You review a person\'s goal list and propose concrete, executable changes to it. Output only valid JSON, with no prose and no code fences.',
+            },
+            { role: 'user', content: prompt },
+        ], { temperature: 0.2, maxTokens: 3000 });
+        usage = response?.usage || null;
+
+        const raw = response?.choices?.[0]?.message?.content || '';
+        const match = raw.match(/\{[\s\S]*\}/);
+        if (!match) throw new Error('the model returned no JSON');
+        parsed = JSON.parse(match[0]);
+    } catch (e) {
+        if (e.code === 'BEDROCK_THROTTLED') {
+            res.status(429);
+            throw new Error('Bedrock is rate limiting requests right now. Please wait a minute and try again.');
+        }
+        if (e.code === 'BEDROCK_ACCESS_DENIED') {
+            res.status(502);
+            throw new Error('Bedrock model access not enabled for this AWS account/region. An operator needs to enable "Claude Haiku 4.5" in the Bedrock console (us-east-1) and grant bedrock:InvokeModel to the backend\'s IAM user.');
+        }
+        if (e.code === 'BEDROCK_USE_CASE_NOT_SUBMITTED') {
+            res.status(502);
+            throw new Error('Anthropic requires a one-time "use case details" form before this AWS account can invoke Claude models on Bedrock. An operator needs to open the Bedrock console model catalog, select Claude Haiku 4.5, and submit the form (access is granted within a few minutes).');
+        }
+        logger.warn('[goal-review] generation failed:', e.message);
+        res.status(502);
+        throw new Error('The review could not be generated. Try again in a moment.');
+    }
+
+    const normalized = normalizeGoalReview(parsed, selection.goals);
+
+    // A review with no proposals is a legitimate answer ("your list is fine") and
+    // is stored as such — but it must not be cached, because the whole point of
+    // pressing the button again is to look again.
+    const payload = {
+        version: 1,
+        generatedAt: new Date().toISOString(),
+        items: normalized.items,
+        lessons: normalized.lessons,
+        stats: {
+            ...normalized.stats,
+            totalGoals: selection.total,
+            truncated: selection.truncated,
+        },
+    };
+
+    await _trackAgentLlmUsage(req, { usage });
+
+    let saved = true;
+    try {
+        saved = await _writeGoalReview(req.user.id, payload);
+    } catch (e) {
+        logger.warn('[goal-review] persist failed:', e.message);
+        saved = false;
+    }
+
+    res.status(200).json({
+        ok: true,
+        review: payload,
+        meta: { cached: false, saved, truncated: selection.truncated, totalGoals: selection.total },
+    });
+});
+
+// @desc    Apply a batch of staged proposals from the stored review.
+//          Server-side (not a browser loop of PUTs) so a batch is one request
+//          and one audit trail, and so the addon can trigger it too.
+// @route   POST /api/data/csimple/goal-review/apply
+// @access  Private
+const applyGoalReview = asyncHandler(async (req, res) => {
+    if (!req.user) return unauthorized(res);
+
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.map((id) => String(id)).slice(0, 50) : [];
+    if (!ids.length) badRequest(res, 'ids must be a non-empty array of proposal ids');
+
+    const stored = await _readGoalReview(req.user.id);
+    if (!stored) { res.status(404); throw new Error('No stored review — run the review first.'); }
+
+    const staged = stored.items.filter((item) => ids.includes(item.id));
+    if (!staged.length) {
+        res.status(404);
+        throw new Error('None of those proposals are in the stored review — it may have been refreshed. Reload and try again.');
+    }
+
+    const { listGoals, upsertGoal } = require('../services/workspaceGoals');
+    const { planReviewApplication } = require('../services/goalReview');
+    const { createMemoryItem } = require('../services/memoryService');
+
+    const goals = await listGoals(req.user.id);
+    const { writes, skipped } = planReviewApplication(staged, goals);
+
+    const applied = [];
+    const failures = [];
+    let goalsCreated = 0;
+    let plansCreated = 0;
+
+    for (const write of writes) {
+        try {
+            if (write.op === 'goal-horizon') {
+                const goal = goals.find((g) => g.slug === write.goalSlug);
+                await upsertGoal(req.user.id, {
+                    name: goal?.name || write.goalSlug,
+                    content: goal?.content || '',
+                    horizon: write.horizon,
+                });
+                applied.push({ id: `horizon:${write.goalSlug}`, op: write.op, goalSlug: write.goalSlug, horizon: write.horizon });
+            } else if (write.op === 'goal-split') {
+                for (const child of write.children) {
+                    // Each child is a real goal, parented to the aim it came from
+                    // — the link is what makes a split visible as one goal
+                    // becoming several on /plans.
+                    await upsertGoal(req.user.id, {
+                        name: child.title,
+                        content: child.description || child.title,
+                        horizon: child.horizon,
+                        status: 'active',
+                        parentGoalId: write.goalSlug,
+                        createdBy: 'agent',
+                    });
+                    goalsCreated += 1;
+                }
+                applied.push({ id: `split:${write.goalSlug}`, op: write.op, goalSlug: write.goalSlug, created: write.children.length });
+            } else if (write.op === 'plan-create') {
+                const plan = await createMemoryItem(req.user.id, 'plan', {
+                    title: write.title,
+                    goalId: write.goalSlug,
+                    status: 'active',
+                    description: write.steps.map((s, i) => `${i + 1}. ${s}`).join('\n'),
+                });
+                plansCreated += 1;
+                applied.push({ id: `plan:${write.goalSlug}`, op: write.op, goalSlug: write.goalSlug, planId: plan?._id || null });
+            } else if (write.op === 'goal-create') {
+                const created = await upsertGoal(req.user.id, {
+                    name: write.title,
+                    content: write.content || write.title,
+                    horizon: write.horizon,
+                    status: 'active',
+                    createdBy: 'agent',
+                });
+                goalsCreated += 1;
+                applied.push({ id: `new-goal:${created?.slug || write.title}`, op: write.op, goalSlug: created?.slug || null });
+            }
+        } catch (e) {
+            logger.warn('[goal-review] apply failed:', write.op, e.message);
+            failures.push({ op: write.op, goalSlug: write.goalSlug || null, error: e.message });
+        }
+    }
+
+    // Mark what landed so the panel stops offering it, and keep the rest. The
+    // list is kept rather than emptied: "what did this review actually do" is
+    // worth being able to answer later.
+    const appliedIds = new Set(staged.map((item) => item.id));
+    const nextStored = {
+        ...stored,
+        items: stored.items.filter((item) => !appliedIds.has(item.id)),
+        applied: [
+            ...(Array.isArray(stored.applied) ? stored.applied : []),
+            ...applied.map((a) => ({ ...a, at: new Date().toISOString() })),
+        ].slice(-50),
+    };
+    try {
+        await _writeGoalReview(req.user.id, nextStored);
+    } catch (e) {
+        logger.warn('[goal-review] could not remove applied proposals:', e.message);
+    }
+
+    auditLog(req.user.id, 'update', { kind: 'review', slug: GOAL_REVIEW_SLUG, applied: applied.length });
+
+    res.status(200).json({
+        ok: true,
+        applied,
+        skipped,
+        failures,
+        counts: { goals: goalsCreated, plans: plansCreated },
+        review: nextStored,
+    });
+});
+
+// ─── Vision boards ──────────────────────────────────────────────────────────
+//
+// One generated picture that stands for the life the user is aiming at, made
+// from their goals. Two models, in this order, because they do different jobs:
+//
+//   1. the chat model turns the goals into an IMAGE PROMPT (services/visionBoard.js
+//      owns exactly what it is asked and what is done with the answer);
+//   2. the image model draws it.
+//
+// The image is stored in S3 and the board is stored as a `vision` workspace item,
+// one PER board — unlike the map and the review, which are single overwritten
+// snapshots. "Look back at your boards" is the feature, so the history has to be
+// real objects rather than a rotating cache.
+//
+// Spending is explicit and in order: LLM credit gate → image credit check →
+// storage check → generate → upload → record bytes → save the board. A board is
+// never stored without its image, and bytes are never counted twice.
+
+/** Conservative per-image estimate for the storage pre-check (SD3.5 PNGs ~1.5MB). */
+const VISION_BOARD_ESTIMATED_BYTES = 1600000;
+
+/**
+ * The looks the user's last few boards already used, newest first.
+ *
+ * A board's look is chosen so that no two boards in a gallery are the same wall
+ * (`pickBoardStyle`), which means the choice has to know what came before it. This
+ * is that memory, and it is deliberately cheap: a projection-only scan that reads
+ * the `style` attribute and nothing else. Reading the boards themselves would pull
+ * up to 32KB of record JSON per board — a thumbnail gallery's worth of payload —
+ * just to answer "which colours have we used lately".
+ *
+ * Bounded in pages as well as in results, and it never throws: a failed read
+ * simply means this board is picked without the history, which is a worse-looking
+ * board, not a broken request.
+ *
+ * @returns {Promise<string[]>} style ids, newest first
+ */
+async function _recentBoardStyles(userId, limit) {
+    const { STYLE_MEMORY } = require('../services/visionBoard');
+    const cap = limit || STYLE_MEMORY;
+    try {
+        const rows = [];
+        let lastEvaluatedKey;
+        for (let page = 0; page < 5; page += 1) {
+            // eslint-disable-next-line no-await-in-loop
+            const result = await dynamodb.send(new ScanCommand({
+                TableName: TABLE_NAME,
+                FilterExpression: 'begins_with(id, :prefix) AND attribute_exists(#style)',
+                ExpressionAttributeNames: { '#style': 'style' },
+                ExpressionAttributeValues: { ':prefix': userPrefix(userId, 'vision') },
+                ProjectionExpression: 'slug, #style, updatedAt',
+                ...(lastEvaluatedKey ? { ExclusiveStartKey: lastEvaluatedKey } : {}),
+            }));
+            if (result.Items) rows.push(...result.Items);
+            lastEvaluatedKey = result.LastEvaluatedKey;
+            if (!lastEvaluatedKey) break;
+        }
+        // The slug carries the timestamp (`board-<stamp>-<scope>-<rand>`), so
+        // ordering by it is ordering by when the board was made.
+        rows.sort((a, b) => String(b.slug || '').localeCompare(String(a.slug || '')));
+        const seen = [];
+        for (const row of rows) {
+            const id = typeof row.style === 'string' ? row.style : row.style?.id;
+            if (!id || seen.includes(id)) continue;
+            seen.push(id);
+            if (seen.length >= cap) break;
+        }
+        return seen;
+    } catch (e) {
+        logger.warn('[vision-board] could not read recent board styles:', e.message);
+        return [];
+    }
+}
+
+/** The user's total just grew by an image — the cached figure is now wrong. */
+function _invalidateStorage(userId) {
+    try {
+        const { invalidateStorageUsage } = require('../utils/storageTracker');
+        invalidateStorageUsage(userId);
+    } catch (e) {
+        logger.warn('[vision-board] storage cache invalidation failed:', e.message);
+    }
+}
+
+/**
+ * Record the uploaded image as a storage row, the same lightweight shape /net's
+ * `generate_image` and the cover upload write. Without it `getUserStorageUsage()`
+ * never counts these bytes and every board would be stored for free.
+ *
+ * `s3Key` is repeated in the row (the other two callers only store a basename) so
+ * deleting a board can find and drop this exact entry instead of guessing.
+ */
+async function _recordBoardImage(userId, { s3Key, url, bytes, contentType, prompt, modelId }) {
+    const now = new Date().toISOString();
+    const recordId = `vision_board_${userId}_${Date.now()}_${randomUUID().slice(0, 8)}`;
+    await dynamodb.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: {
+            id: recordId,
+            text: `Creator:${userId}|VisionBoard|${JSON.stringify({
+                s3Key, url, bytes, model: modelId, prompt: String(prompt || '').slice(0, 200), createdAt: now,
+            })}`,
+            files: [{
+                filename: s3Key.split('/').pop(),
+                s3Key,
+                contentType,
+                size: bytes,
+            }],
+            createdAt: now,
+            updatedAt: now,
+        },
+    }));
+    return recordId;
+}
+
+/** Store one board. Same deliberate separation as _writeGoalMap/_writeGoalReview:
+ *  the server writes its own kind, not through the client-facing upsert. */
+async function _writeVisionBoard(userId, slug, name, payload) {
+    const text = JSON.stringify(payload);
+    const sizeBytes = Buffer.byteLength(text, 'utf-8');
+    if (sizeBytes > KIND_SIZE_CAP_BYTES.vision) {
+        logger.warn('[vision-board] payload over cap; not stored', { sizeBytes });
+        return false;
+    }
+    const now = new Date().toISOString();
+    await dynamodb.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: {
+            id: itemId(userId, 'vision', slug),
+            createdAt: CSIMPLE_CREATED_AT,
+            kind: 'vision',
+            slug,
+            name,
+            // Lifted out of the record onto the item so the next board's style
+            // history can be read with a projection rather than by pulling every
+            // board's full 32KB payload off the table (_recentBoardStyles).
+            ...(payload?.style?.id ? { style: payload.style.id } : {}),
+            text,
+            sizeBytes,
+            version: 1,
+            createdAtReal: now,
+            updatedAt: now,
+        },
+    }));
+    return true;
+}
+
+// @desc    Make one vision board per requested scope: the chat model writes an
+//          image prompt from the caller's goals, the image model draws it, the
+//          picture is stored, and the board is saved to the user's account so it
+//          can be looked back at.
+// @route   POST /api/data/csimple/vision-board
+// @access  Private
+const generateVisionBoard = asyncHandler(async (req, res) => {
+    if (!req.user) return unauthorized(res);
+
+    const {
+        selectGoalsForBoard, buildVisionBoardPrompt, normalizeBoardPrompt,
+        boardName, boardSlug, buildBoardRecord, VISION_BOARD_SYSTEM,
+        BOARD_ASPECT_RATIO, SCOPE_LABELS, resolveBoardRules, boardNegativePrompt,
+        pickBoardStyle,
+    } = require('../services/visionBoard');
+    const {
+        IMAGE_MODELS, getDefaultImageModelId, isImageGenerationConfigured, generateImage,
+    } = require('../services/bedrockImageService');
+    // The goals are read SERVER-side, from the caller's own store — the browser
+    // never posts its goal list, so a board cannot be made from someone else's
+    // goals or from a list the user edited between the dialog and the request.
+    const { listGoals } = require('../services/workspaceGoals');
+
+    // Scopes: 1 or 2 of dream|all. Deduped and ordered so "both" is one
+    // deterministic pass, and an unknown value is a client bug, not a 500.
+    const raw = Array.isArray(req.body?.scopes) ? req.body.scopes : ['dream'];
+    const scopes = [...new Set(raw.map((s) => String(s)))];
+    if (!scopes.length || scopes.some((s) => !Object.prototype.hasOwnProperty.call(SCOPE_LABELS, s))) {
+        badRequest(res, `scopes must be one or both of: ${Object.keys(SCOPE_LABELS).join(', ')}`);
+    }
+    const hint = String(req.body?.hint || '').slice(0, 200);
+
+    if (!isImageGenerationConfigured()) {
+        res.status(503);
+        throw new Error('Image generation is not configured on the server.');
+    }
+    const modelId = (typeof req.body?.model === 'string' && req.body.model.trim()) || getDefaultImageModelId();
+    if (!IMAGE_MODELS[modelId]) {
+        badRequest(res, `Unsupported image model: ${modelId}`);
+    }
+
+    let all;
+    try {
+        all = await listGoals(req.user.id);
+    } catch (e) {
+        logger.error('[vision-board] goal read failed:', e.message);
+        res.status(502);
+        throw new Error('Could not read your goals right now. Try again in a moment.');
+    }
+    if (!all.length) {
+        return res.status(200).json({ ok: true, boards: [], skipped: [], meta: { reason: 'no-goals' } });
+    }
+
+    // Resolve every scope BEFORE spending anything: a request for "dreams and all
+    // goals" with no dreams should still make the "all" board, and the user
+    // should be told about the one that was skipped rather than getting nothing.
+    const plan = [];
+    const skipped = [];
+    for (const scope of scopes) {
+        const selection = selectGoalsForBoard(all, scope);
+        if (!selection.goals.length) {
+            skipped.push({ scope, reason: 'scope-empty', label: SCOPE_LABELS[scope] });
+            continue;
+        }
+        plan.push({ scope, selection });
+    }
+    if (!plan.length) {
+        return res.status(200).json({
+            ok: true,
+            boards: [],
+            skipped,
+            meta: { reason: 'scope-empty', totalGoals: all.length },
+        });
+    }
+
+    // ── Money, in order of how early a refusal is useful ──────────────────────
+    // One LLM call per board (they ask for different pictures), so the estimate
+    // covers all of them; a refusal here writes the 402 and nothing is spent.
+    const { createBedrockCompletion } = require('../services/bedrockService');
+    const estimate = {
+        // 500 for the fixed brief, and it grew with the look: the style's own
+        // lines ride along in every brief, so the allowance grew with them.
+        inputTokens: plan.reduce((n, p) => n + Math.ceil(p.selection.goals.length * 40) + 650, 0),
+        outputTokens: 400 * plan.length,
+    };
+    const gate = await _enforceLlmCreditGate(req, res, estimate);
+    if (!gate) return; // 402 already written
+
+    const { checkImageCredits, trackImageUsage } = require('../utils/apiUsageTracker');
+    const { checkStorageCapacity } = require('../utils/storageTracker');
+    const { uploadImageBuffer } = require('../services/s3Service');
+
+    const afford = await checkImageCredits(req.user.id, plan.length);
+    if (!afford.canMake) {
+        res.status(402).json({
+            ok: false,
+            error: afford.reason || 'Not enough image credits for a vision board.',
+            requiresUpgrade: true,
+            upgradeUrl: '/pricing',
+            imagesRequested: plan.length,
+        });
+        return;
+    }
+    const storageCheck = await checkStorageCapacity(req.user.id, plan.length * VISION_BOARD_ESTIMATED_BYTES);
+    if (!storageCheck.canStore) {
+        res.status(413).json({
+            ok: false,
+            error: `Not enough storage for a vision board image. ${storageCheck.reason || ''}`.trim(),
+            storageLimitFormatted: storageCheck.storageLimitFormatted,
+            currentUsageFormatted: storageCheck.currentUsageFormatted,
+        });
+        return;
+    }
+
+    const boards = [];
+    const failures = [];
+    let llmUsage = null;
+
+    // Two defaults the prompt writer may not decide for itself — no identifiable
+    // faces and no lettering — and the one input that can switch either on: the
+    // user's own steer. Resolved ONCE per request so the brief, the fallback
+    // prompt and the negative prompt cannot disagree with each other.
+    const rules = resolveBoardRules(hint);
+    const negativePrompt = boardNegativePrompt(rules);
+
+    // What their last few boards already look like, so this one does not look the
+    // same. Read here rather than up front on purpose: a request refused at the
+    // credit check must not have cost a scan.
+    const recentStyles = await _recentBoardStyles(req.user.id);
+
+    for (const { scope, selection } of plan) {
+        const at = new Date().toISOString();
+        const slug = boardSlug(at, scope, randomUUID().slice(0, 6));
+        // The board's look, chosen before the prompt writer is asked. Asking for
+        // two scopes in one request makes two boards, and they are two different
+        // boards — so the look picked for the first is off the table for the
+        // second, exactly as if it had already been saved.
+        const style = pickBoardStyle({ hint, recent: recentStyles });
+        recentStyles.unshift(style.id);
+        try {
+            // 1. Goals → image prompt.
+            let prompt = '';
+            let promptSource = 'model';
+            try {
+                const response = await createBedrockCompletion([
+                    { role: 'system', content: VISION_BOARD_SYSTEM },
+                    { role: 'user', content: buildVisionBoardPrompt(selection.goals, { scope, hint, rules, style }) },
+                ], { temperature: 0.8, maxTokens: 600 });
+                llmUsage = response?.usage || llmUsage;
+                const normalized = normalizeBoardPrompt(
+                    response?.choices?.[0]?.message?.content, selection.goals, scope, rules, style,
+                );
+                prompt = normalized.prompt;
+                promptSource = normalized.source;
+            } catch (e) {
+                // A prompt-writer failure must not lose the board: the
+                // deterministic prompt still produces a picture, and the record
+                // says which one was used.
+                logger.warn('[vision-board] prompt writer failed, using fallback:', e.message);
+                const { fallbackBoardPrompt } = require('../services/visionBoard');
+                prompt = fallbackBoardPrompt(selection.goals, scope, rules, style);
+                promptSource = 'fallback';
+            }
+
+            // 2. Prompt → picture.
+            const result = await generateImage({
+                prompt,
+                modelId,
+                aspectRatio: BOARD_ASPECT_RATIO,
+                numberOfImages: 1,
+                negativePrompt,
+            });
+            const img = result?.images?.[0];
+            if (!img?.base64) throw new Error('the image model returned no image');
+            const buffer = Buffer.from(img.base64, 'base64');
+            const contentType = img.mimeType || 'image/png';
+
+            // 3. Picture → storage, recorded so the bytes count against the plan.
+            const uploaded = await uploadImageBuffer(
+                req.user.id, buffer, contentType, 'generated',
+                `vision-board-${slug}.${contentType.includes('jpeg') ? 'jpg' : 'png'}`,
+            );
+            const recordId = await _recordBoardImage(req.user.id, {
+                s3Key: uploaded.s3Key,
+                url: uploaded.url,
+                bytes: uploaded.bytes,
+                contentType,
+                prompt,
+                modelId,
+            });
+            await trackImageUsage(req.user.id, 1);
+
+            const record = buildBoardRecord({
+                scope,
+                goals: selection.goals,
+                prompt,
+                promptSource,
+                hint,
+                rules,
+                style,
+                negativePrompt,
+                url: uploaded.url,
+                s3Key: uploaded.s3Key,
+                bytes: uploaded.bytes,
+                recordId,
+                aspects: {
+                    total: selection.total,
+                    truncated: selection.truncated,
+                    model: modelId,
+                    seed: result?.seed ?? null,
+                },
+                at,
+            });
+
+            const saved = await _writeVisionBoard(req.user.id, slug, boardName(scope), record);
+            boards.push({ slug, name: boardName(scope), scope, data: record, saved });
+        } catch (e) {
+            // One board failing must not discard the other, and the reason is
+            // reported rather than swallowed.
+            logger.warn('[vision-board] board failed:', scope, e.message);
+            failures.push({ scope, error: e.message });
+        }
+    }
+
+    _invalidateStorage(req.user.id);
+    await _trackAgentLlmUsage(req, { usage: llmUsage });
+    if (boards.length) {
+        auditLog(req.user.id, 'create', { kind: 'vision', boards: boards.map((b) => b.slug) });
+    }
+
+    res.status(200).json({
+        ok: true,
+        boards,
+        skipped,
+        failures,
+        meta: {
+            generated: boards.length,
+            requested: plan.length,
+            totalGoals: all.length,
+            model: modelId,
+            aspectRatio: BOARD_ASPECT_RATIO,
+        },
+    });
+});
+
+// @desc    Delete a saved vision board: the workspace item, the S3 object and the
+//          storage row that counted its bytes — in that order of importance.
+//          Deliberately not the generic workspace DELETE, which would leave the
+//          image in S3 counting against the user's quota forever.
+// @route   DELETE /api/data/csimple/vision-board/:slug
+// @access  Private
+const deleteVisionBoard = asyncHandler(async (req, res) => {
+    if (!req.user) return unauthorized(res);
+    const { slug } = req.params;
+    validateSlug(res, slug);
+
+    const { Item } = await dynamodb.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { id: itemId(req.user.id, 'vision', slug), createdAt: CSIMPLE_CREATED_AT },
+    }));
+    if (!Item) {
+        res.status(404);
+        throw new Error('No such vision board.');
+    }
+
+    let record = null;
+    try {
+        record = Item.text ? JSON.parse(Item.text) : null;
+    } catch { record = null; }
+    // Boards written before the record existed still have to be deletable.
+    const s3Key = record?.image?.s3Key || null;
+    const recordId = record?.image?.recordId || null;
+
+    // The key carries the user id, so this is the same ownership check the file
+    // endpoint makes — a stored key that isn't the caller's is not deleted.
+    if (s3Key && !s3Key.startsWith(`users/${req.user.id}/`)) {
+        logger.warn('[vision-board] refusing to delete a key outside the user\'s prefix', { slug });
+    } else if (s3Key) {
+        try {
+            const { deleteFile } = require('../services/s3Service');
+            await deleteFile(s3Key);
+        } catch (e) {
+            // The object going away is best-effort; the board itself must still
+            // disappear from the gallery.
+            logger.warn('[vision-board] S3 delete failed:', e.message);
+        }
+        // Drop this file from the storage row so the bytes stop counting.
+        try {
+            const { removeRecordedFile } = require('../utils/storageRecords');
+            await removeRecordedFile(recordId, s3Key, req.user.id);
+        } catch (e) {
+            logger.warn('[vision-board] storage record cleanup failed:', e.message);
+        }
+        _invalidateStorage(req.user.id);
+    }
+
+    await dynamodb.send(new DeleteCommand({
+        TableName: TABLE_NAME,
+        Key: { id: itemId(req.user.id, 'vision', slug), createdAt: CSIMPLE_CREATED_AT },
+    }));
+
+    auditLog(req.user.id, 'purge', { kind: 'vision', slug });
+    res.status(200).json({ ok: true, slug, s3Deleted: Boolean(s3Key) });
+});
+
 // @desc    Generic tool-calling chat completion for the Simple Addon's
 //          automation agent loop (agent-loop.js / tools/skill.js repair /
 //          screenshot_check via the §7.1 llm-provider.js backend-proxy
@@ -1579,6 +2339,10 @@ module.exports = {
     compileMacroNatural,
     editMacroNatural,
     generateGoalMap,
+    generateGoalReview,
+    applyGoalReview,
+    generateVisionBoard,
+    deleteVisionBoard,
     agentChatProxy,
     agentVisionProxy,
     // Exported for use by llmService when assembling system prompts:
