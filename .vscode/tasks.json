@@ -132,6 +132,170 @@
 			"command": "node node_modules/jest/bin/jest.js --config package.json frontend/src/pages/Simple/Plans/visionBoardUtils.test.js frontend/src/pages/Simple/Plans/VisionBoards.test.jsx 2>&1 | Select-String 'Tests:|Suites:'",
 			"problemMatcher": [],
 			"group": "test"
+		},
+		{
+			"label": "vb-check-named",
+			"type": "shell",
+			"command": "node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-check.js \"\" n1; node c:\\Users\\tanne\\AppData\\Local\\Temp\\vb-check.js \"coastal\" n2",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "jest-vision-final2",
+			"type": "shell",
+			"command": "node node_modules/jest/bin/jest.js --config package.json frontend/src/pages/Simple/Plans/visionBoardUtils.test.js frontend/src/pages/Simple/Plans/VisionBoards.test.jsx 2>&1 | Select-String 'Tests:|Suites:'",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "tmp-cleanup",
+			"type": "shell",
+			"command": "Remove-Item -Force tmp-split-docs.cjs,tmp-verify-split.cjs,tmp-cmp-split.cjs,tmp-eol.cjs,tmp-fix-refs.cjs,tmp-fix-refs2.cjs,tmp-check-refs.cjs,tmp-check-links.cjs,tmp-show-lines.cjs,tmp-report.txt,tmp-split-report.txt,tmp-refs-report.txt,tmp-refs2-report.txt,tmp-status.txt; Remove-Item -Recurse -Force tmp-docs-backup",
+			"group": "test"
+		},
+		{
+			"label": "eval-json-parse",
+			"type": "shell",
+			"command": "Get-ChildItem simple-addon/server/automation/eval/scenarios/*.json | ForEach-Object { $n = $_.Name; try { Get-Content $_.FullName -Raw | ConvertFrom-Json | Out-Null; Write-Output ('ok  ' + $n) } catch { Write-Output ('BAD ' + $n + ' :: ' + $_.Exception.Message) } }",
+			"group": "test"
+		},
+		{
+			"label": "scan-refs",
+			"type": "shell",
+			"command": "node tmp-scan.cjs > tmp-scan-out.txt",
+			"group": "test"
+		},
+		{
+			"label": "scan-refs-utf8",
+			"type": "shell",
+			"command": "node tmp-scan.cjs | Out-File -Encoding utf8 tmp-scan-out.txt",
+			"group": "test"
+		},
+		{
+			"label": "swap-agent-md",
+			"type": "shell",
+			"command": "Move-Item -Force tmp-agent-new.md docs/implementation/agent.md; (Get-Content docs/implementation/agent.md).Count",
+			"group": "test"
+		},
+		{
+			"label": "scan-ref-lines",
+			"type": "shell",
+			"command": "node tmp-scan2.cjs",
+			"group": "test"
+		},
+		{
+			"label": "scan-src-refs",
+			"type": "shell",
+			"command": "node tmp-scan3.cjs",
+			"group": "test"
+		},
+		{
+			"label": "scan-src-refs2",
+			"type": "shell",
+			"command": "node tmp-scan4.cjs",
+			"group": "test"
+		},
+		{
+			"label": "denumber",
+			"type": "shell",
+			"command": "node tmp-denumber.cjs | Out-File -Encoding utf8 tmp-denumber-report.txt; Get-Content tmp-denumber-report.txt | Select-String 'MISS|misses:'",
+			"group": "test"
+		},
+		{
+			"label": "denumber-report",
+			"type": "shell",
+			"command": "node tmp-denumber.cjs",
+			"group": "test"
+		},
+		{
+			"label": "verify-scan",
+			"type": "shell",
+			"command": "node tmp-scan.cjs | Out-File -Encoding utf8 tmp-scan-out.txt; node tmp-scan4.cjs; Get-Content tmp-scan-out.txt | Select-String 'references|headings carrying'",
+			"group": "test"
+		},
+		{
+			"label": "scan-left",
+			"type": "shell",
+			"command": "node tmp-scan5.cjs",
+			"group": "test"
+		},
+		{
+			"label": "refs-final",
+			"type": "shell",
+			"command": "node tmp-refs-final.cjs",
+			"group": "test"
+		},
+		{
+			"label": "final-scan",
+			"type": "shell",
+			"command": "node tmp-scan.cjs | Out-File -Encoding utf8 tmp-scan-out.txt; Get-Content tmp-scan-out.txt -TotalCount 60",
+			"group": "test"
+		},
+		{
+			"label": "refs-collapse",
+			"type": "shell",
+			"command": "node tmp-refs-collapse.cjs",
+			"group": "test"
+		},
+		{
+			"label": "verify-collapse",
+			"type": "shell",
+			"command": "Get-ChildItem -Recurse -Include *.md,*.js,*.jsx,*.json,*.css -Path docs,backend,simple-addon,frontend/src,.github | Select-String -Pattern '\\.md`\\s+`(MARKETPLACE|BACKLOG|AUTOMATION_SECURITY|SALES_FUNNEL|PROFILES|SIMPLE_MARKETPLACE_PLAN)\\.md`' | Measure-Object | Select-Object -ExpandProperty Count; Get-ChildItem simple-addon/server/automation/eval/scenarios/*.json | ForEach-Object { try { Get-Content $_.FullName -Raw | ConvertFrom-Json | Out-Null } catch { Write-Output ('BAD ' + $_.Name) } }; Write-Output 'json-ok'",
+			"group": "test"
+		},
+		{
+			"label": "verify-final",
+			"type": "shell",
+			"command": "node tmp-verify-final.cjs",
+			"group": "test"
+		},
+		{
+			"label": "fix-last",
+			"type": "shell",
+			"command": "node tmp-fix-last.cjs",
+			"group": "test"
+		},
+		{
+			"label": "verify-links2",
+			"type": "shell",
+			"command": "node tmp-verify-links2.cjs",
+			"group": "test"
+		},
+		{
+			"label": "cleanup2",
+			"type": "shell",
+			"command": "Remove-Item -Force tmp-scan.cjs,tmp-scan2.cjs,tmp-scan3.cjs,tmp-scan4.cjs,tmp-scan5.cjs,tmp-scan-out.txt,tmp-refs-lines.txt,tmp-src-refs.txt,tmp-src-refs2.txt,tmp-left-refs.txt,tmp-denumber.cjs,tmp-denumber-report.txt,tmp-refs-final.cjs,tmp-refs-final-report.txt,tmp-refs-collapse.cjs,tmp-verify-final.cjs,tmp-fix-last.cjs,tmp-verify-links2.cjs -ErrorAction SilentlyContinue; Get-ChildItem -Filter 'tmp-*' -File | Select-Object -ExpandProperty Name",
+			"group": "test"
+		},
+		{
+			"label": "doc-sizes",
+			"type": "shell",
+			"command": "Get-ChildItem docs/guides/Rocket-*.md,docs/implementation/Simple_Loop_Behaviour.md,docs/guides/STATIC_ASSETS_AND_IMAGE_GENERATION.md | Select-Object Name,Length | Format-Table -AutoSize | Out-String -Width 100",
+			"group": "test"
+		},
+		{
+			"label": "generalize",
+			"type": "shell",
+			"command": "node tmp-generalize.cjs",
+			"group": "test"
+		},
+		{
+			"label": "verify-general",
+			"type": "shell",
+			"command": "node tmp-verify-general.cjs",
+			"group": "test"
+		},
+		{
+			"label": "fix-assets",
+			"type": "shell",
+			"command": "node tmp-fix-assets.cjs; node tmp-verify-general.cjs",
+			"group": "test"
+		},
+		{
+			"label": "cleanup3",
+			"type": "shell",
+			"command": "Remove-Item -Force tmp-generalize.cjs,tmp-verify-general.cjs,tmp-fix-assets.cjs -ErrorAction SilentlyContinue; Get-ChildItem -Filter 'tmp-*' -File | Select-Object -ExpandProperty Name; Write-Output '--- docs/guides ---'; Get-ChildItem docs/guides -Name",
+			"group": "test"
 		}
 	]
 }

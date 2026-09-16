@@ -340,10 +340,10 @@ describe('profile visibility', () => {
 });
 
 /**
- * Blocks (docs/implementation/agent.md §19.4).
+ * Blocks (docs/implementation/PROFILES.md).
  *
  * The rule under test is asymmetric, and the asymmetry is the whole feature:
- * the account that HAS been blocked must not be able to tell (§19.2's "restricted
+ * the account that HAS been blocked must not be able to tell (`PROFILES.md`'s "restricted
  * is a 200" is what makes that possible — the blocked answer IS the private
  * answer), while the account that DID the blocking must be told, or the block
  * could never be lifted.

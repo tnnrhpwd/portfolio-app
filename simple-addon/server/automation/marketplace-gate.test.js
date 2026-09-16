@@ -1,7 +1,7 @@
 /**
  * Unit tests for marketplace-gate.js — per-skill (slug@version) persisted
  * state backing the marketplace capability-confirmation + low-trust
- * dry-run-first enforcement (§4.3 / §10.3).
+ * dry-run-first enforcement (`MARKETPLACE.md` / `BACKLOG.md`).
  */
 
 const assert = require('assert');

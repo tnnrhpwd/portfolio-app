@@ -27,7 +27,7 @@
  *     contained an element under the cursor.
  *   - Detect text input runs and replace with type_text.
  *   - Parameter inference (numbers/dates that vary → ${param.x}) is handled by
- *     the separate recorder/infer-params.js (see §5.2), not here.
+ *     the separate recorder/infer-params.js (see `SIMPLE_MARKETPLACE_PLAN.md`), not here.
  */
 
 function slugify(name) {
@@ -325,7 +325,7 @@ function compileRecording(recording, options = {}) {
         slug: slugify(name),
         description,
         steps,
-        params: [], // populated by recorder/infer-params.js (see §5.2)
+        params: [], // populated by recorder/infer-params.js (see `SIMPLE_MARKETPLACE_PLAN.md`)
         metadata: {
             sourceSessionId: recording.sessionId,
             recordedAt: recording.header?.ts || null,

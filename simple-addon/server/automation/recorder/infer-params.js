@@ -1,7 +1,7 @@
 /**
  * infer-params.js — multi-demonstration parameter inference.
  *
- * Implements docs/implementation/simple-agent-prompt.md §5.2 "Parameter inference":
+ * Implements docs/archive/SIMPLE_MARKETPLACE_PLAN.md §2 A2 ("Parameter inference"):
  * when a user demonstrates the same or similar task more than once, diff the
  * resulting skills to detect what varies between runs (typed text, target
  * names, numeric values) and promote those varying literals into
@@ -10,7 +10,7 @@
  * (`recorder/scrub.js`).
  *
  * Capture UX (per the plan): a single demonstration is the default path —
- * §5.1 generalization handles it alone. Multi-demo is opt-in, triggered by a
+ * `SIMPLE_MARKETPLACE_PLAN.md` generalization handles it alone. Multi-demo is opt-in, triggered by a
  * "demonstrate again" affordance on an already-recorded skill, so this
  * module is only invoked when the caller explicitly supplies 2+ skills of
  * the SAME task.

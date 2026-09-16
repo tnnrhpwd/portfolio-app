@@ -129,10 +129,14 @@
     transition: transform var(--speed) ease, box-shadow var(--speed) ease;
 }
 
+/* The frame owns the circle, this only sizes it. ⚠️ There used to be a
+   `padding: calc(var(--nav-size) * 0.06)` here — a page-local copy of the avatar
+   frame's ring inset (the component's own was 0.05), kept a hair wider so the big
+   avatar wore a slightly thicker pink ring. The frame paints no ring now, so the
+   padding would only inset the face behind a moat of page. */
 .planit-profile-avatar .profile-avatar {
     width: 100%;
     height: 100%;
-    padding: calc(var(--nav-size) * 0.06);
     box-shadow: var(--shadow-lg);
 }
 

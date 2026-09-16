@@ -1,7 +1,7 @@
 {
   "id": "29-marketplace-install-http",
   "name": "Marketplace install — POST /api/market/skills/:marketId/install (offline stub)",
-  "description": "Exercises the addon's marketplace install proxy route end-to-end (docs/implementation/simple-agent-prompt.md §4.5), offline via the X-Simple-Eval-Stub header. Asserts the server-side downloads/installs counter shape (incremented atomically on the real backend — mirrored deterministically here). Part 4 of the marketplace chain — depends on 26-marketplace-publish-http having published mk-eval-001 in the same eval process.",
+  "description": "Exercises the addon's marketplace install proxy route end-to-end (docs/implementation/MARKETPLACE.md), offline via the X-Simple-Eval-Stub header. Asserts the server-side downloads/installs counter shape (incremented atomically on the real backend — mirrored deterministically here). Part 4 of the marketplace chain — depends on 26-marketplace-publish-http having published mk-eval-001 in the same eval process.",
   "http": {
     "method": "POST",
     "path": "/api/market/skills/mk-eval-001/install",

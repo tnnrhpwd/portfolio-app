@@ -1,7 +1,7 @@
 /**
  * capability-summary.js — "what will this skill do" pre-run summary.
  *
- * Implements docs/implementation/simple-agent-prompt.md §6.2: marketplace (and local)
+ * Implements docs/implementation/AUTOMATION_SECURITY.md: marketplace (and local)
  * skills must be inspectable before running. Every step already names a
  * tool call (directly, or via nl-compiler's `type` field, normalised through
  * `tools/skill.js` `_normaliseStep` — the exact same resolution the executor
@@ -19,7 +19,7 @@
  *     surface prominently rather than trust the skill's own claim.
  *
  * Used by both the local skill-run flow and — once it exists — the
- * marketplace install/first-run flow (§4.3: mandatory for any skill
+ * marketplace install/first-run flow (`MARKETPLACE.md`: mandatory for any skill
  * installed from the marketplace).
  */
 

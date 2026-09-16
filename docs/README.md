@@ -8,17 +8,27 @@ This folder contains all documentation for the Portfolio App.
 docs/
 ├── README.md                          # This file
 ├── guides/                            # Setup, usage, and business guides (current)
-│   ├── FRONTEND_UI_STANDARD.md       # How every page should look/behave
+│   ├── FRONTEND_UI_STANDARD.md       # How every page should look/behave + the design records
 │   ├── AWS_SETUP_GUIDE.md            # AWS: S3/CloudFront setup + static assets + AI image generation
-│   ├── STATIC_ASSETS_AND_IMAGE_GENERATION.md # Static assets (S3/CloudFront) + Bedrock image generation reference
+│   ├── STATIC_ASSETS_AND_IMAGE_GENERATION.md # S3/CloudFront assets, image generation, sprite + audio pipelines, uploads
+│   ├── GAME_GUIDE.md                 # Building a canvas/Phaser game: layout, testing, save + leaderboards
 │   ├── SECRETS_MANAGEMENT.md         # Secrets Manager + .env backup + provider keys (e.g. DeepSeek)
 │   ├── DEPLOYMENT.md                 # Netlify + Render deployment topology
 │   ├── REFERER_TRACKING_README.md    # Analytics and tracking setup
 │   ├── SALES_FUNNEL.md               # Visitor → Pro subscriber funnel map
 │   └── BUSINESS_PLAN.md              # Value proposition + monetization strategies
 ├── implementation/                    # Architecture + feature plans (current)
-│   ├── simple-agent-prompt.md        # Simple platform plan & architecture (START HERE)
-│   ├── AUTOMATION_SECURITY.md        # Automation threat model & security
+│   ├── agent.md                      # Simple platform, repo map & the doc index (START HERE)
+│   ├── BACKLOG.md                    # Everything still to do, in priority order
+│   ├── Simple_Loop_Behaviour.md       # What the loop ACTUALLY does at runtime
+│   ├── AUTOMATION_SECURITY.md        # Threat model, safety surfaces + the audit passes
+│   ├── MARKETPLACE.md                # Published skills & shared goals
+│   ├── LLM_PROVIDERS.md              # Provider seam, model catalogue, the default model
+│   ├── NET_CHAT.md                   # /net chat — routing, the repo agent, people in the rail
+│   ├── GOALS.md                      # Goals — dream board, map, horizon, review, console, vision boards
+│   ├── TALK.md                       # Member messaging + editing your own review
+│   ├── PROFILES.md                   # Member pages, visibility, blocking
+│   ├── PAGES.md                      # Routing manifest, /all, the header dropper
 │   ├── SUPPORT_TICKETS.md            # Support tickets & bug reports system
 │   └── special-user-flag.md          # Admin "Special" unlimited-credits flag
 ├── archive/                           # Historical / archived (reference only)
@@ -41,23 +51,32 @@ docs/
 ## 🚀 Quick Links
 
 ### The Simple platform (start here)
-- [Platform Plan & Architecture](./implementation/simple-agent-prompt.md) - **Start here.** Vision, architecture, the O-O-G-P-A agent loop, marketplace, skill generalization, monetization, roadmap, and the living to-do — all in one place.
-- [Automation Security](./implementation/AUTOMATION_SECURITY.md) - Threat model, trust boundaries, and permissions.
+- [Platform & repo orientation](./implementation/agent.md) - **Start here.** What Simple is, how the repo is laid out, and which doc owns which subject. It carries no to-dos and no roadmaps by design — it is the map.
+- [Backlog](./implementation/BACKLOG.md) - **The only place work items live.** Readiness gates, the roadmap, P0-P2, future capabilities, and the agreed epics, in priority order.
+- [Simple Loop Behaviour](./implementation/Simple_Loop_Behaviour.md) - **Read before changing the loop.** What the loop actually does at runtime: real control flow, every exit condition, how to decode a `/simple` console log, and where the run diverges from the design.
+- [Automation Security](./implementation/AUTOMATION_SECURITY.md) - Threat model, trust boundaries, permissions, the consumer-facing safety surfaces, and the dated backend/data/script audit passes.
 - [Support Tickets](./implementation/SUPPORT_TICKETS.md) - Bug reports, `/net` support tickets & contact messages.
-- [Special User Flag](./implementation/special-user-flag.md) - Admin "Special" unlimited-credits flag.
+- [Special User Flag](./implementation/special-user-flag.md) - Admin "Special" unlimited-credits flag, plus the four read-only admin views it grants.
+
+### Feature records (the design history behind the plan)
+A code comment cites the doc that owns the subject, never a chapter number — [`agent.md`](./implementation/agent.md) → *Where things live* is the map.
+- [Marketplace](./implementation/MARKETPLACE.md) - Published skills and shared goals: namespace, versioning, trust ranking, `/market`.
+- [LLM Providers](./implementation/LLM_PROVIDERS.md) - The provider seam, the catalogue the pickers use, and which model is the default.
+- [Net Chat](./implementation/NET_CHAT.md) - How a `/net` message is routed, the repo agent that can change this repo, and the one-app pass that put people in the same pane.
+- [Goals](./implementation/GOALS.md) - The Dream board, goal map, optional horizon, the review pass and live console, and vision boards.
+- [Talk](./implementation/TALK.md) - The messenger: storage, encryption (not end-to-end), limits, avatars, unread counts.
+- [Profiles](./implementation/PROFILES.md) - `/u/<username>`, private-by-default visibility, and blocking without telling them.
+- [Pages](./implementation/PAGES.md) - `constants/pages.js` as the single routing table, `/all`, and the header dropper.
 
 ### Getting Started
 - [Frontend UI Standard](./guides/FRONTEND_UI_STANDARD.md) - **Read before building pages.** Theming, responsive sizing, and the canonical page template
 - [AWS Setup & Assets Guide](./guides/AWS_SETUP_GUIDE.md) - S3/CloudFront setup (Part 1), static asset management (Part 2), and AI image generation via Bedrock (Part 3)
-- [Static Assets & Image Generation](./guides/STATIC_ASSETS_AND_IMAGE_GENERATION.md) - Day-to-day S3/CloudFront asset workflow + Bedrock image generation reference
+- [Static Assets & Asset Pipelines](./guides/STATIC_ASSETS_AND_IMAGE_GENERATION.md) - S3/CloudFront workflow, Bedrock image generation, the sprite and audio pipelines, and the app's own upload path
 - [Secrets Management](./guides/SECRETS_MANAGEMENT.md) - AWS Secrets Manager (Part 1) + encrypted `.env` backup (Part 2) + provider-key worked example (Part 3)
 - [Deployment Topology](./guides/DEPLOYMENT.md) - How Netlify (frontend + keep-warm) and Render (backend) fit together
 
 ### Games (canvas / Phaser)
-- [Rocket Game Guide](./guides/Rocket-Game-Guide.md) - **Read before building or changing a canvas game.** Architecture, the two-layout portrait/landscape system, how to test a game in the browser, and the gotchas that cost real time
-- [Rocket Cloud Save + Leaderboard](./guides/Rocket-Cloud-Save.md) - Profile-backed progress (coins/upgrades follow you to another device) and a public farthest-wave board, on the generic `/api/data` routes — three API traps, the merge policy, and why board writes go through the authenticated route
-- [Rocket Asset Pipeline](./guides/Rocket-Asset-Pipeline.md) - Turning the AI-generated asset posters into 282 named transparent PNGs (`scripts/rocket/extract-sprites.js`)
-- [Rocket Audio Pipeline](./guides/Rocket-Audio-Pipeline.md) - Music + SFX rendered offline from `scripts/rocket/audio.json` by a dependency-free chiptune engine (no subscriptions; why AI audio was ruled out)
+- [Game Guide](./guides/GAME_GUIDE.md) - **Read before building or changing a canvas game.** Architecture, the two-layout portrait/landscape system, how to test a game in the browser, the gotchas that cost real time, and how saved progress + a public leaderboard ride the generic `/api/data` routes. Rocket is the reference implementation.
 
 ### Business
 - [Sales Funnel](./guides/SALES_FUNNEL.md) - Visitor → Pro subscriber funnel map (Discovery → Understanding → Buying)

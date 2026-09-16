@@ -1,11 +1,11 @@
 /**
  * Pure, DB-free ranking + trust-gate helpers for the Simple skill
- * marketplace (docs/implementation/simple-agent-prompt.md §4.3 / §4.6).
+ * marketplace (docs/implementation/MARKETPLACE.md).
  *
  * Kept separate from marketplaceController.js so the ranking/trust logic
  * can be unit tested without a DynamoDB connection, and so the weights
  * live in one explicit config object instead of being scattered magic
- * numbers inside route handlers (§4.6 backlog item).
+ * numbers inside route handlers (`MARKETPLACE.md` backlog item).
  */
 
 // ─── Explicit ranking weights (tune here, not inline in route code) ────────
@@ -20,7 +20,7 @@ const RANKING_WEIGHTS = {
     recencyFloor: 0.1,
     // Each additional flag divides the score by (1 + flagCount * flagWeight).
     flagWeight: 1,
-    // §5.6: each additional point of failed-outcome RATE (0-1, not raw
+    // `MARKETPLACE.md`: each additional point of failed-outcome RATE (0-1, not raw
     // count) divides the score by (1 + failureOutcomeRate * outcomeFailWeight).
     // A skill with a perfect 5-star average but where every rater's
     // `successCriteria` outcome recorded "failed" should still rank below
@@ -29,7 +29,7 @@ const RANKING_WEIGHTS = {
     outcomeFailWeight: 3,
 };
 
-// ─── Explicit low-trust classification thresholds (§4.3 cold-start) ───────
+// ─── Explicit low-trust classification thresholds (`MARKETPLACE.md` cold-start) ───────
 const LOW_TRUST_THRESHOLDS = {
     minRatingCount: 3,
     minDownloads: 5,
@@ -38,7 +38,7 @@ const LOW_TRUST_THRESHOLDS = {
 
 /**
  * Author reputation, seeded from account age + prior skill ratings
- * (§4.3). Returns a number in [0, 100]; feed straight into
+ * (`MARKETPLACE.md`). Returns a number in [0, 100]; feed straight into
  * computeTrustScore's `authorReputation` input.
  */
 function computeAuthorReputation({ accountAgeDays = 0, priorSkillCount = 0, priorAvgRating = 0 } = {}) {
@@ -50,9 +50,9 @@ function computeAuthorReputation({ accountAgeDays = 0, priorSkillCount = 0, prio
 
 /**
  * Marketplace trust/ranking score: rating × volume × author reputation ×
- * recency, with community flags deprioritizing (§4.3). Zero-rating skills
+ * recency, with community flags deprioritizing (`MARKETPLACE.md`). Zero-rating skills
  * (cold start) score 0 on the rating axis by design — they rely on the
- * dry-run-first safety floor (§6), not ranking, to protect early
+ * dry-run-first safety floor (`AUTOMATION_SECURITY.md`), not ranking, to protect early
  * downloaders.
  */
 function computeTrustScore({
@@ -62,7 +62,7 @@ function computeTrustScore({
     authorReputation = 0,
     ageDays = 0,
     flagCount = 0,
-    // §5.6: fraction (0-1) of ratings whose run outcome was recorded as
+    // `MARKETPLACE.md`: fraction (0-1) of ratings whose run outcome was recorded as
     // "failed" (from the skill's successCriteria evaluation at run time,
     // see tools/skill.js `outcome`) — NOT the star rating. Defaults to 0
     // (no evidence of failure) so existing callers that don't pass this
@@ -82,7 +82,7 @@ function computeTrustScore({
 }
 
 /**
- * §4.3 cold-start mitigation: a brand-new or otherwise unproven skill is
+ * `MARKETPLACE.md` cold-start mitigation: a brand-new or otherwise unproven skill is
  * classified "low trust" and should default to dry-run-first on its first
  * execution regardless of ranking score.
  */
@@ -92,7 +92,7 @@ function classifyLowTrust({ ratingCount = 0, downloads = 0, ageDays = 0 } = {}) 
 }
 
 /**
- * §4.1 rating gate: "one rating per user per version, only accepted from
+ * `MARKETPLACE.md` rating gate: "one rating per user per version, only accepted from
  * users who actually downloaded/ran it." `installed` = server has an
  * install attestation for this user+marketId; `attemptedRun` = the rater
  * supplied run evidence (a `ranAt` timestamp) with the rating submission.
@@ -102,7 +102,7 @@ function canRate({ installed = false, attemptedRun = false } = {}) {
 }
 
 /**
- * Deterministic sort with explicit tie-breakers (§4.6): recency, then
+ * Deterministic sort with explicit tie-breakers (`MARKETPLACE.md`): recency, then
  * downloads, then a stable id — so pagination never reorders items across
  * requests with identical scores.
  */

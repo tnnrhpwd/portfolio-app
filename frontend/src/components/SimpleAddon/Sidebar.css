@@ -102,13 +102,23 @@
    sidebar opens as "New Chat + status" rather than a wall of past chats. The
    toggle is a full-width button so the whole header row is a hit target. */
 
-/* The section keeps `flex: 1 1 auto` even when collapsed so it still absorbs
-   the rail's spare height — that is what keeps the footer pinned to the bottom
-   exactly as it was when the list was always expanded. */
+/* ⚠️ The section is NOT a grower — `flex: 0 1 auto`, so a closed one is exactly
+   its toggle row and nothing else.
+
+   It used to be `flex: 1 1 auto` "so the footer stays pinned to the bottom". That
+   worked while there was one section; People is the SAME CLASS
+   (`sidebar__conversations sidebar__people`) and grows the same way, so the rail's
+   entire spare height was divided between two COLLAPSED headers — measured on
+   /net: a 33px toggle inside a 266px box, a 238px dead band under it, and another
+   under People. The footer is pinned by its own `margin-top: auto` instead (below),
+   which puts it in precisely the place it already occupied.
+
+   Shrink stays at the default 1: an open list longer than the rail still gives way
+   to the footer and scrolls inside `.sidebar__conversations-list`. */
 .sidebar__conversations {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-height: 0;
   padding: 4px 8px;
 }
@@ -342,6 +352,10 @@
   border-top: 1px solid var(--border);
   padding: 8px;
   flex-shrink: 0;
+  /* The rail's spare height lives HERE, not inside a collapsed section: `auto`
+     takes whatever the sections above did not use, so the footer sits on the
+     bottom edge exactly as it did when the history list absorbed the space. */
+  margin-top: auto;
   max-height: 60vh;
   overflow-y: auto;
   overscroll-behavior: contain;

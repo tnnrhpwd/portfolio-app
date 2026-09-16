@@ -68,7 +68,7 @@ import './UserProfile.css';
  * One `<h1>` (the name) and one `<h2>` per panel, and a panel with nothing in it
  * is not rendered at all — an empty "Games" pane is worse than no pane.
  *
- * MANAGING THE RELATIONSHIP (§19.4). The two controls that change it — remove the
+ * MANAGING THE RELATIONSHIP (`PROFILES.md`). The two controls that change it — remove the
  * connection, and block — are NOT in the row. The row's buttons are for engaging
  * with a person, and a destructive control parked next to "Message" is a misclick
  * waiting to happen. They live in a folded `<details>` pane, which §5.7 asks for
@@ -128,7 +128,7 @@ function ProfileBar({ title, avatar, lock, readout, actions, notice }) {
  * rather than as a stray menu, and the panel is its own confirm step on the way in.
  * The badge on the summary is load-bearing: it is the only place a block announces
  * itself while the pane is shut, and a block you cannot find is a block you cannot
- * lift — the row carries no action at all in that state (§19.4).
+ * lift — the row carries no action at all in that state (`PROFILES.md`).
  *
  * Renders nothing when there is nothing to manage, so it never appears on your own
  * page, for a signed-out visitor, or for a state with no available control.

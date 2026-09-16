@@ -551,7 +551,7 @@ function Sidebar({
             aria-expanded={openSection === 'liveAgent'}
             aria-controls="sidebar-live-agent-panel"
           >
-            ⚡ Macros & Agent
+            ⚡ Macros & Loop
             <span className={`sidebar__arrow ${openSection === 'liveAgent' ? 'sidebar__arrow--up' : ''}`}>▾</span>
           </button>
 

@@ -37,7 +37,7 @@ function fmtWhen(ts) {
 }
 
 /**
- * §6.3 first-use consent copy — plain-language data-egress description shown
+ * the cloud-vision consent copy (docs/implementation/AUTOMATION_SECURITY.md §12.3) — plain-language data-egress description shown
  * in a modal BEFORE a sensitive consent is granted for the first time. The
  * backend still enforces the gate (see permissions.js / the recorder 403), so
  * this modal is UX, not the safety mechanism.
@@ -102,7 +102,7 @@ export default function PermissionsManager({ addonConnected }) {
 
   const onToggleConsent = useCallback((field, next) => {
     // Revocation is immediate (no confirmation needed). First-time grant opens
-    // the consent modal (§6.3) instead of granting blindly.
+    // the consent modal instead of granting blindly.
     if (!next) {
       withBusy(async () => {
         const res = await setAutomationConsents({ [field]: false });

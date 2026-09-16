@@ -285,8 +285,9 @@ export default function VisionBoards({
                 instruction the user can't discover is one they'll assume is a bug
                 when the board comes back without the people they wanted. */}
             <p className="vb-defaults">
-              Made as a photo collage of your goals, with <strong>no recognisable faces</strong> and
-              <strong> no text</strong>. Ask for either above and it will.
+              Made as a <strong>vision and dream board</strong> — a photo collage of your goals — with
+              <strong> no recognisable faces</strong> and <strong>no text</strong>. Ask for either
+              above and it will.
             </p>
 
             <p className="vb-cost">{costLine(scopes, counts)}</p>

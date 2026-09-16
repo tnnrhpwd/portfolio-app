@@ -13,7 +13,7 @@ import './SimpleCtaBand.css';
  * and leaves "what does it cost?" as one quiet line underneath them. Asking for
  * money before the product has been used is the wrong order — people pay once
  * they like the thing, so the CTA's job is to get them using it, not to get
- * them to /pricing. See docs/implementation/agent.md §16.5 (rule 1).
+ * them to /pricing. See docs/guides/SALES_FUNNEL.md → the funnel-page rules (rule 1).
  *
  * It is shared by `/home` and `/projects` rather than copy-pasted so the
  * vocabulary cannot drift: the cards read from `SIMPLE_SURFACES`, the same list

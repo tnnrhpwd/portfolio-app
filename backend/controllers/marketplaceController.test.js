@@ -202,9 +202,9 @@ describe('publishSkill', () => {
         expect(res.status).toHaveBeenCalledWith(400);
     });
 
-    // §4.5: publish must independently re-scrub server-side, not just trust
+    // `MARKETPLACE.md`: publish must independently re-scrub server-side, not just trust
     // that the addon already called POST /api/skill/scrub client-side.
-    describe('server-side scrub re-enforcement (§4.5/§6.1)', () => {
+    describe('server-side scrub re-enforcement (`MARKETPLACE.md`/`AUTOMATION_SECURITY.md`)', () => {
         test('a clean skill publishes with an empty scrubReport', async () => {
             const res = mockRes();
             await publishSkill(mockReq({ user: AUTHOR, body: sampleSkill }), res);
@@ -253,10 +253,10 @@ describe('publishSkill', () => {
         });
     });
 
-    // §4.5: publish must independently re-run the declared-vs-actual
+    // `MARKETPLACE.md`: publish must independently re-run the declared-vs-actual
     // capability/category mismatch check server-side, not just trust that
     // the addon already called POST /api/skill/capabilities client-side.
-    describe('server-side capability-mismatch re-enforcement (§4.5/§6.2)', () => {
+    describe('server-side capability-mismatch re-enforcement (`MARKETPLACE.md`/`AUTOMATION_SECURITY.md`)', () => {
         test('a skill whose declared categories cover every actual tool category publishes with no mismatches', async () => {
             const honestSkill = {
                 ...sampleSkill,
@@ -346,7 +346,7 @@ describe('searchMarketSkills + getMarketSkill', () => {
         expect(res.status).toHaveBeenCalledWith(404);
     });
 
-    // §4.6 backlog: "Add backend contract tests for pagination, sort
+    // `MARKETPLACE.md` backlog: "Add backend contract tests for pagination, sort
     // stability, and install/rate constraints" — pagination + stable-sort
     // coverage below (install/rate constraints already covered above).
     describe('pagination + sort stability', () => {
@@ -479,9 +479,9 @@ describe('install → rate gate', () => {
         expect(res.status).toHaveBeenCalledWith(400);
     });
 
-    // §5.6: outcome persisted per-rating now also aggregates into
+    // `MARKETPLACE.md`: outcome persisted per-rating now also aggregates into
     // meta.outcomeFailCount, feeding computeTrustScore's outcomeFailRate.
-    describe('outcome aggregation (§5.6)', () => {
+    describe('outcome aggregation (`MARKETPLACE.md`)', () => {
         test('a "failed" outcome increments outcomeFailRate, returned from rateMarketSkill', async () => {
             const publishRes = mockRes();
             await publishSkill(mockReq({ user: AUTHOR, body: sampleSkill }), publishRes);
@@ -566,7 +566,7 @@ describe('flagMarketSkill', () => {
     });
 });
 
-describe('getAuthorMarketplaceTotals (§10.2 P0 — /telemetry/summary marketplace counters)', () => {
+describe('getAuthorMarketplaceTotals (`BACKLOG.md` P0 — /telemetry/summary marketplace counters)', () => {
     test('returns zeroed totals for a user with no published skills', async () => {
         const totals = await getAuthorMarketplaceTotals('nobody');
         expect(totals).toEqual({ downloads: 0, installs: 0, creations: 0, skillCount: 0 });

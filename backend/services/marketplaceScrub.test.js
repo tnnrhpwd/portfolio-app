@@ -1,6 +1,6 @@
 /**
  * Offline unit tests for the backend's server-side scrub re-enforcement
- * (docs/implementation/simple-agent-prompt.md §4.5/§6.1). No DynamoDB required.
+ * (docs/implementation/MARKETPLACE.md + docs/implementation/AUTOMATION_SECURITY.md). No DynamoDB required.
  *
  * Mirrors the coverage of simple-addon/server/automation/recorder/
  * scrub.test.js since this module is a deliberate port of that logic — see

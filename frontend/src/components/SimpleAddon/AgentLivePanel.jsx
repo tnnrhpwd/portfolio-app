@@ -1,15 +1,20 @@
 /**
- * AgentLivePanel — sidebar "Macros & Agent" panel.
+ * AgentLivePanel — the rail's "⚡ Macros & Loop" section.
  *
  * Two simple things live here:
  *   1. Quick Macros — your saved macros (recorded in Advanced Settings →
  *      Shortcuts) with a one-click "Run" button, so you don't have to open
  *      a modal just to fire off a macro.
- *   2. Autonomous Agent — Start/Stop/Kill-switch for the addon's autonomous
- *      agent, plus any pending approval prompts it needs from you.
+ *   2. The loop — Start/Stop for the addon's autonomous agent, which works the
+ *      NEXT ACTIVE GOAL, plus any pending approval prompts it needs from you.
+ *      The wording is /simple's on purpose: that page owns the mode ladder, the
+ *      kill switch and the live console, and this is the same loop seen from the
+ *      rail. Everything that is not the loop or a macro (the two raw permission
+ *      switches, eye tracking) is folded into one "Advanced" group, exactly the
+ *      split /simple makes.
  *
- * Both require the local Simple desktop addon to be installed and running;
- * when it isn't, the panel shows a short connect hint instead.
+ * Both the loop and macros require the local Simple desktop addon to be installed
+ * and running; when it isn't, the panel says so instead of offering dead buttons.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -385,12 +390,6 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
   const running = !!status?.running;
   const goalTitle = status?.currentGoal?.name || status?.currentGoal?.slug || null;
 
-  const statusLabel = useMemo(() => {
-    if (!addonConnected) return 'Addon not connected';
-    if (!connected) return 'Connecting…';
-    return running ? 'Agent running' : 'Idle';
-  }, [addonConnected, connected, running]);
-
   return (
     <div className={`agent-live${isSidebar ? ' agent-live--sidebar' : ''}`}>
       {/* ── Kill-switch banner ───────────────────────────────────────────
@@ -414,29 +413,46 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
         </button>
       )}
 
-      {/* ── Autonomous Agent ──────────────────────────────────────────── */}
+      {/* ── The loop ───────────────────────────────────────────────────────
+          The panel's one job, and the words are /simple's: the button says what
+          it starts, because that is what it does — the loop works the NEXT
+          ACTIVE GOAL. The readout is that page's toolbar chips (loop · stage ·
+          step) plus its loop panel's two facts (stalls, last lesson), on one
+          wrapping line instead of a goal block over a stats block. `Δ` is gone:
+          /simple stopped showing the outcome delta, so a stale number nobody
+          reads is not worth a line in a rail this narrow. */}
       <div className="agent-live__section">
-        <div className="agent-live__section-head">
-          <h4>🤖 Agent</h4>
+        <div className="agent-live__bar">
+          <h4>🤖 The loop</h4>
+          {/* Three states, not two: the event stream can take a moment to open,
+              and reporting "idle" while it is still connecting is a claim we
+              cannot make yet. */}
           <span className={`agent-live__badge ${!addonConnected ? 'is-off' : running ? 'is-running' : 'is-idle'}`}>
-            {!addonConnected ? 'off' : running ? 'running' : 'idle'}
+            {!addonConnected ? 'off' : running ? 'running' : connected ? 'idle' : '…'}
           </span>
+          <button
+            type="button"
+            className={`agent-live__btn agent-live__btn--${running ? 'stop' : 'start'}`}
+            onClick={running ? onStop : onStart}
+            disabled={busy || !addonConnected}
+            title={running ? 'Stop the loop' : 'Work the next active goal'}
+          >
+            {running ? '■ Stop' : '▶ Start loop'}
+          </button>
         </div>
 
         {addonConnected && running && (
-          <>
-            {goalTitle && (
-              <div className="agent-live__goal">
-                <span className="agent-live__goal-label">Goal</span>
-                <span className="agent-live__goal-name">{goalTitle}</span>
-                {status?.step != null && <span className="agent-live__goal-step">step {status.step}</span>}
-              </div>
-            )}
-            <p className="agent-live__section-hint agent-live__section-hint--block">
-              Stage {status?.stage || '?'} · loop {status?.loop || '?'} · stall {status?.stallCount ?? 0} · Δ {status?.lastOutcomeDelta ?? 0}
-              {status?.lastLesson ? ` · lesson ${status.lastLesson}` : ''}
-            </p>
-          </>
+          <p className="agent-live__readout">
+            {goalTitle && <span className="agent-live__goal-name">{goalTitle}</span>}
+            <span className="agent-live__stats">
+              loop {status?.loop || '?'} · stage {status?.stage || '?'} · step {status?.step ?? '—'}/{status?.maxSteps ?? '—'} · stalls {status?.stallCount ?? 0}
+              {status?.lastLesson ? ` · ${status.lastLesson}` : ''}
+            </span>
+          </p>
+        )}
+
+        {addonConnected && !running && approvals.length === 0 && (
+          <p className="agent-live__hint">Idle — Start works the next active goal.</p>
         )}
 
         {approvals.length > 0 && (
@@ -455,41 +471,23 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
           </div>
         )}
 
-        <div className="agent-live__controls">
-          <button
-            type="button"
-            className="agent-live__btn agent-live__btn--start"
-            onClick={onStart}
-            disabled={busy || !addonConnected || running}
-          >
-            {running ? 'Running…' : 'Start Agent'}
-          </button>
-          <button
-            type="button"
-            className="agent-live__btn agent-live__btn--stop"
-            onClick={onStop}
-            disabled={busy || !addonConnected || !running}
-          >
-            Stop
-          </button>
-          <label className={`agent-live__toggle${autoApprove ? ' is-on' : ''}`}>
-            <input type="checkbox" checked={autoApprove} onChange={(e) => onToggleAutoApprove(e.target.checked)} />
-            Auto-approve
-          </label>
-          <label className={`agent-live__toggle${listenerEnabled ? ' is-on' : ''}`} title="Continuously watch for work: start the loop on waiting goals and auto-run safe, high-confidence suggestions.">
-            <input type="checkbox" checked={listenerEnabled} onChange={(e) => onToggleListener(e.target.checked)} />
-            Listener
-          </label>
-        </div>
-
         {error && <div className="agent-live__error">{error}</div>}
       </div>
 
-      {/* ── Quick Macros ──────────────────────────────────────────────── */}
+      {/* ── Macros ─────────────────────────────────────────────────────────
+          One line per macro and the LIST SCROLLS (CSS): a rail panel that grows
+          with the macro count pushes the conversation off the bottom of a
+          column this narrow. "Manage" rides in the head — a full-width button
+          for a navigation link cost a whole row for nothing. */}
       <div className="agent-live__section">
-        <div className="agent-live__section-head">
+        <div className="agent-live__bar">
           <h4>⚡ Macros</h4>
-          <span className="agent-live__section-hint">Run a saved macro on your PC</span>
+          {token && macros.length > 0 && <span className="agent-live__count">{macros.length}</span>}
+          {token && (
+            <button type="button" className="agent-live__link-btn" onClick={onManageMacros}>
+              Manage →
+            </button>
+          )}
         </div>
 
         {!token ? (
@@ -527,63 +525,85 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
           </ul>
         )}
 
-        {token && (
-          <button className="agent-live__link-btn" onClick={onManageMacros}>
-            Manage macros →
-          </button>
-        )}
       </div>
 
-      {/* ── Eye tracking ───────────────────────────────────────────────── */}
-      <div className="agent-live__section">
-        <div className="agent-live__section-head">
-          <h4>👁 Eye Tracking</h4>
-          <span className="agent-live__section-hint">{eyeLabel}</span>
+      {/* ── Advanced — the raw switches and the sensors, FOLDED ──────────────
+          Exactly the split /simple makes: the mode ladder there IS
+          auto-approve + listener, so on that page these two checkboxes live
+          under its own "Advanced — raw switches, sensors … eye tracking" fold.
+          Same here — folded, the panel opens on the loop and the macros and
+          nothing else, and both switches stay one click away rather than
+          deleted. */}
+      <details className="agent-live__adv">
+        <summary>⚙️ Advanced — permissions &amp; eye tracking</summary>
+
+        <div className="agent-live__chips">
+          <label
+            className={`agent-live__toggle${autoApprove ? ' is-on' : ''}`}
+            title="Approve every tool call without asking. The kill switch and any per-tool deny still win."
+          >
+            <input type="checkbox" checked={autoApprove} onChange={(e) => onToggleAutoApprove(e.target.checked)} />
+            Auto-approve
+          </label>
+          <label
+            className={`agent-live__toggle${listenerEnabled ? ' is-on' : ''}`}
+            title="Continuously watch for work: start the loop on waiting goals and auto-run safe, high-confidence suggestions."
+          >
+            <input type="checkbox" checked={listenerEnabled} onChange={(e) => onToggleListener(e.target.checked)} />
+            Listener
+          </label>
         </div>
 
         {!addonConnected ? (
           <p className="agent-live__hint">Connect the addon to control eye tracking.</p>
         ) : (
-          <>
-            <div className="agent-live__eye-actions">
-              {eyeStatus?.active ? (
-                <button
-                  type="button"
-                  className="agent-live__btn agent-live__btn--stop"
-                  onClick={onEyeStop}
-                  disabled={eyeBusy}
-                >
-                  Stop
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="agent-live__btn agent-live__btn--start"
-                  onClick={onEyeStart}
-                  disabled={eyeBusy || eyeStatus?.calibrating}
-                  title={!eyeStatus?.hasCalibration ? 'Calibrate first' : 'Move the cursor with your eyes'}
-                >
-                  {eyeStatus?.calibrating ? 'Calibrating…' : 'Start'}
-                </button>
-              )}
+          <div className="agent-live__eye-actions">
+            <span className="agent-live__eye-label">👁 {eyeLabel}</span>
+            {eyeStatus?.active ? (
               <button
                 type="button"
-                className="agent-live__btn"
-                onClick={onEyeCalibrate}
-                disabled={eyeBusy || eyeStatus?.calibrating}
-                title="Open the calibration window on your PC"
+                className="agent-live__btn agent-live__btn--stop"
+                onClick={onEyeStop}
+                disabled={eyeBusy}
               >
-                Calibrate
+                Stop
               </button>
-            </div>
-            {!eyeStatus?.hasCalibration && !eyeStatus?.active && (
-              <p className="agent-live__hint">Not calibrated yet — click Calibrate first, then Start.</p>
+            ) : (
+              <button
+                type="button"
+                className="agent-live__btn agent-live__btn--start"
+                onClick={onEyeStart}
+                disabled={eyeBusy || eyeStatus?.calibrating}
+                title={!eyeStatus?.hasCalibration ? 'Calibrate first' : 'Move the cursor with your eyes'}
+              >
+                {eyeStatus?.calibrating ? 'Calibrating…' : 'Start'}
+              </button>
             )}
-          </>
+            <button
+              type="button"
+              className="agent-live__btn"
+              onClick={onEyeCalibrate}
+              disabled={eyeBusy || eyeStatus?.calibrating}
+              title="Open the calibration window on your PC"
+            >
+              Calibrate
+            </button>
+          </div>
         )}
-      </div>
 
-      {/* ── Plans shortcut ─────────────────────────────────────────────── */}
+        <button
+          type="button"
+          className="agent-live__link-btn agent-live__adv-link"
+          onClick={() => navigate('/simple')}
+          title="The mode ladder and the kill switch live on the Control page"
+        >
+          Modes &amp; kill switch — /simple →
+        </button>
+      </details>
+
+      {/* ── Hand-off ─────────────────────────────────────────────────────
+          One line. The sub-line ("Goals, plans, notes & actions") was the
+          panel explaining a page whose panels explain themselves (§5.7). */}
       <div className="agent-live__section agent-live__section--plans">
         <button
           type="button"
@@ -594,7 +614,6 @@ export default function AgentLivePanel({ addonConnected, user, onManageMacros, v
           <span className="agent-live__plans-btn-icon" aria-hidden="true">📋</span>
           <span className="agent-live__plans-btn-text">
             <span className="agent-live__plans-btn-title">Plans</span>
-            <span className="agent-live__plans-btn-sub">Goals, plans, notes &amp; actions</span>
           </span>
           <span className="agent-live__plans-btn-arrow" aria-hidden="true">→</span>
         </button>

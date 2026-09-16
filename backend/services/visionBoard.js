@@ -170,8 +170,8 @@ function selectGoalsForBoard(goals, scope = 'dream', { max = GOAL_MAX } = {}) {
  * BOARD_STYLES.
  */
 const BOARD_RULES = [
-    '- The picture IS a vision board: ONE photo collage of three to six LARGE photographs of different',
-    '  sizes, composed to fill the frame and to read together as a single designed picture.',
+    '- The picture IS a vision and dream board: ONE photo collage of three to six LARGE photographs of',
+    '  different sizes, composed to fill the frame and to read together as a single designed picture.',
     '- No two photographs alike, and the same subject never twice: an image model asked for several',
     '  pictures of one life will happily draw the same room over and over.',
     '- The photographs overlap with their edges crossing, some larger than others — never a row or a',
@@ -507,9 +507,19 @@ function buildVisionBoardPrompt(goals, { scope = 'dream', hint = '', rules, styl
         // opens any other way does not — it draws a single lovely scene, a colour
         // swatch, or the same building tiled. The writer gets the opening verbatim
         // and spends its freedom on the subjects, which is where the goals are.
-        '- Open the prompt with exactly this shape, then fill it in:',
-        '  "A bold photo collage filling the frame: large glossy photographs of <subjects>, overlapping',
-        '  and layered at slight angles with their edges crossing, <light and palette>, photographic."',
+        //
+        // The name it opens with is deliberate: the product calls this a vision and
+        // dream board, so the prompt does too, and the naming rides in the one
+        // position whose wording decides the picture — immediately followed by the
+        // collage phrase, so the name reads as a description of the collage rather
+        // than an instruction to go and fetch a board to pin things to.
+        '- Every prompt must call the picture a "vision and dream board", and must open with exactly',
+        '  this shape, filled in:',
+        '  "A vision and dream board: a bold photo collage filling the frame — large glossy photographs',
+        '  of <subjects>, overlapping and layered at slight angles with their edges crossing, <light and',
+        '  palette>, photographic."',
+        '- The name describes THIS collage of photographs and nothing else — it is not a board the',
+        '  photographs are fixed to. Never describe a surface, a material, or an object holding them.',
         '- The subjects are what the goals become, and they must be different KINDS of thing from each',
         '  other — an interior, an exterior, a landscape, a person seen from far away, an object in the',
         '  hand. Five variations of one building is how a board comes back as the same picture five times.',
@@ -518,11 +528,7 @@ function buildVisionBoardPrompt(goals, { scope = 'dream', hint = '', rules, styl
         resolved.allowPeople ? PEOPLE_RULE.on : PEOPLE_RULE.off,
         resolved.allowText ? TEXT_RULE.on : TEXT_RULE.off,
         '- No person holds, presents or looks at the collage: the collage IS the picture.',
-        '- Do not name the person, the goals, or the words "vision board" in the prompt.',
-        // Frame, border, mock-up and every prop are refused in the negative prompt
-        // instead. Asking for "no frame" here would only put the word in front of
-        // the writer, and the props are exactly what a writer reaches for when a
-        // vision board is mentioned.
+        '- Do not name the person or the goals in the prompt.',
         steer ? `- The person asked for this as well. Honour it: ${steer}` : '',
         '',
         'Reply with the prompt and nothing else — no preamble, no explanation.',
@@ -531,14 +537,15 @@ function buildVisionBoardPrompt(goals, { scope = 'dream', hint = '', rules, styl
 
 /** The system turn for the prompt writer. */
 const VISION_BOARD_SYSTEM =
-    'You write single-paragraph prompts for a photorealistic AI image model, describing a vision board '
-    + '— a collage of many photographs of the life somebody wants — rather than a scene or a still life. '
-    + 'The collage is made of photographs and nothing else: never a cork board, pins, tape, pegs, paper, '
-    + 'frames or any other prop, because those turn a picture of a life into a picture of stationery. '
-    + 'Every board has its own light and palette, which you are told: follow the look you are given. You '
-    + 'never ask for identifiable faces, and never for text, lettering, logos or borders inside an image '
-    + 'unless the person explicitly asked for them, because those render as garbage. You always answer '
-    + 'with the prompt alone.';
+    'You write single-paragraph prompts for a photorealistic AI image model, describing a vision and '
+    + 'dream board — a collage of photographs of the life somebody wants — rather than a scene or a '
+    + 'still life. You always call it a vision and dream board, and you always describe it as a collage '
+    + 'of photographs and nothing else: never a cork board, pins, tape, pegs, paper, frames or any '
+    + 'other prop, because those turn a picture of a life into a picture of stationery. Every board has '
+    + 'its own light and palette, which you are told: follow the look you are given. You never ask for '
+    + 'identifiable faces, and never for text, lettering, logos or borders inside an image unless the '
+    + 'person explicitly asked for them, because those render as garbage. You always answer with the '
+    + 'prompt alone.';
 
 /**
  * A deterministic prompt used when the model returns something unusable. Not a
@@ -560,9 +567,9 @@ function fallbackBoardPrompt(goals, scope = 'dream', rules = {}, style) {
     const people = rules.allowPeople
         ? 'people kept distant and unidentifiable'
         : 'no faces at all';
-    return `A photo collage filling the frame, a vision board of ${horizon}: three to six large `
-        + `photographs of different sizes overlapping with their edges crossing. ${look.mood}. `
-        + `The photographs show ${list}, in ${look.palette}. ${people}, no text or lettering`;
+    return `A vision and dream board of ${horizon}: a bold photo collage filling the frame — large glossy `
+        + `photographs of ${list}, overlapping and layered at slight angles with their edges crossing. `
+        + `${look.mood}. Palette: ${look.palette}. ${people}, no text or lettering`;
 }
 
 /**

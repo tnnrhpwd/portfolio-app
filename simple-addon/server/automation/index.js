@@ -196,7 +196,7 @@ function defaultApprovalRequester({ pendingApprovals, timeoutMs = 60_000, autoAp
             // Publishing the raw args here would put typed text and clipboard
             // content on every SSE subscriber, including the cloud.
             events.publish('approval.pending', { id, toolName, args: eventArgs(toolName, args), createdAt: Date.now() });
-            // §13.1 #7: log only the arg KEYS, never values — tool args can
+            // AUTOMATION_SECURITY.md §13.1 #7: log only the arg KEYS, never values — tool args can
             // contain typed text / clipboard content / paths (PII).
             const argKeys = (args && typeof args === 'object' && !Array.isArray(args))
                 ? ` {${Object.keys(args).slice(0, 8).join(', ')}}`
@@ -679,7 +679,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
             res.status(502).json({ error: e.message });
         }
     });
-    // Toggle per-goal auto-abandon (O-O-G-P-A §7.1 additive field). When true,
+    // Toggle per-goal auto-abandon (O-O-G-P-A `LLM_PROVIDERS.md` additive field). When true,
     // the agent may self-block the goal after repeated stalls.
     app.post('/api/agent/goal/:slug/auto-abandon', async (req, res) => {
         try {
@@ -691,7 +691,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         }
     });
     // List critic lessons (workspace kind='lesson'), optionally filtered to a
-    // goal via the sourceGoal tag (O-O-G-P-A §11.3).
+    // goal via the sourceGoal tag (O-O-G-P-A `agent.md`).
     app.get('/api/agent/lessons', async (req, res) => {
         try {
             const goal = req.query.goal;
@@ -710,7 +710,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
             res.json({ lessons: [] });
         }
     });
-    // Mark a goal `blocked` with a reason (O-O-G-P-A §11.3). Also stops any
+    // Mark a goal `blocked` with a reason (O-O-G-P-A `agent.md`). Also stops any
     // running worker for that goal so a blocked goal isn't picked back up
     // mid-run. This is the manual/human path — the loop itself blocks via
     // wsClient.upsertGoal + the goal.blocked event inside selectGoal().
@@ -1059,7 +1059,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
                 || (resolvedSkill && resolvedSkill.metadata && resolvedSkill.metadata.lowTrust === true);
             const version = (resolvedSkill && resolvedSkill.metadata && resolvedSkill.metadata.version) || 'unknown';
 
-            // §4.3 / §10.3: a marketplace-installed skill must have its
+            // `MARKETPLACE.md` / `BACKLOG.md`: a marketplace-installed skill must have its
             // capability summary confirmed (once per version) before its first
             // real run. Deny with a preview so the client can render the
             // "what will this do" review instead of crashing mid-skill.
@@ -1153,7 +1153,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
     });
 
     // Generalize a compiled (literal) skill into a more robust abstracted form
-    // via LLM re-derivation (docs/implementation/simple-agent-prompt.md §5.1). Accepts
+    // via LLM re-derivation (docs/archive/SIMPLE_MARKETPLACE_PLAN.md §2 A1). Accepts
     // either `sessionId` (compiles fresh, then generalizes) or an already-
     // compiled `skill` object, plus an optional `goalDescription` hint.
     // Best-effort: on LLM failure the original literal-step skill is returned
@@ -1174,7 +1174,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         }
     });
 
-    // Multi-demonstration parameter inference (§5.2). Opt-in: only invoked
+    // Multi-demonstration parameter inference (`SIMPLE_MARKETPLACE_PLAN.md`). Opt-in: only invoked
     // when the caller explicitly supplies 2+ compiled skills of the SAME
     // task (e.g. via a "demonstrate again" affordance). Diffs the demos and
     // promotes varying literal values (typed text, target names, numeric
@@ -1199,7 +1199,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         }
     });
 
-    // Preview the privacy scrub pass on a skill before publishing (§6.1). Does
+    // Preview the privacy scrub pass on a skill before publishing (`AUTOMATION_SECURITY.md`). Does
     // NOT save/publish anything — returns the scrubbed skill + a report of
     // every redaction made, so the frontend can render the mandatory
     // "what will be shared" review. The report never contains raw sensitive
@@ -1215,9 +1215,9 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         }
     });
 
-    // Pre-run "what will this skill do" capability summary (§6.2). Read-only
+    // Pre-run "what will this skill do" capability summary (`AUTOMATION_SECURITY.md`). Read-only
     // — does not execute anything. Mandatory before first run of any skill
-    // installed from the marketplace (§4.3); also usable for local skills.
+    // installed from the marketplace (`MARKETPLACE.md`); also usable for local skills.
     app.post('/api/skill/capabilities', async (req, res) => {
         try {
             const { skill } = req.body || {};
@@ -1228,7 +1228,7 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         }
     });
 
-    // Pre-run tool-version compatibility analysis (§5.4). Resolves each step's
+    // Pre-run tool-version compatibility analysis (`SIMPLE_MARKETPLACE_PLAN.md`). Resolves each step's
     // tool against the local registry, applying deterministic downgrade rules
     // where possible, and reports compatible/degraded/unsupported counts.
     app.post('/api/skill/compatibility', async (req, res) => {
@@ -1325,13 +1325,13 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         }
     });
 
-    // ─── Marketplace routes (§4 of docs/implementation/simple-agent-prompt.md) ────────
+    // ─── Marketplace routes (docs/implementation/MARKETPLACE.md) ────────
     // Thin proxies to the shared backend's public/shared marketplace surface
     // (a SEPARATE namespace from the private per-user workspace skill store
     // above). The frontend is expected to have already run /api/skill/scrub
     // + /api/skill/capabilities locally before calling publish.
 
-    // §4.5 eval seam: these routes normally talk to the shared backend via
+    // `MARKETPLACE.md` eval seam: these routes normally talk to the shared backend via
     // wsClient. In the offline eval harness, a scenario sends the
     // request-scoped header `X-Simple-Eval-Stub: 1` to swap in a
     // deterministic in-memory client (marketplace-eval-stub.js) instead —

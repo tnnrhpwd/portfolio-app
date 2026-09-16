@@ -91,7 +91,7 @@ except ImportError as e:
 
 async function _describeFrame(base64Jpeg, query, llmClient) {
     if (!llmClient) {
-        // Routed through the §7.1 provider seam (llm-provider.js), which
+        // Routed through the `LLM_PROVIDERS.md` provider seam (llm-provider.js), which
         // ALWAYS proxies through the backend's HTTP API using the user's JWT.
         const { createLlmProvider } = require('../llm-provider');
         llmClient = createLlmProvider();

@@ -1,5 +1,5 @@
 /**
- * Pure unit tests for marketplaceCapabilities.js (§4.5/§6.2 server-side
+ * Pure unit tests for marketplaceCapabilities.js (`MARKETPLACE.md`/`AUTOMATION_SECURITY.md` server-side
  * capability-mismatch re-enforcement). No DynamoDB/network involved.
  */
 

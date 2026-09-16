@@ -25,13 +25,13 @@
  *        - stop() called externally
  *        - kill switch activated
  *
- * The loop talks to an LLM via the §7.1 provider seam (llm-provider.js),
+ * The loop talks to an LLM via the `LLM_PROVIDERS.md` provider seam (llm-provider.js),
  * which ALWAYS proxies through the portfolio backend's HTTP API using the
  * user's JWT — the addon never calls an LLM provider directly (injected via
  * opts.llmClient for tests, or pulled from ./llm-provider otherwise).
  */
 
-const DEFAULT_MAX_STEPS = 60; // §11.5 follow-up: bumped from the legacy 20 to match DEFAULT_CONFIG.MAX_STEPS_DEFAULT below.
+const DEFAULT_MAX_STEPS = 60; // `BACKLOG.md` follow-up: bumped from the legacy 20 to match DEFAULT_CONFIG.MAX_STEPS_DEFAULT below.
 // No default model id — the backend picks its own default (Claude Haiku 4.5
 // via Bedrock) when `modelId` isn't set. Model selection is a backend
 // concern now that all LLM calls are proxied.
@@ -59,8 +59,7 @@ const { PII_TOOLS, clip } = require('./event-detail');
  *  what it is doing and why; short enough that the event ring stays useful. */
 const THOUGHT_MAX = 500;
 
-// Future-phase tunables (docs/implementation/simple-agent-prompt.md
-// §7.4). Not yet consumed by the loop — wired in Phases 2–6. Present here so
+// Future-phase tunables (docs/implementation/BACKLOG.md). Not yet consumed by the loop — wired in Phases 2–6. Present here so
 // the injectable `ctx.config` seam exists from the start without changing any
 // default behavior.
 const DEFAULT_CONFIG = {
@@ -275,7 +274,7 @@ class AgentLoop {
         if (this._llm) return this._llm;
         if (this._llmClient) { this._llm = this._llmClient; return this._llm; }
         // Lazy require to avoid circular deps at server boot. Routed through the
-        // §7.1 provider seam (llm-provider.js), which ALWAYS proxies through the
+        // `LLM_PROVIDERS.md` provider seam (llm-provider.js), which ALWAYS proxies through the
         // backend's HTTP API using the user's JWT (already wired via
         // workspace-client's cloud-relay token getter) — no local token
         // discovery needed here anymore.
@@ -445,7 +444,7 @@ class AgentLoop {
         try { episodes = await this.memory.recallEpisodes(this.config.EPISODIC_WINDOW); }
         catch (e) { this.log('[agent] episode recall failed:', e.message); }
         try {
-            // §11.5: fetch a larger pool (4× topK, floor 12) so semantic
+            // `BACKLOG.md`: fetch a larger pool (4× topK, floor 12) so semantic
             // ranking below has candidates to choose from — then rank by token
             // overlap with the current situation instead of taking the N most
             // recent lessons unconditionally.
@@ -516,7 +515,7 @@ class AgentLoop {
     }
 
     /**
-     * §11.5 semantic lesson recall — rank the recent-lessons pool by token
+     * `BACKLOG.md` semantic lesson recall — rank the recent-lessons pool by token
      * overlap with the current situation (goal + context + perception) using
      * critic.recall, then backfill any remaining slots with the most recent
      * unmatched lessons. Replaces the old "most recent N, unconditionally"

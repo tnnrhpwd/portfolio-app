@@ -204,7 +204,7 @@ describe('profileVisibilityOf', () => {
 
 /**
  * The relationship decides both the row's one action and which controls the
- * Manage pane offers (docs/implementation/agent.md §19.4), so it is the one piece
+ * Manage pane offers (docs/implementation/PROFILES.md), so it is the one piece
  * of page logic worth asserting: two controls reading it differently is how a page
  * ends up offering to connect you to somebody you have blocked.
  */

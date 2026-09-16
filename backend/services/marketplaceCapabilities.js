@@ -1,9 +1,9 @@
 /**
  * marketplaceCapabilities.js — server-side re-enforcement of the
  * declared-vs-actual capability/category mismatch check
- * (docs/implementation/simple-agent-prompt.md §4.5, §6.2).
+ * (docs/implementation/MARKETPLACE.md, docs/implementation/AUTOMATION_SECURITY.md).
  *
- * §4.5's Definition of Done calls out that the publish endpoint "does not
+ * `MARKETPLACE.md`'s Definition of Done calls out that the publish endpoint "does not
  * independently re-run summarizeCapabilities's declared-vs-actual category
  * mismatch check server-side — that still only runs client-side via
  * POST /api/skill/capabilities". That's the same class of gap `scrubForPublish`
@@ -36,7 +36,7 @@
  * the backend independently computes the actual categories invoked by
  * `steps` and compares against the client-declared `declaredCategories`,
  * returning a `capabilitySummary` (with any `mismatches`) on the publish
- * response — the caller/UI still decides what to do with it (§6.2/§6.4:
+ * response — the caller/UI still decides what to do with it (`AUTOMATION_SECURITY.md`/`AUTOMATION_SECURITY.md`:
  * mandatory pre-run confirmation UI is a separate, still-open item), but a
  * client can no longer make an undetected under-declaration at publish time.
  */

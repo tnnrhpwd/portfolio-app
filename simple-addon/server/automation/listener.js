@@ -1,6 +1,6 @@
 /**
  * ContinuousListener — the "always-on" feedback loop behind the addon's
- * Listener toggle (O-O-G-P-A plan §6.3 "continuous" autonomy level).
+ * Listener toggle (O-O-G-P-A plan `AUTOMATION_SECURITY.md` "continuous" autonomy level).
  *
  * When enabled it runs on a cadence and autonomously keeps work moving:
  *   1. If every agent loop is idle and an active goal is waiting, start one.

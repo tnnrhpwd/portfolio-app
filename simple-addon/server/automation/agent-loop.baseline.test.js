@@ -1,6 +1,6 @@
 /**
  * agent-loop.baseline.test.js — Phase 0 baseline freeze for the O-O-G-P-A
- * refactor (docs/implementation/simple-agent-prompt.md).
+ * refactor (docs/implementation/agent.md).
  *
  * Asserts the EXACT current ReAct-loop behavior of agent-loop.js so every
  * later refactor (named stages, Orient, Goal cadence, critic, idleness) can

@@ -134,8 +134,7 @@ const {
   updateMyReview,
   deleteMyReview,
 } = require('../controllers/reviewController');
-// Talk messenger — friend graph + encrypted direct messages (docs/implementation
-// /agent.md §18). Every route is signed-in only.
+// Talk messenger — friend graph + encrypted direct messages (docs/implementation/TALK.md). Every route is signed-in only.
 const {
   getMessengerDirectory,
   getMessengerPeer,
@@ -151,7 +150,7 @@ const {
   postConversationMessage,
   postConversationRead,
 } = require('../controllers/messengerController');
-// Simple Marketplace controller (public/shared skill marketplace, §4)
+// Simple Marketplace controller (public/shared skill marketplace, `MARKETPLACE.md`)
 const {
   publishSkill,
   searchMarketSkills,
@@ -387,7 +386,7 @@ router.get('/stripe-config', optionalAuth, getStripeConfig);
 // Dynamic homepage title (public, auth-aware for nickname/email/plan rules)
 router.get('/home-title', optionalAuth, getHomeTitle);
 
-// Public profiles — `/u/<username>` (docs/implementation/agent.md §19).
+// Public profiles — /u/<username>` (docs/implementation/PROFILES.md).
 // Open to signed-out visitors, and auth-AWARE: `optionalAuth` is what lets the
 // response say "this is you" or "you are already connected" to a signed-in
 // viewer. Two segments, so it cannot collide with the generic `/:id` below.
@@ -492,7 +491,7 @@ router.route('/reviews/:id')
   .put(protect, reviewWriteLimiter, sanitizeInput, updateMyReview)
   .delete(protect, reviewWriteLimiter, deleteMyReview);
 
-// ── TALK MESSENGER (docs/implementation/agent.md §18) ───────────────────────
+// ── TALK MESSENGER (docs/implementation/TALK.md) ───────────────────────
 // Friend graph + direct messages. Every route is signed in: the service keys
 // everything off `req.user.id`, and a userId in the path is only ever the PEER,
 // re-authorised on each call. Order matters — the specific paths are declared
@@ -518,8 +517,8 @@ router.post('/messenger/requests/:userId/decline', protect, messengerWriteLimite
 router.delete('/messenger/requests/:userId', protect, messengerWriteLimiter, deleteFriendRequest);
 router.delete('/messenger/contacts/:userId', protect, messengerWriteLimiter, deleteMessengerContact);
 
-// Blocking. A block is not a `DELETE /contacts` (see §19.4 in
-// docs/implementation/agent.md): it outlives the connection it removes and it is
+// Blocking. A block is not a `DELETE /contacts` (see `PROFILES.md` in
+// docs/implementation/PROFILES.md): it outlives the connection it removes and it is
 // one-sided. `messengerWriteLimiter` rather than `friendRequestLimiter` — this is
 // a state change on two accounts, not an unsolicited message to a stranger.
 //
@@ -676,7 +675,7 @@ router.delete('/pets/:petId', protect, workspaceWriteLimiter, removePet);
 // ── Fit ─────────────────────────────────────────────────────────────────────
 // Training advice from the athlete's own logged sessions, runs, and pain
 // reports. Signed in only: server-paid Bedrock, metered at the provider
-// boundary in the controller (see docs/implementation/agent.md §8.1).
+// boundary in the controller (see docs/guides/BUSINESS_PLAN.md).
 router.post('/fit/coach', protect, llmLimiter, sanitizeInput, askFitCoach);
 
 // ============================================================================
@@ -762,7 +761,7 @@ router.post('/csimple/vision-board', protect, llmLimiter, imageGenLimiter, sanit
 // Deleting a board removes its workspace item, its S3 object and the storage row
 // that counted its bytes — the generic workspace DELETE would orphan the image.
 router.delete('/csimple/vision-board/:slug', protect, workspaceWriteLimiter, deleteVisionBoard);
-// §7.1 addon LLM provider seam backend routes — the Simple Addon's agent
+// `LLM_PROVIDERS.md` addon LLM provider seam backend routes — the Simple Addon's agent
 // loop / skill repair / vision lookups ALWAYS proxy through these (never a
 // direct LLM call from the addon). See simple-addon/server/automation/llm-provider.js.
 router.post('/csimple/agent-chat', protect, llmLimiter, sanitizeInput, agentChatProxy);
@@ -777,8 +776,8 @@ router.route('/csimple/workspace/:kind/:slug')
   .delete(protect, workspaceWriteLimiter, deleteWorkspaceItem);
 
 // ============================================================================
-// CSIMPLE MARKETPLACE (public/shared skill marketplace — §4 of
-//                      docs/implementation/simple-agent-prompt.md)
+// CSIMPLE MARKETPLACE (public/shared skill marketplace — `MARKETPLACE.md` of
+//                      docs/implementation/MARKETPLACE.md)
 // ============================================================================
 
 // Order matters: specific routes BEFORE parameterized ones.
@@ -791,7 +790,7 @@ router.post('/market/skills/:marketId/install', protect, marketWriteLimiter, san
 router.post('/market/skills/:marketId/rate', protect, marketWriteLimiter, sanitizeInput, rateMarketSkill);
 router.post('/market/skills/:marketId/flag', protect, marketWriteLimiter, sanitizeInput, flagMarketSkill);
 
-// Shared GOALS (§4.7) — same namespace, same trust rules, goal payloads.
+// Shared GOALS (`MARKETPLACE.md`) — same namespace, same trust rules, goal payloads.
 // "install" saves a private copy into the caller's workspace goal store.
 // Ratings reuse the skills' install-gated rate endpoint above, since a goal's
 // install attestation is written by installMarketGoal just like a skill's.

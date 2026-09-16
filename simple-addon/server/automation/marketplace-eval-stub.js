@@ -7,9 +7,9 @@
  * flagMarketSkill) used ONLY by the eval harness.
  *
  * The addon's /api/market/skills* routes are thin proxies to the shared
- * portfolio backend (docs/implementation/simple-agent-prompt.md §4.2). To
+ * portfolio backend (docs/implementation/MARKETPLACE.md). To
  * exercise them end-to-end in the offline eval harness you'd otherwise need a
- * live backend + signed-in JWT. This stub closes that gap (the §4.5 eval
+ * live backend + signed-in JWT. This stub closes that gap (the `MARKETPLACE.md` eval
  * scenario): the routes detect the request-scoped `X-Simple-Eval-Stub: 1`
  * header and swap in this client, so the scenario can assert the full proxy
  * wiring (routing, status codes, JSON shape) with no network calls.

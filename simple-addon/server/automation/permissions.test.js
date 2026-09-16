@@ -78,7 +78,7 @@ asyncTest('autoApproveAll on + per-tool deny → denied', async () => {
     assert.strictEqual(r.mode, 'deny');
 });
 
-// ── §6.4: every deny path surfaces a user-visible, specific reason ────────
+// ── `AUTOMATION_SECURITY.md`: every deny path surfaces a user-visible, specific reason ────────
 asyncTest('kill-switch deny reason names the kill switch', async () => {
     reset({ globalKillSwitch: true });
     const r = await permissions.requestApproval(askTool, { command: 'Write-Host hi' });

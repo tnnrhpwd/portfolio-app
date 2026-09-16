@@ -1,6 +1,6 @@
 /**
  * agent-loop.test.js — Phase 1 unit tests for the O-O-G-P-A stage functions
- * (docs/implementation/simple-agent-prompt.md §11).
+ * (docs/implementation/agent.md).
  *
  * Asserts each named stage (`observe` / `orient` / `selectGoal` / `plan` /
  * `act` / `reflect`) returns the documented plain-object shape when driven
@@ -127,7 +127,7 @@ function newLoop(overrides = {}) {
         assert.ok(sit.userTick.includes('Continue.'), `got: ${sit.userTick}`);
     });
 
-    // ── §11.5: semantic lesson recall (critic.recall wired into Orient) ────
+    // ── `BACKLOG.md`: semantic lesson recall (critic.recall wired into Orient) ────
     await asyncTest('_rankLessons ranks relevant first and backfills recent-first', async () => {
         const { loop } = newLoop();
         loop.state.currentGoal = { ...GOAL, content: 'move files to the archive directory' };

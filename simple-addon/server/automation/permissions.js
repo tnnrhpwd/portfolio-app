@@ -224,7 +224,7 @@ async function requestApproval(tool, args, opts = {}) {
     const mode = effectiveMode(tool);
     if (mode === 'allow' || mode === 'dry-run') return { ok: true, mode };
     if (mode === 'deny') {
-        // §6.4: every deny path must surface a user-visible reason that names
+        // `AUTOMATION_SECURITY.md`: every deny path must surface a user-visible reason that names
         // WHAT blocked it (kill switch vs a specific deny rule vs the category
         // default) — never a generic "denied by policy" that leaves the user
         // guessing which setting to flip.

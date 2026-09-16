@@ -454,7 +454,7 @@ body[data-scheme='custom'] {
 
      One set per theme, so a plane's "more color" is a token change, not a
      per-rule hunt. `--plane-muted` exists because a muted token tuned for the
-     *page* background does not survive landing on a saturated plane (§13.13) —
+     *page* background does not survive landing on a saturated plane (FRONTEND_UI_STANDARD.md §11.2) —
      it is `--text-color-accent` nudged toward the body text, which darkens it
      in the light theme and lightens it in the dark one. Measured on the light
      mint head (oklch 0.76): 5.9:1, and on the dark mint head: 4.9:1.
@@ -860,7 +860,7 @@ label {
 
    The BODY stays the neutral `--bg-1` plane with `--text-color` copy. A toast is
    a surface, and a surface carries text — the scheme belongs in the chrome and in
-   the accent, not under the words (§13.22's lesson from the sign-in card). */
+   the accent, not under the words (FRONTEND_UI_STANDARD.md §11.9's lesson from the sign-in card). */
 .light-theme,
 .dark-theme {
   --toastify-color-light: var(--bg-1);

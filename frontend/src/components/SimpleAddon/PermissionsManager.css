@@ -170,7 +170,7 @@
   color: #ef4444;
 }
 
-/* ─── First-use consent modal (§6.3) ───────────────────────────────────────
+/* ─── First-use consent modal (`AUTOMATION_SECURITY.md`) ───────────────────────────────────────
    A lightweight centered dialog with plain-language data-egress copy, shown
    before a sensitive consent (keyboard capture / cloud vision) is granted
    for the first time. Backdrop sits above the settings panel; the panel is

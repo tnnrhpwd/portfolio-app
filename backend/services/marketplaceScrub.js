@@ -1,8 +1,8 @@
 /**
  * marketplaceScrub.js — server-side re-enforcement of the privacy/PII scrub
- * pass (docs/implementation/simple-agent-prompt.md §4.5, §6.1).
+ * pass (docs/implementation/MARKETPLACE.md, docs/implementation/AUTOMATION_SECURITY.md).
  *
- * §4.5's Definition of Done calls out that `publishSkill` "does not
+ * `MARKETPLACE.md`'s Definition of Done calls out that `publishSkill` "does not
  * independently re-run scrubForPublish/summarizeCapabilities server-side —
  * it trusts the caller to have already scrubbed steps client-side" via the
  * addon-local `POST /api/skill/scrub` route. That's a real gap: a malicious
@@ -36,7 +36,7 @@
  * steps), regardless of whether the client already scrubbed. If the
  * server-side pass finds anything the client missed, that's surfaced back
  * to the caller as `scrubReport` on the publish response so the author
- * still gets the "what will be shared" visibility promised in §6.1 — it's
+ * still gets the "what will be shared" visibility promised in `AUTOMATION_SECURITY.md` — it's
  * just enforced twice instead of trusted once.
  */
 

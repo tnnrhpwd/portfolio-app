@@ -1,5 +1,17 @@
-/* ProfileAvatar — shared avatar frame (uploaded picture or checkmark fallback). */
+/* ProfileAvatar — shared avatar frame (uploaded picture or checkmark fallback).
 
+   ⚠️ NO RING. The frame used to paint `linear-gradient(135deg, --fg-orange, --fg-pink)`
+   behind a `padding` of 0.05 × --nav-size, i.e. an orange→HOT PINK ring around every
+   face on the site — and those two tokens are the pre-scheme palette, which the UI
+   standard deliberately leaves UN-aliased (orange is the alert hue). So the ring never
+   followed the visitor's colour scheme: on a green scheme every avatar wore pink, on
+   `/u/<name>` a stranger's face sat in it beside a glass pane that did follow the
+   scheme. It was the last fixed accent gradient on an identity element.
+
+   A face is a circle; this frame's job is only to make it one. The circle comes from
+   `border-radius` + `overflow: hidden` on the frame (which also clips the transparent
+   corners of the checkmark PNG), never from a fill — so the picture now fills the frame
+   exactly instead of being inset behind a ring. */
 .profile-avatar {
   position: relative;
   display: inline-flex;
@@ -7,10 +19,8 @@
   justify-content: center;
   flex-shrink: 0;
   border-radius: 50%;
-  padding: calc(var(--nav-size) * 0.05);
-  background: linear-gradient(135deg, var(--fg-orange), var(--fg-pink));
-  box-shadow: var(--shadow-md);
   overflow: hidden;
+  box-shadow: var(--shadow-md);
 }
 
 .profile-avatar__img {

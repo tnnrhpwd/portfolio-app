@@ -392,7 +392,7 @@ async function connect() {
 const indexOf = (id) => JSON.parse(rowFor(id).text.replace('|MsgIndex:', ''));
 
 /**
- * Blocks (docs/implementation/agent.md §19.4).
+ * Blocks (docs/implementation/PROFILES.md).
  *
  * A block is the one thing in this service that is deliberately NOT symmetric, so
  * the tests that matter are the asymmetric ones: the two sides are left in

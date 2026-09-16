@@ -36,7 +36,7 @@ const {
     ScanCommand,
     UpdateCommand,
 } = require('@aws-sdk/lib-dynamodb');
-// §10.2 P0: fold marketplace downloads/installs/creations counters into
+// `BACKLOG.md` P0: fold marketplace downloads/installs/creations counters into
 // /telemetry/summary. Lazily required (not at module scope) so a circular
 // require between the two controllers can never occur, and so unit tests
 // for this file that don't touch the marketplace path don't need to mock
@@ -84,7 +84,7 @@ async function _callAgentLlm(messages, { temperature, maxTokens, tools, tool_cho
     };
 }
 
-// ─── §8 Monetization seam (provider-boundary gate) ───────────────────────────
+// ─── `BUSINESS_PLAN.md` Monetization seam (provider-boundary gate) ───────────────────────────
 // The addon's cloud-LLM calls all proxy through agent-chat/agent-vision
 // (simple-addon/server/automation/llm-provider.js → workspace-client.js).
 // These two routes ARE the "one seam" the roadmap monetizes on: local
@@ -1022,7 +1022,7 @@ const getTelemetrySummary = asyncHandler(async (req, res) => {
         recentErrors: a.errors,
     })).sort((x, y) => y.count - x.count);
 
-    // §10.2 P0: surface this author's marketplace downloads/installs/
+    // `BACKLOG.md` P0: surface this author's marketplace downloads/installs/
     // creations alongside per-tool action telemetry, so the web UI has one
     // endpoint for "what your agent has been doing" instead of two. Best
     // effort: a marketplace lookup failure must never break the (already
@@ -2209,7 +2209,7 @@ const deleteVisionBoard = asyncHandler(async (req, res) => {
 
 // @desc    Generic tool-calling chat completion for the Simple Addon's
 //          automation agent loop (agent-loop.js / tools/skill.js repair /
-//          screenshot_check via the §7.1 llm-provider.js backend-proxy
+//          screenshot_check via the `LLM_PROVIDERS.md` llm-provider.js backend-proxy
 //          seam). Unlike compile-natural/edit-natural above (which build
 //          their own fixed prompt), this accepts an arbitrary messages
 //          array + tool schemas from the caller and returns the raw
@@ -2235,7 +2235,7 @@ const agentChatProxy = asyncHandler(async (req, res) => {
         ? [{ role: 'system', content: String(systemPrompt).slice(0, 8000) }, ...messages]
         : messages;
 
-    // §8: gate on the per-tier monthly AI credit limit BEFORE the Bedrock call.
+    // `BUSINESS_PLAN.md`: gate on the per-tier monthly AI credit limit BEFORE the Bedrock call.
     const gate = await _enforceLlmCreditGate(req, res, { model: req.body?.model, inputTokens: 500, outputTokens: 500 });
     if (!gate) return;
 
@@ -2292,7 +2292,7 @@ const agentVisionProxy = asyncHandler(async (req, res) => {
         ],
     }];
 
-    // §8: gate on the per-tier monthly AI credit limit BEFORE the Bedrock call.
+    // `BUSINESS_PLAN.md`: gate on the per-tier monthly AI credit limit BEFORE the Bedrock call.
     // Vision frames are token-heavy on the input side — estimate accordingly.
     const gate = await _enforceLlmCreditGate(req, res, { model: req.body?.model, inputTokens: 2000, outputTokens: 300 });
     if (!gate) return;

@@ -1,5 +1,5 @@
 /* TalkUnreadBadge — the unread count beside a link into Talk.
-   Design record: docs/implementation/agent.md §18 (Talk). */
+   Design record: docs/implementation/TALK.md. */
 
 /* An unread count is SIGNAL, and the site has exactly one fill for a control
    that carries an inverted label: `--action`, whose lightness is pinned per mode

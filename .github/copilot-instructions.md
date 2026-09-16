@@ -8,7 +8,7 @@ CSS tweak it is pure waste — a stylesheet has no unit test that can fail.
 
 | You changed                                                     | Verify with                                                                                                                                        |
 | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CSS / styles / layout / colour                                  | **No jest run.** Check it in the browser: overflow sweep 320→1920px, both themes, contrast. Method in `docs/implementation/agent.md` §13.12–13.17. |
+| CSS / styles / layout / colour                                  | **No jest run.** Check it in the browser: overflow sweep 320→1920px, both themes, contrast. Method in `docs/guides/FRONTEND_UI_STANDARD.md` §11 (design records — the responsive and colour passes). |
 | Copy, text, images/assets, docs, comments, formatting           | Nothing. Do not run tests.                                                                                                                         |
 | One component / util / service / controller                     | Only the test file(s) named after or colocated with it.                                                                                            |
 | Shared helper, build config, pricing constants, dependency bump | The tests of its direct consumers — still scoped, just a wider named set.                                                                          |

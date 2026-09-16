@@ -6,7 +6,7 @@ import './PurchaseGateNotice.css';
  * PurchaseGateNotice — the ONE way this site says "upgrading is paused right now".
  *
  * The gate itself is deliberate: we don't take money until the readiness bar is
- * met (docs/implementation/agent.md §12), and the admin controls it per
+ * met (docs/implementation/BACKLOG.md), and the admin controls it per
  * environment (`backend/controllers/purchaseGateController.js`).
  *
  * The bug this component exists to prevent is what the gate *looks like* when it
@@ -15,7 +15,7 @@ import './PurchaseGateNotice.css';
  * purpose, is left with nothing to click and no explanation — and the notice on
  * `/pricing` used to carry no way to ask about it either. So every gated surface
  * renders this instead: the admin's message (or the default), plus one route out
- * to a human. §16.5 rule 6 — never hard-block without a way out.
+ * to a human. `SALES_FUNNEL.md`'s funnel-page rules rule 6 — never hard-block without a way out.
  *
  * One component, because three hand-written notice variants is how one of them
  * ends up without the link again.

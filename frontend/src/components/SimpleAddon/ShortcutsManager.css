@@ -208,7 +208,7 @@
   cursor: pointer;
 }
 
-/* §5.3: recovered-step callout in the success banner (visual retarget / LLM
+/* `SIMPLE_MARKETPLACE_PLAN.md`: recovered-step callout in the success banner (visual retarget / LLM
    repair) — amber so it reads as "auto-healed" rather than an error. */
 .short__run-recovered {
   color: color-mix(in srgb, #f39c12 78%, var(--text-primary));

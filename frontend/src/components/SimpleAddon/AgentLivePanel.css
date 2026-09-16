@@ -134,6 +134,53 @@
   opacity: 0.7;
 }
 
+/* ─── The one-line section head (name · state · the action) ─────────────────
+   Every section here is ONE row carrying what it is, what state it is in and
+   the one thing to do about it — the shape /simple's toolbar uses. The action
+   is pushed to the right edge, so the row reads name → state → verb. */
+.agent-live__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.agent-live__bar h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.agent-live__bar > .agent-live__btn,
+.agent-live__bar > .agent-live__link-btn {
+  margin-left: auto;
+}
+
+.agent-live__count {
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.6;
+}
+
+/* ─── The running readout ────────────────────────────────────────────────
+   Two lines at most: which goal, then the loop's own numbers. Named and
+   ordered like /simple's toolbar chips (loop · stage · step) plus its loop
+   panel's two facts (stalls, last lesson), so both surfaces describe one loop
+   the same way. */
+.agent-live__readout {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+}
+
+.agent-live__stats {
+  opacity: 0.7;
+  overflow-wrap: anywhere;
+}
+
 .agent-live__controls {
   display: flex;
   gap: 0.5rem;
@@ -231,6 +278,42 @@
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 0.4rem;
+}
+
+/* ─── Advanced — the raw switches and the sensors, FOLDED ──────────────────
+   The plumbing, not the control. /simple keeps exactly these two switches under
+   its own "Advanced" fold because the mode ladder there IS auto-approve +
+   listener — and a rail panel that opens on three groups of settings is a panel
+   nobody opens twice. Closed, it costs one line. */
+.agent-live__adv {
+  margin-top: 0.6rem;
+  border-top: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
+  padding-top: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.agent-live__adv > summary {
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 0.75;
+  cursor: pointer;
+}
+
+.agent-live__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.5rem 0 0;
+}
+
+.agent-live__eye-label {
+  flex: 1 1 100%;
+  font-size: 0.72rem;
+  opacity: 0.7;
+}
+
+.agent-live__adv-link {
+  margin-top: 0.5rem;
 }
 
 /* ─── Quick macros list ────────────────────────────────────────────────── */
@@ -422,8 +505,21 @@
   text-decoration: underline;
 }
 
-/* Dark theme tuning */
-.dark-theme .agent-live {
+/* Dark theme tuning — the STANDALONE panel only.
+
+   ⚠️ `:not(.agent-live--sidebar)` is load-bearing. This block paints the panel's
+   own surface, and it is (0,2,0) — which beat the sidebar variant's
+   `background: transparent` / `color: var(--text-primary)` at (0,1,0). So the rail
+   panel painted a navy `rgba(17,24,39,.72)` slab inside a grey rail: blue behind
+   every line of text, grey around it, in a column that is supposed to be one flat
+   surface. A variant class needs the theme prefix too, or the theme wins.
+
+   The per-control rules below it are deliberately NOT scoped: each is either
+   overridden by the sidebar block (`.agent-live--sidebar .agent-live__btn`,
+   `…__toggle`, `…__macro-run`, all (0,2,0) and later in this file), or wanted in
+   both (the approvals wash is the amber warning — unscoping it would drop the
+   rail's pending-approval block back to the light cream). */
+.dark-theme .agent-live:not(.agent-live--sidebar) {
   background: rgba(17, 24, 39, 0.72);
   border-color: rgba(255, 255, 255, 0.12);
   color: #e5e7eb;
@@ -472,6 +568,15 @@
   font-family: inherit;
 }
 
+/* The section separator wears the RAIL's edge token, not the base rule's
+   `rgba(0, 0, 0, 0.08)` fallback (nothing in this app ever defines
+   `--border-color`, so every fallback is what actually paints) — a black film is
+   invisible on a dark rail and a visible line on a light one, i.e. the two modes
+   disagreed about whether the sections are separated at all. */
+.agent-live--sidebar .agent-live__section + .agent-live__section {
+  border-top-color: var(--border);
+}
+
 .agent-live--sidebar .agent-live__kill-banner {
   border-radius: var(--radius-sm);
   font-size: 12px;
@@ -479,12 +584,18 @@
   margin-bottom: 10px;
 }
 
-.agent-live--sidebar .agent-live__section-head h4 {
+/* The section head is ONE row: name · state · the action. */
+.agent-live--sidebar .agent-live__bar {
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.agent-live--sidebar .agent-live__bar h4 {
   font-size: 12px;
   letter-spacing: 0.3px;
 }
 
-.agent-live--sidebar .agent-live__section-hint {
+.agent-live--sidebar .agent-live__count {
   font-size: 11px;
 }
 
@@ -503,34 +614,73 @@
   color: var(--text-muted);
 }
 
-.agent-live--sidebar .agent-live__goal {
+.agent-live--sidebar .agent-live__readout {
   font-size: 12px;
-  gap: 6px;
-  margin-bottom: 10px;
   color: var(--text-secondary);
+  margin-bottom: 8px;
 }
 
-.agent-live--sidebar .agent-live__goal-label {
-  font-size: 10px;
+.agent-live--sidebar .agent-live__stats {
+  font-size: 11px;
   color: var(--text-muted);
-}
-
-.agent-live--sidebar .agent-live__controls {
-  gap: 6px;
-  margin-bottom: 10px;
+  opacity: 1;
 }
 
 .agent-live--sidebar .agent-live__btn {
-  flex: 1 1 calc(50% - 3px);
+  flex: 0 0 auto;
   min-width: 0;
+  min-height: 0;
   text-align: center;
-  font-size: 13px;
-  padding: 8px 10px;
+  font-size: 12px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
   background: var(--bg-primary);
   color: var(--text-secondary);
   border: 1px solid var(--border);
   transition: all var(--transition);
+}
+
+/* The loop's Start/Stop is this panel's primary action, so it fills the rest of
+   its own row: a full-width target whose wording can change (▶ Start loop →
+   ■ Stop) without the row resizing under the cursor. 32px rather than the
+   compact buttons' natural height — it is the one control here worth aiming at. */
+.agent-live--sidebar .agent-live__bar > .agent-live__btn {
+  flex: 1 1 auto;
+  min-height: 32px;
+}
+
+/* ⚠️ `button` and `input` carry `min-height: 44px` in `index.css` (§6). That is a
+   touch-target default for a page, not for a rail that has to hold a conversation
+   plus four groups of controls in one 280px column: measured, it was the single
+   largest contributor to this panel's height — EVERY button and the checkbox
+   itself were 44px tall, which is what made two stacked switch rows 124px.
+   Compact controls undo it. */
+.agent-live--sidebar .agent-live__link-btn,
+.agent-live--sidebar .agent-live__toggle,
+.agent-live--sidebar .agent-live__plans-btn {
+  min-height: 0;
+}
+
+.agent-live--sidebar .agent-live__toggle input {
+  width: 14px;
+  height: 14px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+/* ⚠️ The icon is `1.15rem` in the base rules and **1rem is 38.88px here**, not
+   16 — it rendered as a 45px glyph in a 67px line box, which is why a ONE-LINE
+   row measured 81px. The rail speaks px everywhere else; so does this now. */
+.agent-live--sidebar .agent-live__plans-btn-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* `0.72rem` = 28px of argument text inside the one block that is already
+   cramped by the text it is showing. */
+.agent-live--sidebar .agent-live__approval-args {
+  font-size: 11px;
 }
 
 .agent-live--sidebar .agent-live__btn:hover:not(:disabled) {
@@ -560,11 +710,14 @@
   border-color: var(--text-primary);
 }
 
+/* A switch is a CHIP here, not a full-width row — the two sit side by side on
+   one line, which is what used to take two. */
 .agent-live--sidebar .agent-live__toggle {
-  flex: 1 1 100%;
+  flex: 1 1 auto;
   justify-content: center;
-  font-size: 13px;
-  padding: 8px 10px;
+  gap: 5px;
+  font-size: 12px;
+  padding: 5px 8px;
   border-radius: var(--radius-sm);
   background: var(--bg-primary);
   color: var(--text-secondary);
@@ -592,11 +745,18 @@
   font-size: 12px;
 }
 
+/* The LIST scrolls; the panel does not grow with your macro count. */
+.agent-live--sidebar .agent-live__macros {
+  gap: 4px;
+  max-height: 172px;
+  overflow-y: auto;
+}
+
 .agent-live--sidebar .agent-live__macro {
   border-radius: var(--radius-sm);
   background: var(--bg-primary);
   border-color: var(--border);
-  padding: 6px 8px;
+  padding: 4px 8px;
 }
 
 .agent-live--sidebar .agent-live__macro-name {
@@ -607,12 +767,49 @@
 .agent-live--sidebar .agent-live__macro-hotkey {
   background: var(--bg-hover);
   color: var(--text-muted);
+  /* `0.68rem` = 26px here, which made every macro row 52px tall — the chip was
+     the tallest thing in the row it labels. 1rem is 38.88px in this app. */
+  font-size: 10px;
+  padding: 1px 5px;
 }
 
 .agent-live--sidebar .agent-live__macro-run {
   flex: 0 0 auto;
   font-size: 11px;
-  padding: 5px 10px;
+  padding: 3px 8px;
+}
+
+/* ── Inside the Advanced fold: one column, chip-sized controls ─────────── */
+.agent-live--sidebar .agent-live__eye-actions {
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 0;
+}
+
+.agent-live--sidebar .agent-live__eye-label {
+  font-size: 11px;
+  opacity: 1;
+  color: var(--text-muted);
+}
+
+.agent-live--sidebar .agent-live__adv {
+  margin-top: 10px;
+  padding-top: 8px;
+  font-size: 12px;
+}
+
+.agent-live--sidebar .agent-live__adv > summary {
+  font-size: 11px;
+}
+
+.agent-live--sidebar .agent-live__chips {
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.agent-live--sidebar .agent-live__adv-link {
+  margin-top: 8px;
+  font-size: 11px;
 }
 
 .agent-live--sidebar .agent-live__link-btn,
@@ -654,6 +851,10 @@
 .agent-live--sidebar .agent-live__approvals {
   border-radius: var(--radius-sm);
   padding: 8px 10px;
+}
+
+.agent-live--sidebar .agent-live__approval-actions {
+  gap: 6px;
 }
 
 .agent-live--sidebar .agent-live__approval-tool {
@@ -739,7 +940,7 @@
   background: var(--bg-primary);
   border-color: var(--border);
   border-radius: var(--radius-sm);
-  padding: 8px 10px;
+  padding: 6px 10px;
 }
 
 .agent-live--sidebar .agent-live__plans-btn:hover {

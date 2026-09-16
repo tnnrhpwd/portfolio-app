@@ -1,6 +1,6 @@
 /**
  * marketplaceApi.js — Frontend API helpers for the Simple skill marketplace
- * (docs/implementation/simple-agent-prompt.md §4).
+ * (docs/implementation/MARKETPLACE.md §4).
  *
  * Talks to the portfolio backend's public/shared marketplace surface:
  *   GET    /api/data/market/skills?q=&sort=&page=&perPage=
@@ -121,7 +121,7 @@ export async function installMarketSkill(token, marketId, version) {
 
 /**
  * Submit a run-gated rating. `ranAt` is the run-evidence timestamp the backend
- * requires (§4.1) — only call after the skill has actually been run in the
+ * requires (`MARKETPLACE.md`) — only call after the skill has actually been run in the
  * addon. `outcome` is the successCriteria result ('passed'|'failed'|null).
  */
 export async function rateMarketSkill(token, marketId, { stars, outcome, ranAt, version } = {}) {
@@ -141,7 +141,7 @@ export async function rateMarketSkill(token, marketId, { stars, outcome, ranAt, 
 }
 
 /**
- * Community flag — no moderation queue; flags feed the ranking penalty (§4.3).
+ * Community flag — no moderation queue; flags feed the ranking penalty (`MARKETPLACE.md`).
  */
 export async function flagMarketSkill(token, marketId, reason) {
   if (!token) throw new Error('Sign in required to flag marketplace skills');
@@ -162,7 +162,7 @@ export async function flagMarketSkill(token, marketId, reason) {
 /**
  * Publish a skill to the marketplace (new entry or a new version of one this
  * user authored). The backend independently re-scrubs + re-checks capability
- * declarations before persisting (§4.5).
+ * declarations before persisting (`MARKETPLACE.md`).
  */
 export async function publishMarketSkill(token, payload) {
   if (!token) throw new Error('Sign in required to publish marketplace skills');
@@ -180,7 +180,7 @@ export async function publishMarketSkill(token, payload) {
   return parseJson(res);
 }
 
-/* ── Shared GOALS (§4.7) ────────────────────────────────────────────────────
+/* ── Shared GOALS (`MARKETPLACE.md`) ────────────────────────────────────────────────────
    Same shape as the skill helpers, against /market/goals. A goal has no steps:
    it is its text. "Install" saves a private copy into the caller's workspace
    goal store, so the caller ends up owning an ordinary editable goal.

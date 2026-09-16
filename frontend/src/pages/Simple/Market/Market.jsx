@@ -114,7 +114,7 @@ function SkillModal({ detail, installed, onClose, onInstall, onRate, onFlag, ins
   const [hover, setHover] = useState(0);
   const [compat, setCompat] = useState(null);
 
-  // §5.4: when the addon is connected and we have the installed skill, run the
+  // `SIMPLE_MARKETPLACE_PLAN.md`: when the addon is connected and we have the installed skill, run the
   // local tool-version compatibility analysis so the user sees degraded/
   // unsupported steps before saving the skill to the addon.
   useEffect(() => {

@@ -23,7 +23,7 @@
  *   - game bests                                   → self-reported public rows
  *                                                    (see services/gameBoards.js)
  *
- * A block outranks all of it (docs/implementation/agent.md §19.4): an account that
+ * A block outranks all of it (docs/implementation/PROFILES.md): an account that
  * has blocked the viewer is answered as a private page, so the visibility setting
  * cannot be used to read around a block. The reverse is *not* hidden — the viewer's
  * own block is reported back to them, because a block you cannot see is a block you

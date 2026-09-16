@@ -27,7 +27,7 @@ import useAvatars from '../../../hooks/useAvatars.js';
 import './Talk.css';
 
 /**
- * Talk — the messenger's front door (docs/implementation/agent.md §18).
+ * Talk — the messenger's front door (docs/implementation/TALK.md §18).
  *
  * A SERVICE PAGE (FRONTEND_UI_STANDARD.md §5.7): the shared ambient room for a
  * ground, one sticky toolbar carrying the name + live state, then a dense grid of

@@ -1,13 +1,13 @@
 /**
  * scrub.js — Privacy / PII scrub pass for the marketplace publish flow.
  *
- * Implements docs/implementation/simple-agent-prompt.md §6.1: recordings capture
+ * Implements docs/implementation/AUTOMATION_SECURITY.md: recordings capture
  * screen state, keystrokes, and window titles from the author's own
  * machine, so a raw compiled/generalized skill can embed absolute user file
  * paths, secrets typed during the demo, or (if a future step type ever
  * carries one) a raw screenshot payload. Publishing a skill to the
  * marketplace MUST NOT leak any of that — this module is the mandatory
- * scrub pass that must run before a skill can be published (§4.2
+ * scrub pass that must run before a skill can be published (`MARKETPLACE.md`
  * `POST /api/market/skills`, not yet built — see index.js `/api/skill/scrub`
  * for the standalone preview endpoint used today).
  *
@@ -21,7 +21,7 @@
  *     intentionally never include the original sensitive value (not even
  *     truncated) — only a `kind` + human-readable `note` — so the report
  *     itself can safely be shown to the author as the "what will be shared"
- *     pre-publish review (§6.1) without becoming a second leak vector.
+ *     pre-publish review (`AUTOMATION_SECURITY.md`) without becoming a second leak vector.
  *
  * This is intentionally conservative/heuristic: false positives (redacting
  * something harmless) are an acceptable cost; false negatives (a leaked

@@ -2,7 +2,7 @@
  * generalize.js — LLM re-derivation of a compiled (literal) skill into a more
  * robust, abstracted step sequence.
  *
- * Implements docs/implementation/simple-agent-prompt.md §5.1 "LLM re-derivation": the
+ * Implements docs/archive/SIMPLE_MARKETPLACE_PLAN.md §2 A1 ("LLM re-derivation"): the
  * priority-one fix for the compiler's biggest known weakness (literal event
  * coalescing only — see recorder/compiler.js header comment).
  *
@@ -22,8 +22,8 @@
  * literal-step skill is returned unchanged with `metadata.generalizeError`
  * set — a user can always save/run the raw recording.
  *
- * Parameter inference (§5.2) and vision-based re-targeting at replay time
- * (§5.3) are separate, later steps in the roadmap and are NOT implemented
+ * Parameter inference (`SIMPLE_MARKETPLACE_PLAN.md`) and vision-based re-targeting at replay time
+ * (`SIMPLE_MARKETPLACE_PLAN.md`) are separate, later steps in the roadmap and are NOT implemented
  * here.
  */
 

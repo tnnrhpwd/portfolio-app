@@ -201,7 +201,7 @@ function Pricing() {
   // Every conversion CTA points at the same destination the old click handler
   // built, expressed as a real URL (+ the login redirectTo) so it can be a
   // <Link>: middle-clickable, crawlable, and working with JS disabled.
-  // §16.5 rule 3 (never drop the destination on a login bounce) + rule 7.
+  // `SALES_FUNNEL.md`'s funnel-page rules rule 3 (never drop the destination on a login bounce) + rule 7.
   const planCtaProps = (planId) => (
     user
       ? { to: `/pay?plan=${planId}` }

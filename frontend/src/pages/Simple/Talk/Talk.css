@@ -375,6 +375,17 @@
 }
 
 .talk-btn--primary:hover:not(:disabled) {
+  /* ⚠️ BOTH LINES ARE LOAD-BEARING, and neither is tidiness. "Message" is a
+     `<Link>`, so it is an ANCHOR wearing this class — and index.css's bare
+     `a:hover` is (0,1,1), which out-ranks the (0,1,0) ink below and repaints the
+     label in `--scheme-primary`: the very hue `--action` is built from, so the
+     hovered word disappeared into its own pill (§6).
+     Naming the colour here fixes the anchor; naming the fill too is what makes
+     the `<button>` siblings ("Accept", "+ Send request") hover the same way,
+     since the global `button:hover` was giving them `--action-hover` — the same
+     ramp with its stops swapped — and this class could not see it. */
+  background: var(--action-hover);
+  color: var(--text-color-inv);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }

@@ -96,7 +96,7 @@ async function executeTool(name, args, ctx = {}) {
     // every nested step a composite tool executes) into the simulated/no-op
     // path even when the permission gate would otherwise 'allow' it. It never
     // weakens a hard stop: a 'deny' / kill-switch result already returned
-    // early above. Used for marketplace low-trust dry-run-first (§4.3/§10.3).
+    // early above. Used for marketplace low-trust dry-run-first (`MARKETPLACE.md`/`BACKLOG.md`).
     const forceDryRun = !!ctx.forceDryRun;
     const runCtx = {
         dryRun: approval.mode === 'dry-run' || forceDryRun,

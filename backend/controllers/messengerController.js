@@ -16,7 +16,7 @@
  *   POST   /messenger/conversations/:userId/messages      → send { body }
  *   POST   /messenger/conversations/:userId/read          → clear the unread badge
  *
- * A block (docs/implementation/agent.md §19.4) is not a heavier `DELETE
+ * A block (docs/implementation/PROFILES.md) is not a heavier `DELETE
  * /contacts`: it also refuses every future request from that account and hides the
  * blocker's page from them, and it is the only one of the two that is one-sided.
  * The blocked account is never told — see `blockUser` in the service.

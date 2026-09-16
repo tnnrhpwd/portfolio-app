@@ -1,5 +1,5 @@
 /**
- * Simple Marketplace Controller (docs/implementation/simple-agent-prompt.md §4).
+ * Simple Marketplace Controller (docs/implementation/MARKETPLACE.md).
  *
  * Public/shared skill marketplace surface — deliberately a SEPARATE
  * DynamoDB id namespace (`csimple_market_*`) from the private per-user
@@ -9,7 +9,7 @@
  * (POST /api/skill/capabilities) locally (both addon-local routes), then
  * calls this backend's POST /api/data/market/skills — which ALSO
  * independently re-runs the scrub pass server-side (`services/
- * marketplaceScrub.js`, §4.5) before persisting, rather than trusting that
+ * marketplaceScrub.js`, `MARKETPLACE.md`) before persisting, rather than trusting that
  * the client actually scrubbed first.
  *
  * Data model (DynamoDB table "Simple", same table as the rest of csimple):
@@ -42,9 +42,9 @@
  *             attrs: reason, flaggedAt
  *   authorRate id = `csimple_market_author_${authorUserId}`
  *             attrs: recentPublishTimestamps[] (author-scope publish
- *                    rate-limit window, §4.6)
+ *                    rate-limit window, `MARKETPLACE.md`)
  *
- * Trust model (§4.3): NO manual moderation queue. Ranking = rating ×
+ * Trust model (`MARKETPLACE.md`): NO manual moderation queue. Ranking = rating ×
  * volume × author reputation × recency, flags deprioritize (see
  * services/marketplaceRanking.js). The real safety floor for unreviewed
  * skills is the addon's execution-time permission gate — this controller
@@ -92,12 +92,12 @@ const NAME_MAX = 120;
 const DESC_MAX = 2000;
 const MAX_STEPS = 500;
 const MAX_CATEGORIES = 20;
-// Goals (§4.7): a shared goal is text — its description, success criteria and
+// Goals (`MARKETPLACE.md`): a shared goal is text — its description, success criteria and
 // optional constraints — so it has its own size caps and no steps at all.
 const GOAL_CONTENT_MAX = 4000;
 const GOAL_CRITERIA_MAX = 400;
 
-// Author-scope publish rate limit (§4.6: "reduce spam bursts").
+// Author-scope publish rate limit (`MARKETPLACE.md`: "reduce spam bursts").
 const AUTHOR_PUBLISH_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const AUTHOR_PUBLISH_MAX = 20;
 
@@ -133,7 +133,7 @@ function ageDaysOf(iso) {
 }
 
 /**
- * Author-scope publish rate limit, shared by skill and goal publishing (§4.6).
+ * Author-scope publish rate limit, shared by skill and goal publishing (`MARKETPLACE.md`).
  * Reads the author's rolling window, refuses the publish when it's full, and
  * records this one. (publishSkill still inlines its own copy of this — migrate
  * it here next time that handler is touched.)
@@ -162,7 +162,7 @@ function metaToSummary(meta) {
     const ratingCount = meta.ratingCount || 0;
     const avgRating = ratingCount > 0 ? (meta.ratingSum || 0) / ratingCount : 0;
     const ageDays = ageDaysOf(meta.firstPublishedAt);
-    // §5.6: fraction of ratings whose run outcome was recorded as "failed"
+    // `MARKETPLACE.md`: fraction of ratings whose run outcome was recorded as "failed"
     // (from the skill's successCriteria evaluation — see tools/skill.js
     // `outcome` — NOT the star value). Feeds computeTrustScore's
     // outcomeFailRate penalty so a skill that "looks fine" by stars but
@@ -172,7 +172,7 @@ function metaToSummary(meta) {
     // NOTE: authorReputation here is seeded from THIS skill's own age/rating
     // history only (we don't yet cross-reference the author's other
     // published skills or account age — that's a documented follow-up,
-    // see §4.6 backlog "ranking weights as explicit config").
+    // see `MARKETPLACE.md` backlog "ranking weights as explicit config").
     const authorReputation = computeAuthorReputation({
         accountAgeDays: ageDays,
         priorSkillCount: 0,
@@ -191,7 +191,7 @@ function metaToSummary(meta) {
 
     return {
         marketId: meta.marketId || meta.id?.replace('csimple_market_', ''),
-        // §4.7: one namespace, two kinds. Absent means 'skill' — every entry
+        // `MARKETPLACE.md`: one namespace, two kinds. Absent means 'skill' — every entry
         // written before goals existed is a skill.
         kind: meta.kind || 'skill',
         authorUserId: meta.authorUserId,
@@ -228,9 +228,9 @@ function metaToSummary(meta) {
 
 // @desc    Publish a skill (new marketplace entry, or a new version of one
 //          this user already authored). The addon is expected to have
-//          already run POST /api/skill/scrub client-side (§6.1), but this
+//          already run POST /api/skill/scrub client-side (`AUTOMATION_SECURITY.md`), but this
 //          endpoint ALSO independently re-runs the same scrub pass
-//          server-side before persisting (§4.5) — the persisted `steps` are
+//          server-side before persisting (`MARKETPLACE.md`) — the persisted `steps` are
 //          always the server-scrubbed output, never the raw request body,
 //          so a client that skips/bypasses the client-side scrub can't get
 //          unscrubbed content into the public marketplace.
@@ -259,22 +259,22 @@ const publishSkill = asyncHandler(async (req, res) => {
         badRequest(res, `naturalLanguageDescription: max ${DESC_MAX} chars`);
     }
 
-    // ── Server-side scrub re-enforcement (§4.5/§6.1) ────────────────────
+    // ── Server-side scrub re-enforcement (`MARKETPLACE.md`/`AUTOMATION_SECURITY.md`) ────────────────────
     // Re-run the exact same PII/secret scrub the addon runs client-side.
     // `scrubbedSkill.steps`/`params` — never the raw `steps`/`params` from
     // req.body — are what actually get persisted below.
     const { skill: scrubbedSkill, report: scrubReport } = scrubForPublish({ steps, params: params || [] });
 
-    // ── Server-side capability-mismatch re-enforcement (§4.5/§6.2) ──────
+    // ── Server-side capability-mismatch re-enforcement (`MARKETPLACE.md`/`AUTOMATION_SECURITY.md`) ──────
     // Re-run the declared-vs-actual category check server-side too, so a
     // client can't publish with an under-declared `declaredCategories`
     // (e.g. claiming `safe-read` while `steps` actually invoke `shell_run`)
     // undetected. This does not block publishing (no manual moderation
-    // queue, §4.3/§9) — it's surfaced back on the response as
+    // queue, `MARKETPLACE.md`/`agent.md`) — it's surfaced back on the response as
     // `capabilitySummary`, same "detect and disclose" pattern as `scrubReport`.
     const capabilitySummary = summarizeCapabilities({ steps: scrubbedSkill.steps, declaredCategories });
 
-    // ── Author-scope publish rate limit (§4.6) ──────────────────────────
+    // ── Author-scope publish rate limit (`MARKETPLACE.md`) ──────────────────────────
     const limiterKey = authorLimiterId(req.user.id);
     const limiterItem = await getItem(limiterKey);
     const now = Date.now();
@@ -353,7 +353,7 @@ const publishSkill = asyncHandler(async (req, res) => {
     // `scrubReport` is intentionally safe to return in full — findings never
     // include the original sensitive value (see marketplaceScrub.js), so
     // this doubles as the "what will be shared" pre-publish review data
-    // (§6.1) even when the client's own scrub pass already caught everything.
+    // (`AUTOMATION_SECURITY.md`) even when the client's own scrub pass already caught everything.
     res.status(200).json({ marketId, version, isNewSkill: !existingMeta, skill: metaToSummary(metaItem), scrubReport, capabilitySummary });
 });
 
@@ -389,7 +389,7 @@ const searchMarketSkills = asyncHandler(async (req, res) => {
 
     let summaries = items.map(metaToSummary);
 
-    // The skills browser shows skills; goals have their own endpoint (§4.7).
+    // The skills browser shows skills; goals have their own endpoint (`MARKETPLACE.md`).
     summaries = summaries.filter(s => s.kind !== 'goal');
 
     if (q) {
@@ -430,7 +430,7 @@ const getMarketSkill = asyncHandler(async (req, res) => {
 // @desc    Install a published skill: atomically bumps downloads/installs,
 //          records an install attestation (used to gate ratings), and
 //          returns the installable scrubbed steps + a lowTrust flag so the
-//          client can enforce dry-run-first (§4.3).
+//          client can enforce dry-run-first (`MARKETPLACE.md`).
 // @route   POST /api/data/market/skills/:marketId/install
 // @access  Private
 const installMarketSkill = asyncHandler(async (req, res) => {
@@ -477,7 +477,7 @@ const installMarketSkill = asyncHandler(async (req, res) => {
 
 // @desc    Submit a run-gated rating. Requires the caller to have already
 //          installed this marketId (server-tracked attestation) and to
-//          supply `ranAt` as run evidence (§4.1/§4.3 canRate gate).
+//          supply `ranAt` as run evidence (`MARKETPLACE.md`/`MARKETPLACE.md` canRate gate).
 // @route   POST /api/data/market/skills/:marketId/rate
 // @access  Private
 const rateMarketSkill = asyncHandler(async (req, res) => {
@@ -516,7 +516,7 @@ const rateMarketSkill = asyncHandler(async (req, res) => {
 
     // Adjust the meta aggregate: replace the old star value if re-rating,
     // otherwise add a brand-new rating to the count. Also track the
-    // outcomeFailCount aggregate (§5.6) so a re-rating that flips outcome
+    // outcomeFailCount aggregate (`MARKETPLACE.md`) so a re-rating that flips outcome
     // from "failed" to "passed" (or vice versa) doesn't double/under-count.
     const starDelta = stars - (existingRating ? existingRating.stars : 0);
     const countDelta = existingRating ? 0 : 1;
@@ -550,8 +550,8 @@ const rateMarketSkill = asyncHandler(async (req, res) => {
     });
 });
 
-// @desc    Community flag — no manual moderation queue (§9 non-goals);
-//          flags feed directly into the ranking penalty (§4.3).
+// @desc    Community flag — no manual moderation queue (`agent.md` non-goals);
+//          flags feed directly into the ranking penalty (`MARKETPLACE.md`).
 // @route   POST /api/data/market/skills/:marketId/flag
 // @access  Private
 const flagMarketSkill = asyncHandler(async (req, res) => {
@@ -594,7 +594,7 @@ const flagMarketSkill = asyncHandler(async (req, res) => {
     res.status(200).json({ ok: true, flagCount: updatedMeta.flagCount });
 });
 
-/* ── Shared GOALS (§4.7) ─────────────────────────────────────────────────────
+/* ── Shared GOALS (`MARKETPLACE.md`) ─────────────────────────────────────────────────────
    Goals ride the exact same machinery as skills: one `csimple_market_*`
    namespace, one trust ranking, one install-attestation gate. The differences
    are all in the payload — a goal is its text (content + success criteria +
@@ -607,7 +607,7 @@ const flagMarketSkill = asyncHandler(async (req, res) => {
 
 // @desc    Publish a goal (new shared goal, or a new version of one this user
 //          already authored). The goal's text is scrubbed with the same
-//          PII/secret pass a skill gets (§6.1) before it is persisted.
+//          PII/secret pass a skill gets (`AUTOMATION_SECURITY.md`) before it is persisted.
 // @route   POST /api/data/market/goals
 // @access  Private
 const publishGoal = asyncHandler(async (req, res) => {
@@ -856,7 +856,7 @@ const installMarketGoal = asyncHandler(async (req, res) => {
 //          creations) across every skill they've published. Not an HTTP
 //          route itself — called by workspaceController.getTelemetrySummary
 //          to fold marketplace KPIs into the addon's /telemetry/summary
-//          response (docs/implementation/simple-agent-prompt.md §10.2 P0) without
+//          response (docs/implementation/BACKLOG.md) without
 //          giving workspaceController.js a direct DynamoDB dependency on
 //          the `csimple_market_*` namespace.
 async function getAuthorMarketplaceTotals(authorUserId) {

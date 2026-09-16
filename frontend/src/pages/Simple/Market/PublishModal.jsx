@@ -35,7 +35,7 @@ function slugify(input) {
  *
  * Source is either a skill listed by the connected addon, or pasted JSON.
  * Publishing is gated on a local preview pass (scrub + capabilities) so the
- * user sees "what will be shared" before anything is sent (doc §6.1/§4.5).
+ * user sees "what will be shared" before anything is sent (doc `AUTOMATION_SECURITY.md`/`MARKETPLACE.md`).
  */
 export default function PublishModal({ token, addonConnected, onClose, onPublished }) {
   const [source, setSource] = useState(addonConnected ? 'addon' : 'paste');

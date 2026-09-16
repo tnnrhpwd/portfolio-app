@@ -1158,7 +1158,7 @@ export async function previewSkillCapabilities(skill) {
   return res.json();
 }
 
-/** Preview tool-version compatibility against the local addon registry (§5.4). */
+/** Preview tool-version compatibility against the local addon registry (`SIMPLE_MARKETPLACE_PLAN.md`). */
 export async function previewSkillCompatibility(skill) {
   const res = await addonFetch('/api/skill/compatibility', {
     method: 'POST',

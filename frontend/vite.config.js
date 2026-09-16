@@ -31,11 +31,11 @@ logger.error = (msg, options) => {
   loggerError(msg, options);
 };
 
-// Open the dev server in Microsoft Edge whenever the frontend boots locally.
-// Vite's browser opener only honors `server.open` as a boolean or as a path, so
-// the browser itself is chosen through BROWSER (the same variable CRA honored on
-// which Vite's opener is based). Left alone, an existing BROWSER wins — set
-// `BROWSER=none` to skip opening a window entirely, or e.g. `BROWSER=chrome`.
+// Which browser an EXPLICIT `--open` launches. Vite's opener (the one derived
+// from CRA) only accepts a boolean/path through `server.open`, so the browser
+// itself is named via BROWSER. Left alone, an existing BROWSER wins — set
+// `BROWSER=none` to skip the window entirely, or e.g. `BROWSER=chrome`.
+// This line opens nothing by itself: see `server.open` below.
 if (!process.env.BROWSER) process.env.BROWSER = 'msedge';
 
 export default defineConfig({
@@ -78,8 +78,14 @@ export default defineConfig({
   server: {
     port: 3000,
     host: '127.0.0.1',
-    // Skip the launch on CI, where there is no desktop to open into.
-    open: !process.env.CI,
+    // Opening a window is opt-in per command, not a property of the server.
+    // Every fresh `vite` process used to claim a tab — a restart of the stack, a
+    // VS Code task, a spare copy that fell back to another port — which is the
+    // noise this avoids. Only the repo-root `npm start` asks for a tab now, by
+    // passing the CLI's `--open` through `frontend`'s `start:open` script; a CLI
+    // flag outranks this file, so that one command opens and nothing else does.
+    // (Vite never re-opens on its own internal restart either.)
+    open: false,
     proxy: {
       // Proxy API requests to the backend (replaces package.json "proxy" field).
       // Use 127.0.0.1 (not localhost) to avoid IPv6 (::1) resolution ambiguity

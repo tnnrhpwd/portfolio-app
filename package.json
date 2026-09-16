@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "author": "Steven Tanner Hopwood <steven.t.hopwood@gmail.com>",
   "scripts": {
-    "start": "concurrently -n frontend,backend -c blue,green \"npm start --silent --prefix frontend\" \"npm run server --silent --prefix backend\"",
+    "start": "concurrently -n frontend,backend -c blue,green \"npm run start:open --silent --prefix frontend\" \"npm run server --silent --prefix backend\"",
     "dev": "concurrently -n frontend,backend -c blue,green \"npm start --silent --prefix frontend\" \"npm run dev --silent --prefix backend\"",
     "build": "npm run build --prefix frontend",
     "test": "jest --verbose --watchAll=false",

@@ -1,7 +1,7 @@
 {
   "id": "28-marketplace-get-http",
   "name": "Marketplace get — GET /api/market/skills/:marketId (offline stub)",
-  "description": "Exercises the addon's marketplace fetch-one proxy route end-to-end (docs/implementation/simple-agent-prompt.md §4.5), offline via the X-Simple-Eval-Stub header. Part 3 of the marketplace chain — depends on 26-marketplace-publish-http having published mk-eval-001 in the same eval process.",
+  "description": "Exercises the addon's marketplace fetch-one proxy route end-to-end (docs/implementation/MARKETPLACE.md), offline via the X-Simple-Eval-Stub header. Part 3 of the marketplace chain — depends on 26-marketplace-publish-http having published mk-eval-001 in the same eval process.",
   "http": {
     "method": "GET",
     "path": "/api/market/skills/mk-eval-001",

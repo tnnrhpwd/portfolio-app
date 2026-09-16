@@ -4,7 +4,7 @@
  * The dream board (/plans → 🌟 Dream board) lets someone give a goal a cover.
  * Most users will never upload a photo, so the *presets* are the images that
  * actually carry the feature — and they have to be real imagery, not emoji
- * tiles (`docs/guides/FRONTEND_UI_STANDARD.md` §5: "Imagery over emoji").
+ * tiles (docs/archive/SIMPLE_MARKETPLACE_PLAN.md: "Imagery over emoji").
  *
  * This fills in one image per preset theme by calling the app's AWS Bedrock
  * text-to-image adapter directly — no HTTP server, no JWT. It reuses

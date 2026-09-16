@@ -216,7 +216,7 @@ function Projects() {
              The catalogue's job is Discovery, so the band it ends on leads with
              the three surfaces (Chat / Control / Goals) and the addon download —
              the visitor pays once they have used the thing, so price is one quiet
-             line underneath. See docs/implementation/agent.md §16.5 rule 1. ── */}
+             line underneath. See docs/guides/SALES_FUNNEL.md's funnel-page rules rule 1. ── */}
         <SimpleCtaBand />
 
         <Footer />

@@ -137,9 +137,9 @@ describe('visionBoard · the prompt writer', () => {
         // got an editorial stock photograph of a family at a laptop: a fine
         // picture, and not a vision board.
         const prompt = buildVisionBoardPrompt(goals, { scope: 'dream' });
-        expect(prompt).toMatch(/The picture IS a vision board: ONE photo collage/);
+        expect(prompt).toMatch(/The picture IS a vision and dream board: ONE photo collage/);
         expect(prompt).toMatch(/three to six LARGE photographs/);
-        expect(prompt).toMatch(/A bold photo collage filling the frame: large glossy photographs of/);
+        expect(prompt).toMatch(/A vision and dream board: a bold photo collage filling the frame/);
         // …and the scene option is gone.
         expect(prompt).not.toMatch(/either a single photorealistic scene/);
         // Still a collage of several photographs, never a lone scene or a tidy
@@ -189,6 +189,30 @@ describe('visionBoard · the prompt writer', () => {
         }
         // A user who asked for people and for words keeps both; the marks still go.
         expect(boardNegativePrompt({ allowPeople: true, allowText: true })).toBe('watermark, signature, logo');
+    });
+
+    test('every prompt calls the picture a vision and dream board', () => {
+        // The product's name for this thing, in the prompt, every time — and it
+        // rides in the opening sentence, which is the wording that decides the
+        // picture. Every look, both scopes, and the fallback.
+        for (const style of BOARD_STYLES) {
+            for (const scope of BOARD_SCOPES) {
+                expect(buildVisionBoardPrompt(goals, { scope, style: style.id }))
+                    .toMatch(/vision and dream board/i);
+            }
+        }
+        for (const style of BOARD_STYLES) {
+            for (const scope of BOARD_SCOPES) {
+                expect(fallbackBoardPrompt(goals, scope, {}, style.id)).toMatch(/vision and dream board/i);
+            }
+        }
+        // …and naming it must not invite the board it is *not*: the writer is told
+        // the name describes the collage, and never described as something the
+        // photographs are fixed to.
+        const sent = buildVisionBoardPrompt(goals, { scope: 'dream' });
+        expect(sent).toMatch(/Never describe a surface, a material, or an object holding them/);
+        expect(sent).toMatch(/Do not name the person or the goals in the prompt/);
+        expect(sent).not.toMatch(/vision board" in the prompt/);
     });
 
     test('the brief carries this board\'s look, by name and in detail', () => {
@@ -479,8 +503,8 @@ describe('visionBoard · normalizing the answer', () => {
         // quietly undo the picture the feature was corrected to produce.
         const dreams = fallbackBoardPrompt(goals, 'dream', {}, 'golden-warm');
         const all = fallbackBoardPrompt(goals, 'all', {}, 'golden-warm');
-        expect(dreams).toMatch(/A photo collage filling the frame/);
-        expect(dreams).toMatch(/three to six large/);
+        expect(dreams).toMatch(/A vision and dream board of the life they are aiming at/);
+        expect(dreams).toMatch(/a bold photo collage filling the frame/);
         expect(dreams).toMatch(/edges crossing/);
         expect(dreams).toMatch(/no faces at all/);
         expect(dreams).toMatch(/the life they are aiming at/);

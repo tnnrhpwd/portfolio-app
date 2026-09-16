@@ -431,4 +431,224 @@ password reset, and LLM proxy routes were reviewed.
 - [`backend/utils/secretCrypto.js`](../../backend/utils/secretCrypto.js) — backend secret format
 - [`simple-addon/server/secret-storage.js`](../../simple-addon/server/secret-storage.js) — DPAPI wrapper
 - [`backend/middleware/rateLimiter.js`](../../backend/middleware/rateLimiter.js) — workspace limiters
-- [`docs/implementation/simple-agent-prompt.md`](simple-agent-prompt.md) — roadmap & backlog (§10)
+- [`agent.md`](agent.md) — roadmap & backlog (§10)
+
+---
+
+## 12. Consumer-facing safety surfaces — 🟡 partially implemented
+
+> Moved out of the platform plan doc on 2026-09-16, when it became a pointer file for
+> agents ([`agent.md`](agent.md)). Section names are the reference here — no chapter
+> numbers.
+
+
+Keep and extend the existing permission model (`server/automation/permissions.js`,
+`security-guard.js`) — do not weaken it for consumer onboarding. Category-based
+approval, shell allow/deny-list, protected-path blocking, and the
+`globalKillSwitch`/dry-run mechanisms all stay.
+
+
+### 12.1 Privacy / PII scrubbing — ✅ implemented
+
+
+### 12.2 Inspect-before-run capability summary — ✅ implemented
+
+
+### 12.3 Cloud-vision consent — ✅ implemented
+
+
+### 12.4 Remaining safety checklist
+
+- 🟡 Require cloud-vision consent before any multimodal upload path (`vision-fusion.js` + `screenshot_check` gated; future paths need wiring).
+
+
+
+---
+
+## 13. Backend, data-layer and script audit passes
+
+> Moved out of the platform plan doc on 2026-09-16, when it became a pointer file for
+> agents ([`agent.md`](agent.md)). Section names are the reference here — no chapter
+> numbers.
+
+### 13.1 Repo audit (2026-09-09)
+
+Issues surfaced while auditing the repo beyond the original plan. Ordered by
+impact; none are Simple-core blockers, but several are user-visible or DRY/security-adjacent.
+
+- 🟡 **Plaintext secret fallback outside Electron** — `simple-addon/server/secret-storage.js` stores secrets in plaintext when `safeStorage` is unavailable (documented + one-shot warning; fine for CLI/Jest). Confirm the packaged addon always runs under Electron, and consider refusing to persist (instead of plaintext) in non-Electron contexts.
+- 🟡 **Derive admin-ness server-side** — the backend now attaches an `isAdmin` flag to the register/login/guest responses (`postData.js`), and the frontend reads it via shared `isAdminUser()`/`isMuseVisitor()` helpers in `constants/admin.js` (`AdminLayout`/`HeaderDropper`/`DeepStorage`/`Home`/`Muse`). Remaining: the hardcoded ID + `'girlfriend'` gate still ship as a legacy fallback until every active session re-logs in — then the constants can be deleted.
+- ⚠️ **Committed user PII still in git history** — `backend/reports/support-tickets-*.json` was deleted from the working tree and added to `.gitignore`, but the file is still in git history; full removal needs a history rewrite (e.g. `git filter-repo`/BFG) + force-push.
+
+
+### 13.2 Second audit pass (2026-09-09)
+
+- 🟡 **Experimental `signal-bridge` predates the Bedrock-only decision** — marked ⚠️ DEPRECATED/UNWIRED in its header. Actual deletion (or re-implementation via the Bedrock proxy) is still a product decision.
+- 🟡 **Public guest account with a known password** — `backend/constants/guestAccount.js` hardcodes `guest@gmail.com` / `guest` for "Login as Guest" (and `createGuestUser.js` logs the password). A deliberate demo feature, but a shared account with a known credential should stay strictly read-only/rate-limited and excluded from paid/powerful paths.
+
+
+### 13.3 Third audit pass (2026-09-09)
+
+- 🟡 **S3 upload file-type validation trusts the client MIME type** — *post-upload
+  content check added (2026-09-12).* `validateFile` rejects known-dangerous
+  extensions (.html/.svg/.exe/…) and extension/content-type mismatches, but those
+  only constrain what the client *claims* — the bytes travel client → S3 via the
+  presigned URL, so the server never sees them. `confirmUpload` now reads the
+  object's leading 512 bytes (a Range GET) and refuses content that contradicts
+  its extension, deleting the object so a rejected upload is neither recorded nor
+  billed. See `utils/fileSignature.js` + `__tests__/unit/uploadSignatureGate.test.js`.
+  Two deliberate properties: the rule is **contradiction-only** (content that can't
+  be identified is accepted, because failing a real user's file is worse than the
+  marginal gain) and it **fails open** on an S3 read error, with
+  `UPLOAD_SIGNATURE_CHECK=false` as the operator kill-switch. ⬜ Remaining: content
+  with no known signature is still accepted, so this narrows the gap rather than
+  closing it — closing it needs real scanning (AV/content-inspection service).
+- 🟡 **JWT persisted in `localStorage`** — `frontend/src/features/data/dataSlice.js` stores the auth token in localStorage, so any XSS could exfiltrate it. Combined with the loose CSP above, prefer an `httpOnly` session cookie (or at least tighten CSP).
+
+
+### 13.5 Fifth audit pass (2026-09-09)
+
+- 🟡 **HIGH — the addon's local HTTP API is unauthenticated and CORS-allows the production site + LAN origins** — hardened: `simple-addon/server/index.js` now rejects requests whose `Host` header isn't loopback/private (anti DNS-rebinding) and 403s non-allowlisted cross-site `Origin`s before any handler runs, so a drive-by `fetch('http://127.0.0.1:3001/...')` from an arbitrary site no longer executes. Remaining: the production site is still allowlisted, so a per-install random secret on every request (and tightening CORS to the Electron app's own origin) is still needed to close the allowlisted-origin path.
+
+
+### 13.7 Seventh audit pass (2026-09-09)
+
+- ⬜ **Addon is distributed unsigned (no code-signing certificate)** — `simple-addon/` is built without `CSC_LINK`/`CSC_KEY`/`win.certificateSubjectName`, so (a) Windows SmartScreen flags the installer/portable exe, and (b) `electron-updater` can't verify update authenticity against a publisher certificate — update trust rests on TLS + the blockmap hash alone (a compromised GitHub repo could ship a malicious update that installs silently). Sign the build and set `publisherName` so updates are authenticated.
+- ✅ **CI actions pinned by mutable tags** — *fixed for immutability (2026-09-12).* All
+  21 `uses:` references across the three workflows are pinned to full 40-character commit
+  SHAs (version kept in a trailing comment), each verified against its repo's real
+  tag→commit mapping with `git ls-remote`. Two traps worth knowing for next time:
+  `github/codeql-action@v4` is an **annotated** tag, so the pin must be the *dereferenced*
+  commit (`b96794f0…`, i.e. `refs/tags/v4^{}`) — pinning the tag object's own SHA fails
+  the job; and `trufflesecurity/trufflehog@main` was a **moving branch**, now frozen to
+  the commit `main` pointed at on 2026-09-12 (latest release: v3.97.4). Pins won't rot
+  silently: `dependabot.yml` already carries a weekly `github-actions` ecosystem.
+  ⬜ **Still open: the mixed versions.** `actions/checkout` and `actions/setup-node` are
+  `@v4` in the two *Windows* jobs (`build-addon.yml`, `ci.yml`'s `test-simple-addon`) and
+  `@v6` in every other job. Each was pinned to the version it already used rather than
+  bumped: a major bump inside the addon **release** pipeline is a behaviour change that
+  can't be exercised locally, so it wants a deliberate, watched change.
+- ⬜ **CI can't be run locally** — the workflow changes above were validated by parsing
+  each file as YAML and asserting every `uses:` resolves to a pinned SHA (plus the
+  `ls-remote` mapping check), not by executing the pipelines. Worth one watched run
+  before relying on it.
+
+
+### 13.8 Eighth audit pass (2026-09-10)
+
+- 🟡 **Unbounded per-request access-log writes** — *addressed for growth (2026-09-12).*
+  Both per-request writers (`checkIP` in `utils/accessData.js` and `recordPageView` in
+  `controllers/pageViewsController.js`) now stamp an `expiresAt` DynamoDB **TTL**,
+  derived from `ANALYTICS_RETENTION_DAYS` (default 90) in the new
+  `utils/analyticsRetention.js`. TTL only deletes items that *carry* the attribute, so
+  durable rows (users, workspace items, goals, tickets) are never expired by it.
+  **Remaining: the attribute is inert until table TTL is turned on once** —
+  `node backend/scripts/configure-analytics-ttl.js` (dry run by default, `--apply` to
+  change it). The per-request *write* cost itself is unchanged; sampling or a separate
+  analytics table would address that, at the cost of changing what the dashboard counts.
+- ✅ **`checkIP` put a third-party HTTP call on every request's critical path**
+  (found 2026-09-12 while fixing the above) — it called `ipinfo` directly, and its
+  callers `await` it *before* responding, so each request paid an ipinfo round-trip and
+  a slow/hung ipinfo could stall the response. It now goes through
+  `utils/geoLookup.getGeoForIp`, which caches per IP (1 h, 5 min for a miss) and bounds
+  every lookup with a timeout. That helper also had a latent bug: `logger` was declared
+  *inside* `cleanupCache`, so its `catch` threw `ReferenceError` instead of resolving
+  `null` on any lookup failure — fixed, with regression tests. `extractIp` now also
+  takes `req.ip` (trust-proxy aware) over the spoofable leftmost `X-Forwarded-For`.
+
+
+### 13.9 Ninth audit pass (2026-09-12)
+
+- ✅ **The 1 MB scan-truncation family was not actually finished** — the repo had fixed
+  the worst offenders (storage tracking, search, delete) but five *list* endpoints in
+  `controllers/csimpleController.js` still ran a single `ScanCommand` with a
+  `begins_with(id, :prefix)` FilterExpression. A filter is applied only **within** the
+  scanned page, so once the table passed 1 MB those endpoints returned *some* of a
+  user's files — or none — with no error. That includes `getSimpleUserContext`, which
+  is what the LLM is handed as the user's memory (the assistant would quietly
+  "forget"), plus the memory / personality / behavior lists behind the addon's file
+  browsers. The same unpaginated read sat in `llmService.loadUserContextFromDB`
+  (chat memory), `workspaceContext.fetchAllOfKind` (agent context), and
+  `marketplaceController` (browse + author KPI totals).
+  All of it now goes through **one** importable helper, `utils/paginatedScan.js`,
+  which also replaces the six copy-pasted private copies of it (`getData`,
+  `getHashData`, `postData`, `profileController`, `passwordReset` — each had its own
+  paragraph explaining the same mistake, which is how a seventh copy got written).
+  The helper is bounded by `SCAN_MAX_PAGES` (default 200) and **warns** when it stops
+  early: a partial result must never look like a complete one.
+  Tests: `paginatedScan.test.js`, `csimpleListPagination.test.js` (asserts items from
+  the *second* page are returned). Not verified against live DynamoDB.
+- ✅ **`getUserDataCached` fetched one user with a full-table Scan** (found in the same
+  pass) — `FilterExpression: "id = :userId"` filters on the partition key *after*
+  scanning a page, so a user whose row sat past the first page read back as **"no
+  record"**. That call decides a user's plan and credit allowance, so the failure mode
+  is a paying subscriber being metered as a brand-new free account; it also billed a
+  whole-table scan to fetch one row. Now a partition-key `QueryCommand`, matching the
+  `getRawUserRecord` precedent. Tests: `__tests__/unit/userDataLookup.test.js`.
+- ✅ **The rest of the single-page scans** (same pass) — `musicService.listSongs`,
+  `stripeService.updateUserRank` (a Stripe event whose customer row sat past page 1
+  never updated that subscriber's rank), `refererAnalytics` ×2 (the dashboard
+  under-reported), and `testFunnelController.findUserByEmail` now use
+  `utils/paginatedScan`. `putHashData`'s bug-reporter lookup was an **id-filtered
+  Scan** and is now a partition-key Query — the resolution email had no recipient when
+  the reporter's row sat past page 1.
+- ✅ **`ocrService.updateItemWithOCR` rejected the record's real owner** (found in the
+  same pass). The ownership check sliced the creator id to a fixed 24 characters
+  (`substring(i + 8, i + 32)`) and compared *that* to the caller's id; ids in this
+  table are 32-char crypto hex, so the comparison always failed and the actual owner
+  was told "User not authorized to update this item". It also skipped the check
+  entirely when a record carried no `Creator:` tag, so an untagged record was writable
+  by anyone who knew its id. It now reads by partition key, matches the id up to the
+  next `|` (`/(?:^|\|)Creator:([^|]+)/`) and **denies by default**, mirroring
+  `fileUploadController.creatorIdOf`. Tests: `__tests__/unit/ocrItemUpdate.test.js`.
+- ⚠️ **Do NOT query `userEmail-index` for email lookups** — the table carries a GSI on
+  `userEmail`, but nothing in the codebase ever *writes* that attribute: every email
+  read parses it out of the pipe-delimited `text` field. The index is therefore empty,
+  and "optimising" the login / password-reset email scans onto it would break sign-in
+  for every user. Populate + backfill the attribute first if that's ever wanted.
+- ⬜ **Still outstanding** (verified, not yet fixed): `utils/guestUserManager.js` (dev
+  script — single-page lookup, and its delete uses `Key: { id }` alone, which throws
+  against the composite key), `utils/createGuestUser.js` (near-duplicate of it), and
+  `testFunnelController`'s `GetCommand({ Key: { id: testUserId } })` (~line 304, also
+  missing the sort key — it is inside a try/catch, so the funnel status endpoint just
+  always reports "no live user"). Everything under `backend/scripts/` is unaudited.
+
+
+### 13.10 Tenth audit pass (2026-09-12)
+
+First pass over `backend/scripts/` — the one area *the ninth audit pass* left unaudited. The
+mutating scripts turned out to be mostly well-behaved (dry-run by default, and
+`Key: { id, createdAt }` on every delete/update); two things were not.
+
+- ✅ **`migrate-images-to-s3.js` defaulted to writing.** Its dry run was a
+  hand-edited constant that shipped as `const DRY_RUN = false`, so
+  `node backend/scripts/migrate-images-to-s3.js` uploaded inline base64 images to
+  S3 and rewrote the DynamoDB `files` arrays on live data — no flag, no prompt, no
+  dry-run pass, unlike every sibling script. It is now `--apply`-gated, and the dry
+  run reports "Images that WOULD be migrated" separately instead of incrementing
+  the `imagesMigrated` counter (a dry run could be read as "N images migrated").
+  Verified by running it: the migration is already complete — 6 items with files,
+  **0 images pending**. Tests: `__tests__/unit/migrateImagesDryRun.test.js`
+  (pins "no arguments issues no writes").
+- ✅ **`.gitignore` protected the wrong directory.** The rule was
+  `backend/storage/migration-backups/*`, but `backup-dynamodb.js` writes next to
+  itself — `path.join(__dirname, 'migration-backups')`, i.e.
+  `backend/scripts/migration-backups/` — which nothing ignored, so its export of
+  user records (text + file metadata) was committable. (`merge-duplicate-users.js`
+  is fine: it writes under `backend/logs/`, already ignored.) Added the missing
+  rule; `git check-ignore` now matches. Note the *existing* tracked dump at
+  `backend/storage/migration-backups/dynamodb-backup-2025-10-12T*Z.json` — 2 items,
+  no `Password:` (so no credential leak), but a data export that should not be in
+  the repo; untracking it is a call for the repo owner, and it stays in history
+  either way (see *the repo audit*).
+- ✅ **`migrate-images-to-s3.js` could not run at all.** It built its clients at
+  module load from `process.env`, but `backend/.env` holds only the access keys, so
+  it died with the SDK's opaque "Region is missing" (and `S3 Bucket: undefined`)
+  before doing anything. It now bootstraps through `loadAllSecrets()` — the same
+  path `server.js` and the other scripts use — and, when config is still missing,
+  fails with the names of the missing variables instead of the SDK's message.
+- ⚠️ **Other scripts may share that missing bootstrap.** `migrate-images-to-s3.js`
+  was found by running it; the rest of `backend/scripts/` was read, not executed, so
+  any of them that builds AWS clients at module load has the same latent failure.
+  Worth a run-through before the next time one of them is needed.
+

@@ -1,7 +1,7 @@
 /**
  * marketplace-gate.js — per-skill confirmation state for marketplace installs.
  *
- * docs/implementation/simple-agent-prompt.md §4.3 / §10.3: a skill installed
+ * docs/implementation/MARKETPLACE.md, docs/implementation/BACKLOG.md: a skill installed
  * from the marketplace must not execute for real until the user has (a)
  * reviewed and confirmed its capability summary, and (b) — for low-trust
  * skills — completed a mandatory dry-run-first pass. This module persists that

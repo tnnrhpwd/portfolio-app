@@ -1,7 +1,7 @@
 import './AgentModes.css';
 
 /**
- * AgentModes — the four trust modes from the platform plan (§3.1).
+ * AgentModes — the four trust modes from the platform plan (docs/implementation/agent.md).
  *
  * The product promise is "a second set of eyes and hands on your machine" that
  * only escalates as far as the user trusts it. Until now the four modes existed

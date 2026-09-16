@@ -1,7 +1,7 @@
 /**
  * fix-stripe-products.js — align the live Stripe catalog with the app's pricing.
  *
- * Expected catalog (per backend/constants/pricing.js + docs/implementation/simple-agent-prompt.md):
+ * Expected catalog (per backend/constants/pricing.js + docs/guides/BUSINESS_PLAN.md):
  *   - "Pro Membership"      → active $15.00/month price (+ $144.00/year annual)
  *   - "Simple Membership"   → legacy product, should be archived
  *

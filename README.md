@@ -98,7 +98,11 @@ every edit. Rules and failure triage: [`.github/copilot-instructions.md`](./.git
     npm start
     ```
 
-The application will start on http://localhost:3000.
+The application will start on http://localhost:3000, and `npm start` opens it in
+Microsoft Edge. Only that one command opens a tab: a restarted dev server (after a
+`vite.config.js` or `.env` change), `npm run dev`, or a bare `vite` leaves the
+browser alone. `BROWSER=none` opts out of the tab, `BROWSER=chrome` picks a
+different browser.
 
 ## ☁️ Deployment & Cloud Architecture
 

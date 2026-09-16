@@ -327,7 +327,7 @@ test('analyzeSkillCompatibility: reports degraded + unsupported findings', () =>
     fakeRegistry._registered = new Set();
 });
 
-test('analyzeSkillCompatibility: legacy/alternate names resolve via the alias table (§5.4)', () => {
+test('analyzeSkillCompatibility: legacy/alternate names resolve via the alias table (`SIMPLE_MARKETPLACE_PLAN.md`)', () => {
     fakeRegistry._registered = new Set(['fs_list', 'text_type', 'shell_run', 'window_focus']);
     const report = analyzeSkillCompatibility(makeSkill('aliases', [
         { tool: 'list_files', args: { path: 'C:\\' } },
@@ -396,7 +396,7 @@ asyncTest('run: uia_invoke failure recovers via visual retarget before LLM amend
     fakeRegistry._registered = new Set();
 });
 
-asyncTest('run: browser_click failure recovers via visual retarget (§5.3 broaden)', async () => {
+asyncTest('run: browser_click failure recovers via visual retarget (`SIMPLE_MARKETPLACE_PLAN.md` broaden)', async () => {
     const llm = stubLlm('{"action":"abort","reason":"should not be needed"}');
     let visualCalls = 0;
     fakeRegistry._registered = new Set(['browser_click', 'find_and_click_visual']);
@@ -609,7 +609,7 @@ asyncTest('run: open_app windowTitleContains becomes the sticky default focusWin
     }
 });
 
-// ── successCriteria-triggered repair (§5.6) ─────────────────────────────────
+// ── successCriteria-triggered repair (`MARKETPLACE.md`) ─────────────────────────────────
 // All steps report ok, but the end-state check still fails — distinct from
 // the per-step repair loop above (which only fires on a tool-execution
 // error). skill_run should retry the LAST step via the same repair

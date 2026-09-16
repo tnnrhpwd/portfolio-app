@@ -29,7 +29,7 @@
  * checks substring; `resultEquals` checks deep equality; `resultMatches`
  * uses a regex string.
  *
- * ── HTTP scenario mode (docs/implementation/simple-agent-prompt.md §5.5) ─────────────
+ * ── HTTP scenario mode (docs/implementation/BACKLOG.md) ─────────────
  *
  * A scenario may instead supply an `http` block (mutually exclusive with
  * `steps`) to exercise an actual addon route end-to-end via a real, ephemeral

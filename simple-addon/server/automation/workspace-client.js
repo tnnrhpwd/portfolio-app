@@ -85,7 +85,7 @@ async function editNaturalViaBackend(steps, instruction, context) {
 }
 
 /**
- * §7.1 LLM provider seam backend calls (see automation/llm-provider.js).
+ * `LLM_PROVIDERS.md` LLM provider seam backend calls (see automation/llm-provider.js).
  *
  * Every LLM call the addon makes — agent-loop tool-calling, skill repair,
  * vision/multimodal lookups — is proxied through these two backend routes
@@ -110,7 +110,7 @@ async function agentChat({ messages, systemPrompt, tools, tool_choice, temperatu
         e.status = res.status;
         if (json?.limiter) e.limiter = json.limiter;
         if (json?.retryAfterSeconds !== undefined) e.retryAfterSeconds = json.retryAfterSeconds;
-        // §8 monetization seam: carry the 402 plan/credit shape so callers
+        // `BUSINESS_PLAN.md` monetization seam: carry the 402 plan/credit shape so callers
         // (llm-provider.js → agent loop / chat UI) can show upgrade copy.
         if (json?.planRequired || json?.requiresUpgrade) {
             e.planRequired = true;
@@ -143,7 +143,7 @@ async function agentVision({ prompt, imageBase64, mimeType, temperature, maxToke
         e.status = res.status;
         if (json?.limiter) e.limiter = json.limiter;
         if (json?.retryAfterSeconds !== undefined) e.retryAfterSeconds = json.retryAfterSeconds;
-        // §8 monetization seam: carry the 402 plan/credit shape so callers
+        // `BUSINESS_PLAN.md` monetization seam: carry the 402 plan/credit shape so callers
         // (vision-fusion.js et al) can show upgrade copy.
         if (json?.planRequired || json?.requiresUpgrade) {
             e.planRequired = true;
@@ -239,7 +239,7 @@ const getTelemetrySummary = ({ days, tool } = {}) => {
     return req('GET', `/telemetry/summary${qs ? '?' + qs : ''}`);
 };
 
-// ─── Marketplace (§4 of docs/implementation/simple-agent-prompt.md) ─────────────────
+// ─── Marketplace (docs/implementation/MARKETPLACE.md) ─────────────────
 // These hit `{BACKEND_URL}/api/data/market/...` (routeData.js is mounted at
 // `/api/data` in server.js, same as every other backend route in this
 // file) — a SEPARATE namespace from the private per-user `${BASE}`

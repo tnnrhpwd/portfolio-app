@@ -527,7 +527,7 @@ function Profile() {
                               {/* This one is a hard block — they cannot save new
                                   data. Hiding the button when purchases are
                                   paused would leave them with nothing to click
-                                  and nobody to ask. §16.5 rule 6. */}
+                                  and nobody to ask. `SALES_FUNNEL.md`'s funnel-page rules rule 6. */}
                               {!isProTier(userStorage.membership) && (
                                 purchasesEnabled ? (
                                   <Link className="upgrade-button" to="/pay?plan=pro">

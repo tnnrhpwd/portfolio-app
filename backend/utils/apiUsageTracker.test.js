@@ -1,11 +1,11 @@
 /**
- * apiUsageTracker.test.js — unit tests for the §8 monetization credit
+ * apiUsageTracker.test.js — unit tests for the `BUSINESS_PLAN.md` monetization credit
  * state-machine helpers (backend/utils/apiUsageTracker.js):
  *   - getMembershipLimit(rank)          → per-tier monthly USD cap
  *   - needsMonthlyReset(credits, ...)   → when to top-off / roll over
  *   - performMonthlyReset(credits, ...) → the top-off (free / paid / expired)
  *
- * These cover the free / paid / expired / grace-period states the §8.1
+ * These cover the free / paid / expired / grace-period states the `BUSINESS_PLAN.md`
  * checklist calls for, at the pure-function level (no DynamoDB / Stripe
  * network calls — the AWS SDK, Stripe, and logger boundaries are mocked).
  */

@@ -285,7 +285,7 @@ function _buildPrompt(description, context) {
 // call Bedrock server-side).
 async function _callLlm(prompt, llmClient, systemPrompt) {
     if (!llmClient) {
-        // Routed through the §7.1 provider seam (llm-provider.js), which
+        // Routed through the `LLM_PROVIDERS.md` provider seam (llm-provider.js), which
         // ALWAYS proxies through the backend's HTTP API using the user's JWT
         // — no local token discovery, no direct LLM call.
         const { createLlmProvider } = require('./llm-provider');

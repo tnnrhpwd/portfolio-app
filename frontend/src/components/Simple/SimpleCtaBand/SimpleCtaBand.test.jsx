@@ -33,7 +33,7 @@ const bandSurfaces = (container) =>
  *
  *   the product (Chat + the addon download)  →  then one quiet line about price
  *
- * See docs/implementation/agent.md §16.5 rule 1.
+ * See docs/guides/SALES_FUNNEL.md → the funnel-page rules, rule 1.
  */
 describe('SimpleCtaBand', () => {
   afterEach(cleanup);

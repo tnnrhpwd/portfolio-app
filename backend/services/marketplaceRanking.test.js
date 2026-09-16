@@ -1,6 +1,6 @@
 /**
  * Offline unit tests for the marketplace ranking/trust helpers
- * (docs/implementation/simple-agent-prompt.md §4.3/§4.6). No DynamoDB required.
+ * (docs/implementation/MARKETPLACE.md). No DynamoDB required.
  */
 const {
     computeAuthorReputation,
@@ -63,7 +63,7 @@ describe('computeTrustScore', () => {
         expect(flagged).toBeLessThan(clean);
     });
 
-    // §5.6: outcome (from successCriteria evaluation) feeding back into
+    // `MARKETPLACE.md`: outcome (from successCriteria evaluation) feeding back into
     // ranking, not just the raw star average.
     test('a higher failed-outcome rate deprioritizes the score even at a fixed star average', () => {
         const base = { avgRating: 4.5, ratingCount: 20, downloads: 50, authorReputation: 50, ageDays: 10 };

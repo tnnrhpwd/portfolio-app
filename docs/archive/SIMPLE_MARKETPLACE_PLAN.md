@@ -3,9 +3,11 @@
 > ⚠️ **ARCHIVED / SUPERSEDED (2026-09-07).** This was a pre-implementation plan;
 > the marketplace + skill-generalization work it describes is **now built**. Its
 > premise ("nothing exists yet") and its specifics (deleted `GitHubModelsService`,
-> `/api/marketplace/` routes, `mkt_skill_` keys) are outdated. Current state lives
-> in the platform brief's §4 (Marketplace) and §5 (Skill generalization):
-> [`../implementation/simple-agent-prompt.md`](../implementation/simple-agent-prompt.md).
+> `/api/marketplace/` routes, `mkt_skill_` keys) are outdated. The built marketplace
+> lives in [`../implementation/MARKETPLACE.md`](../implementation/MARKETPLACE.md). The
+> skill-generalization design below (A1 LLM re-derivation, A2 parameter inference)
+> was never carried into the current docs, so **this file is its only record** — the
+> code that implements it points here.
 
 ---
 

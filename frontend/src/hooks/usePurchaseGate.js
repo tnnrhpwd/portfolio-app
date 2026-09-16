@@ -28,7 +28,7 @@ async function fetchStatus() {
  *
  * **Hiding is not enough.** Render `components/PurchaseGateNotice` wherever a
  * paid CTA is hidden or disabled, so the surface still explains the pause and
- * still offers a way to ask (agent.md §16.5 rule 6).
+ * still offers a way to ask (docs/guides/SALES_FUNNEL.md → the funnel-page rules, rule 6).
  *
  * Defaults to `purchasesEnabled: true` while loading so nothing flashes
  * hidden-then-shown for the common case.

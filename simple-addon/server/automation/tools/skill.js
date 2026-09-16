@@ -71,7 +71,7 @@ let _sharedLlm = null;
 
 // Deterministic compatibility downgrades for skills authored against older/
 // alternate tool names. These are intentionally static (no LLM required).
-// §5.4: keep this table broad so marketplace skills authored against any
+// `SIMPLE_MARKETPLACE_PLAN.md`: keep this table broad so marketplace skills authored against any
 // historical/alternate naming still resolve (or degrade) instead of hard-
 // failing. Targets must be names in the live tool registry.
 const TOOL_ALIASES = Object.freeze({
@@ -152,7 +152,7 @@ const TOOL_ALIASES = Object.freeze({
 
 // Cross-version fallbacks: when a tool is MISSING from the local registry,
 // downgrade to an alternative that still achieves the intent (instead of
-// hard-failing). Mirrors §5.3's "click/uia failed → find visually" recovery.
+// hard-failing). Mirrors `SIMPLE_MARKETPLACE_PLAN.md`'s "click/uia failed → find visually" recovery.
 const TOOL_FALLBACKS = Object.freeze({
     uia_invoke: 'find_and_click_visual',
     click_at: 'find_and_click_visual',
@@ -217,7 +217,7 @@ function substituteArgs(args, params) {
 
 /**
  * Resolve an LLM client for the repair fallback. Prefers a client injected via
- * `ctx.llm` (tests / explicit wiring); otherwise lazily constructs the §7.1
+ * `ctx.llm` (tests / explicit wiring); otherwise lazily constructs the `LLM_PROVIDERS.md`
  * backend-proxy provider (llm-provider.js), which ALWAYS proxies through the
  * backend's HTTP API using the user's JWT. Returns null when no client can be
  * built (repair then silently no-ops).
@@ -361,7 +361,7 @@ function _deriveVisualQuery(step, resolvedArgs) {
         return 'the same target that was expected at this click location';
     }
     if (step.tool === 'browser_click') {
-        // §5.3 broaden coverage: a web element can move/change between runs, so
+        // `SIMPLE_MARKETPLACE_PLAN.md` broaden coverage: a web element can move/change between runs, so
         // on failure re-target it visually by its selector description.
         const sel = String(resolvedArgs?.selector || '').trim();
         return sel ? `click the on-screen element matching the browser selector "${sel}"` : null;
@@ -1021,7 +1021,7 @@ const skillRun = {
             maxCriteriaRepairs: {
                 type: 'integer',
                 description: 'Max repair attempts triggered when all steps succeed but successCriteria still fails ' +
-                             '(§5.6). Default 1. Set to 0 to disable this repair path (per-step repair on tool ' +
+                             '(`MARKETPLACE.md`). Default 1. Set to 0 to disable this repair path (per-step repair on tool ' +
                              'errors, controlled by maxRepairs, is unaffected).',
             },
             allowUnsupported: {
@@ -1257,7 +1257,7 @@ const skillRun = {
             summary.failed = true;
         }
 
-        // ── successCriteria-triggered repair (§5.6) ──────────────────────
+        // ── successCriteria-triggered repair (`MARKETPLACE.md`) ──────────────────────
         // Every step reported ok, but the end-state check still failed —
         // e.g. a click landed on the wrong control, or the UI moved after
         // the last action. Distinct from the per-step repair loop above
@@ -1370,7 +1370,7 @@ const skillRun = {
     // Dry-run: re-run the full loop with every leaf step forced into the
     // simulated/no-op path, so a marketplace low-trust skill's mandatory
     // dry-run-first pass shows exactly what each step would do before any
-    // real action executes (§4.3 / §10.3).
+    // real action executes (`MARKETPLACE.md` / `BACKLOG.md`).
     async dryRun(args, ctx) {
         return this.run(args, { ...(ctx || {}), forceDryRun: true });
     },

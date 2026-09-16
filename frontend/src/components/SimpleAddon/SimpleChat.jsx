@@ -843,7 +843,7 @@ function SimpleChat({
         content = `**Usage Limit Reached**\n\n${errStr}\n\n---\n💡 **Upgrade your plan** to get more credits and higher limits:\n${proLine}`;
         // The CTA is a structured `actions` entry, NOT `[Upgrade Now](/pay…)` in
         // the body — with the chat's markdown setting off that rendered as
-        // literal brackets and the upgrade path silently did nothing (§16.4).
+        // literal brackets and the upgrade path silently did nothing (`SALES_FUNNEL.md` (funnel gaps)).
         actions = canUpgrade
           ? [{ label: 'Upgrade Now', to: '/pay?plan=pro' }]
           : [{ label: 'Ask us about Pro', to: GATE_SUPPORT_PATH }];
@@ -1318,7 +1318,7 @@ function SimpleChat({
               priority: 70,
               createdBy: 'chat',
             });
-            replyContent = `🎯 **Goal created:** "${description.slice(0, 80)}"\n\nThe agent will pick it up next time you click **Start Agent** in the Live Agent View, or say *"hey simple"*.`;
+            replyContent = `🎯 **Goal created:** "${description.slice(0, 80)}"\n\nThe loop will pick it up next time you press **▶ Start loop** in the ⚡ Macros & Loop panel, or say *"hey simple"*.`;
           } catch (e) {
             replyContent = `**Could not create goal:** ${e.message}. Make sure you are signed in.`;
           }

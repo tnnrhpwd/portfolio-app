@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * §7.1 LLM provider seam.
+ * `LLM_PROVIDERS.md` LLM provider seam.
  *
  * Every automation call site that talks to an LLM (agent-loop.js,
  * nl-compiler.js, tools/skill.js, tools/webcam.js, vision-fusion.js) used to

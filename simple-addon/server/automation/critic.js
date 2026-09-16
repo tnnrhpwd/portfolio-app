@@ -1,6 +1,6 @@
 /**
  * critic.js — the PDCA "Check" stage of the Observe → Orient → Goal → Plan →
- * Action loop (docs/implementation/simple-agent-prompt.md §11).
+ * Action loop (docs/implementation/agent.md).
  *
  * - `score({ predicted, actual })` maps an outcome to a delta in [-1, 1]:
  *   all-ok → +0.5, partial failure → -0.5, total failure → -1, no-op → 0.

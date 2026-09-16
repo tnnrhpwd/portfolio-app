@@ -364,7 +364,7 @@ const subscribeCustomer = asyncHandler(async (req, res) => {
     logger.debug('Subscription request:', { membershipType, paymentMethodId, customPrice, billingInterval });
 
     // Purchase gate: admin can instantly pause new/upgraded subscriptions
-    // (docs/implementation/simple-agent-prompt.md). Downgrading to free is always allowed so
+    // (docs/implementation/BACKLOG.md). Downgrading to free is always allowed so
     // nobody gets stuck unable to cancel.
     if (membershipType !== 'free' && !(await arePurchasesEnabled())) {
         res.status(403);
