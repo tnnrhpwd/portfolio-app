@@ -1646,6 +1646,11 @@ app.on('ready', async () => {
   trayManager.create({
     onOpenWebApp: () => shell.openExternal(WEBAPP_URL),
     onOpenDashboard: (tab) => openDashboard(tab),
+    // Explicit update install. This is the only thing that installs an update
+    // now: auto-updater.js turns off electron-updater's install-on-quit, which
+    // otherwise ran the NSIS installer while Windows was shutting the session
+    // down. updateManager is constructed further below, so resolve it lazily.
+    onInstallUpdate: () => updateManager?.quitAndInstall(),
     onQuit: () => {
       app.quit();
     },

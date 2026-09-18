@@ -4625,7 +4625,7 @@ async function refreshUpdateStatus() {
         setViewBadge('updates', 'downloading', 'warn');
         break;
       case 'ready':
-        nameEl.textContent = `Update ready (v${s.latestVersion || '?'}) — installs on quit`;
+        nameEl.textContent = `Update ready (v${s.latestVersion || '?'}) — "Restart, & Update Now" to install`;
         nameEl.className = 'name status-ok';
         setViewBadge('updates', 'ready', 'on');
         break;

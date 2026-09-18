@@ -107,8 +107,9 @@ function Sidebar({
         // stuck, though: the addon's own background auto-updater has already
         // been silently checking (every 4h) and auto-downloading since it
         // started — no browser round-trip needed, no approval dialogs, ever.
-        // The fastest path is the system tray it's already running in, not a
-        // browser download+install. Don't open a browser tab for this.
+        // Nothing installs on its own: when the download finishes, the addon
+        // offers "Restart & Update" in its tray (and in its Updates tab) —
+        // the tray is the fastest path, not a browser download+install.
         setUpdateNow({ state: 'unsupported', progress: 0, error: e.message });
         return;
       }

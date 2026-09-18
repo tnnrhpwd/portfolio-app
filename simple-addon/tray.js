@@ -8,6 +8,11 @@
  * eyeTrackingState/eyeOverlayActive), and a couple of one-click safety
  * actions that must keep working even if the dashboard window itself fails
  * to open.
+ *
+ * The one state-dependent item is "Restart & Update", which appears only while
+ * a downloaded update is waiting for the user — updates never install on quit
+ * (see the autoInstallOnAppQuit note in auto-updater.js), so this item and the
+ * Dashboard's Updates tab are the whole install path.
  */
 
 const { Tray, Menu, nativeImage, Notification, shell, app } = require('electron');
@@ -34,6 +39,8 @@ class TrayManager {
    * @param {Function} callbacks.onOpenDashboard — called with an optional initial tab id
    * @param {Function} callbacks.onOpenWebApp
    * @param {Function} callbacks.onQuit
+   * @param {Function} callbacks.onInstallUpdate — install the downloaded update
+   *   and relaunch (shown in the menu only while an update is ready)
    * @param {Function} callbacks.onToggleStartAtLogin
    * @param {Function} callbacks.onKillSwitch
    * @param {Function} callbacks.onEmergencyStopEyeTracking
@@ -91,18 +98,22 @@ class TrayManager {
   }
 
   /**
-   * Update the update status. Still called by auto-updater.js on every
-   * state transition — kept so that path doesn't need to know the tray
-   * menu no longer displays update state directly (the Dashboard's Updates
-   * tab reads this from the HTTP update-bridge instead).
+   * Update the update status. Called by auto-updater.js on every state
+   * transition — the Dashboard's Updates tab reads the detail from the HTTP
+   * update-bridge, but the menu needs to know when to offer "Restart & Update".
    * @param {'idle'|'available'|'downloading'|'ready'|'error'|'up-to-date'} state
    * @param {string} [version]
    * @param {number} [progress]
    */
   setUpdateStatus(state, version, progress) {
+    const wasReady = this.updateState === 'ready';
     this.updateState = state;
     if (version) this.updateVersion = version;
     if (progress !== undefined) this.updateProgress = progress;
+    // Only the two transitions across 'ready' change what's on the menu, so
+    // this is the one place a rebuild is worth doing (download progress would
+    // otherwise rebuild the menu dozens of times per download).
+    if (wasReady !== (state === 'ready')) this._updateMenu();
   }
 
   /**
@@ -192,6 +203,22 @@ class TrayManager {
         click: (menuItem) => this.callbacks.onToggleStartAtLogin?.(menuItem.checked),
       },
       { type: 'separator' },
+
+      // ── Update (only while a downloaded update is waiting for the user) ──
+      // Nothing installs on its own any more (see the autoInstallOnAppQuit
+      // note in auto-updater.js), so this item is the install path that
+      // doesn't require opening the dashboard.
+      ...(this.updateState === 'ready'
+        ? [
+            {
+              label: this.updateVersion
+                ? `Restart & Update  (v${this.updateVersion})`
+                : 'Restart & Update',
+              click: () => this.callbacks.onInstallUpdate?.(),
+            },
+            { type: 'separator' },
+          ]
+        : []),
 
       // ── Quit ──
       {

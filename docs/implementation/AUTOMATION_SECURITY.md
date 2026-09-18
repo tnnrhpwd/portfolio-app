@@ -328,9 +328,13 @@ intentional for regression testing but means:
    as `userInitiated` (§7.2), or gate remote control behind an explicit
    consent toggle.
 3. **Args redaction** — strip secret-shaped values before logging/telemetry.
-4. **Auto-updater supply chain** — `autoDownload` + `autoInstallOnAppQuit` from
-   GitHub releases with no code-sign verification; a compromised GitHub account
-   = RCE on next quit. Sign Windows builds and enable signature checks.
+4. **Auto-updater supply chain** — `autoDownload` from GitHub releases with no
+   code-sign verification; a compromised GitHub account = RCE when the user
+   installs the update. Install is user-initiated (`autoInstallOnAppQuit` is
+   off deliberately — see `auto-updater.js`; installing on quit also ran the
+   NSIS installer while Windows was tearing the session down), so the exposure
+   is now "downloads silently, runs when the user clicks", not "runs on quit".
+   Sign Windows builds and enable signature checks.
 5. **Shell timeout & resource cap** — hard ceiling on CPU/memory + max stdout.
 6. **HTTPS cert TOFU** — pin the local cert when binding to LAN, reject MITM.
 7. **Permission audit trail** — separate file for permission *changes* (who

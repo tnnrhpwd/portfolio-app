@@ -5,8 +5,9 @@
  *   1. Check for updates periodically (and shortly after startup)
  *   2. If available, download silently in the background
  *   3. Once downloaded, show a single quiet notification
- *   4. Install automatically the next time the user quits the app
- *      (or let them click "Restart & Update" from the tray if they want it now)
+ *   4. Install **only when the user asks** — "Restart & Update" in the tray, or
+ *      the Dashboard's Updates tab. Never on quit: see the note on
+ *      autoInstallOnAppQuit below.
  *
  * Uses electron-updater with the "publish" config in package.json
  * (provider: "github", owner: "tnnrhpwd", repo: "Simple").
@@ -23,9 +24,20 @@ const path = require('path');
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = 'info';
 
-// Seamless: download in background automatically, install on next quit
+// Download in the background; install only on an explicit user action.
+//
+// ⚠️ Why `autoInstallOnAppQuit` is OFF: Windows shuts an app down by *killing*
+// it, and it does that to the whole session at once. With install-on-quit on, a
+// downloaded update started the NSIS installer during that teardown — the
+// installer (and anything it launched) then can't initialise while win32k is
+// going away, so the install can be cut off half-applied and the shutdown is
+// left showing process-start errors. The downloaded package survives on disk
+// either way, so the user installs it when they choose: tray → "Restart &
+// Update" (tray.js) or the Dashboard's Updates tab → server/update-bridge.js.
+//
+// Seamless half of the deal: download in the background, no prompts.
 autoUpdater.autoDownload = true;
-autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.autoInstallOnAppQuit = false;
 
 // Don't require admin elevation for per-user installs
 autoUpdater.allowDowngrade = false;
@@ -232,10 +244,11 @@ class UpdateManager {
       this._lastKnownStatus = 'ready';
       this._resetTransientFailures();
 
-      // Single, non-intrusive notification — the only one the user sees
+      // Single, non-intrusive notification — the only one the user sees.
+      // It has to name the action now: nothing installs on its own.
       this.trayManager?.notify(
         'Simple Addon Update Ready',
-        `Build #${build} will install automatically when you close the app.`,
+        `Build #${build} is ready to install — tray → "Restart & Update".`,
         'updates'
       );
 
