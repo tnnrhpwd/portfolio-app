@@ -318,6 +318,56 @@ const compressData = async (dataData, token, options = {}) => {
  * Stream compress data via SSE. Returns an async generator of events.
  * Event types: { type: 'token', text }, { type: 'tools', tools }, { type: 'content', text }, { type: 'error', error }
  */
+/**
+ * Stop an in-flight /net turn (see backend/services/harness/turnControl.js).
+ *
+ * Cooperative on purpose: the backend finishes the step it is on and stops
+ * before the next one, then reports what already ran. So this resolves to
+ * `{found: false}` for a turn that finished first — a normal race (the user
+ * clicked Stop twice, or the reply landed a moment earlier), not an error to
+ * show anyone.
+ */
+const cancelTurn = async (runId, token) => {
+    if (!runId) return { found: false };
+    try {
+        const response = await fetch(API_URL + 'compress/cancel', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({ runId }),
+        });
+        if (!response.ok) return { found: false };
+        return await response.json().catch(() => ({ found: false }));
+    } catch {
+        return { found: false };
+    }
+};
+
+/**
+ * Answer a pending tool-approval prompt from an in-flight turn. The turn stays
+ * parked until this lands, and its answer arrives on the SAME stream — nothing
+ * is synthesized locally.
+ */
+const approveTurn = async (approvalId, approved, token, reason = '') => {
+    if (!approvalId) return { resolved: false };
+    try {
+        const response = await fetch(API_URL + 'compress/approve', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({ approvalId, approved, reason }),
+        });
+        if (!response.ok) return { resolved: false };
+        return await response.json().catch(() => ({ resolved: false }));
+    } catch {
+        return { resolved: false };
+    }
+};
+
 const compressDataStream = async function* (dataData, token, options = {}) {
     // See compressData: only send a provider/model the caller actually resolved.
     const requestData = {
@@ -873,6 +923,8 @@ const dataService = {
     deleteData,
     compressData,
     compressDataStream,
+    cancelTurn,
+    approveTurn,
     getPaymentMethods,
     deletePaymentMethod,
     createCustomer,

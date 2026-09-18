@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { openFile, getAddonBaseUrl } from '../../services/simpleAddonApi';
 import { modelDisplayName } from '../../constants/aiModel.js';
 import BrandMark from '../BrandMark/BrandMark.jsx';
+import StepList from './StepList.jsx';
 import './MessageBubble.css';
 
 // Only render data: or http(s): avatar URLs — drop stale /api/agents/... paths
@@ -229,6 +230,16 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
                   </Link>
                 ))}
               </div>
+            )}
+            {/* What the agent DID, one row per tool call. It renders while the
+                turn is still running (steps open before any token streams) and
+                STAYS afterwards — the progress line below is overwritten as
+                each tool starts, so it can never be the record. */}
+            <StepList steps={message.steps} />
+            {/* The turn was cancelled. Without a word here the bubble looks like
+                the reply simply ran out mid-sentence. */}
+            {message.stopped && !message.isError && (
+              <div className="message__stopped">Stopped.</div>
             )}
             {/* Live "what is happening" line while the agent works. Without it a
                 tool-heavy turn is an empty bubble for up to a minute. */}

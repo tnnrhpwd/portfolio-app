@@ -48,6 +48,7 @@ const {
   getPurchaseGateStatus, getPurchaseGateSettings, updatePurchaseGateSettings,
   getEmailPrefs, updateEmailPrefs,
   updateProfile,
+  cancelNetTurn, approveNetTurn,
 } = require('../controllers');
 
 // File upload controller
@@ -457,6 +458,11 @@ router.get('/test-funnel/emails', protect, getTestEmails);
 // Data Compression
 router.post('/compress', protect, compressData);
 router.post('/compress/stream', protect, compressDataStream);
+// Control surface for a turn already in flight (harness/turnControl.js): stop it,
+// or answer the approval prompt it is parked on. Both are cheap and idempotent —
+// "that turn already finished" answers 200, not an error.
+router.post('/compress/cancel', protect, cancelNetTurn);
+router.post('/compress/approve', protect, approveNetTurn);
 
 // File Processing (in-memory, no DB storage)
 const fileProcessUpload = multer({

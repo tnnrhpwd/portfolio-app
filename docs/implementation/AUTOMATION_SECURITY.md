@@ -795,7 +795,67 @@ mutating scripts turned out to be mostly well-behaved (dry-run by default, and
 
 ---
 
-## 14. References
+## 14. Repository runner — `repo_run` (added 2026-09-18)
+
+The `/net` repo agent could search, read, edit, commit and push, but it could not
+RUN anything — so "verified" meant "re-read the diff", which is an assertion
+rather than a check. `backend/services/repoRunner.js` closes that gap, and it is
+the most dangerous capability in the harness. This section is the threat model.
+
+**What it can execute.** A frozen map of tasks; the argv is written in code, not
+passed in:
+
+| Task | Command (argv, no shell) |
+|---|---|
+| `test:file` | `node node_modules/jest/bin/jest.js --config package.json --ci <target>` (frontend), `node node_modules/jest/bin/jest.js --ci <relative>` (backend, cwd=backend), `node <target>` (addon) |
+| `test:backend` | `node node_modules/jest/bin/jest.js --ci` in `backend/` |
+| `typecheck` | `node node_modules/typescript/bin/tsc --noEmit` in `frontend/` |
+| `lint` | `node node_modules/eslint/bin/eslint.js . --ext .js,.jsx,.ts,.tsx` |
+| `build` | `node node_modules/vite/bin/vite.js build` in `frontend/` |
+
+**⚠️ The honest statement: `repo_edit_file` + `repo_run test:file` is arbitrary
+code execution by proxy.** The agent can write a file and then run it. That is
+inherent to "let the agent verify its own work", and it is why the containment is
+carried by everything *around* the tool rather than by the tool:
+
+1. **No command parameter.** A task name that is not in the map runs nothing.
+   There is no string that becomes a command.
+2. **No shell.** `execFile` with an argv array: no interpolation, no globbing,
+   no pipes. `node` itself is `process.execPath` (our own binary), so nothing
+   depends on PATH resolution.
+3. **A scrubbed environment — the mitigation that matters most.** The backend
+   process holds `JWT_SECRET`, `AWS_*`, `GITHUB_TOKEN`, `MESSAGE_ENCRYPTION_KEY`
+   and the Stripe keys. A child that inherits them can print them, and that
+   output goes into the model's context *and* into the step journal, which a
+   browser later renders. Only `SAFE_ENV_KEYS` is passed down, with `CI=1` forced
+   so a runner never waits for input. Pinned by a test that sets those variables
+   and asserts the child reports them absent.
+4. **Bounded by construction.** Per-task timeouts (30s–10min), `SIGKILL` on
+   overrun, a 4 MB buffer, and output shaped to head + tail (60 + 40 lines, 8 KB)
+   with the omission counted — because a 40k-line Jest dump is worthless to a
+   model and would cost more than the turn.
+5. **Its own capability.** `repo:run` is separate from `repo:write`, admin-only,
+   and filtered out of the offered schemas for everyone else — so a future
+   read-only or write-only admin does not implicitly get execution.
+6. **A kill switch.** `REPO_RUNNER_DISABLED=1` refuses every task without a
+   deploy.
+
+**Residual risk, stated rather than implied:**
+
+- The exfiltration path is narrow but not zero: the agent could write secrets it
+  can already READ (repo files) into the working tree. `.env` files are
+  gitignored, and `repo_push` requires the user's own explicit confirmation
+  message plus a one-time proposal code — so an unattended push cannot happen.
+- Killing the child does not necessarily kill its grandchildren (Jest workers).
+  Orphans are possible on a timeout; the turn reports the kill either way.
+- `repo_run` is not an approval-gated tool by default. Prompting on every check
+  would defeat the purpose (the agent verifying its own work), so the containment
+  above is the control instead. `TOOL_POLICY` in `toolScopes.js` is where a
+  prompt would go if that judgement changes.
+
+---
+
+## 15. References
 
 - [`simple-addon/server/automation/permissions.js`](../../simple-addon/server/automation/permissions.js) — central gate
 - [`simple-addon/server/automation/tool-registry.js`](../../simple-addon/server/automation/tool-registry.js) — dispatch + audit hook

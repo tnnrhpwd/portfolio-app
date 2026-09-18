@@ -105,6 +105,15 @@
   color: var(--text-secondary, #a0aec0);
 }
 
+/* A turn the user (or a closed tab) cancelled. Muted, because it is a decision
+   the user made, not a failure to report. */
+.message__stopped {
+  margin-top: 6px;
+  color: var(--text-muted, #718096);
+  font-size: 0.85em;
+  font-style: italic;
+}
+
 /* Live progress while the agent works. The backend resolves every tool call
    before it streams a token, so without this the bubble is empty for a minute
    and reads as a freeze. */

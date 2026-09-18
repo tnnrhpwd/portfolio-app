@@ -15,8 +15,12 @@ const { getGoalsSummary, logAction } = require('./memoryService.js');
 const { TOOL_SCHEMAS, executeTool } = require('./netTools.js');
 const { buildWorkspaceContext } = require('./workspaceContext.js');
 const { buildToolContext } = require('./netChatContext.js');
-const { filterToolSchemas, canUseTool } = require('./toolScopes.js');
+const { filterToolSchemas, canUseTool, requiresApproval } = require('./toolScopes.js');
 const { describeToolActivity } = require('./toolProgress.js');
+const { DECISION_POLICY } = require('./turnIntent.js');
+const { runToolLoop, parseToolArguments, MAX_TOOL_ROUNDS, TOOL_LIMIT_NOTICE, TOOL_TURN_MAX_TOKENS } = require('./harness/toolLoop.js');
+const { createRun, finishRun, journalHooks } = require('./harness/stepJournal.js');
+const { openTurn } = require('./harness/turnControl.js');
 const { buildRoutingEvent, recordRoutingEvent } = require('./routingTelemetry.js');
 
 // Constants for user context loading
@@ -259,7 +263,10 @@ function stripImagesFromUserInput(userInput) {
 function repoSystemInstructions() {
     return [
         'REPOSITORY EDITING (administrator only): You can modify this website\'s code repository using the repo_* tools.',
-        'To change code: repo_list_files and repo_read_file to investigate, then repo_edit_file for ANY change to a file that already exists (read it first and copy the exact snippet you want replaced), then repo_git_status and repo_git_diff to review, then repo_commit_changes to stage and commit.',
+        'INVESTIGATE IN THIS ORDER: repo_search first — it finds WHERE something lives and returns file:line matches, which costs far fewer tokens than reading files and tells you the exact lines to change. Then repo_read_file for the region you actually need. Then repo_edit_file. Use repo_list_files only when you need the shape of the tree, never as a way to find a symbol.',
+        'repo_read_file returns a bounded PAGE, not necessarily the whole file: the header gives the total line count and the offset to ask for next, so page through a large file instead of rewriting it. Its body has NO line numbers, so copy old_string exactly as the code appears.',
+        'To change code: repo_edit_file for ANY change to a file that already exists (read the region first and copy the exact snippet you want replaced), then repo_git_status and repo_git_diff to review, then repo_commit_changes to stage and commit.',
+        'VERIFY BY RUNNING SOMETHING, NOT BY RE-READING: after you change code, run the NARROWEST check that covers it with repo_run — test:file on the test for what you touched, typecheck after a frontend change, build when you touched CSS or imports. You cannot pass a command; pick a task from the list. Report the task, whether it passed, and the real failure output if it did not. Never describe a change as working on the strength of having made it — and never say a check passed unless repo_run actually ran it in THIS turn.',
         'PREFER repo_edit_file over repo_write_file: a full rewrite has to re-emit the entire file, and a large one can exceed the per-call output limit and come back cut off. Use repo_write_file only to create a new file (or for a rewrite you genuinely need).',
         'CRITICAL PUSH RULE: NEVER call repo_push in the same turn you commit changes. After repo_commit_changes, reply to the user summarizing exactly what changed and ASK whether they want to push to GitHub. Only call repo_push after the user replies with an explicit confirmation (e.g. "yes, push it"). repo_push will refuse to run otherwise.',
     ].join(' ');
@@ -292,12 +299,14 @@ function buildSystemPromptParts(goalsSummary) {
         hour: '2-digit', minute: '2-digit', timeZoneName: 'short'
     });
     const parts = [
-        'You are a helpful AI assistant on sthopwood.com\'s /net chat.',
+        'You are an AI agent embedded in sthopwood.com\'s /net chat. You can answer questions AND take real actions through tools.',
+        // The act-vs-answer procedure. It lives in turnIntent.js, beside the
+        // lexicon that backs it up, so the rule the model is TOLD and the
+        // recovery the tool loop PERFORMS cannot drift apart.
+        DECISION_POLICY,
         'You have access to tools that let you take real actions — save goals, notes, log actions, submit support tickets, search the web, do math, and more.',
         'IMAGE GENERATION: When the user asks you to generate, create, draw, render, or imagine an image, picture, photo, artwork, or illustration, call the generate_image tool with a detailed prompt. The tool returns markdown image links — include those links verbatim in your reply so the user sees the image.',
-        'Use tools when the user\'s intent clearly calls for an action (e.g. "remember this", "I want to achieve X", "submit a bug report", "what time is it", "calculate 15% of 200").',
         'GOAL CREATION RULE (critical): When the user asks to add, create, set, save, or track goals, you MUST call save_goal (or save_goals for several goals at once) for every goal they explicitly state. save_goals deduplicates automatically and reports exactly what was saved vs. skipped — so call it even if you think some goals may already exist. The ONLY source of truth for whether goals are already saved is a tool result: to check, call get_my_goals. NEVER claim goals are "already saved" from your own previous messages or from reading the chat — if you have not called get_my_goals or save_goals in THIS turn, you do not actually know. When the user says something like "add all the goals in the chat above", identify the goals they explicitly listed in the preceding messages and call save_goals for them, then report the tool\'s actual result (how many saved, how many skipped). ONLY save goals the user has explicitly and unambiguously written in THIS conversation — never invent, infer, guess, or fabricate goals, and never turn general chatter, bug reports, feature ideas, or requests for help into goals. NEVER say you added or saved a goal unless the tool call actually succeeded — do not fake or summarize goal creation in text alone.',
-        'For normal conversation, questions, or requests for information, just reply in text.',
         'Be concise and helpful. When you use a tool, also include a brief conversational response explaining what you did.',
         `Current date/time: ${nowReadable} (${nowIso}). Use this for temporal context, but NEVER include a timestamp, date, or bracketed time prefix at the start of your replies — reply with plain prose only.`,
         'When the user asks you to write, create, or generate content (code, scripts, emails, documents, etc.), present the content directly in your response using proper formatting (e.g. code blocks for code). If the content might be useful to save, briefly mention they can copy it or ask you to save it as a note.',
@@ -535,32 +544,6 @@ function streamLLMCall(provider, model, messages, options) {
 }
 
 /**
- * Parse a tool call's JSON arguments.
- *
- * Bedrock/Claude emits tool-call arguments as a JSON string. When the model's
- * output is cut off at the max-token ceiling mid-call (stop reason "length"),
- * that string can be empty or invalid JSON. Detect that case and flag it so the
- * caller can feed a corrective message back to the model instead of silently
- * treating the call as `{}` — the old behaviour made tools like save_goals no-op
- * while the model still claimed it had saved everything.
- */
-function parseToolArguments(toolCall) {
-    const raw = toolCall?.function?.arguments;
-    if (typeof raw !== 'string' || raw.trim() === '') {
-        return { args: null, truncated: true };
-    }
-    try {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-            return { args: parsed, truncated: false };
-        }
-        return { args: null, truncated: true };
-    } catch {
-        return { args: null, truncated: true };
-    }
-}
-
-/**
  * Execute a single tool call, returning its name, parsed args, and result
  * string. Shared by the streaming and non-streaming tool loops.
  */
@@ -583,72 +566,10 @@ async function executeToolCall(toolCall, toolContext) {
     return { fnName, fnArgs, result };
 }
 
-/**
- * Max tool-call rounds per turn (prevents runaway loops).
- *
- * Was 3 — far too tight for the repo workflow. 8 and then 12 still came up short:
- * the live run that leaked a tool marker had already edited the file and only
- * wanted to re-read it to verify, i.e. it was cut off in the *checking* phase.
- * 16 leaves room for investigate → edit → retry a bad snippet → verify → answer.
- * A round is only spent when the model actually asks for a tool, so a normal chat
- * turn costs nothing extra.
- */
-const MAX_TOOL_ROUNDS = 16;
-
-/**
- * Appended to the system prompt when a turn has spent every tool round, so the
- * next call comes back as prose instead of another tool request.
- */
-const TOOL_LIMIT_NOTICE = '\n\nTOOL LIMIT REACHED: you have used every tool round available for this turn. Reply to the user NOW in plain text — say what you changed, what could not be completed and why, and what to do next. Do not call any more tools, and do not output tool-call syntax, JSON, bracketed tool notes, or file contents.';
-
-/**
- * Output-token ceiling for a turn that has tools in play.
- *
- * The per-tier cap (1-4K) is sized for chat prose, but a tool call's ARGUMENTS
- * come out of the same output budget — and `repo_write_file` takes an entire
- * file as one argument. At 4096 the arguments for a 17 KB file (≈5K tokens) were
- * cut off mid-JSON on every attempt, so the write never happened, the model
- * retried the same doomed call, and the turn burned every round (observed live
- * 2026-09-14). Haiku 4.5 allows up to 64K output; 16K covers roughly a 60 KB
- * file. Anything larger should go through `repo_edit_file`, which needs only a
- * snippet instead of the whole file.
- */
-const TOOL_TURN_MAX_TOKENS = 16384;
-
-/**
- * Run the LLM tool-call loop: initial call → execute requested tools → feed the
- * results back → repeat, bounded by `maxRounds`, until the model stops calling
- * tools. Mutates `messages` in place (as the API requires).
- *
- * Returns `{ response, toolResults, rounds }`.
- */
-async function runToolLoop({ provider, model, messages, llmOptions, toolContext, maxRounds = MAX_TOOL_ROUNDS }) {
-    let response = await makeLLMCall(provider, model, messages, llmOptions);
-    const toolResults = [];
-    let rounds = 0;
-
-    while (llmOptions?.tools && rounds < maxRounds) {
-        const choice = response?.choices?.[0];
-        if (!choice?.message?.tool_calls || choice.message.tool_calls.length === 0) {
-            break; // No tool calls — LLM is done.
-        }
-
-        rounds++;
-        logger.debug(`🔧 Tool call round ${rounds}: ${choice.message.tool_calls.length} tool(s) requested`);
-        messages.push(choice.message);
-
-        for (const toolCall of choice.message.tool_calls) {
-            const { fnName, fnArgs, result } = await executeToolCall(toolCall, toolContext);
-            toolResults.push({ tool: fnName, args: fnArgs, result });
-            // `name` is what the flattened activity log labels the result with.
-            messages.push({ role: 'tool', tool_call_id: toolCall.id, name: fnName, content: result });
-        }
-
-        response = await makeLLMCall(provider, model, messages, llmOptions);
-    }
-
-    return { response, toolResults, rounds };
-}
+// The tool loop itself, its round cap, the wrap-up notice and the tool-turn
+// output ceiling now live in ./harness/toolLoop.js — ONE implementation, shared
+// by the streaming and non-streaming routes. They used to be two copies, and
+// had already drifted (the act-vs-answer nudge needed wiring into both).
 
 /**
  * Call LLM API with tool-use support.
@@ -730,11 +651,38 @@ async function callLLMApi(provider, model, userInput, goalsSummary = null, toolC
         llmOptions.maxTokens = Math.max(llmOptions.maxTokens, TOOL_TURN_MAX_TOKENS);
     }
 
+    // The turn's journal — the same records the streaming route writes, so an
+    // addon JSON turn and a web turn are described identically.
+    const turnRun = toolContext
+        ? createRun({ userId: toolContext.userId, provider, model, message: toolContext.userMessage || '' })
+        : null;
+
     // Initial call + bounded tool-call loop (shared with the streaming path —
-    // see runToolLoop above).
-    const { response, toolResults, rounds: round } = await runToolLoop({
-        provider, model, messages, llmOptions, toolContext,
+    // see harness/toolLoop.js).
+    //
+    // ⚠️ Deliberately NO `beforeTool`/`isCancelled` here. Both need somewhere to
+    // ask and something to cancel, and this route has neither: it is a single
+    // request/response with no stream to carry a prompt and no `run` id for the
+    // client to cancel with. An 'ask'-policy tool therefore runs unprompted on
+    // this path — the capability gate (toolScopes.js) is the actual security
+    // boundary, and the ask policy is a control gate, so this is a missing
+    // prompt rather than a hole. Arming it here without a channel would instead
+    // BREAK a working path: the tool would have to be denied.
+    const { response, toolResults, rounds: round, nudged } = await runToolLoop({
+        call: (msgs, opts) => makeLLMCall(provider, model, msgs, opts),
+        executeToolCall,
+        messages,
+        llmOptions,
+        toolContext,
+        ...journalHooks(turnRun),
+        logger,
     });
+
+    if (turnRun) {
+        turnRun.rounds = round;
+        turnRun.nudged = nudged;
+        await finishRun(turnRun, { outcome: 'completed' });
+    }
 
     logger.debug(`🤖 ${provider.toUpperCase()} API call completed in ${Date.now() - startLLM}ms (${round} tool round(s))`);
     logger.debug('LLM response:', JSON.stringify(response));
@@ -748,7 +696,7 @@ async function callLLMApi(provider, model, userInput, goalsSummary = null, toolC
         isAdmin: !!toolContext?.isAdmin,
         toolsOffered: Array.isArray(llmOptions.tools) ? llmOptions.tools.length : 0,
         toolsUsed: toolResults.length,
-        modelCalls: round + 1,
+        modelCalls: round + 1 + (nudged ? 1 : 0),
         latencyMs: Date.now() - startLLM,
         meta: { provider, model, tools: toolResults.map(t => t.tool) },
     }));
@@ -1136,64 +1084,155 @@ async function streamCompressionRequest(req, res, dynamodb) {
         openSse();
         res.write(`data: ${JSON.stringify({ type: 'progress', label, ...extra })}\n\n`);
     };
+    // A step has a LIFECYCLE (running → ok/error), so the client updates one row
+    // instead of appending two. `progress` stays as the coarse one-liner for
+    // clients that predate this event.
+    const emitStep = (step) => {
+        if (!step) return;
+        openSse();
+        res.write(`data: ${JSON.stringify({ type: 'step', step })}\n\n`);
+    };
+    // The turn's id, sent the moment the SSE opens, so the client can cancel a
+    // turn it is no longer interested in (harness/turnControl.js).
+    const emitRun = (runId) => {
+        openSse();
+        res.write(`data: ${JSON.stringify({ type: 'run', runId })}\n\n`);
+    };
+    const emitApproval = (approval) => {
+        openSse();
+        res.write(`data: ${JSON.stringify({ type: 'approval', approval })}\n\n`);
+    };
 
     // ── Tool-call phase (non-streamed, same as before) ─────────────────────
-    // We must resolve tools before streaming the final answer
-    const MAX_TOOL_ROUNDS = 16; // same cap as runToolLoop (see MAX_TOOL_ROUNDS above)
+    // We must resolve tools before streaming the final answer.
     let round = 0;
+    let nudgeUsed = false;
     const toolResults = [];
     let needsStreaming = true;
+    // The turn's journal (harness/stepJournal.js). Only a tool turn has steps;
+    // a plain chat reply would be an empty record.
+    const run = useTools
+        ? createRun({ userId: req.user.id, provider, model, message: userMessageForContext })
+        : null;
+    // The control surface for this turn. Assigned below; a `let` because the
+    // disconnect listener has to be able to see it whenever it fires.
+    let turn = null;
+    res.on('close', () => {
+        // A client that walks away has effectively cancelled. Without this, a
+        // closed tab still paid for up to 16 more model calls and whatever
+        // tools they asked for. (`writableEnded` tells a real disconnect apart
+        // from the normal end of a finished response.)
+        if (!res.writableEnded) turn?.cancel('the client disconnected');
+        turn?.close();
+    });
+    const journalTurn = async (outcome) => {
+        if (!run) return;
+        run.rounds = round;
+        run.nudged = nudgeUsed;
+        await finishRun(run, { outcome });
+    };
 
     if (useTools) {
         emitProgress('Looking into it', { step: 0, maxSteps: MAX_TOOL_ROUNDS });
-        // Do an initial non-streaming call to check for tool calls
-        const initResponse = await makeLLMCall(provider, model, messages, llmOptions);
-        let choice = initResponse?.choices?.[0];
+        turn = openTurn(run.id);
+        emitRun(run.id);
 
-        while (choice?.message?.tool_calls && choice.message.tool_calls.length > 0 && round < MAX_TOOL_ROUNDS) {
-            round++;
-            messages.push(choice.message);
+        // ONE loop, shared with the non-streaming route (harness/toolLoop.js).
+        // The callbacks from journalHooks are the streaming-only parts:
+        // announcing each tool BEFORE it runs, because a file read or write takes
+        // seconds and that silent gap is exactly what looks like a freeze — plus
+        // the step lifecycle the UI renders.
+        const loop = await runToolLoop({
+            call: (msgs, opts) => makeLLMCall(provider, model, msgs, opts),
+            executeToolCall,
+            messages,
+            llmOptions,
+            toolContext,
+            ...journalHooks(run, {
+                onAnnounce: ({ name, label, round: currentRound }) => {
+                    emitProgress(label, { tool: name, step: currentRound, maxSteps: MAX_TOOL_ROUNDS });
+                },
+                onStep: emitStep,
+            }),
+            isCancelled: () => turn.isCancelled(),
+            // The approval gate. Only tools the POLICY marks 'ask' prompt at all
+            // (toolScopes.js); everything else runs untouched. A refusal is fed
+            // back to the model as that tool's result, so it can adapt instead
+            // of the turn dying — the loop never runs the tool.
+            beforeTool: async ({ toolCall, name }) => {
+                if (!requiresApproval(name)) return { allow: true };
 
-            for (const toolCall of choice.message.tool_calls) {
-                // Announce BEFORE running: a file read or write takes seconds, and
-                // that silent gap is exactly what looks like a freeze.
-                const announced = toolCall.function?.name;
-                emitProgress(
-                    describeToolActivity(announced, parseToolArguments(toolCall).args),
-                    { tool: announced, step: round, maxSteps: MAX_TOOL_ROUNDS },
-                );
-                // Same execution helper as the non-streaming loop — see
-                // executeToolCall above.
-                const { fnName, fnArgs, result } = await executeToolCall(toolCall, toolContext);
-                toolResults.push({ tool: fnName, args: fnArgs, result });
-                messages.push({ role: 'tool', tool_call_id: toolCall.id, name: fnName, content: result });
-            }
+                const args = parseToolArguments(toolCall).args;
+                const question = 'Allow the agent to run this step?';
+                const options = ['Approve', 'Deny'];
+                const pending = turn.requestApproval({
+                    tool: name,
+                    question,
+                    options,
+                    // An idle SSE connection gets dropped by proxies; the comment
+                    // keeps it warm while the user decides.
+                    heartbeat: () => { try { res.write(': ping\n\n'); } catch { /* timeout still fires */ } },
+                });
 
-            // Check if the follow-up also has tool calls
-            const followUp = await makeLLMCall(provider, model, messages, llmOptions);
-            choice = followUp?.choices?.[0];
-
-            // If no more tools, we'll stream the final response from scratch
-            if (!choice?.message?.tool_calls || choice.message.tool_calls.length === 0) {
-                // The follow-up already has the final text — send it non-streamed
-                const content = choice?.message?.content || '';
-                const { cleanedContent, savedMemories } = await processCloudMemorySaves(dynamodb, req.user.id, content);
-
-                // Track usage from the non-streamed response
-                await trackApiUsageAfterCall(req.user.id, provider, model, followUp, userInput);
-                await saveCompressedData(dynamodb, req.user.id, userInput, cleanedContent, updateId);
-
-                // Send as SSE
-                openSse();
-                if (toolResults.length > 0) {
-                    res.write(`data: ${JSON.stringify({ type: 'tools', tools: toolResults.map(t => ({ tool: t.tool, args: t.args, success: !t.result.startsWith('Error') })) })}\n\n`);
+                if (pending.id) {
+                    emitApproval({
+                        id: pending.id,
+                        tool: name,
+                        question,
+                        options,
+                        originalAction: describeToolActivity(name, args),
+                    });
                 }
-                res.write(`data: ${JSON.stringify({ type: 'content', text: cleanedContent })}\n\n`);
-                res.write('data: [DONE]\n\n');
-                res.end();
-                needsStreaming = false;
-                break;
-            }
+                const { approved, reason } = await pending.promise;
+                if (pending.id) {
+                    openSse();
+                    res.write(`data: ${JSON.stringify({ type: 'approval-resolved', approvalId: pending.id, approved, reason })}\n\n`);
+                }
+                return approved ? { allow: true } : { allow: false, reason };
+            },
+            logger,
+        });
+
+        round = loop.rounds;
+        nudgeUsed = loop.nudged;
+        toolResults.push(...loop.toolResults);
+
+        // Stopped at the user's request (or the client went away). The clean exit
+        // is the whole point of a cooperative cancel: report it, journal it, and
+        // stop — rather than pretending the turn finished or erroring at it.
+        if (loop.cancelled) {
+            openSse();
+            res.write(`data: ${JSON.stringify({ type: 'cancelled', reason: turn.cancelReason() || 'stopped' })}\n\n`);
+            res.write('data: [DONE]\n\n');
+            res.end();
+            needsStreaming = false;
+            await journalTurn('cancelled');
+        }
+
+        // The loop's last call already produced the answer — it ran tools, then
+        // the model stopped asking for more — so send that text as `content`
+        // rather than paying for a second (streamed) call to say the same thing.
+        // A loop that stopped on the ROUND BUDGET still wants tools, so it falls
+        // through to the wrap-up and streaming legs below instead.
+        if (!loop.cancelled && !loop.exhausted && toolResults.length > 0) {
+            const content = loop.response?.choices?.[0]?.message?.content || '';
+            const { cleanedContent } = await processCloudMemorySaves(dynamodb, req.user.id, content);
+
+            // Track usage from the non-streamed response
+            await trackApiUsageAfterCall(req.user.id, provider, model, loop.response, userInput);
+            await saveCompressedData(dynamodb, req.user.id, userInput, cleanedContent, updateId);
+
+            // Send as SSE
+            openSse();
+            res.write(`data: ${JSON.stringify({ type: 'tools', tools: toolResults.map(t => ({ tool: t.tool, args: t.args, success: !t.result.startsWith('Error') })) })}\n\n`);
+            res.write(`data: ${JSON.stringify({ type: 'content', text: cleanedContent })}\n\n`);
+            res.write('data: [DONE]\n\n');
+            res.end();
+            needsStreaming = false;
+
+            // After the client is unblocked: a slow table must never show up as
+            // latency on the reply (finishRun never throws — see stepJournal).
+            await journalTurn('completed');
         }
     }
 
@@ -1205,7 +1244,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
         isAdmin: !!toolContext?.isAdmin,
         toolsOffered: Array.isArray(llmOptions.tools) ? llmOptions.tools.length : 0,
         toolsUsed: toolResults.length,
-        modelCalls: round + (needsStreaming ? 1 : 0),
+        modelCalls: round + (needsStreaming ? 1 : 0) + (nudgeUsed ? 1 : 0),
         meta: { provider, model, tools: toolResults.map(t => t.tool) },
     }));
 
@@ -1299,6 +1338,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
             }
             res.write('data: [DONE]\n\n');
             res.end();
+            await journalTurn('error');
             return;
         }
     }
@@ -1344,6 +1384,10 @@ async function streamCompressionRequest(req, res, dynamodb) {
 
     res.write('data: [DONE]\n\n');
     res.end();
+
+    // The client is unblocked above; the journal write happens after it, so a
+    // slow table can never show up as latency on the reply.
+    await journalTurn('completed');
 
     logger.debug(`🌊 Streamed ${chunkCount} chunks in ${Date.now() - startValidation}ms`);
 }

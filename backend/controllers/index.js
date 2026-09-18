@@ -21,6 +21,7 @@ const { getHomeTitle, getHomeTitleSettings, updateHomeTitleSettings } = require(
 const { getPurchaseGateStatus, getPurchaseGateSettings, updatePurchaseGateSettings } = require('./purchaseGateController'); // Purchase gate (admin kill switch)
 const { getEmailPrefs, updateEmailPrefs } = require('./emailPrefsController'); // Email notification preferences
 const { updateProfile } = require('./profileController'); // Update own account profile (nickname/email/picture)
+const { cancelNetTurn, approveNetTurn } = require('./turnControlController'); // Cancel / approve an in-flight /net turn
 
 // @desc    Get available LLM providers and models
 // @route   GET /api/data/llm-providers
@@ -76,6 +77,7 @@ module.exports = {
     putHashData, updateCustomer, putPaymentMethod,
     forgotPassword, resetPassword, forgotPasswordAuthenticated,
     extractOCR, updateWithOCR,
+    cancelNetTurn, approveNetTurn,
     getLLMProviders,
     getStripeConfig,
     getAdminDashboard, getAdminUsers, getAdminPaginatedData, updateUserSpecial, getEmailStatus, testEmailSend, enlistAgentForBug,

@@ -25,6 +25,7 @@ docs/
 │   ├── MARKETPLACE.md                 # Published skills & shared goals
 │   ├── LLM_PROVIDERS.md               # Provider seam, model catalogue, the default model
 │   ├── NET_CHAT.md                    # /net chat — routing, the repo agent, people in the rail
+│   ├── NET_HARNESS_PLAN.md            # /net as an agent harness — gaps, ADRs, the P0..P7 plan
 │   ├── GOALS.md                       # Goals — dream board, map, horizon, review, console, vision boards
 │   ├── TALK.md                        # Member messaging + editing your own review
 │   ├── PROFILES.md                    # Member pages, visibility, blocking

@@ -4,7 +4,7 @@
  * Lets the /net chatbot (DeepSeek, via the normal netTools tool loop) make real
  * changes to this repository directly on the backend server:
  *
- *   investigate  → repo_list_files / repo_read_file
+ *   investigate  → repo_search / repo_read_file (page) / repo_list_files
  *   implement    → repo_write_file            (working tree, not committed)
  *   review       → repo_git_status / repo_git_diff
  *   stage        → repo_commit_changes        (git add -A + git commit on a feature branch)
@@ -32,6 +32,10 @@ const path = require('path');
 const crypto = require('crypto');
 const { logger } = require('../utils/logger');
 const { REPO, getGitHubToken, isAdminContext, sanitizeRepoPath } = require('./repoShared');
+const repoRunner = require('./repoRunner.js');
+
+/** The task list the tool description advertises — derived, never hand-copied. */
+const TASK_SUMMARY = repoRunner.taskSummary();
 
 // ── Configuration ───────────────────────────────────────────────────────────
 
@@ -41,6 +45,41 @@ const MAX_FILE_BYTES = 120 * 1024; // max bytes the agent may write per file
 const MAX_READ_BYTES = 40 * 1024;  // max bytes returned from a single read
 const MAX_DIFF_BYTES = 24 * 1024;  // max bytes returned from a diff
 const MAX_LIST_PATHS = 400;        // max paths returned from repo_list_files
+
+/**
+ * Token economics (measured 2026-09-18).
+ *
+ * The loop re-sends its fixed prefix on EVERY model call — 24 tool schemas
+ * (≈3.8K tokens) plus the system prompt — and one repo turn can spend up to 18
+ * model calls (1 + 16 rounds + wrap-up). So a tool RESULT is not paid for once:
+ * it is re-sent on every later call in the turn, and read results dominate (a
+ * whole 40 KB file is ≈10K tokens carried to the end of the turn).
+ *
+ * Two rules follow, and they are why these limits are LINES PER PAGE rather
+ * than "hand back the whole file":
+ *   1. a read returns a bounded page whose header carries the total line count
+ *      and the offset to ask for next — a truncated answer is a turn-around,
+ *      never a dead end (which is what "showing first 40960 bytes" was).
+ *   2. searching is far cheaper than reading, so `repo_search` returns
+ *      `file:line` matches without file contents, and the agent is told to
+ *      search first and read only the region it needs.
+ */
+const READ_DEFAULT_LINES = 800;    // lines per page when the caller gives no limit
+const MAX_READ_LINES = 2000;       // ceiling for one page, whatever is asked for
+const SEARCH_DEFAULT_MATCHES = 60; // matching lines returned when not specified
+const MAX_SEARCH_MATCHES = 200;    // hard cap on repo_search result lines
+const MAX_SEARCH_LINE_CHARS = 240; // one long minified line must not blow the budget
+const MAX_SEARCH_QUERY_CHARS = 400;
+
+/** Generated or vendored trees — never worth grepping, and huge if we did. */
+const SEARCH_EXCLUDES = [
+  ':(exclude)node_modules',
+  ':(exclude)dist',
+  ':(exclude)build',
+  ':(exclude)coverage',
+  ':(exclude)*.min.js',
+  ':(exclude)*.lock',
+];
 
 // ── Small helpers ───────────────────────────────────────────────────────────
 
@@ -97,6 +136,72 @@ function truncateDiff(text) {
   return text.slice(0, MAX_DIFF_BYTES) + `\n…(diff truncated at ${MAX_DIFF_BYTES} bytes)`;
 }
 
+/** Integer arg with a default and bounds — never trust the model's JSON. */
+function clampInt(value, fallback, min, max) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(Math.max(Math.floor(n), min), max);
+}
+
+/**
+ * Normalise a read request into a bounded page of lines.
+ *
+ * Pure and exported so the paging arithmetic is testable without a git repo —
+ * the failure that matters here is an off-by-one in the "continue with
+ * offset=N" header, which would either re-read a line forever or skip one.
+ *
+ * @param {string} content  the whole file
+ * @param {object} [args]   raw tool arguments ({ offset, limit }, both 1-based)
+ * @returns {{total:number,start:number,end:number,truncated:boolean,overLimit:boolean,body:string}}
+ */
+function pageLines(content, args = {}) {
+  const lines = String(content ?? '').split('\n');
+  // A file that ends with a newline leaves an empty final element. Dropping it
+  // makes `total` the number of lines a person would count ("3 lines" for a
+  // 3-line file, not 4), which is also the number the model pages against.
+  if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
+  const total = lines.length;
+
+  const start = Math.min(clampInt(args?.offset, 1, 1, Number.MAX_SAFE_INTEGER), Math.max(total, 1));
+  // A limit below 1 is nonsense from a model, and honouring it literally would
+  // return a ONE-line page it then re-requests — fall back to a full page.
+  const askedLimit = Number(args?.limit);
+  const limit = Number.isFinite(askedLimit) && askedLimit >= 1
+    ? Math.min(Math.floor(askedLimit), MAX_READ_LINES)
+    : READ_DEFAULT_LINES;
+  const wanted = lines.slice(start - 1, start - 1 + limit);
+
+  // Accumulate whole lines until the byte cap is reached, so `end` is always a
+  // real line and the next offset can never point into the middle of one.
+  const kept = [];
+  let bytes = 0;
+  let cut = false;
+  for (const line of wanted) {
+    const lineBytes = Buffer.byteLength(line, 'utf-8') + (kept.length ? 1 : 0); // +1 for '\n'
+    if (bytes + lineBytes <= MAX_READ_BYTES) {
+      kept.push(line);
+      bytes += lineBytes;
+      continue;
+    }
+    cut = true;
+    // One line longer than the whole cap (a minified bundle): return a bounded
+    // piece of it. An empty page would be re-requested at the same offset
+    // forever, and returning the line whole costs more than the file it avoided.
+    if (!kept.length) kept.push(line.slice(0, MAX_READ_BYTES));
+    break;
+  }
+
+  const end = start + kept.length - 1;
+  return {
+    total,
+    start,
+    end,
+    truncated: end < total,
+    overLimit: cut,
+    body: kept.join('\n'),
+  };
+}
+
 // ── Git plumbing ────────────────────────────────────────────────────────────
 
 let _repoRoot = null;
@@ -148,6 +253,20 @@ async function runGit(args, opts = {}) {
     throw new Error('Git repository not found on this server (no .git directory at or above backend/).');
   }
   return execFileP('git', args, { cwd: root, ...opts });
+}
+
+/**
+ * `git grep` exits 1 when nothing matched — that is an answer, not a failure.
+ * `runGit` rejects on any non-zero exit, so unwrap that one code here and let
+ * everything else (a bad regex, a missing path) surface as a real error.
+ */
+async function runGitGrep(args) {
+  try {
+    return await runGit(args);
+  } catch (err) {
+    if (err?.cause?.code === 1) return '';
+    throw err;
+  }
 }
 
 async function currentBranch() {
@@ -305,13 +424,33 @@ const REPO_TOOL_SCHEMAS = [
     type: 'function',
     function: {
       name: 'repo_read_file',
-      description: 'Read a file from the repository working tree on the server. Pass a path relative to the repo root (e.g. "frontend/src/pages/Home/Home.jsx"). Administrators only.',
+      description: 'Read a file — or one page of lines from it — in the repository working tree on the server. Pass a path relative to the repo root (e.g. "frontend/src/pages/Home/Home.jsx"). A large file comes back as a page: the header gives the total line count and the offset to ask for next, so page through it rather than rewriting it blindly. The body has NO line numbers, so copy old_string for repo_edit_file exactly as the code appears. Use repo_search first when you are looking for something rather than reading a file you already know. Administrators only.',
       parameters: {
         type: 'object',
         properties: {
           path: { type: 'string', description: 'Repo-relative file path' },
+          offset: { type: 'integer', description: 'First line to return, 1-based (default 1)' },
+          limit: { type: 'integer', description: `How many lines to return (default ${READ_DEFAULT_LINES}, max ${MAX_READ_LINES})` },
         },
         required: ['path'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'repo_search',
+      description: 'Search the repository and return matching `file:line` locations with the matching line. Use this FIRST to find where something lives: it costs far less than reading files and it tells you the exact lines to read or edit. Searches git-tracked files only, in the working tree (so your uncommitted edits are found); node_modules, dist, build, coverage, minified files and lockfiles are excluded. Administrators only.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'The text to find — a plain substring unless regex is true' },
+          regex: { type: 'boolean', description: 'Treat query as an extended regular expression (default false = literal substring, which is what you usually want for code you can see)' },
+          path: { type: 'string', description: 'Optional repo-relative file or directory to limit the search to, e.g. "frontend/src" or "backend/services/llmService.js"' },
+          ignore_case: { type: 'boolean', description: 'Case-insensitive match (default false)' },
+          max_results: { type: 'integer', description: `Maximum matching lines to return (default ${SEARCH_DEFAULT_MATCHES}, hard cap ${MAX_SEARCH_MATCHES})` },
+        },
+        required: ['query'],
       },
     },
   },
@@ -344,6 +483,21 @@ const REPO_TOOL_SCHEMAS = [
           replace_all: { type: 'boolean', description: 'Replace every occurrence (default false — refuses when old_string is ambiguous)' },
         },
         required: ['path', 'old_string', 'new_string'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'repo_run',
+      description: `Run one of the project's own checks and get its output. You CANNOT pass a command — pick a task from the fixed list and the exact command is fixed server-side. Run the NARROWEST check that covers your change after editing (usually test:file with the file you touched), and report what it actually said. Tasks: ${TASK_SUMMARY}. Administrators only.`,
+      parameters: {
+        type: 'object',
+        properties: {
+          task: { type: 'string', enum: repoRunner.TASK_NAMES, description: 'Which check to run.' },
+          target: { type: 'string', description: 'Required by test:file — the repo-relative test file, e.g. "backend/__tests__/unit/toolLoop.test.js".' },
+        },
+        required: ['task'],
       },
     },
   },
@@ -424,15 +578,96 @@ const REPO_TOOL_EXECUTORS = {
           .join('\n');
         return `"${rel}" is a directory. Entries:\n${entries}`;
       }
-      if (stat.size > MAX_READ_BYTES) {
-        const buf = await fsp.readFile(abs);
-        return `File "${rel}" (${stat.size} bytes, showing first ${MAX_READ_BYTES}):\n${buf.slice(0, MAX_READ_BYTES).toString('utf-8')}`;
-      }
       const content = await fsp.readFile(abs, 'utf-8');
-      return `File "${rel}":\n${content}`;
+      const page = pageLines(content, args);
+      const header = page.truncated
+        ? `File "${rel}" — lines ${page.start}–${page.end} of ${page.total}; continue with offset=${page.end + 1}:`
+        : `File "${rel}" (${page.total} lines):`;
+      const note = page.overLimit
+        ? `\n…(page cut at ${MAX_READ_BYTES} bytes — ask for a smaller limit to see the rest of these lines)`
+        : '';
+      return `${header}\n${page.body}${note}`;
     } catch (err) {
       return `Error reading "${rel}": ${err.message}`;
     }
+  },
+
+  /**
+   * Run an allowlisted project check. The argv and the environment come from
+   * repoRunner.js — this executor only authorises and reports.
+   */
+  async repo_run(args, ctx) {
+    if (!isAdminContext(ctx)) return 'Error: repository access is restricted to the administrator.';
+    const task = String(args?.task || '').trim();
+    if (!task) return `Error: task is required. Allowed: ${repoRunner.TASK_NAMES.join(', ')}.`;
+
+    const result = await repoRunner.runTask({
+      task,
+      target: args?.target,
+      repoRoot: getRepoRoot(),
+    });
+
+    if (result.error && !result.output) return `Error: ${result.error}`;
+
+    const status = result.timedOut
+      ? 'TIMED OUT'
+      : result.ok
+        ? 'PASSED'
+        : `FAILED (exit ${result.exitCode ?? 'unknown'})`;
+    const header = `${result.command || task} — ${status} in ${(result.durationMs / 1000).toFixed(1)}s`;
+    const note = result.truncated ? '\n(output was trimmed to the first and last lines)' : '';
+    return `${header}${note}\n\n${result.output}`;
+  },
+
+  async repo_search(args, ctx) {
+    if (!isAdminContext(ctx)) return 'Error: repository access is restricted to the administrator.';
+    const query = String(args?.query ?? '');
+    if (!query.trim()) return 'Error: query is required.';
+    if (query.length > MAX_SEARCH_QUERY_CHARS) {
+      return `Error: query is too long (max ${MAX_SEARCH_QUERY_CHARS} characters).`;
+    }
+
+    const asRegex = !!args?.regex;
+    const maxResults = clampInt(args?.max_results, SEARCH_DEFAULT_MATCHES, 1, MAX_SEARCH_MATCHES);
+
+    // `-e` separates the pattern from the pathspecs, so a query that starts with
+    // a dash can never be read as a flag. execFile (not a shell) means the query
+    // is passed as one argv element — no quoting or injection surface.
+    const gitArgs = ['grep', '--no-color', '-n', '-I', asRegex ? '-E' : '-F'];
+    if (args?.ignore_case) gitArgs.push('-i');
+
+    let scope = '.';
+    if (args?.path !== undefined) {
+      const rel = sanitizeRepoPath(args.path);
+      if (!rel) return 'Error: invalid search path.';
+      scope = rel;
+    }
+    gitArgs.push('-e', query, '--', scope, ...SEARCH_EXCLUDES);
+
+    let out;
+    try {
+      out = await runGitGrep(gitArgs);
+    } catch (err) {
+      return `Error searching: ${err.message}`;
+    }
+
+    const matches = out.split('\n').map((l) => l.replace(/\s+$/, '')).filter(Boolean);
+    const where = args?.path ? ` under "${args.path}"` : '';
+    if (!matches.length) {
+      return `No matches for ${asRegex ? 'pattern' : 'text'} "${query}"${where}.\n`
+        + '(Searched git-tracked text files in the working tree only — node_modules, dist, build, '
+        + 'coverage, minified files and lockfiles are excluded, so a miss there is expected.)';
+    }
+
+    const shown = matches.slice(0, maxResults).map((l) => truncate(l, MAX_SEARCH_LINE_CHARS));
+    const fileCount = new Set(matches.map((l) => l.split(':')[0])).size;
+    const more = matches.length > shown.length
+      ? ` — showing the first ${shown.length}; narrow the query or pass a path to see the rest`
+      : '';
+    return [
+      `${matches.length} matching line(s) in ${fileCount} file(s)${where}${more}:`,
+      ...shown,
+    ].join('\n');
   },
 
   async repo_write_file(args, ctx) {
@@ -641,6 +876,7 @@ module.exports = {
   sanitizeRepoPath,
   isAdminContext,
   isPushConfirmation,
+  pageLines,
   getRepoRoot,
   getGitHubToken,
   runGit,

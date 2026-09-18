@@ -8,6 +8,11 @@ and the pass that made a person's thread render in the assistant's pane.
 > agents ([`agent.md`](agent.md)). Section names are the reference here — no chapter
 > numbers.
 
+> **Forward plan.** Making this a full agent harness (structured steps, control,
+> the addon's tools reachable from the cloud loop, an allowlisted runner, cost
+> governance) is planned in [`NET_HARNESS_PLAN.md`](NET_HARNESS_PLAN.md) — this
+> file describes what exists today.
+
 ---
 
 ## Repo agent via /net chat (DeepSeek) — goal & plan
@@ -341,7 +346,9 @@ flowchart TD
     H -- "actionable: false, no reply" --> K
     D -- plain chat --> K
     K --> L{LLM decides}
-    L -- no tool fits --> M[Plain text reply]
+    L -- no tool call --> L2{"asked for an OUTCOME?<br/>turnIntent.js"}
+    L2 -- no --> M[Plain text reply]
+    L2 -- "yes — one retry, tools still offered" --> L
     L -- cloud tool fits --> N[save_goal / generate_image / calculate / web search]
     L -- "repo_* + capability" --> O[Repo work: git on backend]
 ```
@@ -432,6 +439,295 @@ Guardrails shape this:
 - Shared plumbing — `buildToolContext()` (`netChatContext.js`) and
   `runToolLoop()` / `executeToolCall()` — is used by both the streaming and
   non-streaming paths so they can't drift.
+- **Act-vs-answer policy + recovery** (`turnIntent.js`) — see the subsection below.
+
+
+### Layer 3b — act-vs-answer: the policy, and the one retry behind it (added 2026-09-18)
+
+Reported: *"it answers when it should act."* The layer above had **no policy at
+all** — `tool_choice: 'auto'` and a grab-bag of prose was the entire act-vs-answer
+decision, so a request for an outcome would come back as narration ("I'll add
+that goal for you") with no tool call behind it.
+
+Two halves, both in `backend/services/turnIntent.js` so the rule the model is
+**told** and the recovery the loop **performs** cannot drift apart:
+
+1. **`DECISION_POLICY`** — an explicit procedure, injected into the system prompt
+   by `buildSystemPromptParts()` as the *second* part (right after the identity
+   line, so it frames everything that follows). It replaced the two vague lines
+   that used to do this job ("Use tools when the user's intent clearly calls for
+   an action" / "For normal conversation … just reply in text"): decide DONE vs
+   EXPLAINED; if DONE and a tool fits, **call the tool first** and never describe
+   the action or ask permission for something already asked for; if EXPLAINED,
+   just answer; clarify only when genuinely ambiguous or irreversible; never
+   claim something happened without a tool result from *this* turn.
+2. **The recovery** — when a turn comes back with **no tool call and no tool
+   used**, `classifyTurnIntent()` judges the user's message and, if a tool
+   plausibly owns it, the loop appends `ACT_NUDGE` to the system prompt and makes
+   **one** more call with the tools still offered. Wired into **both** loops
+   (`runToolLoop()` and the inlined streaming loop in `streamCompressionRequest`)
+   — this repo has already been bitten once by those two drifting apart.
+
+Bounds, deliberately tight — the whole mechanism is **advisory**:
+
+- **One retry, never a loop.** `nudgeUsed` caps it; a model that sticks to prose
+  the second time is believed. A `'tool'` verdict that is wrong costs exactly one
+  model call.
+- **Never a gate.** The verdict cannot execute, block, or route anything, and
+  cannot grant a capability — that stays `toolScopes.js`. It only decides whether
+  to spend one call.
+- **Capability-aware.** The repo patterns are gated on `repo:read`, so a
+  non-admin is never nudged toward `repo_*` tools it was never offered (which
+  would guarantee a wasted call and a confusing reply).
+- **Silent to the user.** No progress line, no "retrying…" — it is internal
+  recovery, not something the turn narrates.
+- Telemetry counts the extra call (`modelCalls`), so a nudging turn is visible in
+  `routingTelemetry.js` as the model call it actually was.
+
+The lexicon is the **cloud twin** of the addon's `routing-lexicon.js`, and
+deliberately neither the same file nor the same word list: the addon's is about
+PC-control verbs, and `messageRouter.js` already owns routing. This one answers
+only "is one of *this turn's* tools plausibly what the user asked for?" —
+conservative by design, because a missed nudge is free and a false one is one
+call. Boundaries are pinned in `backend/__tests__/unit/turnIntent.test.js`
+(social openers, bare confirmations, explanations, "make a plan" ≠ an image) and
+the recovery end-to-end in `llmServiceStreamingTools.test.js` for **both** paths.
+
+**Verification discipline** rides along in `repoSystemInstructions()`: after an
+edit the model must run the narrowest relevant check (`repo_run`) rather than
+describe the change as working — and must never say a check passed unless it
+actually ran one in that turn.
+
+> ✅ **Closed 2026-09-18 (P3).** The admin's `repo_*` set can now RUN the
+> project's own checks — `repo_run` with an allowlisted task (`test:file`,
+> `test:backend`, `typecheck`, `lint`, `build`). So "investigate → edit → verify"
+> closes: the agent runs the narrowest check that covers its change and reports
+> the real output. It still cannot pass a command, and the containment (no shell,
+> scrubbed child environment, timeouts, its own `repo:run` capability, a kill
+> switch) is `AUTOMATION_SECURITY.md` §14.
+
+
+### Layer 3c — what a tool result COSTS (token economics, added 2026-09-18)
+
+The question that produced this: *"how does the harness use its tokens to modify
+the repo?"* Measured, not guessed (25 schemas, 2026-09-18):
+
+| Part of the request | Size |
+|---|---|
+| Tool schemas (25) | 16,995 B ≈ **4,249 tokens** |
+| System prompt (incl. `DECISION_POLICY`, repo instructions) | ≈ 1,600–2,100 B ≈ **400–500 tokens** |
+| **Fixed prefix, re-sent on every model call** | ≈ **4.7K tokens** |
+
+A repo turn spends up to **18 model calls** (1 initial + 16 rounds + wrap-up), so
+that prefix alone is ≈85K input tokens of *identical* text per maxed-out turn. And
+a tool **result** is not paid for once either: the `messages` array grows, so
+every result is re-sent on every subsequent call. A whole 40 KB file read was
+≈10K tokens, carried to the end of the turn — the dominant term by far.
+
+That is why the tools are shaped the way they are:
+
+- **`repo_search` (new, `repo:read`)** — `git grep -n -I` over git-tracked files,
+  returning `file:line` matches and **no file contents**. It is the cheap way to
+  find out where something lives, and it hands back the exact lines to read or
+  edit. Literal substring by default (`-F`); `regex: true` opts into `-E`, so the
+  text the model has on screen is never silently reinterpreted. Pathspecs
+  hard-exclude `node_modules`, `dist`, `build`, `coverage`, `*.min.js` and
+  `*.lock`, and a **no-match reply says so** — otherwise a miss reads as proof of
+  absence and the model writes something that already exists. The pattern goes in
+  as one `execFile` argv element after `-e`, so there is no shell and no flag
+  position to abuse.
+- **`repo_read_file` now returns a bounded PAGE.** The header carries the total
+  line count and the next offset —
+  `File "x.js" — lines 1–800 of 5000; continue with offset=801:` — so a truncated
+  read is a **turn-around, never a dead end**. The old behaviour
+  (`showing first 40960 bytes`) left a >40 KB file unreadable past byte 40960
+  with no way to ask for the rest, which is what pushed the model into blind
+  `repo_write_file` rewrites. `pageLines()` is pure, exported, and unit-tested for
+  the off-by-one that would otherwise re-read a line forever or skip one; a page
+  is byte-capped by whole lines so the next offset is always a real line.
+- **No line numbers in the read body.** Deliberate: `repo_edit_file` needs
+  `old_string` copied exactly, and this model is on record guessing it. A `42:`
+  prefix is a new way to get that wrong for a marginal gain — the header already
+  says which lines you are looking at.
+- **The prompt leads with search:** `repoSystemInstructions()` now orders the
+  workflow `repo_search → repo_read_file (region) → repo_edit_file`, and says
+  `repo_list_files` is for the *shape* of the tree, never for finding a symbol.
+
+The honest ledger for this change: the fixed prefix grew by ≈600 tokens/call
+(one schema + the rewritten instructions), roughly +11K input tokens over an
+18-call turn. Each whole-file read it makes unnecessary saves ≈10K tokens on
+*every remaining call of that turn* — so one avoided read pays for it many times
+over. Cheap in the aggregate, expensive per-read.
+
+> Still on the table, deliberately not shipped blind: **prompt caching**
+> (Bedrock `cachePoint` on `system` + `toolConfig.tools`) would cut that 4.7K
+> prefix to ≈10% of its cost on every call after the first. It is not wired in
+> because it is model/region-gated and a wrong placement is a `ValidationException`
+> at runtime — and this file already documents two rounds of request-shape bugs
+> reaching users verbatim. It needs a live check against the real model, not a
+> code-only change.
+
+
+### Layer 3d — the step protocol and the turn journal (added 2026-09-18)
+
+Layer 3b made the model *decide* correctly. This is the layer that makes what it
+did **visible and reviewable** — the piece that was missing between "a progress
+label" and "a harness".
+
+Before: `progress` carried one line that the client **overwrote** as each tool
+started, so by the time the answer arrived nothing survived, and a failure was
+invisible. After: one structured record per tool call, emitted **twice** — when
+it opens (`running`) and when it closes (`ok`/`error`) — so the client upserts a
+row instead of appending two, and persisted once per turn.
+
+| Piece | Where |
+|---|---|
+| The loop itself — ONE implementation, both routes | `backend/services/harness/toolLoop.js` |
+| Step records, redaction, the run ring | `backend/services/harness/stepJournal.js` |
+| Plane classification (`cloud` / `repo` / `addon`) | `backend/services/toolProgress.js` → `toolPlane()` |
+| SSE | `{type:'step', step}` beside `progress` / `tools` / `token` / `meta` |
+| UI | `frontend/src/components/SimpleAddon/StepList.jsx`, inside the assistant bubble |
+| Store | `csimple_runs_<userId>` — a per-user ring of the newest 10 runs |
+
+**The loop collapse is part of this** and is the reason the journal could be
+written once. `runToolLoop()` and the inlined loop in `streamCompressionRequest()`
+were two implementations of one idea; `turnIntent` had to be wired into both, and
+every later phase (cancellation, the policy gate, the failure taxonomy) would have
+needed the same double edit. The loop now lives in `harness/toolLoop.js`, injected
+with `call` / `executeToolCall`, which is also what makes it testable with fakes.
+The hook contract replaced each caller's private copy: `onToolStart`, `onToolEnd`,
+and `exhausted` — *"stopped on the round budget while still wanting tools"*, which
+is exactly the distinction between "the answer is already in hand" and "ask for a
+prose wrap-up". The pre-existing **18-converse-calls** assertion in
+`llmServiceStreamingTools.test.js` is the guard that the refactor changed nothing;
+`toolLoop.test.js` (12 cases) covers what the two copies could have disagreed about.
+
+Three decisions worth keeping:
+
+- **One write per turn, not one per step.** A maxed turn is up to 18 model calls
+  and dozens of steps; per-step writes would be dozens of DynamoDB puts carrying
+  no extra information. Steps accumulate in memory; `finishRun` saves the run
+  once, *after* the client has been sent `[DONE]`, so a slow table is never
+  latency on the reply. A journal must also never break a turn: every store call
+  is wrapped, and a failure degrades to "no record". The ring (newest 10) is
+  read-modify-written, the same shape `msg_index_<userId>` already uses.
+- **Redaction is a rule, not a filter.** Strings over 2048 chars become their
+  length, data URLs are named rather than stored, arrays become counts, leaves
+  clip at 120 chars. And for the tools whose arguments ARE the user's private
+  writing — notes, goals, support messages, memory files, action log — the values
+  are **withheld entirely** (keys only). This mirrors the addon's rule in
+  `event-detail.js`: an event reports, the action log records.
+- **A throwing tool is information, not a failure.** The loop now catches an
+  executor that throws and feeds the message back as that tool's result, so the
+  model can react and the steps that already succeeded survive. Previously the
+  throw rejected the entire turn.
+
+Verified: 126 backend tests across the harness/loop suites, 9 `StepList` cases,
+and the streaming suite's SSE assertions. **Not** driven live against Bedrock —
+the shape is asserted, the real-model behaviour is not.
+
+> Still owed: the chat history does not carry `steps` back on reload — the record
+> lives in the run ring, not the conversation. Rehydrating a reopened
+> conversation from `readRuns` is a small follow-up.
+
+
+### Layer 3e — control: stopping a turn, and asking before a risky step (added 2026-09-18)
+
+Layer 3d made a turn *visible*. This makes it *stoppable*, which is the other
+half of a harness. Before it, the Stop button hid the tokens while the backend
+carried on: up to 16 more model calls and whatever tools they asked for, after
+the user had walked away.
+
+**Cancel** (`services/harness/turnControl.js`) is cooperative and only ever at a
+**safe boundary** — between rounds, and before each tool. A tool is never
+interrupted mid-flight, because a half-applied edit is worse than a completed
+one; the turn finishes the step it is on and stops. That is the same contract the
+addon's kill switch uses. Two details that make it correct rather than
+plausible:
+
+- **Skipped calls still get a result.** By the time the turn can stop, the model's
+  `tool_calls` turn is already in the history, so every call in it needs a
+  `tool_result` or the next provider request is illegal. The loop writes
+  `Cancelled: the user stopped the turn before this step ran.` for each.
+- **A disconnect cancels too.** `res.on('close')` with `!res.writableEnded` is a
+  client that went away — a closed tab must not keep paying for a turn nobody is
+  watching. The run id is sent to the client on `{type:'run'}` for the explicit
+  path (`POST /compress/cancel`).
+
+**Approve** is a policy map beside the capability map (`toolScopes.js` →
+`TOOL_POLICY`), and the loop's `beforeTool` hook. A refusal is fed back to the
+model as that tool's result — so it can adapt instead of the turn dying — and it
+gets its own step status (`denied`, glyph `⊘`, summarised as "N not approved"),
+because a tick beside a step that never ran would be a lie.
+
+Only `repo_commit_changes` asks. `repo_push` deliberately does **not**: it already
+has a stronger, message-bound gate (a one-time proposal code that the user's own
+words satisfy and a button click cannot), so a prompt there would be friction
+that only looks like safety. `toolScopes.js` is the extension point for P2's
+`pc_*` tools, where this matters far more.
+
+⚠️ **The non-streaming route does not ask.** `callLLMApi` (the addon's JSON path)
+has no stream to carry a prompt and no run id to cancel with, so it passes no
+approval channel and an `'ask'` tool runs unprompted there. Arming it without a
+channel would *break* a working path, since the tool would have to be denied. The
+capability gate remains the security boundary; this is a control gate.
+
+Client side: Stop calls the endpoint; the approval reuses the chat's **existing**
+`ConfirmationPanel` (which already handles number keys, Esc and focus) with
+`source: 'cloud-turn'`, and answering it does not synthesize a message — the turn
+is still streaming, and its reply arrives on the same stream.
+
+> ⚠️ Known gap: the client wiring is covered by lint and by the component tests
+> it renders through (`StepList`, `MessageBubble`), but **there is no SimpleChat
+> test** — the approval-routing branch and the Stop→cancel call are exercised
+> only by the backend's end-to-end cases. Adding one means mocking a large
+> surface; it is owed, not done.
+
+
+### Layer 3f — the agent can run the project's checks (`repo_run`, added 2026-09-18)
+
+The last piece of property #5. Until this, the agent could search, read, edit,
+commit and push — and could not run anything, so "verified" meant "I read back
+what I wrote", which is an assertion. Now it can run the project's own checks and
+report what they actually said.
+
+It has **no command parameter**. It picks a task from a frozen map and the argv is
+written in `backend/services/repoRunner.js`:
+
+| Task | What it does |
+|---|---|
+| `test:file` | one test file — the narrow one the prompt tells it to reach for |
+| `test:backend` | the whole backend suite (slow; for a shared-helper change) |
+| `typecheck` | `tsc --noEmit` in `frontend/` |
+| `lint` | ESLint |
+| `build` | `vite build` — catches CSS and import errors no test sees |
+
+Three things about it that are easy to get wrong, and aren't:
+
+- **The runner is chosen per tree, correctly.** `frontend/**` runs under the ROOT
+  jest config (running from inside `frontend/` makes Jest default to the node
+  environment and every DOM suite dies with `document is not defined`);
+  `backend/**` runs with `cwd=backend` and a relative path; `simple-addon/**`
+  runs as a plain `node <script>`, exactly how the addon runs its own tests. A
+  target that is not a test file under one of those trees never runs at all.
+- **The child does not inherit the server's secrets.** The backend holds
+  `JWT_SECRET`, AWS keys and a GitHub token; a test that printed `process.env`
+  would put them in the model's context *and* in the journal, which a browser
+  renders. Only an 18-key allowlist is passed down. That is pinned by a test that
+  sets those variables and asserts the child reports them absent.
+- **Everything is bounded.** Per-task timeouts with `SIGKILL`, and output shaped
+  to head + tail (60 + 40 lines, 8 KB) with the omission counted — a 40k-line
+  Jest dump is worthless and would cost more than the turn.
+
+In the step list a run shows up like any other step (`Running the test`, plane
+`repo`), so "what did it check, and what did it say" is answerable from the
+record rather than from the prose.
+
+The honest framing of the risk, plus the containment and the residual gaps, is
+`AUTOMATION_SECURITY.md` §14 — including that `repo_edit_file` + `repo_run
+test:file` **is** arbitrary code execution by proxy, and why that is acceptable
+here (a single-operator private repo, a scrubbed environment, and a push gate that
+needs the user's own words).
 
 
 ### Key separation (who owns what)
@@ -442,7 +738,7 @@ Guardrails shape this:
 | Windows/PC actions (`shell_run`, `uia_invoke`, …) | Desktop addon tool registry + agent loop | `POST /api/agent/run` (addon) | addon `classifyActionable` (+ disambiguation) |
 | Repo changes (`repo_*`) | Backend server (`repoAgentService.js`, git) | `/net` chat tool loop (`llmService.js`) | cloud LLM tool-call + capability gate |
 | Cloud tools (`save_goal`, `generate_image`, math, search, …) | Backend `netTools.js` | `/net` chat tool loop | cloud LLM tool-call |
-| Just reply | Any LLM | chat streaming path | no tool call |
+| Just reply | Any LLM | chat streaming path | no tool call — but see *Layer 3b*: a turn that asked for an outcome is re-asked once first |
 
 The cloud `/net` chat has **no** Windows-action tools, and the addon has **no**
 repo tools — so the two cannot be confused. "Repo or chat?" is an LLM tool-choice
@@ -470,7 +766,8 @@ on the backend; "Windows action or chat?" is the addon's actionability classifie
 > `simple-addon/server/automation/routing-lexicon.js` +
 > `routing-classifier.js` + `index.js` (`classifyActionable`, `/api/agent/run`),
 > `backend/services/netChatContext.js`, `toolScopes.js`, `llmService.js`
-> (the cloud tool loop), `repoAgentService.js` (the push gate), and
+> (the cloud tool loop), `turnIntent.js` (the act-vs-answer policy and the
+> recovery that backs it up), `repoAgentService.js` (the push gate), and
 > `backend/middleware/netMessageGuard.js` (the server-side pre-screen).
 
 ---

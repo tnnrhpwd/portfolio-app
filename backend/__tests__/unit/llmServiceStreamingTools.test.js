@@ -79,12 +79,16 @@ jest.mock('../../services/netTools', () => ({
         { type: 'function', function: { name: 'save_note', description: 'Save a note', parameters: { type: 'object', properties: {} } } },
         { type: 'function', function: { name: 'repo_read_file', description: 'Read a repo file', parameters: { type: 'object', properties: {} } } },
         { type: 'function', function: { name: 'repo_write_file', description: 'Write a repo file', parameters: { type: 'object', properties: {} } } },
+        // Policy-flagged ('ask' in toolScopes.js) — the approval tests need it
+        // defined in the toolConfig or AWS's own rules reject the request.
+        { type: 'function', function: { name: 'repo_commit_changes', description: 'Commit', parameters: { type: 'object', properties: {} } } },
     ],
     executeTool: jest.fn(async () => 'ok'),
 }));
 
-const { streamCompressionRequest } = require('../../services/llmService');
+const { streamCompressionRequest, callLLMApi } = require('../../services/llmService');
 const { executeTool } = require('../../services/netTools');
+const turnControl = require('../../services/harness/turnControl.js');
 
 const ADMIN_USER_ID = 'admin-user-1';
 const MODEL_ID = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
@@ -165,6 +169,28 @@ function textResponse(text) {
     };
 }
 
+/** One named tool call — the shape the approval / cancel cases need. */
+function namedToolCallResponse(name, input = {}) {
+    return {
+        output: {
+            message: {
+                role: 'assistant',
+                content: [{ toolUse: { toolUseId: `tooluse_${++toolUseSeq}`, name, input } }],
+            },
+        },
+        stopReason: 'tool_use',
+        usage: { inputTokens: 100, outputTokens: 20, totalTokens: 120 },
+    };
+}
+
+/** All assistant text the turn produced, from either delivery path. */
+function answerText(res) {
+    return res.events
+        .filter((e) => e.type === 'token' || e.type === 'content')
+        .map((e) => e.text)
+        .join('');
+}
+
 function fakeReq(message) {
     const payload = {
         message,
@@ -193,17 +219,44 @@ function fakeReq(message) {
 
 function fakeRes() {
     const events = [];
-    return {
+    const listeners = {};
+    const res = {
         events,
+        listeners,
         headersSent: false,
+        writableEnded: false,
         writeHead: jest.fn(),
         write: jest.fn((chunk) => {
             const match = /^data: (.*)\n\n$/.exec(chunk);
             if (match && match[1] !== '[DONE]') events.push(JSON.parse(match[1]));
             return true;
         }),
-        end: jest.fn(),
+        // A real Express response always has these; the route now subscribes to
+        // 'close' to cancel a turn whose client went away.
+        on: jest.fn((name, fn) => {
+            (listeners[name] = listeners[name] || []).push(fn);
+            return res;
+        }),
+        end: jest.fn(() => { res.writableEnded = true; }),
     };
+    return res;
+}
+
+/** Simulate the client going away: the socket closes with the response unfinished. */
+function disconnect(res) {
+    res.writableEnded = false;
+    for (const fn of res.listeners.close || []) fn();
+}
+
+/** Wait until the streaming route has emitted an event we need to react to. */
+async function waitForEvent(res, type, timeoutMs = 2000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        const found = res.events.find((e) => e.type === type);
+        if (found) return found;
+        await new Promise((r) => setTimeout(r, 5));
+    }
+    throw new Error(`timed out waiting for a "${type}" event (saw: ${res.events.map((e) => e.type).join(', ')})`);
 }
 
 const fakeDynamo = () => ({ send: jest.fn(async () => ({})) });
@@ -390,5 +443,323 @@ describe('streamCompressionRequest — tool loop that exhausts its rounds', () =
         expect(executeTool).not.toHaveBeenCalled();
         expect(stream.input.messages.some((m) => /\btool\b/.test(JSON.stringify(m)))).toBe(false);
         expect(res.events.some((e) => e.type === 'error')).toBe(false);
+    });
+});
+
+/**
+ * The reported failure (2026-09-18): the cloud turn had no act-vs-answer
+ * policy, so a request for an outcome would come back as prose — "I'll add
+ * that goal for you" — and nothing would happen. These tests pin the recovery
+ * (one retry with the tools still offered) and, just as importantly, that it
+ * stays out of the way of ordinary conversation.
+ *
+ * See `services/turnIntent.js` for the verdict and `turnIntent.test.js` for the
+ * lexicon's own boundaries.
+ */
+describe('streamCompressionRequest — act-vs-answer recovery', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        toolUseSeq = 0;
+        process.env.ADMIN_USER_ID = ADMIN_USER_ID;
+    });
+
+    const converseCalls = () => mockSend.mock.calls
+        .map(([c]) => c)
+        .filter((c) => c.kind === 'converse');
+
+    const systemTextOf = (call) => (call.input.system || []).map((s) => s.text).join('\n');
+
+    it('retries once when an outcome-shaped turn comes back as prose, and lets the tool run', async () => {
+        const res = fakeRes();
+        let calls = 0;
+        mockSend.mockImplementation(async (command) => {
+            enforceAwsToolRules(command.input);
+            if (command.kind === 'stream') return streamResponse(['Saved.']);
+            calls++;
+            // 1st: prose only — the failure. 2nd: actually acts. 3rd: the
+            // follow-up after the tool ran.
+            if (calls === 1) return textResponse("I'll add that goal for you.");
+            if (calls === 2) return toolCallingResponse();
+            return textResponse('Saved it.');
+        });
+
+        await streamCompressionRequest(fakeReq('add a goal to run a marathon'), res, fakeDynamo());
+
+        const converse = converseCalls();
+        expect(converse).toHaveLength(3);
+
+        // The retry is a nudge, not a fresh question: the note rides in the
+        // system prompt and the tools are still offered.
+        expect(systemTextOf(converse[0])).not.toMatch(/YOU ANSWERED WITHOUT ACTING/);
+        expect(systemTextOf(converse[1])).toMatch(/YOU ANSWERED WITHOUT ACTING/);
+        expect(converse[1].input.toolConfig.tools.length).toBeGreaterThan(0);
+
+        // Prose alone was not accepted as the answer — the tool actually ran.
+        expect(executeTool).toHaveBeenCalled();
+        expect(res.events.some((e) => e.type === 'tools')).toBe(true);
+        expect(res.events.some((e) => e.type === 'error')).toBe(false);
+    });
+
+    it('accepts prose when the retry also declines to act (one retry, not a loop)', async () => {
+        const res = fakeRes();
+        mockSend.mockImplementation(async (command) => {
+            enforceAwsToolRules(command.input);
+            if (command.kind === 'stream') return streamResponse(["I'd rather explain it."]);
+            return textResponse("I'd rather explain it.");
+        });
+
+        await streamCompressionRequest(fakeReq('remember that my sister is called Ana'), res, fakeDynamo());
+
+        expect(converseCalls()).toHaveLength(2);
+        expect(executeTool).not.toHaveBeenCalled();
+        // The turn still ends with a rendered answer, not an error.
+        expect(res.events.filter((e) => e.type === 'token').map((e) => e.text).join(''))
+            .toBe("I'd rather explain it.");
+    });
+
+    it('leaves an ordinary chat turn alone — exactly one model call', async () => {
+        const res = fakeRes();
+        mockSend.mockImplementation(async (command) => {
+            enforceAwsToolRules(command.input);
+            return command.kind === 'stream' ? streamResponse(['Hi there!']) : textResponse('Hi there!');
+        });
+
+        await streamCompressionRequest(fakeReq('how are you?'), res, fakeDynamo());
+
+        const converse = converseCalls();
+        expect(converse).toHaveLength(1);
+        expect(systemTextOf(converse[0])).not.toMatch(/YOU ANSWERED WITHOUT ACTING/);
+    });
+
+    it('leaves a bare confirmation alone — it replies to a question already asked', async () => {
+        const res = fakeRes();
+        mockSend.mockImplementation(async (command) => {
+            enforceAwsToolRules(command.input);
+            return command.kind === 'stream' ? streamResponse(['Pushed.']) : textResponse('Pushed.');
+        });
+
+        await streamCompressionRequest(fakeReq('yes, push it'), res, fakeDynamo());
+
+        expect(converseCalls()).toHaveLength(1);
+    });
+
+    it('carries the act-vs-answer policy in the system prompt on every turn', async () => {
+        const res = fakeRes();
+        mockSend.mockImplementation(async (command) => {
+            enforceAwsToolRules(command.input);
+            return command.kind === 'stream' ? streamResponse(['ok']) : textResponse('ok');
+        });
+
+        await streamCompressionRequest(fakeReq('how are you?'), res, fakeDynamo());
+
+        expect(systemTextOf(converseCalls()[0])).toMatch(/CALL THE TOOL FIRST/);
+    });
+});
+
+/**
+ * P1 — the turn is controllable (NET_HARNESS_PLAN.md §0 property #3).
+ *
+ * Driven through the REAL streaming route, because the wiring is the thing that
+ * matters: the policy map, the prompt, the SSE event and the loop's refusal all
+ * have to agree. A unit test of the loop alone would pass with the route never
+ * calling `requestApproval` at all.
+ */
+describe('streamCompressionRequest — approval and cancel', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        toolUseSeq = 0;
+        process.env.ADMIN_USER_ID = ADMIN_USER_ID;
+        turnControl._resetForTests();
+    });
+
+    afterEach(() => {
+        turnControl._resetForTests();
+    });
+
+    it('asks before a policy-flagged step, and does NOT run it when the user says no', async () => {
+        const res = fakeRes();
+        let calls = 0;
+        mockSend.mockImplementation(async (command) => {
+            enforceAwsToolRules(command.input);
+            if (command.kind === 'stream') return streamResponse(['never streamed']);
+            calls++;
+            if (calls === 1) return namedToolCallResponse('repo_commit_changes', { message: 'Fix the footer' });
+            return textResponse('Nothing was committed.');
+        });
+
+        const pending = streamCompressionRequest(fakeReq('commit this'), res, fakeDynamo());
+
+        const approval = await waitForEvent(res, 'approval');
+        expect(approval.approval).toMatchObject({
+            tool: 'repo_commit_changes',
+            options: ['Approve', 'Deny'],
+            question: 'Allow the agent to run this step?',
+        });
+
+        expect(turnControl.resolveApproval(approval.approval.id, false, 'not yet')).toBe(true);
+        await pending;
+
+        // The gate held: the tool never reached its executor.
+        expect(executeTool).not.toHaveBeenCalled();
+        expect(res.events.some((e) => e.type === 'approval-resolved' && e.approved === false)).toBe(true);
+
+        // …and the refusal is visible in the record, not a tick beside a step
+        // that never ran.
+        const steps = res.events.filter((e) => e.type === 'step');
+        expect(steps.some((e) => e.step.tool === 'repo_commit_changes' && e.step.status === 'denied')).toBe(true);
+
+        // The turn still finished with an answer — a refusal is information, not
+        // a dead end.
+        expect(answerText(res)).toMatch(/Nothing was committed/);
+        expect(res.events.some((e) => e.type === 'error')).toBe(false);
+    });
+
+    it('runs the step once the user approves', async () => {
+        const res = fakeRes();
+        let calls = 0;
+        mockSend.mockImplementation(async (command) => {
+            enforceAwsToolRules(command.input);
+            if (command.kind === 'stream') return streamResponse(['never streamed']);
+            calls++;
+            if (calls === 1) return namedToolCallResponse('repo_commit_changes', { message: 'Fix the footer' });
+            return textResponse('Committed.');
+        });
+
+        const pending = streamCompressionRequest(fakeReq('commit this'), res, fakeDynamo());
+        const approval = await waitForEvent(res, 'approval');
+
+        expect(turnControl.resolveApproval(approval.approval.id, true)).toBe(true);
+        await pending;
+
+        expect(executeTool).toHaveBeenCalledWith('repo_commit_changes', { message: 'Fix the footer' }, expect.anything());
+        expect(res.events.some((e) => e.type === 'approval-resolved' && e.approved === true)).toBe(true);
+        expect(answerText(res)).toMatch(/Committed/);
+    });
+
+    it('stops mid-turn when cancelled, without running the next step', async () => {
+        const res = fakeRes();
+        let releaseFirstTool;
+        executeTool.mockImplementationOnce(() => new Promise((resolve) => { releaseFirstTool = resolve; }));
+        // The model keeps asking for a tool, so the loop would otherwise run on.
+        mockSend.mockImplementation(async (command) => {
+            enforceAwsToolRules(command.input);
+            if (command.kind === 'stream') return streamResponse(['never streamed']);
+            return toolCallingResponse();
+        });
+
+        const pending = streamCompressionRequest(fakeReq('read every file'), res, fakeDynamo());
+
+        // The id the client needs comes from the stream itself.
+        const run = await waitForEvent(res, 'run');
+        expect(typeof run.runId).toBe('string');
+
+        // Cancel while the FIRST tool is still running.
+        await waitForEvent(res, 'step');
+        expect(turnControl.cancelTurn(run.runId, 'you stopped it')).toMatchObject({ found: true });
+
+        releaseFirstTool('file body');
+        await pending;
+
+        // The step in flight finished; the next one never started.
+        expect(executeTool).toHaveBeenCalledTimes(1);
+
+        const cancelledEvent = res.events.find((e) => e.type === 'cancelled');
+        expect(cancelledEvent).toBeDefined();
+        expect(cancelledEvent.reason).toBe('you stopped it');
+        expect(res.events.some((e) => e.type === 'error')).toBe(false);
+    });
+
+    it('cancels when the client disconnects without saying goodbye', async () => {
+        const res = fakeRes();
+        let releaseFirstTool;
+        executeTool.mockImplementationOnce(() => new Promise((resolve) => { releaseFirstTool = resolve; }));
+        mockSend.mockImplementation(async (command) => {
+            enforceAwsToolRules(command.input);
+            if (command.kind === 'stream') return streamResponse(['never streamed']);
+            return toolCallingResponse();
+        });
+
+        const pending = streamCompressionRequest(fakeReq('read every file'), res, fakeDynamo());
+        await waitForEvent(res, 'step');
+
+        disconnect(res);
+        releaseFirstTool('file body');
+        await pending;
+
+        // No more model calls and no more tools: a closed tab must not keep
+        // paying for a turn nobody is watching.
+        expect(executeTool).toHaveBeenCalledTimes(1);
+        expect(turnControl.activeTurnCount()).toBe(0);
+    });
+});
+
+/**
+ * The same act-vs-answer recovery has to exist on the NON-streaming path:
+ * `callLLMApi` serves the addon's JSON turns, and this repo has already been
+ * bitten once by the two loop implementations drifting apart (see NET_CHAT.md,
+ * the toolConfig bug).
+ */
+describe('callLLMApi — act-vs-answer recovery on the non-streaming path', () => {
+    const USER = { id: ADMIN_USER_ID, email: 'admin@example.com', nickname: 'Admin', text: '|Rank:Pro' };
+
+    const toolContextFor = (userMessage) => ({
+        userId: ADMIN_USER_ID,
+        userEmail: 'admin@example.com',
+        userName: 'Admin',
+        isAdmin: true,
+        capabilities: ['repo:read', 'repo:write', 'repo:push'],
+        userMessage,
+    });
+
+    const userInputFor = (message) => JSON.stringify({
+        message,
+        conversationHistory: [
+            { role: 'user', content: 'hello' },
+            { role: 'assistant', content: 'hi' },
+        ],
+        behaviorFile: 'default.txt',
+    });
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        toolUseSeq = 0;
+        process.env.ADMIN_USER_ID = ADMIN_USER_ID;
+    });
+
+    it('retries once when the model only replies, and lets the tool run', async () => {
+        let calls = 0;
+        mockSend.mockImplementation(async (command) => {
+            enforceAwsToolRules(command.input);
+            calls++;
+            if (calls === 1) return textResponse("I'll add that goal for you.");
+            if (calls === 2) return toolCallingResponse();
+            return textResponse('Saved it.');
+        });
+        const message = 'add a goal to run a marathon';
+
+        const response = await callLLMApi(
+            'bedrock', MODEL_ID, userInputFor(message), null, toolContextFor(message), null, 1000, USER
+        );
+
+        const requests = mockSend.mock.calls.map(([c]) => c);
+        expect(requests).toHaveLength(3);
+        expect(requests[1].input.system.map((s) => s.text).join('\n'))
+            .toMatch(/YOU ANSWERED WITHOUT ACTING/);
+        expect(executeTool).toHaveBeenCalled();
+        expect(response._toolsExecuted[0].tool).toBe('repo_read_file');
+    });
+
+    it('never nudges a chat turn — one model call, plain reply', async () => {
+        mockSend.mockImplementation(async (command) => {
+            enforceAwsToolRules(command.input);
+            return textResponse('Fine, thanks.');
+        });
+
+        const response = await callLLMApi(
+            'bedrock', MODEL_ID, userInputFor('how are you?'), null, toolContextFor('how are you?'), null, 1000, USER
+        );
+
+        expect(mockSend).toHaveBeenCalledTimes(1);
+        expect(response.choices[0].message.content).toBe('Fine, thanks.');
     });
 });

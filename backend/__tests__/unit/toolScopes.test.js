@@ -4,7 +4,10 @@
 
 const {
   TOOL_SCOPES,
+  TOOL_POLICY,
   requiredScope,
+  policyFor,
+  requiresApproval,
   capabilitiesForContext,
   canUseTool,
   filterToolSchemas,
@@ -19,6 +22,9 @@ describe('toolScopes.requiredScope', () => {
     expect(requiredScope('repo_write_file')).toBe('repo:write');
     expect(requiredScope('repo_edit_file')).toBe('repo:write');
     expect(requiredScope('repo_push')).toBe('repo:push');
+    // Execution is its own capability, not folded into repo:write — the one that
+    // runs commands must be grantable (and revocable) separately.
+    expect(requiredScope('repo_run')).toBe('repo:run');
   });
 
   test('returns null (public) for tools with no entry', () => {
@@ -28,9 +34,43 @@ describe('toolScopes.requiredScope', () => {
   });
 });
 
+describe('toolScopes.policyFor', () => {
+  test('asks before the step where the work stops being a draft', () => {
+    expect(policyFor('repo_commit_changes')).toBe('ask');
+    expect(requiresApproval('repo_commit_changes')).toBe(true);
+  });
+
+  test('everything else is allowed — including repo_push, which has a stronger gate', () => {
+    // repo_push is deliberately NOT prompted: its existing confirmation is bound
+    // to the user's own message plus a one-time proposal code, which a button
+    // click must not be able to satisfy.
+    expect(policyFor('repo_push')).toBe('allow');
+    expect(policyFor('repo_write_file')).toBe('allow');
+    expect(policyFor('calculate')).toBe('allow');
+    expect(requiresApproval('repo_push')).toBe(false);
+  });
+
+  test('an unknown or missing name never prompts', () => {
+    expect(policyFor('something_new')).toBe('allow');
+    expect(policyFor('')).toBe('allow');
+    expect(policyFor(null)).toBe('allow');
+    expect(policyFor(undefined)).toBe('allow');
+    expect(requiresApproval(null)).toBe(false);
+  });
+
+  test('the policy map only names tools that exist in the scope map', () => {
+    // A typo here would silently disable the prompt it was meant to add.
+    for (const name of Object.keys(TOOL_POLICY)) {
+      expect(Object.prototype.hasOwnProperty.call(TOOL_SCOPES, name)).toBe(true);
+    }
+  });
+});
+
 describe('toolScopes.capabilitiesForContext', () => {
   test('derives admin capabilities from the legacy isAdmin flag', () => {
     expect(capabilitiesForContext({ isAdmin: true })).toEqual(ADMIN_CAPABILITIES);
+    expect(capabilitiesForContext({ isAdmin: true })).toContain('repo:run');
+    expect(capabilitiesForContext({ isAdmin: true })).toContain('repo:push');
   });
 
   test('ordinary users get base capabilities', () => {
@@ -62,17 +102,25 @@ describe('toolScopes.filterToolSchemas', () => {
   const schemas = [
     { type: 'function', function: { name: 'calculate' } },
     { type: 'function', function: { name: 'repo_read_file' } },
+    { type: 'function', function: { name: 'repo_run' } },
     { type: 'function', function: { name: 'repo_push' } },
   ];
 
   test('hides privileged tools from a plain user', () => {
     const names = filterToolSchemas(schemas, { capabilities: [] }).map((s) => s.function.name);
+    // Execution is never even OFFERED to a non-admin: hiding it here is
+    // usability, and executeTool refuses it server-side regardless.
     expect(names).toEqual(['calculate']);
   });
 
   test('offers privileged tools to an admin', () => {
     const names = filterToolSchemas(schemas, { isAdmin: true }).map((s) => s.function.name);
-    expect(names).toEqual(['calculate', 'repo_read_file', 'repo_push']);
+    expect(names).toEqual(['calculate', 'repo_read_file', 'repo_run', 'repo_push']);
+  });
+
+  test('a write-only context gets edits but NOT execution', () => {
+    const names = filterToolSchemas(schemas, { capabilities: ['repo:write'] }).map((s) => s.function.name);
+    expect(names).toEqual(['calculate']);
   });
 
   test('returns null for a null context (no tools)', () => {

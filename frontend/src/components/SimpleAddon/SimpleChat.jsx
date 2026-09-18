@@ -223,6 +223,11 @@ function SimpleChat({
   portfolioLLMProviders,
   onPortfolioChat,
   onPortfolioChatStream,
+  // Turn control for the cloud harness (backend/services/harness/turnControl.js).
+  // Injected rather than imported so the addon's renderer, which shares this
+  // component, carries no knowledge of the cloud's endpoints.
+  onCancelTurn,
+  onApproveTurn,
   streamCallbacksRef,
   portfolioChatLoading,
   portfolioChatResponse,
@@ -270,6 +275,9 @@ function SimpleChat({
   const [advancedSettingsTab, setAdvancedSettingsTab] = useState('general');
   const [pendingConfirmation, setPendingConfirmation] = useState(null);
   const [isConfirming, setIsConfirming] = useState(false);
+  // The cloud turn currently streaming, so Stop can cancel it server-side
+  // instead of only hiding the tokens. Cleared when the turn ends.
+  const activeRunIdRef = useRef(null);
   const [cloudSyncStatus, setCloudSyncStatus] = useState(null); // null | 'syncing' | 'synced' | 'error'
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
   const handleConfirmRef = useRef(null);
@@ -1915,6 +1923,58 @@ function SimpleChat({
                 };
               }));
             },
+            onStep: (step) => {
+              // One row per tool call. The backend emits a step TWICE — when it
+              // opens (running) and when it closes (ok/error) — so this upserts
+              // by id instead of appending, or every step would appear twice.
+              if (!step || !step.id) return;
+              setConversations(prev => prev.map(c => {
+                if (c.id !== activeConversationId) return c;
+                return {
+                  ...c,
+                  messages: c.messages.map(m => {
+                    if (m.id !== streamingMsgId) return m;
+                    const steps = Array.isArray(m.steps) ? [...m.steps] : [];
+                    const at = steps.findIndex(s => s.id === step.id);
+                    if (at === -1) steps.push(step);
+                    else steps[at] = step;
+                    return { ...m, steps };
+                  }),
+                };
+              }));
+            },
+            onRun: (runId) => {
+              // The handle Stop needs. Only a tool turn has one.
+              activeRunIdRef.current = runId || null;
+            },
+            onApproval: (approval) => {
+              // The turn is PARKED until this is answered, so reuse the chat's
+              // existing confirmation panel (it already handles keys 1-9, Esc,
+              // and focus). `source` is what routes the answer to the cloud
+              // instead of the addon when the user picks an option.
+              if (!approval?.id) return;
+              setPendingConfirmation({ ...approval, source: 'cloud-turn' });
+            },
+            onApprovalResolved: ({ approvalId }) => {
+              // Answered elsewhere (another tab, a timeout, the turn ending) —
+              // close the card rather than leaving it open on a settled prompt.
+              setPendingConfirmation(prev => (prev?.id === approvalId ? null : prev));
+            },
+            onCancelled: (reason) => {
+              activeRunIdRef.current = null;
+              setIsGenerating(false);
+              setConversations(prev => prev.map(c => {
+                if (c.id !== activeConversationId) return c;
+                return {
+                  ...c,
+                  messages: c.messages.map(m => (
+                    m.id === streamingMsgId
+                      ? { ...m, isStreaming: false, progressNote: null, steps: m.steps, stopped: reason || 'stopped' }
+                      : m
+                  )),
+                };
+              }));
+            },
             onMeta: (meta) => {
               // Attach token usage and cost to the streaming message
               setConversations(prev => prev.map(c => {
@@ -2120,6 +2180,24 @@ function SimpleChat({
     setIsConfirming(true);
     if (speech.isListening) speech.stopListening();
 
+    // A prompt raised by the CLOUD harness (a tool the policy marks 'ask') is a
+    // different thing from the addon's disambiguation: answering only unblocks
+    // the parked turn, which is still streaming. So: send the answer, close the
+    // card, and let the reply arrive on the stream — synthesizing a message here
+    // would put a second one in the transcript for one turn.
+    if (pendingConfirmation?.source === 'cloud-turn') {
+      try {
+        await onApproveTurn?.(pendingConfirmation.id, selectedOption === 'Approve');
+      } catch {
+        // The current has settled one way or another (a click answered twice, or
+        // the prompt timed out) — the turn's own event is the source of truth.
+      } finally {
+        setPendingConfirmation(null);
+        setIsConfirming(false);
+      }
+      return;
+    }
+
     const userChoiceMessage = {
       id: Date.now().toString(),
       role: 'user',
@@ -2225,8 +2303,17 @@ function SimpleChat({
     if (isAddonConnected) {
       try { await apiStopGeneration(); } catch {}
     }
+    // The cloud turn keeps running unless it is told to stop — before this, the
+    // Stop button only hid the tokens while the backend carried on making model
+    // calls and running tools. Cooperative: it stops at the next safe boundary
+    // and reports what already ran.
+    const runId = activeRunIdRef.current;
+    if (runId) {
+      try { await onCancelTurn?.(runId); } catch {}
+      activeRunIdRef.current = null;
+    }
     setIsGenerating(false);
-  }, [isAddonConnected]);
+  }, [isAddonConnected, onCancelTurn]);
 
   // ── Bug-report & copy handlers for message context menu ────────────────
   const handleReportMessage = useCallback((message) => {

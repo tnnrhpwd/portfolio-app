@@ -29,12 +29,28 @@ const TOOL_ACTIVITY = Object.freeze({
   // Repository tools (admin only)
   repo_list_files: () => 'Listing repository files',
   repo_read_file: (args) => `Reading ${fileBasename(args?.path) || 'a file'}`,
+  // No query in the label: labels never carry tool arguments (see the rules at
+  // the top of this file) — a search string can be long and is not needed to
+  // say what is happening.
+  repo_search: () => 'Searching the repository',
   repo_write_file: (args) => `Writing ${fileBasename(args?.path) || 'a file'}`,
   repo_edit_file: (args) => `Editing ${fileBasename(args?.path) || 'a file'}`,
   repo_git_status: () => 'Checking git status',
   repo_git_diff: () => 'Reviewing the change',
   repo_commit_changes: () => 'Committing the change',
   repo_push: () => 'Pushing to GitHub',
+  // A check the agent runs on its own work. The label names the task, not the
+  // raw arguments (see the rules at the top of this file).
+  repo_run: (args) => {
+    const TASK_LABEL = {
+      'test:file': 'Running the test',
+      'test:backend': 'Running the backend tests',
+      typecheck: 'Type-checking',
+      lint: 'Linting',
+      build: 'Building the frontend',
+    };
+    return TASK_LABEL[args?.task] || 'Running a project check';
+  },
 
   // /net chat tools
   generate_image: () => 'Generating an image',
@@ -67,8 +83,29 @@ function describeToolActivity(toolName, args) {
   return `${label}…`;
 }
 
+/**
+ * Which PLANE a tool runs on. Three planes exist (NET_HARNESS_PLAN.md §3):
+ *
+ *   cloud  — in-process on the backend (goals, notes, image, math, search…)
+ *   repo   — in-process on the backend, but touching this repository via git
+ *   addon  — the user's own PC, dispatched over the relay (P2; nothing is on
+ *            this plane yet, but the classifier is here so the journal, the UI
+ *            badge and the future policy gate all read one answer)
+ *
+ * Deliberately a pure name→plane map rather than a lookup against the schema
+ * list: it must answer for a tool name that was never offered (a hallucinated
+ * one still gets logged, and "cloud" is the honest default for anything local).
+ */
+function toolPlane(toolName) {
+  const name = String(toolName || '');
+  if (name.startsWith('repo_')) return 'repo';
+  if (name.startsWith('pc_') || name.startsWith('addon_')) return 'addon';
+  return 'cloud';
+}
+
 module.exports = {
   TOOL_ACTIVITY,
   describeToolActivity,
   fileBasename,
+  toolPlane,
 };

@@ -134,6 +134,19 @@ function Net() {
     }
   }, [dataIsError, dataMessage, dispatch]);
 
+  // Turn control (backend/services/harness/turnControl.js). Handed to the chat
+  // as props rather than imported there, so the addon's renderer — which shares
+  // SimpleChat — carries no knowledge of the cloud's turn endpoints.
+  const handleCancelTurn = useCallback(
+    (runId) => dataService.cancelTurn(runId, user?.token),
+    [user]
+  );
+
+  const handleApproveTurn = useCallback(
+    (approvalId, approved) => dataService.approveTurn(approvalId, approved, user?.token),
+    [user]
+  );
+
   // Streaming chat handler — streams tokens directly to SimpleChat callbacks
   const handlePortfolioChatStream = useCallback(
     // `provider`/`model` arrive already resolved by the chat (user's choice, else
@@ -164,6 +177,17 @@ function Net() {
             streamCallbacksRef.current?.onToken?.(event.text);
           } else if (event.type === 'tools') {
             streamCallbacksRef.current?.onTools?.(event.tools);
+          } else if (event.type === 'step') {
+            streamCallbacksRef.current?.onStep?.(event.step);
+          } else if (event.type === 'run') {
+            // The turn's id — what the Stop button needs to cancel server-side.
+            streamCallbacksRef.current?.onRun?.(event.runId);
+          } else if (event.type === 'approval') {
+            streamCallbacksRef.current?.onApproval?.(event.approval);
+          } else if (event.type === 'approval-resolved') {
+            streamCallbacksRef.current?.onApprovalResolved?.(event);
+          } else if (event.type === 'cancelled') {
+            streamCallbacksRef.current?.onCancelled?.(event.reason);
           } else if (event.type === 'progress') {
             streamCallbacksRef.current?.onProgress?.(event.label, event);
           } else if (event.type === 'meta') {
@@ -244,6 +268,8 @@ function Net() {
             portfolioLLMProviders={llmProviders}
             onPortfolioChat={handlePortfolioChat}
             onPortfolioChatStream={handlePortfolioChatStream}
+            onCancelTurn={handleCancelTurn}
+            onApproveTurn={handleApproveTurn}
             streamCallbacksRef={streamCallbacksRef}
             portfolioChatLoading={dataIsLoading}
             portfolioChatResponse={portfolioChatResponse}

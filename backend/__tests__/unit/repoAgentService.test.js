@@ -96,8 +96,10 @@ describe('repoAgentService.REPO_TOOL_SCHEMAS', () => {
     expect(names).toEqual([
       'repo_list_files',
       'repo_read_file',
+      'repo_search',
       'repo_write_file',
       'repo_edit_file',
+      'repo_run',
       'repo_git_status',
       'repo_git_diff',
       'repo_commit_changes',
