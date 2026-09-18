@@ -1,0 +1,32 @@
+{
+  // ── Java / ActionScript tooling does not belong in this workspace ───────────
+  // This repo is Node/React/Electron, but VS Code's Java stack still activates
+  // here: opening the task picker fires `onTaskType:gradle` / `onTaskType:java`,
+  // which activates vscjava.vscode-gradle and pulls in redhat.java — and that
+  // starts a JDT language server (`java.exe`).
+  //
+  // That matters at shutdown. Windows kills the session, the extension host
+  // notices the server's connection dropped, and it re-spawns `java.exe` while
+  // win32k is already going away — a process started at that point cannot
+  // initialise its DLLs, so every Windows shutdown ends with a
+  // "java.exe - Application Error (0xc0000142)" dialog. Nothing is logged,
+  // because the spawn never gets far enough to run any JVM code.
+  //
+  // Fix: disable these for this workspace (Extensions view → gear icon →
+  // "Disable (Workspace)"). `redhat.java` (JDT language server) and
+  // `bowlerhatllc.vscode-as3mxml` (Java-based compiler service) are the two
+  // that actually run `java.exe`; the rest are listed because they are what
+  // activates them. `vscjava.migrate-java-to-azure` runs its own JDK tooling —
+  // keep it enabled if you use the app-modernization tools.
+  "unwantedRecommendations": [
+    "vscjava.vscode-java-pack",
+    "redhat.java",
+    "vscjava.vscode-gradle",
+    "vscjava.vscode-java-debug",
+    "vscjava.vscode-java-dependency",
+    "vscjava.vscode-java-test",
+    "vscjava.vscode-maven",
+    "vscjava.migrate-java-to-azure",
+    "bowlerhatllc.vscode-as3mxml"
+  ]
+}
