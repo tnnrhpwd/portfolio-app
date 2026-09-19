@@ -339,7 +339,9 @@ flowchart TD
     E -- yes --> F[pc-relay to desktop addon]
     E -- no --> Z[unreachable - clear error]
     D -- cloud-only intent --> K["Chat LLM directly<br/>(skip addon hop)"]
-    D -- addon reachable --> H["Addon agent loop<br/>classifyActionable"]
+    D -- "addon reachable ONLY via relay" --> K2["Cloud harness<br/>(see Layer 3h)"]
+    K2 --> L
+    D -- "addon locally connected" --> H["Addon agent loop<br/>classifyActionable"]
     H -- "actionable: true" --> I[Run Windows action via addon tool registry]
     H -- needsDisambiguation --> Q["Ask: 'run it, or just answer?'"]
     H -- "actionable: false + chatReply" --> R["Show reply directly<br/>(no 2nd LLM call)"]
@@ -350,7 +352,8 @@ flowchart TD
     L2 -- no --> M[Plain text reply]
     L2 -- "yes — one retry, tools still offered" --> L
     L -- cloud tool fits --> N[save_goal / generate_image / calculate / web search]
-    L -- "repo_* + capability" --> O[Repo work: git on backend]
+    L -- "repo_* + capability" --> O[Repo work: git + repo_run on backend]
+    L -- "pc_do (addon online)" --> P[Relay → addon registry → permissions.js]
 ```
 
 
@@ -378,8 +381,16 @@ Ordered checks, first match wins:
 4. **Explicit PC phrasing** (`isPcControlRequest`, e.g. "on my PC") → `pc-relay` (remote addon online) or `unreachable` (clear "can't reach your PC" error).
 5. **Scan-to-connect guard** — a `?addon=` session with no reachable addon → `unreachable`.
 6. **Cloud-only shortcut** — image generation / arithmetic / explicit web search skip the addon hop entirely (they're cloud tools the addon can't run anyway), saving a relay round-trip. Detected by `isCloudOnlyIntent()`.
-7. **Logic mode** (`agent`) — let the addon's O-O-G-P-A loop try the message first.
-8. **Plain chat** (`chat-cloud` / `chat-local`) — by the `provider` setting.
+7. **Relay-only addon → the cloud harness** (`chat-cloud`) — when the addon is reachable *only* through the relay (`!isAddonConnected && isRemoteAddonOnline`), i.e. the browser is on a phone or another machine, the cloud harness takes the message. It cannot be slower: it speaks the same relay, so reaching the PC costs the same hop. It is strictly more capable, because the addon's own loop cannot touch the user's cloud data or the repository, so it can only ever be a PC-only brain — whereas the harness can do both *in the same turn*. It also streams the answer, shows the step list, offers Stop, and puts the approval prompt on a surface the user can see. See Layer 3h.
+8. **Logic mode** (`agent`) — the addon is locally connected, so reaching it costs **no hop at all** and its own classifier can disambiguate without a round trip. Here the addon's O-O-G-P-A loop legitimately goes first.
+9. **Plain chat** (`chat-cloud` / `chat-local`) — by the `provider` setting.
+
+Steps 7 and 8 split what used to be one rule ("addon reachable → `agent`"). The old
+rule meant that plugging the addon in *removed* the cloud harness's abilities for
+every message that wasn't pattern-matched as cloud-only, which is why the repo and
+`pc_do` work was invisible in practice on that path. Explicit "on my PC" phrasing is
+unaffected: step 4 already sends it to the relay, because naming the PC is the user
+saying which machine they mean.
 
 
 ### Layer 2 — addon classifies "Windows action vs. chat"
@@ -559,13 +570,13 @@ The honest ledger for this change: the fixed prefix grew by ≈600 tokens/call
 *every remaining call of that turn* — so one avoided read pays for it many times
 over. Cheap in the aggregate, expensive per-read.
 
-> Still on the table, deliberately not shipped blind: **prompt caching**
-> (Bedrock `cachePoint` on `system` + `toolConfig.tools`) would cut that 4.7K
-> prefix to ≈10% of its cost on every call after the first. It is not wired in
-> because it is model/region-gated and a wrong placement is a `ValidationException`
-> at runtime — and this file already documents two rounds of request-shape bugs
-> reaching users verbatim. It needs a live check against the real model, not a
-> code-only change.
+> ~~Still on the table, deliberately not shipped blind: **prompt caching**~~
+> **Shipped 2026-09-18 as Layer 3i.** The live check it was waiting for still has
+> not happened, so it shipped with a **latch** instead: four guards decide whether a
+> cache point is sent, and a rejection retries the same request without it, turns
+> caching off for the process and logs the reason. A wrong guess therefore costs one
+> doubled round trip **once**, not a broken turn — which is what makes it shippable
+> without having watched a real model accept it. See Layer 3i.
 
 
 ### Layer 3d — the step protocol and the turn journal (added 2026-09-18)
@@ -583,7 +594,7 @@ row instead of appending two, and persisted once per turn.
 | Piece | Where |
 |---|---|
 | The loop itself — ONE implementation, both routes | `backend/services/harness/toolLoop.js` |
-| Step records, redaction, the run ring | `backend/services/harness/stepJournal.js` |
+| Steps, redaction, the run ring | `backend/services/harness/stepJournal.js` — a step also carries its failure `outcome` and whether the harness `retried` it (Layer 3j) |
 | Plane classification (`cloud` / `repo` / `addon`) | `backend/services/toolProgress.js` → `toolPlane()` |
 | SSE | `{type:'step', step}` beside `progress` / `tools` / `token` / `meta` |
 | UI | `frontend/src/components/SimpleAddon/StepList.jsx`, inside the assistant bubble |
@@ -730,20 +741,345 @@ here (a single-operator private repo, a scrubbed environment, and a push gate th
 needs the user's own words).
 
 
+### Layer 3g — the user's own PC, in the same loop (`pc_status` / `pc_do`, added 2026-09-18)
+
+Property #4: *both hands work in one loop.* The cloud turn can now act on the
+site, change this repository, **and** drive the user's desktop — without the user
+picking a mode first. A request like "find where that footer text lives, fix it,
+run the test, then open the page on my PC" is one turn.
+
+**Two tools, not forty.** Exposing the addon's registry schema-by-schema would
+add ~3–4K tokens to a fixed prefix that is re-sent on every model call (up to 18
+per turn) and is already the dominant cost. So the model gets:
+
+| Tool | What it does |
+|---|---|
+| `pc_status` | what the PC offers, grouped by category, **with the user's real policy per category** — "runs without asking" / "asks you on your PC first" / "blocked" — plus a loud warning when the kill switch or dry-run is on |
+| `pc_do` | runs ONE named tool on the PC and returns what it said |
+
+**The addon publishes what it can do.** Its heartbeat now carries the tool
+catalog and the permission policy (read live from `registry.list()` and
+`permissions.load()`), so the cloud never guesses: the model can say *"this will
+ask you on your PC"* **before** doing it, rather than promising something the
+machine is about to refuse. The heartbeat payload is validated and bounded on the
+backend (it is a POST body and it ends up in a prompt), and a missing catalog
+reads as *"this addon didn't say"* — never as a guess.
+
+**What has NOT changed, and must not:** the addon's `permissions.js` is still the
+only thing that decides whether a PC action happens. `pc_do` dispatches over the
+same relay command the addon's own agent already used, and the addon runs it
+through `registry.executeTool` — category modes, per-tool overrides, dry-run, the
+shell allow/deny list, audit logging and the emergency kill switch all apply
+unchanged. The cloud can only *ask*; one policy per machine.
+
+Two failure modes are deliberately phrased differently to the model, because they
+mean different things and lead to different behaviour — and both now ANNOUNCE
+that they failed, which they did not before:
+
+- **refused** → `Denied: pc_do <tool> was refused on the PC: …` (a decision)
+- **timed out** → `Error: pc_do <tool> … may still be waiting for approval, or
+  may have run — do NOT repeat it` (an unknown, and repeating a PC action is how
+  it happens twice)
+
+The `Denied:` / `Error:` prefixes are load-bearing, not decoration. Every consumer
+decides "did this work?" by prefix — the failure classifier
+(`harness/toolOutcome.js`), the journal's step status, and the client's `tools`
+event (`success: !result.startsWith('Error')`). While these two messages were bare
+prose, **a refusal on the PC was shown with a ✓ beside it and counted as a
+success**. The prefix is also what lets the journal put a refusal in its own
+`denied` state instead of a red error.
+
+`pc_status` is answered from the stored heartbeat, so asking "what can I do here?"
+costs nothing on the PC. A tool name the PC does not have is refused *before* a
+dispatch, so a typo cannot produce an approval prompt for a tool that does not
+exist.
+
+⚠️ **Now wired: routing.** See Layer 3h — the addon keeps first refusal only when
+it is *locally connected*; a relay-only addon hands the turn to the cloud harness,
+which is where these tools live.
+
+
+### Layer 3h — reachability decides the brain, not capability (added 2026-09-18)
+
+Step 6 of the cascade used to read "addon reachable → `agent`", where
+`addonReachable = isAddonConnected || isRemoteAddonOnline`. So **plugging the addon
+in removed the cloud harness** for every message that wasn't pattern-matched as
+cloud-only: repo work, cloud tools, `pc_do` and the step list were all skipped in
+favour of the addon's O-O-G-P-A loop. The harness existed but was rarely reached.
+
+The rule is now split by *how* the addon is reachable, because the real question is
+not "which brain is better" but **"is there a hop, and who else needs to act"**:
+
+| Addon is… | Routes to | Why |
+|---|---|---|
+| Locally connected (`isAddonConnected`) | `agent` — the addon's own loop | No hop at all, and its classifier disambiguates without a round trip. Still the fastest hands for pure PC work. |
+| Reachable **only** via the relay (`!isAddonConnected && isRemoteAddonOnline`) | `chat-cloud` — the **cloud harness** | It speaks the *same relay*, so the PC hop costs the same. It is strictly more capable: cloud data + repo + PC action in one turn. And it streams, journals, cancels and prompts on a surface the user can see. |
+| None | plain chat | Unchanged. |
+
+Reason string: `remote-addon-prefer-cloud-harness`, with `skippedAddon: true` so the
+UI knows the addon was passed over on purpose rather than being offline.
+
+Deliberately **not** changed:
+
+- **Explicit PC phrasing** ("open edge on my PC") — step 4 already sends it straight
+  to the relay. Naming the PC is the user naming the machine; a later rule that
+  also caught it would be dead code.
+- **Cloud-only intents** — still matched first, so they keep their own reason and
+  their existing tests.
+- **Same-machine sessions** — untouched, because the addon-first rule there was
+  tuned over documented incidents and is genuinely faster for pure PC actions.
+
+**Trade-off taken:** a remote user no longer gets the addon's local model loop, so a
+PC-shaped message costs a cloud round trip even if the addon could have answered
+offline. Accepted, because on that path the addon was never local to the *browser*:
+it already had to reach the cloud to receive the message at all. Unit-tested
+(`messageRouter.test.js`), **not** field-tested — no addon was present.
+
+
+### Layer 3i — what the turn COSTS, and what gets dropped when it can't be paid for (added 2026-09-18)
+
+Layer 3c describes the token economics of a tool turn. This is the layer that
+finally *acts* on them — three changes, all about the same failure: a long turn
+gets expensive long before anyone notices, and the old code only reacted when it
+was already too late, by deleting the most valuable thing in the history.
+
+**1. Prompt caching (`backend/services/bedrockPromptCache.js`).** A `cachePoint`
+goes after the system block and after the last tool spec, so the ~4.7K-token
+prefix stops being re-billed on all 18 calls of a maxed-out repo turn. Cache reads
+cost 10% of input and writes cost 125%, so this is roughly an 8× cut on the
+dominant term. Four guards, because a bad cache point is a hard error on the
+user's turn rather than a degradation:
+
+| Guard | Why |
+|---|---|
+| Model allowlist (`CACHEABLE_MODEL_PATTERNS`) | not every Bedrock model accepts a cache point |
+| Minimum prefix (~2048 tokens) | below the model's minimum nothing is cached, so the block is pure overhead |
+| `BEDROCK_PROMPT_CACHE` (`0` off / `1` force on) | try a newly-enabled model without a deploy |
+| **The latch** | a rejection retries the identical request without the point, disables caching for the process, and logs it — so a wrong guess costs one doubled round trip once, never a broken turn |
+
+The latch is what makes this shippable *before* a live check: if the allowlist is
+wrong, the first real turn disables the feature and says so, instead of every turn
+failing. `BEDROCK_PROMPT_CACHE=0` silences it entirely.
+
+**2. Compaction in the order of least loss (`backend/services/harness/contextBudget.js`).**
+The old rule triggered on a **message count** (>30) and then chopped every middle
+message to **150 characters**. Both halves were wrong. A turn with six tool rounds
+is fourteen tiny messages while a turn that read one 40 KB file is a single huge
+one, so the count was never a proxy for cost. And the chop hit the model's own
+prose and the tool evidence identically, oldest first — so the record of what
+actually *happened* ("Error: 3 of 40 assertions failed") was deleted while
+paragraphs of the model talking about itself survived. It now runs on **size**, and
+gives up the least valuable thing first:
+
+1. **Thin** an old tool result — the message and its `tool_call_id` stay, the first
+   line stays, the bulk goes. The model still knows what it knows; it just can't
+   re-read a file it already read.
+2. **Drop** an old tool step — the assistant's `tool_calls` message and every
+   result answering it go **together**, replaced by one line naming the tools. A
+   `[CONTEXT TRIMMED — 2 earlier tool step(s) removed…]` note is appended, so the
+   model cannot later claim it never looked.
+3. **Stop.** If it is still over budget, that is reported rather than forced.
+
+**The invariant: never one half of a pair.** In an OpenAI-shaped history every
+`assistant.tool_calls` id must be answered by a `role:'tool'` message before the
+next assistant turn — breaking that is a **rejected request, not a degradation**, so
+a filter-based compaction is not merely lossy, it is broken. Step 2 is a
+replacement for exactly that reason, and a pair whose result is missing is left
+alone rather than half-removed. `system` messages, the last user message, and the
+newest three results are never touched: silently truncating what the user just
+pasted is how a request becomes "the model ignored my file".
+
+**3. The governor, at the safe boundary (`harness/toolLoop.js`).** After a round
+adds its results and *before* the next call is paid for, the loop trims; only if
+trimming cannot win does it stop and return `overBudget: true`. It reports
+`exhausted` separately, because the caller chooses the notice off them and telling
+the model the wrong reason it stopped makes it answer the wrong question — hence
+`CONTEXT_LIMIT_NOTICE`, used for the budget stop and only that. It sits *after* a
+round of real work on purpose: a chat turn that happens to carry a big history
+still gets its answer instead of "sorry, too large".
+
+**Defaults and knobs:** `NET_CONTEXT_MAX_CHARS` (default 200,000 chars ≈ 50K
+tokens — a runaway backstop, deliberately not a cost-optimisation knob);
+`BEDROCK_PROMPT_CACHE`. `contextBudget: 0` disables the governor.
+
+**⚠️ Not verified live.** No model call was made for any of this, so instead of
+assuming it works it was made **checkable on the first real turn**: the response
+usage now carries `cached_tokens` and `cache_write_tokens`. A tool turn should
+report a non-zero `cached_tokens` from round 2 onward (≈the 4.7K prefix). A zero
+there means a guard declined or the latch fired — both of which log the reason.
+
+
+### Layer 3j — a failure the agent can act on (added 2026-09-18)
+
+Layer 3d made each step visible. This is what a step says when it fails, and it is
+the difference between a tool that returns data and a harness that runs a loop.
+
+Before: every failure was one flat string, `Error: <whatever>`, and the loop added
+nothing to it. A competent engineer reading *"Error: old_string was not found in
+a.js"* does not send the same edit again; a model handed nothing but that string
+very often does. The five failure modes need five different next moves, and the
+string never said which:
+
+| Kind | The next move the model is told to make | Auto-retried? |
+|---|---|---|
+| `transient` | rate limit / timeout / reset — *"retrying this step once, unchanged, is the right next move"* | **yes**, once, and only for a read-only tool |
+| `invalid-input` | the ARGUMENTS were wrong — *"fix them and retry once. Do NOT send the same arguments again"* | no (a better argument needs the model) |
+| `not-found` | the target does not exist — *"do NOT repeat the same name: establish the correct one first"* | no |
+| `permission` | a decision, not a glitch — *"do not retry it and do not rephrase it. Tell the user what was refused"* | **never** |
+| `fatal` | server broken/disabled — *"not retryable. Do not repeat it; say what could not be done"* | no |
+
+Two rules give this its edge:
+
+- **Retrying is a decision, not a reflex.** Only a `transient` failure of a
+  *read-only* tool is repeated by the harness, once, below the model — a flaky
+  read should not cost a model round trip. *Transient* describes the error; *safe
+  to repeat* describes the TOOL. `generate_image` spends credits, `save_goal`
+  writes a second goal, `pc_do` drives the user's real machine, so none of them is
+  ever repeated silently. If the harness does retry and it fails again, the note
+  says so — *"already retried this step once … do not retry a third time"* — rather
+  than inviting another attempt at something that is clearly down.
+- **A refusal is never retried, and the journal agrees.** `Denied:` produces the
+  journal's own `denied` state, not a red error: the user said no, and a row with
+  a ✕ beside it would misreport a decision as a fault.
+
+**A real bug this found.** `pc_do`'s refusal and timeout were returned as
+unprefixed prose. Since the classifier, the journal's status and the client's
+`tools` event *all* decide failure by prefix, **a refusal on the PC was rendered
+with a ✓ and reported to the model as success**. Both messages now announce
+themselves (`Denied:` / `Error:`) — see Layer 3g.
+
+**Visible:** the step list shows a muted `↻ retried` badge and, in the row's
+detail, the reason in plain words ("that does not exist", "refused by policy").
+The journal's stored preview strips the harness instruction, because it is written
+for the model and identical for every failure of a kind — leaving it in would make
+every failed row look the same and hide what the tool actually said.
+
+**Classification is per-message, so the ordering carries weight:** an environment
+fault reads as `fatal` even when its text says "invalid" or "requires", and a
+missing snippet reads as `not-found` even though its text also matches the
+invalid-input vocabulary. Both orderings are pinned by tests.
+
+
+### Layer 3k — the PLAN, above the steps (added 2026-09-18)
+
+Layer 3d made the steps visible: *what did it do?* This is the other question, and
+the one a user asks while a turn is still running: **what is it trying to do, and is
+that the right order?** Without it a 16-round repo turn is a spinner you can only
+judge afterwards; with it, the intent is on screen and still correctable.
+
+`set_plan` (public, `netTools.js`) is the only way a plan exists:
+`{items: [{text, status}]}`, statuses `pending | in_progress | done | blocked`, sent
+as the WHOLE list every time (it replaces, it does not patch). It renders as
+`PlanChecklist` directly above `StepList` — intent first, evidence below.
+
+The rule that shapes the implementation: **the plan is the model's own words about
+its own work, so it must never be able to fail a turn.** So
+`harness/planSurface.js` normalises instead of validating, and is pure and total —
+no throws, no I/O, no clock, which is what lets the tool executor, the SSE emitter
+and the turn record agree on one shape with none of them owning the rules.
+
+| The input | What happens | Why |
+|---|---|---|
+| `"In Progress"`, `in-progress`, `completed`, `stuck` | coerced to a real status | a rejected plan teaches the model only that `set_plan` is unreliable, and the point of the tool is to get it to *report* intent |
+| an unknown status | `pending` | never claim work that may not have happened |
+| two steps `in_progress` | the LATER one is kept, the rest go `pending` | the checklist is where the user looks to see where the agent is; two markers make that unanswerable, and a model that marks two has moved on from the first |
+| a paragraph in `text` | clipped to 200 chars | the plan is a summary; the journal is the transcript |
+| 30 steps | the first 12 kept | same |
+| garbage (a string, `null`, a number) | an empty plan with a note | it runs inside a tool |
+
+Every correction is reported back in the tool result, because **the tool result is
+the only prompt the model gets about keeping the plan current** — and it arrives
+exactly when that reminder is worth having. It includes the drift the tool most
+needs to prevent: *"nothing is marked in progress, but steps remain"*.
+
+Two implementation choices worth knowing:
+
+- **The plan lives on the tool CONTEXT, not in a table.** It belongs to the turn:
+  it is what this turn said it would do, and means nothing apart from the steps that
+  carried it out. So the plan is emitted as `{type:'plan', plan}` **only when it
+  changed** (`planChanged`) — a three-revision turn redraws three times, not once per
+  step — and persisted with the run (`finishRun(run, { plan })`), beside the steps.
+- **The emission is wrapped around the step hook**, not added as a second
+  `onToolEnd`. The journal's hooks are spread into the loop, so a second one would
+  silently replace them and take the step records with it.
+
+**Rehydration already worked** — the plan and the steps live on the MESSAGE object,
+and `/net` conversations persist wholesale through localStorage *and* the cloud
+conversation merge, which stores whole message objects with no field whitelist. So a
+reopened conversation shows both, and always did. What checking that found instead
+is a size problem: the sync store rejects a payload over 380 KB, and the agent trace
+is now part of every tool turn. That is handled by degrading instead of failing —
+see `conversationWeight.js`, which retries once without the trace and reports a
+`trimmed` status rather than a clean sync.
+
+
+### Layer 3l — the turn AFTER: continuity (added 2026-09-18)
+
+Everything so far is about one turn. This is the seam between two, and it is where
+`/net` least resembled a harness:
+
+```
+user: "raise the goal limit"   → plan published, 3 steps, edit + test run
+user: "keep going"             → the model had never heard of any of it
+```
+
+`/net` sends the model the visible **prose** of the conversation and nothing else.
+Plans, steps and failures live on the assistant's *message* — so they persist and
+render, but they were never in the transcript the model reads. A programming harness
+does not have that hole; its context window *is* the session.
+
+Fixed by putting the LAST turn's unfinished work into the system prompt, built from
+the most recent run in the journal. This also makes the journal load-bearing:
+until now `readRuns` had no production caller at all, so a durable per-turn record
+existed that nothing could read.
+
+Three rules decide what earns a place, and all three are about **noise** — a note
+that appears on every turn is a note the model learns to skim past:
+
+| Only… | Why |
+|---|---|
+| an **unfinished plan** is news | all-`done` is a completed task; saying so costs tokens to tell the model nothing. `blocked` counts as unfinished — it is waiting on someone |
+| a **failure or a cancellation** is news | a turn whose steps all succeeded needs no narration: the user watched it happen |
+| and it stays **two lines, ≤600 chars** | it is a prompt, not a log. Never the steps that worked |
+
+Two details carry real information:
+
+- A **stopped** turn is named as the user's decision (*"do not resume it unless they
+  ask"*), so the model neither re-plans work they deliberately cancelled nor asks why
+  it stopped.
+- A **refusal** carries its instruction forward: *"`pc_do (permission)`. Do not
+  retry a refused step on your own."* By the next turn, that classification — the
+  thing that says re-asking is pointless — exists nowhere else.
+
+The note is only added when there is something outstanding, and only on tool-capable
+turns. `harness/continuity.js` is pure and total; the read is wrapped, so an
+unreadable journal degrades to no note rather than a failed turn. Cost: one DynamoDB
+read per tool turn.
+
+**A bug it found on the way:** the first version read `req.user.id`, and the
+non-streaming route (`callLLMApi`) has no `req` — the existing streaming-tools suite
+failed on the first run. Both paths now take the user from `toolContext.userId`,
+which `buildToolContext` fills from `req.user.id` for both, so the two routes cannot
+each invent their own source for the same value.
+
+
 ### Key separation (who owns what)
 
 | Capability | Where it lives | Endpoint / mechanism | Who decides |
 |---|---|---|---|
-| Where a message goes | Client | `messageRouter.js` (`routeMessage`) | pure function, unit-tested |
-| Windows/PC actions (`shell_run`, `uia_invoke`, …) | Desktop addon tool registry + agent loop | `POST /api/agent/run` (addon) | addon `classifyActionable` (+ disambiguation) |
+| Where a message goes | Client | `messageRouter.js` (`routeMessage`) | pure function, unit-tested. Since Layer 3h it also decides *which* brain takes it, off how the addon is reachable |
+| Windows/PC actions (`shell_run`, `uia_invoke`, …) | Desktop addon tool registry + agent loop | `POST /api/agent/run` (addon), or `pc_do` via the relay | addon `classifyActionable` (+ disambiguation); on the cloud path, the cloud LLM picks `pc_do` and the ADDON's `permissions.js` still decides |
 | Repo changes (`repo_*`) | Backend server (`repoAgentService.js`, git) | `/net` chat tool loop (`llmService.js`) | cloud LLM tool-call + capability gate |
 | Cloud tools (`save_goal`, `generate_image`, math, search, …) | Backend `netTools.js` | `/net` chat tool loop | cloud LLM tool-call |
+| How much context a turn may use | Backend `harness/contextBudget.js` + the governor in `harness/toolLoop.js` | trim between rounds; stop for a wrap-up if trimming cannot win | the loop, on `NET_CONTEXT_MAX_CHARS` |
+| What the prefix costs | Backend `bedrockPromptCache.js` | `cachePoint` on system + tool specs | the allowlist, the size minimum, the env flag, and the latch |
 | Just reply | Any LLM | chat streaming path | no tool call — but see *Layer 3b*: a turn that asked for an outcome is re-asked once first |
 
-The cloud `/net` chat has **no** Windows-action tools, and the addon has **no**
-repo tools — so the two cannot be confused. "Repo or chat?" is an LLM tool-choice
-on the backend; "Windows action or chat?" is the addon's actionability classifier
-(now shared with the client only as a *routing* decision, not a second lexicon).
+The cloud `/net` chat has **no PC tools of its own** — it has a *dispatcher* (`pc_do`)
+that asks the addon, which owns every PC tool and every permission decision. The
+addon has **no** repo tools. So the two planes still cannot be confused: "repo or
+chat?" is an LLM tool-choice on the backend, and "may this PC action happen?" is
+answered by the machine that owns the resource.
 
 
 ### Observability & enforcement
@@ -767,7 +1103,15 @@ on the backend; "Windows action or chat?" is the addon's actionability classifie
 > `routing-classifier.js` + `index.js` (`classifyActionable`, `/api/agent/run`),
 > `backend/services/netChatContext.js`, `toolScopes.js`, `llmService.js`
 > (the cloud tool loop), `turnIntent.js` (the act-vs-answer policy and the
-> recovery that backs it up), `repoAgentService.js` (the push gate), and
+> recovery that backs it up), `repoAgentService.js` (the push gate),
+> `harness/toolLoop.js` (the ONE loop, the context governor, and the retry of a
+> transient read), `harness/stepJournal.js` (steps + the run ring),
+> `harness/turnControl.js` (cancel + approvals), `harness/contextBudget.js`
+> (compaction), `harness/toolOutcome.js` (the failure taxonomy and the retry-safe
+> list), `harness/planSurface.js` (the visible plan),
+> `harness/continuity.js` (what the next turn is told),
+> `repoRunner.js` (the allowlisted runner), `pcTools.js` (`pc_status` / `pc_do`),
+> `bedrockPromptCache.js` (the cache points and the latch), and
 > `backend/middleware/netMessageGuard.js` (the server-side pre-screen).
 
 ---

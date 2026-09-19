@@ -324,11 +324,21 @@ kept here so the next person does not read the design as a description of runtim
 
 Ordered roughly by how much of the observed behaviour each one explains. This is
 the upgrade list, not a backlog of opinions — each item names the missing
-mechanism.
+mechanism. The itemized work (with files and an ordering) is in
+[`BACKLOG.md`](BACKLOG.md) → *Addon loop — perception and action hardening*.
 
 1. **See.** No multimodal call in the loop; `act()` truncates image results to
    garbage. Until this exists, `screen_capture` is a step that cannot inform the
-   next one.
+   next one. Three mechanisms are needed together, not one: a multimodal `plan()`
+   (`chatMultimodal` exists on the provider seam and is never called here); a
+   **bounded, sized** capture with the coordinate scale kept, so a pointer derived
+   from the image maps back to the real screen (Windows DPI is the same trap
+   Retina is — `eye-tracking-manager.js` already had to solve it with
+   `_getScreenScaleFactor()`); and a **structurally shaped** result, because
+   `.slice(0, 1200)` on an image result is 1200 characters of truncated base64 —
+   not a degraded observation but a misleading one. A **region read** at native
+   resolution is the other half: whole-screen capture is downscaled, and small text
+   is exactly what a decision needs.
 2. **Recognise no-progress.** `critic.score()` has no notion of novelty,
    usefulness, or repetition. A cheap first version: a delta of 0 (or negative) for
    a tool whose `(name, args)` is byte-identical to the previous tick's, and for a
@@ -345,6 +355,14 @@ mechanism.
    ends with the goal marked `failed` — a data-quality bug, not just a cost one.
 7. **Bound its own side effects.** The every-5-ticks reflection appends to the
    goal's `content` forever; nothing trims or versions it.
+8. **Act on more than one planned step per tick.** `act()` iterates tool calls,
+   but with no contract around them: nothing says the calls run in order, nothing
+   stops the rest of a batch when the first one fails, and later calls are not
+   told they were skipped. A batch whose later steps assume an earlier one
+   succeeded therefore runs against a world that did not happen. The reference
+   defines this precisely — sequential, stop at the first failure, and answer
+   every remaining call with one exact halt sentence, because leaving any call
+   unanswered makes the next request illegal.
 
 ---
 

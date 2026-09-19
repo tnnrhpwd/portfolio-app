@@ -24,7 +24,7 @@ import CloudModelSelect from './CloudModelSelect';
  * @param {object} props.settings - Current settings object (subset of csimple_device_settings).
  * @param {function} props.onChange - (key, value) => void — called on every field change.
  * @param {object} [props.user] - Logged-in user, used to gate Cloud Sync.
- * @param {string} [props.cloudSyncStatus] - null | 'syncing' | 'synced' | 'error'
+ * @param {string} [props.cloudSyncStatus] - null | 'syncing' | 'synced' | 'trimmed' | 'error'
  * @param {boolean} [props.sttSupported] - Whether speech recognition is supported in this browser.
  */
 function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupported = true, portfolioLLMProviders }) {
@@ -207,6 +207,15 @@ function AIWorkflowSettings({ settings, onChange, user, cloudSyncStatus, sttSupp
                   {' '}
                   {cloudSyncStatus === 'syncing' && '⟳ Syncing...'}
                   {cloudSyncStatus === 'synced' && '✓ Synced'}
+                  {/* The conversations synced but WITHOUT the agent step detail, because
+                      the payload hit the store's size limit (conversationWeight.js).
+                      Saying "✓ Synced" here would be a lie the user only discovers on
+                      their other device. */}
+                  {cloudSyncStatus === 'trimmed' && (
+                    <span title="Your chat history is large, so the agent step detail is not included in the synced copy. The conversations themselves are fully synced.">
+                      ✓ Synced (steps trimmed)
+                    </span>
+                  )}
                   {cloudSyncStatus === 'error' && '✗ Sync failed'}
                 </>
               )}

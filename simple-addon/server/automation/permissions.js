@@ -212,13 +212,71 @@ function effectiveMode(tool) {
 }
 
 /**
+ * WHY a call was refused.
+ *
+ * `reason` is prose for a human and stays the human-facing text; `cause` is the
+ * machine-readable half, because the reason string cannot be classified reliably
+ * — and the cloud learned that the hard way. `pcTools.pc_do` inferred "was this a
+ * refusal?" from `/denied|not approved|permission policy/i` against the reason
+ * text, which meant every new wording silently reclassified a refusal as a fault.
+ * Two of the six branches below were already mis-read that way:
+ *
+ *   - the kill switch  ("Blocked by the emergency kill switch …") matched neither
+ *     the denial regex nor the "did not answer" one, so it reached the model as
+ *     `Error:` — a crash — with no "do not retry";
+ *   - an expired prompt ("no answer within 110s …") matched nothing at all, so a
+ *     user who was simply away from their desk for two minutes produced a
+ *     `HARNESS: FAILED — not retryable` instruction telling the model to give up.
+ *
+ * The distinction the prose also destroyed is the important one for the user: a
+ * refusal that a person made or missed can be re-asked, and one that a SETTING
+ * made cannot. Those need opposite next moves, and only the addon knows which it
+ * was — so it says so, and the cloud stops guessing.
+ */
+const CAUSES = Object.freeze({
+  // The emergency stop. Nothing on this machine runs until the user clears it.
+  KILL_SWITCH: 'kill-switch',
+  // A persisted policy: per-tool override or category default set to 'deny'.
+  POLICY_DENY: 'policy-deny',
+  // A human was asked and said no.
+  USER_DECLINED: 'user-declined',
+  // A human was asked and the prompt expired unanswered. Nothing ran.
+  EXPIRED: 'expired',
+  // No approval UI is wired up — a plumbing fault, not a decision.
+  NO_REQUESTER: 'no-requester',
+  // The prompt itself threw — a fault, not a decision.
+  PROMPT_FAILED: 'prompt-failed',
+});
+
+/**
+ * Causes where asking again could legitimately succeed — because the block was a
+ * person's momentary answer (or non-answer) rather than a stored setting.
+ *
+ * A policy denial and the kill switch are NOT here on purpose: retrying them is
+ * not "worth a try", it is a guaranteed identical refusal. `deny` is a hard stop
+ * by design (see the header), so a retry would only add noise.
+ */
+const RETRYABLE_CAUSES = new Set([CAUSES.USER_DECLINED, CAUSES.EXPIRED]);
+
+/** True when a fresh attempt could plausibly be answered differently. */
+function isRetryableCause(cause) {
+  return RETRYABLE_CAUSES.has(cause);
+}
+
+/**
  * Decide + (if needed) ask the user whether a tool call may proceed.
- * Returns { ok: true, mode } or { ok: false, reason, mode }.
+ * Returns { ok: true, mode } or { ok: false, reason, cause, mode }.
  *
  * opts.userInitiated — when true, an 'ask' mode is treated as 'allow' because
  *   the user directly typed the request into the chat input (they can't be
  *   meaningfully "prompted again" — they just asked for it). The kill switch
  *   and explicit 'deny' overrides still block.
+ *
+ * opts.approvalTimeoutMs — how long the prompt may stay unanswered before it is
+ *   treated as a REFUSAL. Unset means "wait for the human" (the local default: a
+ *   prompt on screen in front of the user, who can answer or dismiss it). It is
+ *   set by the cloud relay path, and that asymmetry is the point — see
+ *   `approvalTimeoutMs()`.
  */
 async function requestApproval(tool, args, opts = {}) {
     const mode = effectiveMode(tool);
@@ -230,12 +288,12 @@ async function requestApproval(tool, args, opts = {}) {
         // guessing which setting to flip.
         const cfg = load();
         if (cfg.globalKillSwitch) {
-            return { ok: false, mode, reason: 'Blocked by the emergency kill switch (turn it off in Settings → Permissions).' };
+            return { ok: false, mode, cause: CAUSES.KILL_SWITCH, reason: 'Blocked by the emergency kill switch (turn it off in Settings → Permissions).' };
         }
         if (cfg.tools[tool.name] === 'deny') {
-            return { ok: false, mode, reason: `Denied — "${tool.name}" is set to deny in your permission policy.` };
+            return { ok: false, mode, cause: CAUSES.POLICY_DENY, reason: `Denied — "${tool.name}" is set to deny in your permission policy.` };
         }
-        return { ok: false, mode, reason: `Denied by permission policy (category "${tool.category}").` };
+        return { ok: false, mode, cause: CAUSES.POLICY_DENY, reason: `Denied by permission policy (category "${tool.category}").` };
     }
     // 'ask'
     if (opts.userInitiated) {
@@ -247,15 +305,95 @@ async function requestApproval(tool, args, opts = {}) {
         return { ok: true, mode: 'allow', approvedBy: 'auto-approve-all' };
     }
     if (!_approvalRequester) {
-        return { ok: false, mode, reason: 'No approval requester registered (UI not initialized)' };
+        return { ok: false, mode, cause: CAUSES.NO_REQUESTER, reason: 'No approval requester registered (UI not initialized)' };
     }
     try {
-        const ans = await _approvalRequester(tool.name, args);
+        const ans = await withApprovalDeadline(
+            Promise.resolve().then(() => _approvalRequester(tool.name, args)),
+            opts.approvalTimeoutMs,
+        );
         if (ans?.approved) return { ok: true, mode: 'allow', approvedBy: ans.approvedBy || 'user' };
-        return { ok: false, mode, reason: ans?.reason || 'User denied' };
+        // Three different non-answers come back with `approved: false`, and they
+        // need opposite advice, so the marker set by `withApprovalDeadline` —
+        // not the wording of the reason — decides the cause.
+        // `failed` first: a prompt that THREW must not be reported as the user's
+        // decision, and a `failed` answer never carries `expired`.
+        const cause = ans?.failed
+            ? CAUSES.PROMPT_FAILED
+            : (ans?.expired ? CAUSES.EXPIRED : CAUSES.USER_DECLINED);
+        return {
+            ok: false,
+            mode,
+            cause,
+            reason: ans?.reason || 'User denied',
+        };
     } catch (e) {
-        return { ok: false, mode, reason: 'Approval prompt failed: ' + e.message };
+        return { ok: false, mode, cause: CAUSES.PROMPT_FAILED, reason: 'Approval prompt failed: ' + e.message };
     }
+}
+
+/**
+ * Race an approval prompt against its deadline.
+ *
+ * **Why this exists.** The cloud `/net` harness dispatches a PC action over the
+ * relay and waits ~120 s for the answer (`pcTools.PC_TOOL_TIMEOUT_MS`). Before
+ * this, the prompt on the PC had NO deadline of its own, so an `ask` tool the
+ * user never answered left the prompt open indefinitely: the cloud turn gave up
+ * and told the model "it may still be running", and then — minutes later, with
+ * nobody in that conversation — clicking Approve would RUN the action. A late
+ * approval must not be able to execute anything.
+ *
+ * So an expired prompt resolves as a REFUSAL, and with a reason that says why.
+ * The prompt widget is not dismissed by this (the UI owns its own lifecycle) —
+ * what matters is that answering it afterwards changes nothing, because the tool
+ * call it belonged to has already returned.
+ *
+ * `timeoutMs <= 0` / unset keeps the old behaviour exactly, which is what a
+ * LOCAL agent step gets: there a human is looking at the prompt, and expiring it
+ * under them would be a regression, not a safety win.
+ *
+ * ⚠️ The timer is deliberately NOT `unref`'d, and that is a tested decision, not
+ * an oversight: an unref'd timer does not keep the event loop alive, so when the
+ * deadline is the only pending work the process can exit BEFORE it fires — the
+ * deadline would be skipped exactly when it matters. A `setTimeout` that has to
+ * run must be ref'd. (Found by the "never answered is REFUSED" case below, which
+ * hung rather than failing when the timer was unref'd.)
+ */
+function withApprovalDeadline(promise, timeoutMs) {
+    const ms = Number(timeoutMs);
+    if (!Number.isFinite(ms) || ms <= 0) return promise;
+    return new Promise((resolve) => {
+        const timer = setTimeout(() => {
+            resolve({
+                approved: false,
+                // Says WHICH non-answer this was, so `requestApproval` can label
+                // the refusal without reading the reason text back. Without it
+                // "nobody answered" was indistinguishable from "the user said no",
+                // and the two need opposite advice: one is worth re-asking.
+                expired: true,
+                reason: `no answer within ${Math.round(ms / 1000)}s — the request expired and nothing was run.`,
+            });
+        }, ms);
+        const settle = (value) => { clearTimeout(timer); resolve(value); };
+        // A prompt that THREW is a fault, not a decision — and it resolves rather
+        // than rejects, so without this marker it would be reported to the user as
+        // "you declined", blaming them for a wiring failure.
+        promise.then(settle, (err) => settle({ approved: false, failed: true, reason: `Approval prompt failed: ${err.message}` }));
+    });
+}
+
+/**
+ * How long a RELAY-dispatched tool call may wait for an approval.
+ *
+ * Slightly under the cloud's dispatch window on purpose: the addon must answer
+ * BEFORE the cloud gives up, so the harness receives a definite refusal (which
+ * its taxonomy classifies as `permission` — "do not retry, tell the user")
+ * instead of "it may still be running" (an unknown it can only warn about).
+ */
+function relayApprovalTimeoutMs() {
+    const raw = Number(process.env.ADDON_APPROVAL_TIMEOUT_MS);
+    if (Number.isFinite(raw) && raw > 0) return raw;
+    return 110_000;
 }
 
 /**
@@ -465,6 +603,12 @@ module.exports = {
     resolveBindHost,
     effectiveMode,
     requestApproval,
+    relayApprovalTimeoutMs,
+    // The refusal vocabulary: `cause` is what the cloud classifies on, so it has
+    // to be shared rather than string-matched. See CAUSES above.
+    CAUSES,
+    RETRYABLE_CAUSES,
+    isRetryableCause,
     hasKeyboardCaptureConsent,
     grantKeyboardCaptureConsent,
     revokeKeyboardCaptureConsent,

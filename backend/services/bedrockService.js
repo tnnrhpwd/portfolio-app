@@ -28,11 +28,13 @@
  * sites (workspaceController.js, llmService.js) can keep working against the
  * familiar OpenAI chat.completions.create()-shaped response:
  *   { choices: [{ message: { role, content, tool_calls }, finish_reason }],
- *     usage: { prompt_tokens, completion_tokens, total_tokens } }
+ *     usage: { prompt_tokens, completion_tokens, total_tokens,
+ *              cached_tokens, cache_write_tokens } }
  */
 
 const { BedrockRuntimeClient, ConverseCommand, ConverseStreamCommand } = require('@aws-sdk/client-bedrock-runtime');
 const { logger } = require('../utils/logger');
+const { planPromptCache, disablePromptCache, isCacheRejection } = require('./bedrockPromptCache.js');
 
 const BEDROCK_MODEL_ID = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
 
@@ -411,6 +413,13 @@ function fromBedrockResponse(bedrockResponse) {
             prompt_tokens: bedrockResponse.usage?.inputTokens || 0,
             completion_tokens: bedrockResponse.usage?.outputTokens || 0,
             total_tokens: bedrockResponse.usage?.totalTokens || 0,
+            // Prompt caching (see bedrockPromptCache.js) can only be confirmed on
+            // a real turn, so it must be VISIBLE on one: `cached_tokens` is what a
+            // cache READ of the fixed prefix reports, and a non-zero value on
+            // round 2 of a tool turn is the proof the saving is real. Without it,
+            // "caching is on" would be an assumption nobody could check.
+            cached_tokens: bedrockResponse.usage?.cacheReadInputTokens || 0,
+            cache_write_tokens: bedrockResponse.usage?.cacheWriteInputTokens || 0,
         },
         model: BEDROCK_MODEL_ID,
     };
@@ -456,28 +465,46 @@ async function createBedrockCompletion(messages, options = {}) {
 
     const requestParts = buildConverseRequestParts(messages, options);
 
-    const command = new ConverseCommand({
+    // Cache the part that never changes (system + tool schemas) so a multi-round
+    // tool turn stops re-paying for it — see bedrockPromptCache.js.
+    const cache = planPromptCache({
         modelId: BEDROCK_MODEL_ID,
-        system: systemText ? [{ text: systemText }] : undefined,
+        systemText,
+        toolConfig: requestParts.toolConfig,
+    });
+
+    const buildCommand = ({ system, toolConfig }) => new ConverseCommand({
+        modelId: BEDROCK_MODEL_ID,
+        system,
         messages: requestParts.messages,
         inferenceConfig: {
             maxTokens: options.maxTokens || options.max_tokens || 1000,
             temperature: options.temperature ?? 0.7,
         },
-        toolConfig: requestParts.toolConfig,
+        toolConfig,
     });
 
     logToolBlockPolicy('Converse', messages, requestParts.toolBlocksAllowed, requestParts.toolConfig);
 
-    logger.debug(`🪨 Bedrock Converse call: ${BEDROCK_MODEL_ID}${options.tools ? ` [${options.tools.length} tools]` : ''}`);
+    logger.debug(`🪨 Bedrock Converse call: ${BEDROCK_MODEL_ID}${options.tools ? ` [${options.tools.length} tools]` : ''}${cache.applied ? ' [prompt cache]' : ''}`);
     const startTime = Date.now();
+    let response;
     try {
-        const response = await client.send(command);
-        logger.debug(`🪨 Bedrock Converse call completed in ${Date.now() - startTime}ms`);
-        return fromBedrockResponse(response);
+        response = await client.send(buildCommand(cache));
     } catch (error) {
-        throw classifyBedrockError(error);
+        // A rejected cache point is OUR mistake, not the user's problem: retry the
+        // identical request without it. `disablePromptCache` latches caching off so
+        // this costs one extra round trip ONCE per process, not once per turn.
+        if (!cache.applied || !isCacheRejection(error)) throw classifyBedrockError(error);
+        disablePromptCache(error, BEDROCK_MODEL_ID);
+        try {
+            response = await client.send(buildCommand(cache.plain));
+        } catch (retryError) {
+            throw classifyBedrockError(retryError);
+        }
     }
+    logger.debug(`🪨 Bedrock Converse call completed in ${Date.now() - startTime}ms`);
+    return fromBedrockResponse(response);
 }
 
 /**
@@ -499,15 +526,22 @@ async function* streamBedrockCompletion(messages, options = {}) {
     // out of rounds (see llmService.streamCompressionRequest).
     const requestParts = buildConverseRequestParts(messages, options);
 
-    const command = new ConverseStreamCommand({
+    // Same cache points as the non-streaming entry point, and the same retry.
+    const cache = planPromptCache({
         modelId: BEDROCK_MODEL_ID,
-        system: systemText ? [{ text: systemText }] : undefined,
+        systemText,
+        toolConfig: requestParts.toolConfig,
+    });
+
+    const buildCommand = ({ system, toolConfig }) => new ConverseStreamCommand({
+        modelId: BEDROCK_MODEL_ID,
+        system,
         messages: requestParts.messages,
         inferenceConfig: {
             maxTokens: options.maxTokens || options.max_tokens || 1000,
             temperature: options.temperature ?? 0.7,
         },
-        toolConfig: requestParts.toolConfig,
+        toolConfig,
     });
 
     logToolBlockPolicy('ConverseStream', messages, requestParts.toolBlocksAllowed, requestParts.toolConfig);
@@ -516,8 +550,22 @@ async function* streamBedrockCompletion(messages, options = {}) {
     let usage = null;
     let stopReason = null;
 
+    let response;
     try {
-        const response = await client.send(command);
+        response = await client.send(buildCommand(cache));
+    } catch (error) {
+        // The stream has not started yet, so retrying here is invisible to the
+        // caller — it sees one stream, not a failed attempt.
+        if (!cache.applied || !isCacheRejection(error)) throw classifyBedrockError(error);
+        disablePromptCache(error, BEDROCK_MODEL_ID);
+        try {
+            response = await client.send(buildCommand(cache.plain));
+        } catch (retryError) {
+            throw classifyBedrockError(retryError);
+        }
+    }
+
+    try {
         for await (const event of response.stream) {
             const deltaText = event.contentBlockDelta?.delta?.text;
             if (deltaText) {
@@ -538,6 +586,10 @@ async function* streamBedrockCompletion(messages, options = {}) {
             prompt_tokens: usage?.inputTokens || 0,
             completion_tokens: usage?.outputTokens || 0,
             total_tokens: usage?.totalTokens || 0,
+            // Same reason as fromBedrockResponse: the cache saving has to be
+            // observable on the turn that pays for it.
+            cached_tokens: usage?.cacheReadInputTokens || 0,
+            cache_write_tokens: usage?.cacheWriteInputTokens || 0,
         },
     };
 }

@@ -5,13 +5,14 @@ import { openFile, getAddonBaseUrl } from '../../services/simpleAddonApi';
 import { modelDisplayName } from '../../constants/aiModel.js';
 import BrandMark from '../BrandMark/BrandMark.jsx';
 import StepList from './StepList.jsx';
+import PlanChecklist from './PlanChecklist.jsx';
 import './MessageBubble.css';
 
 // Only render data: or http(s): avatar URLs — drop stale /api/agents/... paths
 const safeAvatarUrl = (url) =>
   url && (url.startsWith('data:') || url.startsWith('https://') || url.startsWith('http://')) ? url : null;
 
-function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = true, onReportMessage, onCopyMessage }) {
+function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = true, onReportMessage, onCopyMessage, onRetryStep }) {
   const isUser = message.role === 'user';
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -231,11 +232,15 @@ function MessageBubble({ message, agent, showTimestamp = true, enableMarkdown = 
                 ))}
               </div>
             )}
+            {/* What the agent says it is DOING, above what it did. The plan is the
+                part the user can correct while the turn runs — a wrong order is
+                visible here and nowhere else. */}
+            <PlanChecklist plan={message.plan} />
             {/* What the agent DID, one row per tool call. It renders while the
                 turn is still running (steps open before any token streams) and
                 STAYS afterwards — the progress line below is overwritten as
                 each tool starts, so it can never be the record. */}
-            <StepList steps={message.steps} />
+            <StepList steps={message.steps} onRetryStep={onRetryStep} />
             {/* The turn was cancelled. Without a word here the bubble looks like
                 the reply simply ran out mid-sentence. */}
             {message.stopped && !message.isError && (

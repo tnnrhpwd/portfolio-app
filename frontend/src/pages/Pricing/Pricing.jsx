@@ -43,7 +43,9 @@ const FAQ_ITEMS = [
   },
   {
     q: 'What do I get with Pro?',
-    a: `Everything in Free, plus a ${PRO_CREDITS}/month AI credit allowance, ${STORAGE_DISPLAY[PLAN_IDS.PRO]} of storage, live screen viewing from your phone, and email support.`,
+    // ⬜ Phone viewing removed from this answer 2026-09-18 — the feature is not
+    //    shipped (docs/implementation/BACKLOG.md → "Phone viewing").
+    a: `Everything in Free, plus a ${PRO_CREDITS}/month AI credit allowance, ${STORAGE_DISPLAY[PLAN_IDS.PRO]} of storage, and email support.`,
   },
   {
     q: 'How does AI usage work?',

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import MessageBubble from './MessageBubble.jsx';
@@ -70,6 +70,83 @@ const renderBubble = (message, props = {}) =>
  */
 describe('MessageBubble', () => {
   afterEach(cleanup);
+
+  it('shows the agent PLAN above the steps it actually took', () => {
+    // Two different questions in one bubble, in the order a user asks them:
+    // what is it doing (the plan, which they can still correct) and what did it
+    // do (the steps, which are evidence). This also pins the WIRING — a plan that
+    // arrived on the message but was never passed to PlanChecklist would render
+    // nothing and fail silently, which is exactly the bug a component test on its
+    // own cannot catch.
+    const { container } = renderBubble(assistant({
+      content: 'Working on it.',
+      plan: {
+        items: [
+          { id: 'p1', text: 'find the limit', status: 'done' },
+          { id: 'p2', text: 'raise it', status: 'in_progress' },
+        ],
+        counts: { pending: 0, in_progress: 1, done: 1, blocked: 0 },
+      },
+      steps: [{
+        id: 's1', tool: 'repo_search', plane: 'repo', label: 'Searching the repository…',
+        status: 'ok', argsPreview: { query: 'x' }, argsRedacted: false, argKeys: [],
+        resultPreview: '2 matches', error: null, ms: 40,
+      }],
+    }));
+
+    expect(screen.getByLabelText('Agent plan')).toBeInTheDocument();
+    expect(screen.getByText('raise it')).toBeInTheDocument();
+    // The plan comes FIRST: it is the question being asked while the turn runs.
+    const html = container.innerHTML;
+    expect(html.indexOf('Agent plan')).toBeLessThan(html.indexOf('Agent steps'));
+  });
+
+  it('renders no plan frame when the turn published none', () => {
+    // Most turns have no plan (one tool call, or a plain reply). An empty frame
+    // would make every answer look like it was supposed to have one.
+    const { container } = renderBubble(assistant({ content: 'Here you go.' }));
+
+    expect(container.querySelector('.plan')).toBeNull();
+  });
+
+  it('threads the retry handler down to the step that needs it', () => {
+    // The same class of bug the plan assertion above guards: a prop that arrives
+    // at the bubble and is never passed on fails SILENTLY — the button simply is
+    // not there, which looks exactly like "this step is not re-askable". A test on
+    // StepList alone cannot see it, because StepList is never given the prop.
+    const onRetryStep = jest.fn();
+    renderBubble(
+      assistant({
+        content: 'I could not do that.',
+        steps: [{
+          id: 's1', tool: 'pc_do', plane: 'addon', label: 'Opening Notepad…',
+          status: 'denied', argsPreview: null, argsRedacted: true, argKeys: [],
+          resultPreview: 'Denied (expired): …', error: null, ms: 0,
+          outcome: 'permission', cause: 'expired', reaskable: true,
+        }],
+      }),
+      { onRetryStep },
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(onRetryStep).toHaveBeenCalledTimes(1);
+    expect(onRetryStep.mock.calls[0][0]).toMatchObject({ id: 's1', cause: 'expired' });
+  });
+
+  it('renders no retry button when the chat passes no handler', () => {
+    renderBubble(assistant({
+      content: 'I could not do that.',
+      steps: [{
+        id: 's1', tool: 'pc_do', plane: 'addon', label: 'Opening Notepad…',
+        status: 'denied', argsPreview: null, argsRedacted: true, argKeys: [],
+        resultPreview: 'Denied (expired): …', error: null, ms: 0,
+        outcome: 'permission', cause: 'expired', reaskable: true,
+      }],
+    }));
+
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+  });
 
   it('renders a structured action as an in-app link, with markdown ON', () => {
     renderBubble(

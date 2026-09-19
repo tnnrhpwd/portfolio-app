@@ -69,6 +69,11 @@ const TOOL_ACTIVITY = Object.freeze({
   update_behavior: () => 'Updating behavior settings',
   summarize_conversation: () => 'Summarizing the conversation',
   submit_support_ticket: () => 'Submitting the ticket',
+
+  // The user's own PC (desktop addon over the relay). The label names the plane,
+  // never the tool's arguments — those can carry a shell command or typed text.
+  pc_status: () => 'Checking your PC',
+  pc_do: () => 'Using your PC',
 });
 
 /**
@@ -88,9 +93,9 @@ function describeToolActivity(toolName, args) {
  *
  *   cloud  — in-process on the backend (goals, notes, image, math, search…)
  *   repo   — in-process on the backend, but touching this repository via git
- *   addon  — the user's own PC, dispatched over the relay (P2; nothing is on
- *            this plane yet, but the classifier is here so the journal, the UI
- *            badge and the future policy gate all read one answer)
+ *   addon  — the user's own PC, dispatched over the relay (`pc_status`, `pc_do`
+ *            — shipped in P2, so this plane is live; the badge and the journal
+ *            both read the answer from here)
  *
  * Deliberately a pure name→plane map rather than a lookup against the schema
  * list: it must answer for a tool name that was never offered (a hallucinated

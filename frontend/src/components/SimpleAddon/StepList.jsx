@@ -18,6 +18,13 @@ import './StepList.css';
  * `argsRedacted: true`, and this component says "private argument" rather than
  * rendering anything. Do not add a fallback that reads the arguments some other
  * way — that would undo a deliberate rule for a cosmetic gain.
+ *
+ * The same holds for the "Try again" affordance on a refused step. Whether a
+ * retry is offered is `step.reaskable`, which the journal computes from the
+ * refusal vocabulary (`backend/services/harness/refusalCause.js`) — NOT from
+ * guessing here. A policy denial and the emergency kill switch are not re-askable,
+ * because they would refuse identically; only a human's "no" or a prompt nobody
+ * answered can go differently the second time.
  */
 
 /** Plane badge text. Three planes exist; see NET_HARNESS_PLAN.md §3. */
@@ -32,6 +39,19 @@ const GLYPH = {
   ok: '✓',
   error: '✕',
   denied: '⊘',
+};
+
+/**
+ * Why a step failed, in the user's words (see backend services/harness/toolOutcome.js).
+ * The kind decides what the agent does next, so showing it is what lets a user
+ * understand a failure instead of just seeing a red row.
+ */
+const OUTCOME_LABEL = {
+  transient: 'temporary failure',
+  'invalid-input': 'the arguments were wrong',
+  'not-found': 'that does not exist',
+  permission: 'refused by policy',
+  fatal: 'failed',
 };
 
 function formatMs(ms) {
@@ -52,7 +72,7 @@ function summarise(steps) {
   return parts.join(' · ');
 }
 
-export default function StepList({ steps }) {
+export default function StepList({ steps, onRetryStep }) {
   const [openIds, setOpenIds] = useState(() => new Set());
 
   if (!Array.isArray(steps) || steps.length === 0) return null;
@@ -73,6 +93,12 @@ export default function StepList({ steps }) {
         {steps.map((step) => {
           const isOpen = openIds.has(step.id);
           const detailId = `step-detail-${step.id}`;
+          // The ONE thing the user can do about a refusal. Offered only when the
+          // server says this refusal could be answered differently next time
+          // (`step.reaskable`) AND a turn is not already running. A policy denial
+          // and the kill switch never get one: they would refuse identically, and
+          // a button that cannot work is worse than no button.
+          const canRetry = step.reaskable === true && typeof onRetryStep === 'function';
           return (
             <li key={step.id} className={`steps__item steps__item--${step.status}`}>
               <button
@@ -84,6 +110,17 @@ export default function StepList({ steps }) {
               >
                 <span className="steps__glyph" aria-hidden="true">{GLYPH[step.status] || '•'}</span>
                 <span className="steps__label">{step.label || step.tool}</span>
+                {/* A step that took two attempts is still one step. Marking it is
+                    the difference between "the agent is flaky" and "the network
+                    hiccuped once and the agent handled it". */}
+                {step.retried && (
+                  <span
+                    className="steps__plane steps__plane--retry"
+                    title="The first attempt failed transiently and the agent retried it"
+                  >
+                    ↻ retried
+                  </span>
+                )}
                 {step.plane && step.plane !== 'cloud' && (
                   <span className={`steps__plane steps__plane--${step.plane}`}>
                     {PLANE_LABEL[step.plane] || step.plane}
@@ -92,6 +129,19 @@ export default function StepList({ steps }) {
                 {step.ms != null && <span className="steps__ms">{formatMs(step.ms)}</span>}
               </button>
 
+              {/* Sibling of the row, never a child: the row is itself a <button>
+                  (it expands the detail), and a nested button is invalid HTML that
+                  browsers silently re-parent. */}
+              {canRetry && (
+                <button
+                  type="button"
+                  className="steps__retry"
+                  onClick={() => onRetryStep(step)}
+                  title="Ask your PC again — you will get the approval prompt again, and you can still say no"
+                >
+                  Try again
+                </button>
+              )}
               {isOpen && (
                 <div className="steps__detail" id={detailId}>
                   <div className="steps__detail-tool">{step.tool}</div>
@@ -103,6 +153,11 @@ export default function StepList({ steps }) {
                     <pre className="steps__detail-args">{JSON.stringify(step.argsPreview, null, 2)}</pre>
                   ) : null}
                   {step.error && <div className="steps__detail-error">{step.error}</div>}
+                  {step.outcome && (
+                    <div className="steps__detail-error">
+                      {OUTCOME_LABEL[step.outcome] || step.outcome}
+                    </div>
+                  )}
                   {step.resultPreview && (
                     <pre className="steps__detail-result">{step.resultPreview}</pre>
                   )}

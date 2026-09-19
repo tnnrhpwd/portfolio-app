@@ -80,16 +80,26 @@ async function executeTool(name, args, ctx = {}) {
     // Permission gate
     const approval = await permissions.requestApproval(tool, safeArgs, {
         userInitiated: !!ctx.userInitiated,
+        // A caller with a DEADLINE (the cloud relay) bounds the prompt; a local
+        // step does not, because there a human is looking at it. See
+        // `withApprovalDeadline` in permissions.js.
+        approvalTimeoutMs: ctx.approvalTimeoutMs,
     });
     if (!approval.ok) {
         const durationMs = Date.now() - startedAt;
         const record = {
             tool: name, args: safeArgs, result: approval.reason,
             exitCode: -1, durationMs, approvedBy: 'denied',
+            // The audit trail is where "why was this refused?" gets answered
+            // months later, so it keeps the machine-readable cause alongside the
+            // prose. `approvedBy: 'denied'` said only that SOMETHING said no.
+            denyCause: approval.cause || null,
         };
         ctx.addAction?.(record).catch(() => {});
-        events?.publish('tool.end', { tool: name, ok: false, error: approval.reason, mode: approval.mode, durationMs, runId: ctx.runId, callId });
-        return { ok: false, error: approval.reason, mode: approval.mode, durationMs };
+        events?.publish('tool.end', { tool: name, ok: false, error: approval.reason, mode: approval.mode, cause: approval.cause, durationMs, runId: ctx.runId, callId });
+        // `cause` travels with the error: the cloud cannot infer it, and two of
+        // the six causes were previously mis-read as faults because it tried.
+        return { ok: false, error: approval.reason, mode: approval.mode, cause: approval.cause, durationMs };
     }
 
     // `ctx.forceDryRun` forces this invocation (and, via runCtx propagation,
@@ -107,6 +117,9 @@ async function executeTool(name, args, ctx = {}) {
         // re-enter the registry for each sub-step keep the user's approval
         // context — otherwise every step would trigger a fresh 'ask' prompt.
         userInitiated: !!ctx.userInitiated,
+        // Same reason, for the deadline: a composite under a cloud dispatch must
+        // not be able to park a sub-step on an unanswered prompt either.
+        approvalTimeoutMs: ctx.approvalTimeoutMs,
         // Composite tools also need addAction / goalSlug to log sub-step audit
         // trail against the same goal.
         addAction: ctx.addAction,

@@ -99,6 +99,13 @@
   color: color-mix(in srgb, var(--success) 85%, var(--text-primary));
 }
 
+/* A retried step is not a warning — the agent recovered. Muted, so it reads as
+   a footnote to the row rather than as a second failure. */
+.steps__plane--retry {
+  border-color: color-mix(in srgb, var(--text-muted, #718096) 45%, transparent);
+  color: var(--text-muted, #718096);
+}
+
 .steps__ms {
   flex: 0 0 auto;
   color: var(--text-muted, #718096);
@@ -143,6 +150,36 @@
 
 .steps__detail-result {
   color: var(--text-primary);
+}
+
+/* "Try again" on a refused step — the one action a user has here, so it sits on
+   the row rather than in the detail (which is collapsed by default, and would
+   hide the only thing they can DO behind a disclosure they may never open).
+
+   Deliberately quiet styling: it re-ASKS, it does not approve anything. The
+   accent only appears on hover/focus, so a refused row still reads as a muted
+   note rather than as an invitation to push a button. */
+.steps__retry {
+  display: block;
+  margin: 0 10px 6px 26px; /* left-aligned with the label, not the glyph */
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-secondary, #a0aec0);
+  font: inherit;
+  font-size: 0.92em;
+  cursor: pointer;
+}
+
+.steps__retry:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: color-mix(in srgb, var(--accent) 80%, var(--text-primary));
+}
+
+.steps__retry:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {

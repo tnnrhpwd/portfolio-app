@@ -93,6 +93,7 @@ const {
   getSimplePersonalityFile,
   updateSimplePersonalityFile,
   getSimpleUserContext,
+  getHarnessStats,
 } = require('../controllers/csimpleController');
 
 // Simple Workspace controller (OpenClaw-style AI workspace)
@@ -703,6 +704,12 @@ router.route('/csimple/conversations')
 // backward compatibility with any older client.)
 router.route('/csimple/conversations/merge')
   .post(protect, sanitizeInput, mergeSimpleConversations);
+
+// What the /net harness has been doing, in aggregate. Admin-only: the run ring is
+// per-user, but the routing counters behind it are process-wide (see
+// harnessStats.js), so this is not a per-user read and must not be served as one.
+router.route('/csimple/harness/stats')
+  .get(protect, getHarnessStats);
 
 router.route('/csimple/behaviors')
   .get(protect, getSimpleBehaviors);

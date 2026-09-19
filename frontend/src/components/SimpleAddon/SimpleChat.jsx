@@ -43,6 +43,10 @@ import { recordGoalAgentResult } from '../../services/goalAgentApi.js';
 import { createData } from '../../features/data/dataSlice';
 import { getUserIdentifier } from '../../utils/supportUtils';
 import { getEffectiveCloudModelId, resolveCloudModelProvider } from '../../utils/llmProviderOptions.js';
+import {
+  syncWithFallback,
+} from '../../utils/simpleAddon/conversationWeight.js';
+import { retryMessageFor } from '../../utils/simpleAddon/retryMessage.js';
 import { DEFAULT_CLOUD_PROVIDER, DEFAULT_LOCAL_MODEL_ID, modelDisplayName, providerLabel } from '../../constants/aiModel.js';
 import './SimpleChat.css';
 import './SimpleTheme.css';
@@ -278,7 +282,7 @@ function SimpleChat({
   // The cloud turn currently streaming, so Stop can cancel it server-side
   // instead of only hiding the tokens. Cleared when the turn ends.
   const activeRunIdRef = useRef(null);
-  const [cloudSyncStatus, setCloudSyncStatus] = useState(null); // null | 'syncing' | 'synced' | 'error'
+  const [cloudSyncStatus, setCloudSyncStatus] = useState(null); // null | 'syncing' | 'synced' | 'trimmed' | 'error'
   const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
   const handleConfirmRef = useRef(null);
   const cloudSettingsTimer = useRef(null);
@@ -501,12 +505,36 @@ function SimpleChat({
     setActiveConversationId(conversations[0].id);
   }, [conversations, activeConversationId]);
 
+  /**
+   * Merge local conversations with the cloud, DEGRADING rather than failing when
+   * the payload is too heavy.
+   *
+   * The sync store keeps one row per user and rejects anything over 380 KB, and
+   * every tool turn now carries its agent trace on the message (`steps`, `plan` —
+   * see conversationWeight.js). Without this, a heavy history would stop syncing
+   * entirely: the save throws, the client logs a warn, and the user finds out only
+   * by noticing their other device never saw the conversation.
+   *
+   * The POLICY lives in `syncWithFallback` (pure, tested with a fake transport); the
+   * component only supplies the transport and reports the outcome.
+   */
+  const syncConversations = useCallback(async (token, local, deletedIds) => {
+    const result = await syncWithFallback({
+      conversations: local,
+      deletedIds,
+      merge: (conversations, ids) => mergeCloudConversations(token, conversations, ids),
+    });
+    if (result.trimmed) {
+      console.warn('[Simple] Conversation history is too large — synced without agent step detail.');
+    }
+    return result;
+  }, []);
+
   // ─── Cloud conversation sync (shared by the debounced save and the
   // ─── cross-device poll). `overrideConversations` lets create/delete push
   // ─── the exact next state immediately instead of waiting for the ref to
   // ─── update on the next render.
-  const runConversationSync = useCallback(async (overrideConversations) => {
-    const token = user?.token;
+  const runConversationSync = useCallback(async (overrideConversations) => {    const token = user?.token;
     if (!settings.cloudSync || !token || !cloudSyncInitialized.current) return;
     if (syncInFlight.current) return;
     syncInFlight.current = true;
@@ -515,7 +543,8 @@ function SimpleChat({
       const local = nonEmptyConversations(
         Array.isArray(overrideConversations) ? overrideConversations : conversationsRef.current
       );
-      const result = await mergeCloudConversations(token, local, getDeletedConversationIds());
+      const deleted = getDeletedConversationIds();
+      const result = await syncConversations(token, local, deleted);
       lastCloudConvosUpdate.current = result.updatedAt;
 
       // Adopt the authoritative server tombstone set so a delete on any device
@@ -528,7 +557,10 @@ function SimpleChat({
       if (result?.conversations && Array.isArray(result.conversations)) {
         setConversations(prev => adoptSyncedConversations(prev, result.conversations, result.deletedIds));
       }
-      setCloudSyncStatus('synced');
+      // `trimmed` is the DEGRADED success: the conversations synced, but without
+      // the agent trace (see conversationWeight.js). Saying "✓ Synced" there would
+      // be a lie the user only discovers on their other device.
+      setCloudSyncStatus(result.trimmed ? 'trimmed' : 'synced');
     } catch (err) {
       console.warn('[Simple] Cloud conversations sync failed:', err);
       setCloudSyncStatus('error');
@@ -579,7 +611,9 @@ function SimpleChat({
             // "New Chat" every device starts with) merge their messages
             // instead of one copy silently overwriting the other.
             try {
-              const merged = await mergeCloudConversations(
+              // Same guard as the debounced save: a heavy local history must not
+              // make the FIRST sync on a new device fail outright.
+              const merged = await syncConversations(
                 user.token,
                 nonEmptyConversations(conversations),
                 getDeletedConversationIds()
@@ -588,11 +622,11 @@ function SimpleChat({
               if (merged?.conversations && Array.isArray(merged.conversations)) {
                 setConversations(prev => adoptSyncedConversations(prev, merged.conversations, merged.deletedIds));
               }
+              setCloudSyncStatus(merged.trimmed ? 'trimmed' : 'synced');
             } catch (convErr) {
               console.warn('[Simple] Failed to load cloud conversations:', convErr);
+              setCloudSyncStatus('error');
             }
-
-            setCloudSyncStatus('synced');
           }
         } else if (settings.cloudSync && user.token) {
           // Cloud is empty but local has sync enabled — push local settings up
@@ -1947,6 +1981,22 @@ function SimpleChat({
               // The handle Stop needs. Only a tool turn has one.
               activeRunIdRef.current = runId || null;
             },
+            onPlan: (plan) => {
+              // The plan REPLACES the previous one every time (the tool takes the
+              // whole list), so this is an assignment, not a merge — a checklist
+              // built by merging would keep steps the agent has re-ordered or
+              // dropped. The server already emitted it only when it changed.
+              if (!plan) return;
+              setConversations(prev => prev.map(c => {
+                if (c.id !== activeConversationId) return c;
+                return {
+                  ...c,
+                  messages: c.messages.map(m => (
+                    m.id === streamingMsgId ? { ...m, plan } : m
+                  )),
+                };
+              }));
+            },
             onApproval: (approval) => {
               // The turn is PARKED until this is answered, so reuse the chat's
               // existing confirmation panel (it already handles keys 1-9, Esc,
@@ -2299,6 +2349,28 @@ function SimpleChat({
 
   sendMessageRef._send = sendMessage;
 
+  /**
+   * "Try again" on a step the PC refused.
+   *
+   * Sends an ordinary user turn — deliberately not a re-dispatch. The cloud does
+   * not hold the step's arguments (they are redacted in the journal), a refusal is
+   * often a cue to CHANGE the request rather than repeat it, and the consent that
+   * matters happens on the machine that owns the resource. This asks again; the
+   * addon prompts again; the user may still say no. See retryMessage.js.
+   *
+   * `sendMessageRef._send` rather than `sendMessage` directly, matching the other
+   * late-bound sends in this file: `sendMessage`'s identity changes with its
+   * dependencies, and capturing it here would both churn this callback and risk a
+   * stale closure. The ref is refreshed on every render.
+   */
+  const handleRetryStep = useCallback((step) => {
+    // Null for anything that is not a re-askable refusal, so a step that should
+    // not have offered the button cannot send anything even if one renders.
+    const text = retryMessageFor(step);
+    if (!text) return;
+    Promise.resolve(sendMessageRef._send?.(text)).catch(() => {});
+  }, []);
+
   const stopGeneration = useCallback(async () => {
     if (isAddonConnected) {
       try { await apiStopGeneration(); } catch {}
@@ -2409,6 +2481,10 @@ function SimpleChat({
           isAddonOutdated={addonPromptOutdated}
           onReportMessage={handleReportMessage}
           onCopyMessage={handleCopyMessage}
+          // Undefined while a turn runs, which is what hides the button: you
+          // cannot re-ask while the agent is already working, and a dead button
+          // would be worse than none.
+          onRetryStep={isGenerating ? undefined : handleRetryStep}
         />
         )}
 

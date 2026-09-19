@@ -32,9 +32,17 @@
  *                while the model STILL wanted tools. The caller uses this to
  *                decide between "the answer is already in hand" and "ask for a
  *                prose wrap-up": a loop that ended with text needs no wrap-up.
+ *   overBudget   true when the loop stopped because the history outgrew the
+ *                context budget and trimming could not bring it back (see
+ *                `contextBudget.js`). Same wrap-up as `exhausted`, different
+ *                reason — and therefore a different notice.
+ *   contextTrims how many times a round's results forced a trim. Non-zero means
+ *                the turn was expensive; it is journalled for exactly that.
  */
 
 const { actNudgeFor, appendSystemNote } = require('../turnIntent.js');
+const { compactMessages, overBudget, maxContextChars } = require('./contextBudget.js');
+const { classifyToolOutcome, annotateResult, isRetrySafeTool, KINDS } = require('./toolOutcome.js');
 
 /**
  * Max tool-call rounds per turn (prevents runaway loops).
@@ -55,6 +63,15 @@ const MAX_TOOL_ROUNDS = 16;
 const TOOL_LIMIT_NOTICE = '\n\nTOOL LIMIT REACHED: you have used every tool round available for this turn. Reply to the user NOW in plain text — say what you changed, what could not be completed and why, and what to do next. Do not call any more tools, and do not output tool-call syntax, JSON, bracketed tool notes, or file contents.';
 
 /**
+ * Appended instead of `TOOL_LIMIT_NOTICE` when the turn ran out of CONTEXT
+ * rather than rounds — the round notice would be a lie (rounds remain), and a
+ * model that is told the wrong reason for a stop does the wrong thing with it.
+ * Wording that names the real cause is also the only way the user can tell the
+ * two apart in the reply.
+ */
+const CONTEXT_LIMIT_NOTICE = '\n\nCONTEXT LIMIT REACHED: this turn has grown too large to keep working — the history now exceeds what can be sent in one request. Reply to the user NOW in plain text — say what you changed, what could not be completed and why, and what to do next. Do not call any more tools, and do not output tool-call syntax, JSON, bracketed tool notes, or file contents.';
+
+/**
  * Output-token ceiling for a turn that has tools in play.
  *
  * The per-tier cap (1-4K) is sized for chat prose, but a tool call's ARGUMENTS
@@ -70,6 +87,28 @@ const TOOL_TURN_MAX_TOKENS = 16384;
 
 /** No-op sink so the loop never needs a logger to run (tests pass fakes). */
 const NOOP_LOGGER = { debug() {}, warn() {}, error() {} };
+
+/**
+ * Run one tool call and never throw: a throwing executor becomes a result.
+ *
+ * A throw used to reject the whole turn — the user saw a bare error and lost
+ * every step that had already succeeded. A tool failure is INFORMATION the model
+ * can act on, so it becomes the tool's result instead (classified by
+ * `harness/toolOutcome.js`).
+ */
+async function attemptToolCall({ executeToolCall, toolCall, toolContext }) {
+  try {
+    const outcome = await executeToolCall(toolCall, toolContext);
+    return {
+      fnName: outcome?.fnName || null,
+      fnArgs: outcome?.fnArgs ?? null,
+      result: String(outcome?.result ?? ''),
+      error: null,
+    };
+  } catch (err) {
+    return { fnName: null, fnArgs: null, result: `Error: ${err.message}`, error: err };
+  }
+}
 
 /**
  * Parse a tool call's JSON arguments.
@@ -112,11 +151,18 @@ function parseToolArguments(toolCall) {
  * @param {object|null} args.toolContext
  * @param {number} [args.maxRounds]
  * @param {(info: {toolCall: object, name: string, round: number, maxRounds: number}) => void} [args.onToolStart]  before execution
- * @param {(info: {toolCall: object, name: string, round: number, result: string, error: Error|null}) => void} [args.onToolEnd]  after execution
+ * @param {(info: {toolCall: object, name: string, round: number, result: string, error: Error|null, outcome: string|null, cause: string|null, retried: boolean}) => void} [args.onToolEnd]  after execution
+ *        `outcome` is the failure KIND (or null when it worked), `cause` is the
+ *        producer's refusal reason when it gave one, and `retried`
+ *        says the harness already repeated it once — see `harness/toolOutcome.js`
  * @param {() => boolean} [args.isCancelled]     checked BETWEEN rounds and before each tool
  * @param {(info: object) => Promise<{allow: boolean, reason?: string}|void>} [args.beforeTool]
  *        the approval gate; `{allow:false}` means the tool does NOT run and the
  *        model is told why
+ * @param {number|{maxChars: number}} [args.contextBudget]
+ *        character budget for the request. Defaults to `maxContextChars()`
+ *        (~50K tokens); `0` disables the governor entirely. Tests pass a small
+ *        one to drive the stop without generating tens of thousands of chars.
  * @param {{debug: Function, warn: Function}} [args.logger]
  */
 async function runToolLoop({
@@ -130,11 +176,31 @@ async function runToolLoop({
   onToolEnd = null,
   isCancelled = null,
   beforeTool = null,
+  contextBudget = undefined,
   logger = NOOP_LOGGER,
 }) {
   if (typeof call !== 'function' || typeof executeToolCall !== 'function') {
     throw new Error('runToolLoop requires `call` and `executeToolCall` functions.');
   }
+
+  const budgetChars = typeof contextBudget === 'number'
+    ? contextBudget
+    : (contextBudget?.maxChars ?? maxContextChars());
+
+  // Trim the history back under the budget, and report whether it is STILL over.
+  // Called between rounds, never mid-round: a half-applied edit plus a dropped
+  // result is worse than a slightly expensive request.
+  let contextTrims = 0;
+  const governContext = () => {
+    if (!(budgetChars > 0)) return false;
+    if (!overBudget(messages, budgetChars)) return false;
+    const trimmed = compactMessages(messages, { maxChars: budgetChars });
+    if (trimmed.changed) {
+      contextTrims++;
+      logger.debug?.(`📉 Context over budget — trimmed ${trimmed.omittedResults} tool result(s), dropped ${trimmed.droppedSteps} old step(s).`);
+    }
+    return trimmed.overBudget;
+  };
 
   const cancelled = () => !!(isCancelled && isCancelled());
 
@@ -142,6 +208,7 @@ async function runToolLoop({
   const toolResults = [];
   let rounds = 0;
   let nudgeUsed = false;
+  let stoppedByBudget = false;
 
   while (llmOptions?.tools && rounds < maxRounds) {
     // Cancellation is cooperative and only ever at a SAFE BOUNDARY: a tool is
@@ -180,6 +247,7 @@ async function runToolLoop({
 
       let outcome;
       let error = null;
+      let retried = false;
 
       if (cancelled()) {
         // Every tool the turn skips still gets a result. Leaving a tool_call
@@ -190,6 +258,7 @@ async function runToolLoop({
           fnName: requestedName,
           fnArgs: null,
           result: 'Cancelled: the user stopped the turn before this step ran.',
+          error: null,
         };
       } else {
         const verdict = beforeTool
@@ -200,19 +269,24 @@ async function runToolLoop({
             fnName: requestedName,
             fnArgs: null,
             result: `Denied: ${verdict.reason || 'the user did not approve this step.'}`,
+            error: null,
           };
         } else {
-          try {
-            outcome = await executeToolCall(toolCall, toolContext);
-          } catch (err) {
-            // A throwing executor used to reject the whole turn — the user saw a
-            // bare error and lost every step that had already succeeded. A tool
-            // failure is INFORMATION the model can act on, so it becomes the
-            // tool's result instead. (P6 of NET_HARNESS_PLAN.md classifies these
-            // into retry / re-plan / ask; for now they all read as errors.)
-            error = err;
-            logger.warn?.(`🔧 Tool "${requestedName}" threw — feeding the error back to the model: ${err.message}`);
-            outcome = { fnName: requestedName, fnArgs: null, result: `Error: ${err.message}` };
+          outcome = await attemptToolCall({ executeToolCall, toolCall, toolContext });
+
+          // A transient failure of a READ-ONLY tool is retried here, by the
+          // harness, without spending a model round — a flaky read should not
+          // cost a round trip through the model. Nothing else is ever repeated:
+          // "transient" describes the error, "safe to repeat" describes the TOOL
+          // (see toolOutcome.js — `generate_image` spends credits, `pc_do` drives
+          // the user's real machine).
+          const first = classifyToolOutcome(outcome);
+          if (first.retryable && isRetrySafeTool(outcome.fnName || requestedName)) {
+            retried = true;
+            logger.warn?.(`🔁 Tool "${requestedName}" failed transiently — retrying once (read-only, so repeating it cannot change state).`);
+            outcome = await attemptToolCall({ executeToolCall, toolCall, toolContext });
+          } else if (outcome.error) {
+            logger.warn?.(`🔧 Tool "${requestedName}" threw — feeding the error back to the model: ${outcome.error.message}`);
           }
         }
       }
@@ -220,16 +294,51 @@ async function runToolLoop({
       // Prefer the executor's own name: it is resolved from the same call the
       // provider made, so a missing `function.name` cannot mislabel a result.
       const name = outcome.fnName || requestedName;
-      toolResults.push({ tool: name, args: outcome.fnArgs, result: outcome.result });
+      error = outcome.error;
+
+      // A failure leaves carrying its KIND and the next move that kind implies.
+      // The tool's own message says what went wrong; this says what to do about
+      // it, which is the part a bare `Error: …` string never carried.
+      const classified = classifyToolOutcome({ result: outcome.result, error });
+      const result = classified.failed
+        ? annotateResult(outcome.result, classified.kind, { alreadyRetried: retried && classified.kind === KINDS.TRANSIENT })
+        : outcome.result;
+
+      toolResults.push({ tool: name, args: outcome.fnArgs, result });
       // `name` is what the flattened activity log labels the result with.
-      messages.push({ role: 'tool', tool_call_id: toolCall.id, name, content: outcome.result });
+      messages.push({ role: 'tool', tool_call_id: toolCall.id, name, content: result });
 
       if (onToolEnd) {
-        onToolEnd({ toolCall, name, round: rounds, result: outcome.result, error });
+        onToolEnd({
+          toolCall,
+          name,
+          round: rounds,
+          result,
+          error,
+          outcome: classified.failed ? classified.kind : null,
+          // The refusal CAUSE, when the producer labelled one (pcTools writes it
+          // as `Denied (<cause>):`). Null for every other failure — and null
+          // means UNKNOWN, so nothing may treat it as retryable.
+          cause: classified.cause || null,
+          retried,
+        });
       }
     }
 
     if (cancelled()) break;
+
+    // The governor, at the safe boundary and AFTER a round has added its
+    // results: trim the least-valuable bulk BEFORE paying for the next call.
+    // Trimming first is what keeps a long turn affordable rather than merely
+    // failing it; only when trimming cannot win do we stop for a prose wrap-up.
+    // (Only reached after a round of real work, so a chat turn carrying a big
+    // history still gets its answer instead of an unnecessary wrap-up call.)
+    if (governContext()) {
+      stoppedByBudget = true;
+      logger.warn?.('📉 Context budget exceeded and could not be trimmed below it — ending the turn for a prose wrap-up.');
+      break;
+    }
+
     response = await call(messages, llmOptions);
   }
 
@@ -238,8 +347,20 @@ async function runToolLoop({
   // to "the model stopped asking", which leaves its answer already in `response`.
   const stillAsking = response?.choices?.[0]?.message?.tool_calls;
   const exhausted = !wasCancelled && !!(llmOptions?.tools && rounds >= maxRounds && stillAsking?.length);
+  // A budget stop only counts as one if the model still wanted to work: a loop
+  // that was about to finish anyway is not a truncated turn.
+  const overBudgetStop = !wasCancelled && !exhausted && stoppedByBudget;
 
-  return { response, toolResults, rounds, nudged: nudgeUsed, exhausted, cancelled: wasCancelled };
+  return {
+    response,
+    toolResults,
+    rounds,
+    nudged: nudgeUsed,
+    exhausted,
+    overBudget: overBudgetStop,
+    contextTrims,
+    cancelled: wasCancelled,
+  };
 }
 
 module.exports = {
@@ -247,5 +368,6 @@ module.exports = {
   parseToolArguments,
   MAX_TOOL_ROUNDS,
   TOOL_LIMIT_NOTICE,
+  CONTEXT_LIMIT_NOTICE,
   TOOL_TURN_MAX_TOKENS,
 };

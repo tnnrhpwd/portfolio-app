@@ -596,6 +596,65 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
         cloudRelay.setAgentHandler(runGoalToCompletion);
     }
 
+    // …and expose ONE tool call, so a cloud `/net` turn can act on this PC
+    // without running the whole goal loop. It goes through `registry.executeTool`
+    // — the same call a local agent step makes — so the permission gate, the
+    // kill switch and dry-run all apply. A refusal THROWS, which the relay turns
+    // into the tool's error result, so the model sees "denied by permission
+    // policy" and can adapt instead of the turn dying.
+    if (cloudRelay && typeof cloudRelay.setToolHandler === 'function') {
+        cloudRelay.setToolHandler(async ({ tool, args } = {}) => {
+            if (!tool) throw new Error('tool name is required');
+            const outcome = await registry.executeTool(tool, args || {}, {
+                // A cloud dispatch waits ~120s for this answer, so an 'ask' prompt
+                // that nobody answers must expire BEFORE that — otherwise the cloud
+                // turn times out reporting "it may still be running", and a click on
+                // Approve minutes later would run an action from a turn that is gone.
+                // Expiring first turns the unknown into a definite refusal the model
+                // can act on. See AUTOMATION_SECURITY.md §7.1.2.
+                approvalTimeoutMs: require('./permissions').relayApprovalTimeoutMs(),
+            });
+            // executeTool's wrapper is { ok, result, error, mode, durationMs }.
+            // Report a failure as a THROW so the relay posts it as `error` and
+            // the cloud loop feeds it back to the model.
+            //
+            // A REFUSAL additionally carries its cause in the message, because
+            // this throw is the last place a field could have survived: the relay
+            // POSTs `{ error: err.message }` and the backend stores and returns
+            // strings. Without the token the cloud reverted to guessing the cause
+            // from the wording, and mis-read the kill switch and an expired prompt
+            // as faults. See refusal-wire.js.
+            if (outcome && outcome.ok === false) {
+                const { encodeRefusal } = require('./refusal-wire');
+                throw new Error(encodeRefusal(outcome.cause, outcome.error || `tool "${tool}" failed`));
+            }
+            return outcome && 'result' in outcome ? outcome.result : outcome;
+        });
+    }
+
+    // …and publish WHAT this machine can do, plus the policy that will decide,
+    // so the cloud can tell the model the truth instead of letting it guess tool
+    // names and promise outcomes this machine may refuse.
+    if (cloudRelay && typeof cloudRelay.setToolCatalog === 'function') {
+        const permissions = require('./permissions');
+        cloudRelay.setToolCatalog(() => {
+            let policy = null;
+            try {
+                const cfg = permissions.load();
+                policy = {
+                    categories: cfg.categories,
+                    dryRunMode: cfg.dryRunMode,
+                    autoApproveAll: cfg.autoApproveAll,
+                    globalKillSwitch: cfg.globalKillSwitch,
+                };
+            } catch { /* keep null — the cloud then says "unknown" rather than lying */ }
+            return {
+                tools: registry.list().map(t => ({ name: t.name, category: t.category })),
+                policy,
+            };
+        });
+    }
+
     app.post('/api/agent/run', async (req, res) => {
         try {
             const result = await runGoalToCompletion({

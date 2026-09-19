@@ -18,6 +18,11 @@
  *     (`simple-addon/server/automation/routing-classifier.js`), which owns the
  *     lexicon. Duplicating it here would create two sources of truth.
  *   - It makes no network calls and reads no globals.
+ *
+ * It DOES decide which brain takes a message when an addon is reachable, because
+ * that answer depends on *how* it is reachable: a locally connected addon gets
+ * first refusal (no hop at all), while one reachable only over the relay sends
+ * the message to the cloud harness (same hop, strictly more capable). See step 6c.
  */
 
 /** Every terminal/non-terminal destination a message can be routed to. */
@@ -228,8 +233,9 @@ export function routeMessage({
     return decide(ROUTE_KINDS.UNREACHABLE, 'qr-desktop-target-no-addon');
   }
 
-  // 6. Logic mode: let the addon's O-O-G-P-A loop try the message first —
-  //    unless it's a cloud-only intent (skip the expensive relay hop).
+  // 6. Which brain takes it. "Reachable" is not one condition: a locally
+  //    connected addon is the fast hands for PC work (no hop), while one only
+  //    reachable over the relay is better served by the cloud harness (6c).
   const addonReachable = isAddonConnected || isRemoteAddonOnline;
 
   // 6a. A short confirmation that follows a repository-tool turn continues THAT
@@ -243,11 +249,32 @@ export function routeMessage({
   }
 
   if (!hasImage && addonReachable) {
+    // 6b. Cloud-only intent: the addon cannot run it anyway, so skip the hop.
     const cloudOnly = isCloudOnlyIntent(text);
     if (cloudOnly) {
       const kind = provider === 'portfolio' ? ROUTE_KINDS.CHAT_CLOUD : ROUTE_KINDS.CHAT_LOCAL;
       return decide(kind, 'cloud-only-intent-skip-addon', 0.8, { cloudOnly: true, skippedAddon: true });
     }
+
+    // 6c. The addon is reachable ONLY through the relay — the browser is on a
+    //     phone or another machine. The cloud harness is the better brain here,
+    //     and it is NOT slower: it speaks the same relay, so reaching the PC costs
+    //     the same hop either way. What it adds is everything the addon's own loop
+    //     cannot do — the user's cloud data, this repository, and a PC action in
+    //     the SAME turn (`pc_do`) — plus a streamed answer, a visible step list, a
+    //     Stop button and an approval prompt the user can actually see.
+    //
+    //     The addon's own loop stays the fast path when the browser IS on that
+    //     machine (`isAddonConnected`): there, reaching it costs no hop at all and
+    //     its local classifier can disambiguate without a round trip.
+    //
+    //     Explicit "on my pc" phrasing never reaches here — step 4 already sent it
+    //     straight to the relay, which is the user saying which machine they mean.
+    if (!isAddonConnected && isRemoteAddonOnline) {
+      const kind = provider === 'portfolio' ? ROUTE_KINDS.CHAT_CLOUD : ROUTE_KINDS.CHAT_LOCAL;
+      return decide(kind, 'remote-addon-prefer-cloud-harness', 0.7, { skippedAddon: true });
+    }
+
     return decide(ROUTE_KINDS.AGENT, 'addon-reachable-logic-mode', 0.6);
   }
 

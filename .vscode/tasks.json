@@ -332,6 +332,326 @@
 			"type": "shell",
 			"command": "Remove-Item -Force tmp-merge-docs.cjs,tmp-verify.cjs,tmp-verify.txt,tmp-fix-coliseum.cjs,tmp-split-ui.cjs,tmp-split-ui2.cjs,tmp-clean-tasks.cjs,tmp-verify2.cjs,tmp-verify2.txt -ErrorAction SilentlyContinue; Get-ChildItem -Name tmp-*",
 			"group": "test"
+		},
+		{
+			"label": "verify-harness",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci harnessScenarios llmServiceStreamingTools toolLoop toolOutcome stepJournal contextBudget bedrockPromptCache bedrockService pcTools repoRunner turnControl | Out-File -Encoding utf8 ../tmp-verify.txt; Set-Location ..; Get-Content tmp-verify.txt | Select-String -Pattern 'Tests:|Test Suites:|FAIL'",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "verify-dispatch",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci addonDispatch back.test | Out-File -Encoding utf8 ../tmp-verify2.txt; Set-Location ..; Get-Content tmp-verify2.txt | Select-String -Pattern 'Tests:|Test Suites:|FAIL|✕|Expected|Received'",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "cleanup-harness",
+			"type": "shell",
+			"command": "Remove-Item -Force tmp-perm.txt,tmp-verify.txt,tmp-verify2.txt -ErrorAction SilentlyContinue; Remove-Item -Recurse -Force tmp-probe -ErrorAction SilentlyContinue; Get-ChildItem -Filter 'tmp-*' | Select-Object -ExpandProperty Name; Write-Output '--- remaining tmp ---'; Write-Output 'done'",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "status-check",
+			"type": "shell",
+			"command": "git status --short; Write-Output '--- new files ---'; git status --short | Select-String -Pattern '^\\?\\?'",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "verify-plan",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci planSurface toolOutcome stepJournal harnessScenarios llmServiceStreamingTools | Out-File -Encoding utf8 ../tmp-p5.txt; Set-Location ..; Get-Content tmp-p5.txt | Select-String -Pattern 'Tests:|Test Suites:|FAIL|✕|Expected|Received|toContain|toMatch'",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "find-anchor",
+			"type": "shell",
+			"command": "Select-String -Path backend/__tests__/harness/harnessScenarios.test.js -Pattern 'Helpers used by|^// ─┐|^let activeRes' | ForEach-Object { \"$($_.LineNumber): $($_.Line)\" }",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "verify-plan-ui",
+			"type": "shell",
+			"command": "node node_modules/jest/bin/jest.js --config package.json --ci frontend/src/components/SimpleAddon/PlanChecklist frontend/src/components/SimpleAddon/MessageBubble frontend/src/components/SimpleAddon/StepList | Out-File -Encoding utf8 tmp-fe2.txt; Get-Content tmp-fe2.txt | Select-String -Pattern 'Tests:|Test Suites:|FAIL|✕|Expected|Received|Unable to find'",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "verify-plan-build",
+			"type": "shell",
+			"command": "$c = Get-Content frontend/src/components/SimpleAddon/PlanChecklist.css -Raw; 'braces {0}/{1} comments {2}/{3}' -f ([regex]::Matches($c,'\\{')).Count,([regex]::Matches($c,'\\}')).Count,([regex]::Matches($c,'/\\*')).Count,([regex]::Matches($c,'\\*/')).Count; Set-Location frontend; npx vite build 2>&1 | Select-String -Pattern 'transformed|built in|error|Expected'; Set-Location ..",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "drop-dup",
+			"type": "shell",
+			"command": "node tmp-drop-dup.cjs",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "final-plan-check",
+			"type": "shell",
+			"command": "Remove-Item -Force tmp-drop-dup.cjs -ErrorAction SilentlyContinue; node node_modules/jest/bin/jest.js --config package.json --ci frontend/src/components/SimpleAddon/PlanChecklist | Out-File -Encoding utf8 tmp-final.txt; Get-Content tmp-final.txt | Select-String -Pattern 'Tests:|Test Suites:|FAIL'; Remove-Item -Force tmp-final.txt,tmp-p5.txt,tmp-fe2.txt -ErrorAction SilentlyContinue; Get-ChildItem -Filter 'tmp-*' | Select-Object -ExpandProperty Name",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "verify-all-p5",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci planSurface toolOutcome toolLoop contextBudget stepJournal turnControl harnessScenarios llmServiceStreamingTools bedrockPromptCache bedrockService pcTools repoRunner addonDispatch | Out-File -Encoding utf8 ../tmp-v1.txt; Set-Location ..; Get-Content tmp-v1.txt | Select-String -Pattern 'Tests:|Test Suites:|FAIL'; Write-Output '--- frontend ---'; node node_modules/jest/bin/jest.js --config package.json --ci frontend/src/components/SimpleAddon 2>&1 | Select-String -Pattern 'Tests:|Test Suites:|FAIL'",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "cleanup-p5",
+			"type": "shell",
+			"command": "Remove-Item -Force tmp-v1.txt,tmp-p5.txt -ErrorAction SilentlyContinue; Get-ChildItem -Filter 'tmp-*' | Select-Object -ExpandProperty Name; Write-Output 'no tmp files above this line is the goal'",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "verify-weight",
+			"type": "shell",
+			"command": "node node_modules/jest/bin/jest.js --config package.json --ci frontend/src/utils/simpleAddon/conversationWeight | Out-File -Encoding utf8 tmp-cw.txt; Get-Content tmp-cw.txt | Select-String -Pattern 'Tests:|Test Suites:|FAIL|✕|Expected|Received'",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "verify-weight-ui",
+			"type": "shell",
+			"command": "node node_modules/jest/bin/jest.js --config package.json --ci frontend/src/utils/simpleAddon/conversationWeight frontend/src/components/SimpleAddon 2>&1 | Select-String -Pattern 'Tests:|Test Suites:|FAIL|✕|Expected|Received'; Write-Output '--- build ---'; Set-Location frontend; npx vite build 2>&1 | Select-String -Pattern 'transformed|built in|error'; Set-Location ..",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "verify-sync-policy",
+			"type": "shell",
+			"command": "node node_modules/jest/bin/jest.js --config package.json --ci frontend/src/utils/simpleAddon/conversationWeight 2>&1 | Select-String -Pattern 'Tests:|Test Suites:|FAIL|✕|Expected|Received|at Object'",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "verify-final-slice",
+			"type": "shell",
+			"command": "node node_modules/jest/bin/jest.js --config package.json --ci frontend/src/utils/simpleAddon frontend/src/components/SimpleAddon 2>&1 | Select-String -Pattern 'Tests:|Test Suites:|FAIL'; Write-Output '--- build ---'; Set-Location frontend; npx vite build 2>&1 | Select-String -Pattern 'transformed|built in|error'; Set-Location ..; Remove-Item -Force tmp-cw.txt -ErrorAction SilentlyContinue; Get-ChildItem -Filter 'tmp-*' | Select-Object -ExpandProperty Name",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "verify-continuity",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci continuity 2>&1 | Out-File -Encoding utf8 ../tmp-cont.txt; Set-Location ..; Get-Content tmp-cont.txt | Select-String -Pattern 'Tests:|Test Suites:|FAIL|✕|Expected|Received|at Object'",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "verify-continuity-e2e",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci harnessScenarios continuity 2>&1 | Out-File -Encoding utf8 ../tmp-cont2.txt; Set-Location ..; Get-Content tmp-cont2.txt | Select-String -Pattern 'Tests:|Test Suites:|FAIL|✕|Expected|Received|at Object|●' | Select-Object -First 40",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "verify-turn-set",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci continuity harnessScenarios planSurface toolOutcome toolLoop contextBudget stepJournal turnControl llmServiceStreamingTools bedrockService bedrockPromptCache pcTools repoRunner addonDispatch planSurface | Out-File -Encoding utf8 ../tmp-all2.txt; Set-Location ..; Get-Content tmp-all2.txt | Select-String -Pattern 'Tests:|Test Suites:|FAIL'; Remove-Item -Force tmp-cont.txt,tmp-cont2.txt,tmp-all2.txt -ErrorAction SilentlyContinue",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "verify-stats",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci harnessStats 2>&1 | Out-File -Encoding utf8 ../tmp-hs2.txt; Set-Location ..; Get-Content tmp-hs2.txt | Select-String -Pattern 'Tests:|Test Suites:|FAIL|✕|Expected|Received|at Object'",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "verify-stats-endpoint",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci harnessStats harnessStatsEndpoint 2>&1 | Out-File -Encoding utf8 ..\\tmp-stats.txt; Select-String -Path ..\\tmp-stats.txt -Pattern 'Tests:|Suites:|✕|●' | Select-Object -First 40 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-stats-endpoint2",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci harnessStats harnessStatsEndpoint 2>&1 | Out-File -Encoding utf8 ..\\tmp-stats.txt; Select-String -Path ..\\tmp-stats.txt -Pattern 'Tests:|Suites:|✕' | Select-Object -First 20 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-stats-endpoint3",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci harnessStats harnessStatsEndpoint 2>&1 | Out-File -Encoding utf8 ..\\tmp-stats.txt; Select-String -Path ..\\tmp-stats.txt -Pattern 'Tests:|Suites:|✕' | Select-Object -First 20 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-route-order",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci routeOrdering back.test 2>&1 | Out-File -Encoding utf8 ..\\tmp-route.txt; Select-String -Path ..\\tmp-route.txt -Pattern 'Tests:|Suites:|✕' | Select-Object -First 20 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "cleanup-stats-temp",
+			"type": "shell",
+			"command": "Remove-Item -Force tmp-stats.txt,tmp-route.txt -ErrorAction SilentlyContinue; Get-ChildItem -Name tmp-*",
+			"group": "test"
+		},
+		{
+			"label": "cleanup-stats-temp2",
+			"type": "shell",
+			"command": "Remove-Item -Force tmp-hs2.txt -ErrorAction SilentlyContinue; $r = Get-ChildItem -Name tmp-* -ErrorAction SilentlyContinue; if ($r) { $r } else { 'no tmp files left' }",
+			"group": "test"
+		},
+		{
+			"label": "verify-harness-scope",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci csimple harnessStats harness toolLoop toolOutcome planSurface continuity bedrockPromptCache contextBudget 2>&1 | Out-File -Encoding utf8 ..\\tmp-final-hs.txt; Select-String -Path ..\\tmp-final-hs.txt -Pattern 'Tests:|Suites:|✕' | Select-Object -First 25 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "cleanup-harness-temp",
+			"type": "shell",
+			"command": "Remove-Item -Force tmp-final-hs.txt -ErrorAction SilentlyContinue; $r = Get-ChildItem -Name tmp-* -ErrorAction SilentlyContinue; if ($r) { $r } else { 'clean' }",
+			"group": "test"
+		},
+		{
+			"label": "verify-refusal-r1",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci toolOutcome toolLoop stepJournal harnessScenarios pcTools 2>&1 | Out-File -Encoding utf8 ..\\tmp-r1.txt; Select-String -Path ..\\tmp-r1.txt -Pattern 'Tests:|Suites:|✕|Cannot find' | Select-Object -First 30 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-addon-perms",
+			"type": "shell",
+			"command": "Set-Location simple-addon; npm run test:unit 2>&1 | Out-File -Encoding utf8 ..\\tmp-addon1.txt; Select-String -Path ..\\tmp-addon1.txt -Pattern 'PASS|FAIL|FAILED|Error|AssertionError' | Select-Object -Last 40 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-refusal-r2",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci pcToolsRefusal 2>&1 | Out-File -Encoding utf8 ..\\tmp-r2.txt; Select-String -Path ..\\tmp-r2.txt -Pattern 'Tests:|Suites:|✕|Expected|Received|at Object' | Select-Object -First 40 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-refusal-r3",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci pcToolsRefusal 2>&1 | Out-File -Encoding utf8 ..\\tmp-r3.txt; Select-String -Path ..\\tmp-r3.txt -Pattern 'Tests:|Suites:|✕|Expected|Received|at Object' | Select-Object -First 40 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-addon-perms2",
+			"type": "shell",
+			"command": "Set-Location simple-addon; node server/automation/permissions.test.js 2>&1 | Out-File -Encoding utf8 ..\\tmp-addon2.txt; Select-String -Path ..\\tmp-addon2.txt -Pattern 'FAIL|permissions.test:|AssertionError|Error:' | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-addon-perms3",
+			"type": "shell",
+			"command": "Set-Location simple-addon; node server/automation/permissions.test.js 2>&1 | Out-File -Encoding utf8 ..\\tmp-addon3.txt; Select-String -Path ..\\tmp-addon3.txt -Pattern 'FAIL|permissions.test:' | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-refusal-r4",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci harnessHarness toolOutcome toolLoop stepJournal pcToolsRefusal llmService 2>&1 | Out-File -Encoding utf8 ..\\tmp-r4.txt; Select-String -Path ..\\tmp-r4.txt -Pattern 'Tests:|Suites:|✕' | Select-Object -First 25 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-refusal-r5",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci __tests__/harness 2>&1 | Out-File -Encoding utf8 ..\\tmp-r5.txt; Select-String -Path ..\\tmp-r5.txt -Pattern 'Tests:|Suites:|✕|test\\.js' | Select-Object -First 25 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-addon-chain",
+			"type": "shell",
+			"command": "Set-Location simple-addon; npm run test:unit 2>&1 | Out-File -Encoding utf8 ..\\tmp-addon4.txt; $c = Get-Content ..\\tmp-addon4.txt; $fails = $c | Select-String -Pattern '^\\s*FAIL|^FAIL|Results: \\d+ passed, [1-9]\\d* failed|[1-9]\\d*/\\d+ PASS' ; if ($fails) { $fails | ForEach-Object { $_.Line } } else { 'no failures reported' }; $c | Select-Object -Last 3",
+			"group": "test"
+		},
+		{
+			"label": "verify-refusal-r6",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci pcToolsRefusal 2>&1 | Out-File -Encoding utf8 ..\\tmp-r6.txt; Select-String -Path ..\\tmp-r6.txt -Pattern 'Tests:|Suites:|✕|Expected|Received|at Object' | Select-Object -First 40 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-refusal-final",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci pcToolsRefusal toolOutcome toolLoop stepJournal llmService __tests__/harness 2>&1 | Out-File -Encoding utf8 ..\\tmp-final.txt; Select-String -Path ..\\tmp-final.txt -Pattern 'Tests:|Suites:|✕' | Select-Object -First 20 | ForEach-Object { $_.Line }; Set-Location ..; Remove-Item -Force tmp-r1.txt,tmp-r2.txt,tmp-r3.txt,tmp-r4.txt,tmp-r5.txt,tmp-r6.txt,tmp-addon1.txt,tmp-addon2.txt,tmp-addon3.txt,tmp-addon4.txt,tmp-stats.txt,tmp-route.txt,tmp-final.txt -ErrorAction SilentlyContinue; $r = Get-ChildItem -Name tmp-* -ErrorAction SilentlyContinue; if ($r) { 'LEFT: ' + ($r -join ', ') } else { 'temp clean' }",
+			"group": "test"
+		},
+		{
+			"label": "verify-fe-build",
+			"type": "shell",
+			"command": "Set-Location frontend; npx vite build 2>&1 | Out-File -Encoding utf8 ..\\tmp-fe.txt; Select-String -Path ..\\tmp-fe.txt -Pattern 'transformed|Build failed|error|Error' | Select-Object -First 20 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-fe-css",
+			"type": "shell",
+			"command": "$f='frontend/src/components/SimpleAddon/StepList.css'; $c=Get-Content $f -Raw; 'braces {0}/{1}  comments {2}/{3}' -f ([regex]::Matches($c,'\\{')).Count,([regex]::Matches($c,'\\}')).Count,([regex]::Matches($c,'/\\*')).Count,([regex]::Matches($c,'\\*/')).Count; Set-Location frontend; npx vite build 2>&1 | Out-File -Encoding utf8 ..\\tmp-fe2.txt; Select-String -Path ..\\tmp-fe2.txt -Pattern 'transformed|Build failed|Expected' | Select-Object -First 12 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-retry-tests",
+			"type": "shell",
+			"command": "node node_modules/jest/bin/jest.js --config package.json frontend/src/components/SimpleAddon/StepList.test.jsx frontend/src/utils/simpleAddon/retryMessage.test.js 2>&1 | Out-File -Encoding utf8 tmp-fe3.txt; Select-String -Path tmp-fe3.txt -Pattern 'Tests:|Suites:|✕|●' | Select-Object -First 30 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-retry-wiring",
+			"type": "shell",
+			"command": "node node_modules/jest/bin/jest.js --config package.json frontend/src/components/SimpleAddon/StepList.test.jsx frontend/src/utils/simpleAddon/retryMessage.test.js frontend/src/components/SimpleAddon/MessageBubble.test.jsx 2>&1 | Out-File -Encoding utf8 tmp-fe4.txt; Select-String -Path tmp-fe4.txt -Pattern 'Tests:|Suites:|✕|●' | Select-Object -First 30 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-be-reaskable",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci pcToolsRefusal toolOutcome toolLoop stepJournal llmService __tests__/harness 2>&1 | Out-File -Encoding utf8 ..\\tmp-be.txt; Select-String -Path ..\\tmp-be.txt -Pattern 'Tests:|Suites:|✕|Expected|Received' | Select-Object -First 30 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-retry-final",
+			"type": "shell",
+			"command": "node node_modules/jest/bin/jest.js --config package.json frontend/src/utils/simpleAddon/retryMessage.test.js frontend/src/components/SimpleAddon/StepList.test.jsx frontend/src/components/SimpleAddon/MessageBubble.test.jsx 2>&1 | Out-File -Encoding utf8 tmp-fe5.txt; Select-String -Path tmp-fe5.txt -Pattern 'Tests:|Suites:|✕|●' | Select-Object -First 30 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-continuity",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci continuity __tests__/harness pcToolsRefusal 2>&1 | Out-File -Encoding utf8 ..\\tmp-be2.txt; Select-String -Path ..\\tmp-be2.txt -Pattern 'Tests:|Suites:|✕|Expected|Received|at Object' | Select-Object -First 25 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "marker-a-continuity",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci continuity __tests__/harness pcToolsRefusal 2>&1 | Out-File -Encoding utf8 ..\\tmp-marker-a.txt; Write-Output '=== SUITES ==='; Select-String -Path ..\\tmp-marker-a.txt -Pattern 'Test Suites:|Tests:' | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "marker-b-frontend",
+			"type": "shell",
+			"command": "node node_modules/jest/bin/jest.js --config package.json frontend/src/components/SimpleAddon frontend/src/utils/simpleAddon 2>&1 | Out-File -Encoding utf8 tmp-marker-b.txt; Write-Output '=== SUITES ==='; Select-String -Path tmp-marker-b.txt -Pattern 'Test Suites:|Tests:|FAIL' | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "marker-c-final",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci continuity __tests__/harness pcToolsRefusal toolOutcome toolLoop stepJournal llmService harnessStats 2>&1 | Out-File -Encoding utf8 ..\\tmp-final2.txt; Set-Location ..; Write-Output '=== BACKEND ==='; Select-String -Path tmp-final2.txt -Pattern 'Test Suites:|Tests:|FAIL' | ForEach-Object { $_.Line }; node node_modules/jest/bin/jest.js --config package.json frontend/src/components/SimpleAddon frontend/src/utils/simpleAddon 2>&1 | Out-File -Encoding utf8 tmp-final3.txt; Write-Output '=== FRONTEND ==='; Select-String -Path tmp-final3.txt -Pattern 'Test Suites:|Tests:|FAIL' | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "marker-d-cleanup",
+			"type": "shell",
+			"command": "Remove-Item -Force tmp-marker-a.txt,tmp-marker-b.txt,tmp-marker-c.txt,tmp-be.txt,tmp-be2.txt,tmp-fe.txt,tmp-fe2.txt,tmp-fe3.txt,tmp-fe4.txt,tmp-fe5.txt,tmp-final2.txt,tmp-final3.txt,tmp-cont.txt -ErrorAction SilentlyContinue; $r = Get-ChildItem -Name tmp-* -ErrorAction SilentlyContinue; if ($r) { 'LEFT: ' + ($r -join ', ') } else { 'temp clean' }",
+			"group": "test"
 		}
 	]
 }

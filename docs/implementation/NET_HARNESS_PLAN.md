@@ -1,6 +1,11 @@
 # `/net` as an agent harness — plan
 
-**Status:** P0 + P0b **shipped** 2026-09-18 (see the notes in those phases); P1–P7 not started.
+**Status (updated 2026-09-18):** P0, P0b, P1, P3, P4, P5, P6 **shipped**, plus a
+P0 follow-up (**continuity** — the previous turn carried into the next, which also
+makes the journal readable); P2 **shipped** (steps 1–3, and the routing question
+settled in Layer 3h); P7's scenario suite, its security pass and its **metrics**
+**shipped**, leaving only the P4 prefix diet (`/net` turn telemetry is now readable
+in aggregate — see §P7).
 Written 2026-09-18.
 **Scope:** the cloud `/net` chat becomes a real agent harness — one loop that can
 answer, act on the site, change this repository, and drive the desktop addon —
@@ -70,13 +75,13 @@ Measured facts that the plan is built on (2026-09-18):
 | **G1** | No step protocol. `progress` carries one label; `tools` carries `{tool, args, success}` after the fact; `_toolsExecuted` is the summary | the UI cannot render a step list; a run cannot be reviewed; failures are invisible |
 | **G2** | No cancellation. The client has "stop generation" for the token stream, but the backend tool loop keeps running model calls and executing tools | a wrong turn burns 18 model calls and can still write files |
 | **G3** | No approval on the cloud side. `toolScopes.js` is capability gating (admin vs not), not policy (ask/allow/deny per tool) | `repo_commit_changes` runs because you are an admin, never because you were asked |
-| **G4** | The addon plane is unreachable from the cloud loop. `routeMessage` sends a message to *either* the addon's own loop *or* the cloud | "open notepad, then summarise the file you just read" is impossible in one turn |
-| **G5** | The relay's shape is wrong for per-tool dispatch (3 s poll × up to 16 rounds ≈ 48 s of pure polling) | naive G4 implementation would make every PC-touching turn feel broken |
+| **G4** | ~~The addon plane is unreachable from the cloud loop.~~ **Closed 2026-09-18** — `pc_status`/`pc_do` (P2) plus the routing split (Layer 3h): a relay-only addon hands the turn to the cloud harness, which can now act on both planes in one turn | "open notepad, then summarise the file you just read" works from a phone |
+| **G5** | The relay's shape is wrong for per-tool dispatch (3 s poll × up to 16 rounds ≈ 48 s of pure polling) | fixed by the adaptive poll (P2 step 1): idle 3 s → hot 500 ms |
 | **G6** | No execution. `repo_*` can search/read/edit/commit but cannot run a build or a test | property #5 cannot be met; verification is re-reading |
-| **G7** | No prompt caching (`cachePoint` appears nowhere in the backend); compaction is a 150-char-per-message truncation | the prefix is re-billed 18×; long chats lose tool results first |
-| **G8** | No plan surface. Multi-step work is invisible until the reply | the user cannot see or correct a plan mid-flight |
-| **G9** | Recovery is a single nudge, with no failure taxonomy | a failed tool call is described to the model as a string, not classified into retry / re-plan / ask |
-| **G10** | No harness-level evals — only addon scenarios and hand-written regression tests | phases below cannot be proven, only asserted |
+| **G7** | ~~No prompt caching (`cachePoint` appears nowhere in the backend); compaction is a 150-char-per-message truncation~~ **Closed 2026-09-18** (P4) — cache points on the system block + tool specs, and size-aware compaction that thins old tool results before dropping old steps | the cached prefix is charged once per turn, not 18×; a long chat keeps its tool evidence |
+| **G8** | ~~No plan surface. Multi-step work is invisible until the reply~~ **Closed 2026-09-18** (P5) — `set_plan` publishes the plan as a checklist above the step list, live, and it is persisted with the turn | the user can see the *intent* and correct it mid-flight, not just review the steps |
+| **G9** | ~~Recovery is a single nudge, with no failure taxonomy~~ **Closed 2026-09-18** (P6) — a failure is classified into five kinds, each with the next move its kind implies, and a transient failure of a read-only tool is retried by the harness itself | "why did it stop?" is answerable from the journal; a refusal is never retried |
+| **G10** | ~~No harness-level evals — only addon scenarios and hand-written regression tests~~ **Scenario suite shipped 2026-09-18** (P7), **metrics shipped 2026-09-18** (`harnessStats.js` + the admin-only `GET /csimple/harness/stats`); only the P4 prefix diet remains | the six §0 properties are each falsifiable by a named test |
 
 ## 3. Target architecture
 
@@ -188,12 +193,67 @@ lifecycle, ring bounds, store-down tolerance), `StepList.test.jsx` (9 cases incl
 "a private argument is never rendered"), and the existing streaming suite's SSE
 assertions.
 
-**Still owed:** the chat history does not carry `steps` back on reload — the
-record is in the run ring, not the conversation. Reading it back into a reopened
-conversation is a small follow-up (`readRuns` + a route).
+**Still owed:** ~~the chat history does not carry `steps` back on reload~~
+**Resolved 2026-09-18, both ways round.** The steps DO come back on reload — they
+ride on the message object, which persists through localStorage and the cloud
+conversation merge, so no read path was ever needed (see the note in P5). What was
+genuinely missing is that nobody could READ THE JOURNAL: `readRuns` had no
+production caller, so a durable per-turn record existed that nothing could look at.
+That is fixed by continuity (below) — the first reader, and a behavioural one.
 
 **Risk:** touching both loops again — the two-tool-loop drift this repo has
 already been bitten by twice. Mitigation: P0 *first* collapses them (see P0b).
+
+### P0 follow-up — continuity: the previous turn, carried forward ✅ shipped 2026-09-18
+
+The gap this closes is not archival, it is conversational. `/net` sends the model
+the visible PROSE of the conversation and nothing else — plans, steps and failures
+live on the assistant's message, not in the transcript — so this was impossible:
+
+```
+user: "raise the goal limit"   → plan published, 3 steps, edit + test run
+user: "keep going"             → the model has never heard of any of it
+```
+
+A programming harness does not have that hole (its context window *is* the
+session). This closes it the cheap way: one compact note describing only what is
+**unfinished**, built from the most recent run in the journal.
+
+Three rules decide what earns a place, and all three are about noise — a note that
+appears on every turn is a note the model learns to skim past:
+
+1. **Only an unfinished plan is news.** All-`done` is a completed task; saying so
+   costs tokens to tell the model nothing. `blocked` counts as unfinished: it is
+   waiting on someone.
+2. **Only failures and a cancellation are news.** A turn whose steps all succeeded
+   needs no narration — the user watched it happen.
+3. **It is a prompt, not a log.** Two lines, bounded at 600 chars, in the second
+   person: what is outstanding, and which step failed *by kind* (`pc_do
+   (permission)`, not "it failed"). Never the steps that worked.
+
+Two details worth knowing. A **stopped** turn is called out as the user's decision,
+so the model does not re-plan work they deliberately cancelled. And a **refusal**
+carries its instruction forward — "do not retry a refused step on your own" —
+because by the next turn the previous turn's `permission` classification is the
+only place that fact still exists.
+
+`harness/continuity.js` is pure and total; the read is wrapped so an unreadable
+journal degrades to no note rather than a failed turn, the same rule the journal
+itself follows. Cost: one DynamoDB read on tool-capable turns only.
+
+**Provable by:** `continuity.test.js` (17) — mostly asserting *silence* (a clean
+turn, a chat turn, no previous run, an all-done plan), plus the resume phrasing, the
+blocked case, the bounds, and malformed records; and 4 end-to-end scenarios driving
+two real turns — turn 1 publishes a plan and leaves it unfinished, turn 2's system
+prompt carries it forward with the resume instruction; a refusal comes forward with
+its kind; a clean turn adds nothing; and an unreadable journal neither breaks the
+turn nor adds a note.
+
+**A real bug this found:** the first version read `req.user.id`, and
+`callLLMApi` (the non-streaming route) has no `req` — caught by the existing
+streaming-tools suite on the first run. Both routes now take the user from
+`toolContext.userId`, which `buildToolContext` fills from `req.user.id` for both, so
+the two paths cannot each invent their own source.
 
 **P0b — collapse the duplicate loop.** ✅ shipped 2026-09-18
 
@@ -265,44 +325,95 @@ cancel mid-turn, and disconnect.
 approval needs the connection to survive. Heartbeat SSE comments every 15 s plus
 a 3-minute self-deny, both `unref`'d so neither holds the process open.
 
-### P2 — The addon capability plane
+### P2 — The addon capability plane ⏳ steps 1–3 shipped 2026-09-18
 
 **Goal:** property #4, without G5's latency disaster.
 
-- **Transport:** new relay command kind `tool` in
-  `addonRelayController.js`'s `VALID_TYPES`, handled in `cloud-relay.js` beside
-  `agent_run`, executing through `tool-registry.js` `executeTool` — i.e. through
-  the **real** permission gate, never around it.
-- **Latency, honestly:** the idle poll is 3 s. Three mitigations, in order:
-  1. **Adaptive poll.** While the backend reports an active turn for this
-     device, the addon polls at 500 ms (the `POLL_INTERVAL_ACTIVE = 1000`
-     constant already exists, unused). This alone takes a 6-step turn from ~18 s
-     of polling to ~3 s.
-  2. **Batch within a round.** The loop groups independent addon steps from one
-     model response into one relay command and gets back an array of results.
-  3. **Push channel when present.** The addon already streams
-     `GET /api/agent/events` (SSE) to the browser; a cloud→addon push needs the
-     reverse. Deferred to P2c, and only if 1+2 do not suffice.
-- **Tool exposure:** the cloud loop offers a **capability-shaped** subset, not
-  all 40 tools — exposing `shell_run` schema-by-schema would add ~3–4K tokens to
-  the prefix that is already the dominant cost. The addon advertises its
-  *capability summary* (it already computes one:
-  `capability-summary.js` → categories + tool counts) and the cloud offers one
-  coarse tool per category it needs (`pc_read`, `pc_input`, `pc_browser`,
-  `pc_skill`), whose args include the concrete tool name, validated addon-side
-  against the same registry. **Token cost: ~4 schemas instead of 40.**
-- **Disambiguation is preserved:** if the addon's classifier says
-  `needsDisambiguation`, the harness surfaces the question as an approval-style
-  step rather than guessing.
+**Shipped:**
 
-**Provable by:** addon-side test that a relayed `tool` command goes through
-`requestApproval` (a category set to `deny` must refuse a relayed call exactly
-as it refuses a local one); a cloud-side test that a `pc_*` step with no addon
-online produces a clear "your PC isn't connected" step, not a retry storm.
+- **Step 1 — the adaptive poll (`simple-addon/server/cloud-relay.js`).** The
+  relay polled on a fixed 3 s interval, so a 6-step PC task paid 6 × 3 s before
+  anything happened. It is now a self-scheduling timeout with two inputs: a
+  server hint (`pollMs`, returned by `/addon/pending` only when it actually
+  handed work over) and a local 15 s hot window that opens whenever a command
+  arrives or runs. Idle 3 s → hot 500 ms, and the hint is **clamped** both ways so
+  a bad value cannot make an addon hammer the queue (or fall asleep for a
+  minute).
+- **Step 2 — the `tool` relay kind.** `dispatchToolToAddon()` (in
+  `addonRelayController.js`) picks the freshest *online* device from the existing
+  registry, enqueues one `tool` command on the queue the relay already drains,
+  and waits for the result. The addon branch calls an injected tool handler which
+  `mountAutomation` wires to **`registry.executeTool`** — the same call a local
+  agent step makes, so `permissions.js` (category modes, per-tool overrides,
+  dry-run, the shell allow/deny list, the kill switch, audit logging) applies
+  unchanged. A refusal throws, which the relay posts as the command's `error`, so
+  the model reads "Denied by permission policy…" and adapts.
 
-**Risk:** this is the one phase that widens the attack surface. It must be
-drafted against `AUTOMATION_SECURITY.md` and reviewed as its own document before
-merge (P7).
+**Deliberately not done yet:**
+
+- **No batch of addon steps within a round**, and **no push channel**. The FIRST
+  dispatch of a turn still waits up to one idle interval (≤3 s); every subsequent
+  one in the burst is ~0.5 s. Deferred until it is the thing actually hurting.
+- ~~**Routing is unsettled.**~~ **Settled 2026-09-18** — split by *how* the addon
+  is reachable, so the answer is not "which brain wins" but "is there a hop".
+  A locally connected addon keeps first refusal (step 8 of the cascade): reaching
+  it costs no hop at all and its own classifier disambiguates without a round
+  trip. An addon reachable **only through the relay** — the browser is on a
+  phone or another machine — now routes to the **cloud harness** (step 7): it
+  speaks the same relay, so it cannot be slower on the PC hop, but unlike the
+  addon's loop it can also touch the user's cloud data and the repository, in the
+  same turn. Being cloud-side it also streams, shows steps, offers Stop and puts
+  approvals somewhere visible. Explicit "on my PC" phrasing is untouched — step 4
+  sends it to the relay because naming the PC names the machine.
+
+  **Trade-off taken:** a remote user no longer gets the addon's *local* model
+  loop, so the answer to a PC-shaped message now costs a cloud round trip even
+  when the addon could have handled it offline. Accepted because on that path the
+  addon was never local to the *browser* anyway: it already had to reach the
+  cloud to receive the message. Untested against a real phone + real addon — no
+  addon was present. The next real remote session should confirm the `pc_do` hop
+  lands inside the turn budget.
+
+**Step 3 — the tool surface (`backend/services/pcTools.js`).** Two tools, not
+forty: `pc_status` (what the PC offers, by category, **with the user's real
+policy** — read from the addon's own `permissions.load()`, so nothing is
+duplicated) and `pc_do` ({tool, args}, dispatched over the relay). The addon
+publishes its catalog **on the heartbeat**, so the model never guesses a tool name
+and can say "this will ask you on your PC" before promising anything; a name the
+PC does not have is refused *before* a dispatch, so a typo cannot raise an
+approval prompt for a tool that does not exist. A refusal and a timeout are
+phrased differently on purpose — one is a decision, the other is an unknown, and
+repeating a PC action is how it happens twice. The heartbeat payload is validated
+and bounded server-side (it is a POST body that ends up in a prompt).
+
+**Still owed for P2:** batching + the push channel (both optional) and a live
+remote session to confirm the routing change (the split above is unit-tested, not
+field-tested — no addon was present). The security pass is **done** (P7 below),
+and it closed the approved-late hole this section used to leave open.
+
+---
+
+#### P2 historical notes (steps 1–2)
+
+**Shipped:**
+
+- **No `pc_*` tool is exposed to the model** — so nothing about `/net`'s
+  behaviour has changed yet. The transport exists; the surface does not. That is
+  the point of doing it in this order: the plumbing lands and is tested before
+  anything can call it.
+- **No push channel.** The FIRST dispatch of a turn still waits up to one idle
+  interval (≤3 s); every subsequent one in the burst is ~0.5 s. Removing that
+  last gap needs a long-poll or a cloud→addon push, and is deferred until it is
+  the thing actually hurting.
+- **The security pass** over the exposed surface (P7's gate) — it belongs with
+  the tool schemas, not with the transport.
+
+**Provable by:** `simple-addon/server/cloud-relay.test.js` (22 cases: cadence,
+clamping, hint adoption, the hot window, the `tool` kind, a denied tool posting
+as an error, re-delivery dedupe) and `backend/__tests__/unit/addonDispatch.test.js`
+(10: device selection preferring online, clear answers for no-device/offline, the
+full round trip, an `error` result read as failure, a timeout that does not hang
+the turn, queue pruning, and an empty-string result being a real answer).
 
 ### P3 — Verification: an allowlisted runner ✅ shipped 2026-09-18
 
@@ -335,49 +446,157 @@ directly rather than only through a spawn.
 **Still owed:** the whole-suite addon run, and a `repo_run` case driven live
 against the real queue (tests only, so far).
 
-### P4 — Context and cost governance
+### P4 — Context and cost governance ⏳ shipped 2026-09-18 (except the prefix diet)
 
 **Goal:** property #6.
 
-- **Prompt caching (`cachePoint`)** on `system` + `toolConfig.tools` in
-  `bedrockService.js`, gated on a model allowlist and an env flag, with a
-  fallback to the current shape on any validation error. Deferred from the
-  token-economics pass precisely because it needs a live check; this phase is
-  where that check happens.
-- **Compaction with tool-awareness:** replace `compressConversationHistory`'s
-  150-char truncation. New rule: drop *older tool results first* (they are the
-  large, stale items) and keep user/assistant prose; a tool result survives
-  summarisation as one line (`repo_read_file src/x.js → 1200 lines`).
-- **Per-turn budget governor:** before each round, compute an input estimate
-  (prefix + history) and stop *early* with a prose wrap-up instead of hitting
-  `MAX_TOOL_ROUNDS` at maximum context. `TOOL_LIMIT_NOTICE` already exists as the
-  graceful exit; this makes it a budget decision rather than a round counter.
-- **Prefix diet:** audit the 4,249 tokens of schemas for descriptions that can
-  be shortened without losing the rule they encode (the long ones encode hard-won
-  behaviour — `save_goal`, `update_memory` — so this is a surgical pass with the
-  prompt tests as the guard, not a bulk trim).
+**Shipped:**
 
-**Provable by:** cost/latency telemetry per turn before/after (the harness
-records `inputTokens`, `rounds`, `cachedTokens`); a test that compaction keeps
-the last user turn verbatim and drops only tool results.
+- **`harness/contextBudget.js` — compaction that loses the least, in order.**
+  The old rule (`compressConversationHistory`) counted *messages* (>30) and then
+  chopped every middle message to 150 characters. Both halves were wrong: a turn
+  with six tool rounds is fourteen tiny messages while a turn that read one 40 KB
+  file is a single huge one, so the count was never a proxy for cost — and the
+  chop hit the model's own prose and the tool evidence identically, oldest first,
+  so the record of what *happened* went before the chatter. Replaced with, in
+  order of least loss:
+  1. **thin** an old tool result — keep the message, keep its `tool_call_id`,
+     keep the first line ("Error: 3 of 40 assertions failed", "PASSED", a diff
+     header) and drop the bulk. The model still knows what it knows.
+  2. **drop** an old tool step — the assistant's `tool_calls` message and every
+     result answering it go **together**, replaced by one line naming the tools.
+  3. **stop**. Whatever is still over budget is reported, not mangled: a single
+     enormous pasted message can only be resolved by the user, and silently
+     truncating what they just sent is worse than saying so.
 
-### P5 — Plan surface
+  The invariant is **never one half of a pair**: an `assistant.tool_calls` message
+  must be followed by a `role:'tool'` message per call id, so breaking that is a
+  hard provider error, not a degradation. A pair whose result is missing is left
+  alone rather than half-removed. `system` messages, the last user message and the
+  newest three results are never touched.
+- **The governor, in `toolLoop.js`.** After each round adds its results and
+  *before* the next call is paid for, the loop trims; only if trimming cannot win
+  does it stop and hand back `overBudget: true`. It reports `exhausted`
+  separately, so the caller can't tell the model the wrong reason — a model told
+  "no rounds left" when rounds remain answers the wrong question. Hence a second
+  notice, `CONTEXT_LIMIT_NOTICE`, used for the budget stop and only that.
+- **Prompt caching (`bedrockPromptCache.js`, used by both entry points of
+  `bedrockService.js`).** A `cachePoint` after the system block and after the last
+  tool spec, so the ~4.2K tokens of schemas and the whole harness prompt stop being
+  re-billed on every round (up to 18 of them). Cache reads cost 10% of input;
+  writes cost 125%, so this is a ~8× cut on the dominant term of a long turn.
+  Four guards, because a wrong cache point is a hard `ValidationException` on the
+  user's turn: a **model allowlist**, a **minimum prefix size** (~2K tokens, below
+  which nothing is cached anyway), an **env switch** (`BEDROCK_PROMPT_CACHE=0` off,
+  `=1` on regardless of the allowlist), and a **latch** — a rejection retries the
+  same request without the point, disables caching for the process, and logs it.
+  So a wrong guess costs one doubled round trip once, not a broken turn.
+  ⚠️ **Not verified live** — no model call was made. The latch is what makes that
+  acceptable to ship; the first real turn either confirms the allowlist or
+  self-disables and says so in the log.
+
+**Still owed:**
+
+- **The prefix diet** — auditing the 4,249 tokens of tool schemas for descriptions
+  that can be shortened without losing the rule they encode. Still pending, and
+  now *less* urgent than it was: with caching on, that prefix is charged once per
+  turn instead of once per round, which is where most of the 18× multiplier came
+  from. It reduces the cached-write cost, not the per-round cost.
+- **The live check.** Made checkable rather than assumed: `fromBedrockResponse` now
+  surfaces `usage.cached_tokens` and `usage.cache_write_tokens`, so round 2 of a
+  tool turn should report a non-zero `cached_tokens` (≈the 4.7K prefix). A zero
+  there means the guards declined or the latch fired — both of which log why.
+
+**Provable by:** `contextBudget.test.js` (14) — the order of loss, the
+no-half-pair invariant, idempotency, and the refusal to touch the user's own
+message; `toolLoop.test.js` governor cases (5) — thins and continues, stops when
+it must, keeps a legal history, a budget of `0` disables it, and a chat turn over
+budget still gets its answer; `bedrockPromptCache.test.js` (13) — all four guards
+and a retry driven through the real adapter.
+
+### P5 — Plan surface ✅ shipped 2026-09-18
 
 **Goal:** property #2's other half — the *plan*, not just the steps.
 
-- New cloud tool `set_plan` (public), mirroring the harness's own todo list:
-  `{items: [{id, text, status}]}` with statuses `pending | in_progress | done |
-  blocked`. The loop is instructed to set a plan before a multi-step task,
-  update it as it goes, and keep **exactly one** `in_progress`.
-- Rendered as a compact checklist above the step list; on a long turn this is
-  what makes the agent legible.
-- Persisted with the turn record (P0) so a reopened conversation shows the plan
-  it ran.
+**Shipped.** `set_plan` (public, `netTools.js`) publishes
+`{items: [{text, status}]}` with `pending | in_progress | done | blocked`, and the
+plan renders above the step list as a checklist (`frontend/src/components/SimpleAddon/PlanChecklist.jsx`, CSS, and `Net.jsx` → `SimpleChat.jsx` → `MessageBubble`).
 
-**Provable by:** a scripted test that a 4-step task emits a plan, updates it, and
-ends with no `in_progress`; a UI test for the blocked state.
+The design decision that shaped everything: **the plan is the model's own words
+about its own work, so it must never be able to fail a turn.** A malformed plan is
+normalised, not rejected — the realistic inputs are misspelled statuses, two steps
+marked current, a list that is too long, and prose in the wrong field, and the
+answer to all of them is a usable checklist plus a NOTE. Silently correcting the
+model would teach it nothing and the same mistake would repeat next turn, so the
+notes travel back in the tool result.
 
-### P6 — Failure taxonomy and recovery
+- `harness/planSurface.js` is pure and total — `normalisePlan`, `renderPlan`,
+  `planChanged`, `summarisePlan`; no throws, no I/O, no clock. That is what lets the
+  tool executor, the SSE emitter and the turn record agree on one shape without any
+  of them owning validation.
+- **Status spellings are coerced** (`In Progress`, `in-progress`, `completed`,
+  `stuck`, …). A rejected plan teaches the model only that `set_plan` is
+  unreliable, and the whole point of the tool is to make it *report* its intent.
+  An unknown status becomes `pending` — never claim work that may not have happened.
+- **Exactly one `in_progress`, enforced by keeping the LATER one.** The checklist is
+  where the user looks to see where the agent is; two markers make that
+  unanswerable. The later one wins because a model that marks two has moved on from
+  the first.
+- **The tool result is the only prompt about keeping it current**, and it arrives
+  exactly when that reminder is worth having — including the failure the tool most
+  needs to prevent: *"nothing is marked in progress, but steps remain"*.
+- **The plan lives on the tool CONTEXT, not in a table.** It belongs to the turn: it
+  is what this turn said it would do, and it means nothing apart from the steps that
+  carried it out. A second `set_plan` in the same turn replaces the first, which is
+  the update semantics the description promises.
+- **Emitted only when it changed** (`planChanged`), so the checklist redraws three
+  times in a three-revision turn rather than on every step — and it is emitted from
+  inside the step hook rather than as a second `onToolEnd`, because the journal's
+  hooks are spread in and a second one would silently replace them (taking the step
+  records with it).
+- Persisted with the run (`finishRun(run, { plan })`), stored *beside* the steps it
+  explains. `MessageBubble` renders `PlanChecklist` above `StepList`, which is the
+  order a user asks the two questions in: what is it doing, then what did it do.
+
+**Rehydration: already works, and verifying that found a bug worth more than the
+feature.** I had recorded "rehydrating the plan (or the steps) into a reopened
+conversation" as owed. Checking instead of assuming showed it was already true: the
+fields live on the MESSAGE object, and /net conversations persist wholesale through
+localStorage *and* the cloud conversation merge (which stores whole message objects
+with no field whitelist, so `steps` and `plan` ride along). Nothing was needed.
+
+What the check did find is the cost of that: the sync store keeps one row per user,
+compresses above 100 KB and **rejects above 380 KB** — and the agent trace is now
+part of every tool turn (~300-500 bytes per step, up to 16 per turn, plus the plan).
+The failure mode was the bad one: the save throws, the client logs a `console.warn`,
+and the user's conversations quietly stop syncing between devices, with nothing on
+screen to say so.
+
+Fixed by degrading rather than failing (`frontend/src/utils/simpleAddon/conversationWeight.js`
++ the sync path in `SimpleChat.jsx`): send the full payload, and if the server
+refuses it as too large, retry **once without the agent trace** and report a
+`trimmed` status instead of a clean one. The trade-off is the same one the backend
+journal already makes — **the agent trace is a live view, the conversation is the
+record** — and the full record for the last 10 turns is in the run ring anyway. A
+pre-emptive strip covers only the payload that cannot possibly fit; everything else
+is left to the server's own answer, because guessing its compression ratio would
+either lose detail for nothing or keep failing.
+
+**Provable by:** `conversationWeight.test.js` (13) — that stripping removes *only*
+`steps`/`plan`, that it never mutates the live conversation (which is still on
+screen showing those steps), that odd shapes survive, and that a 413 is told apart
+from a 500 so a real failure is never hidden behind a "successful" degraded sync.
+
+**Provable by:** `planSurface.test.js` (25) — the coercions, the bounds, the
+multiple-in-progress rule, the never-throws table, the warnings, and change
+detection; `harnessScenarios.test.js` adds 4 end-to-end cases driving the **real**
+`set_plan` executor through the real route — a plan published, updated and finished
+with nothing in progress, one `plan` event per change, the checklist handed back to
+the model, and no plan at all for a one-tool or chat turn; `PlanChecklist.test.jsx`
+(9) plus 2 `MessageBubble` cases, one of which pins the WIRING (a plan that arrived
+but was never passed down would render nothing and fail silently).
+
+### P6 — Failure taxonomy and recovery ✅ shipped 2026-09-18
 
 **Goal:** G9 — make a failure a decision, not a string.
 
@@ -389,10 +608,161 @@ ends with no `in_progress`; a UI test for the blocked state.
 - Every classification lands in the journal, so "why did it stop?" is answerable
   from the record.
 
-**Provable by:** a table-driven test over the taxonomy with a fake tool layer;
-plus one live scenario per class.
+**Shipped, with three changes to the above:**
 
-### P7 — Evals, metrics and hardening
+1. **The taxonomy's job is the INSTRUCTION, not the label.** Five kinds need five
+   different next moves, and a bare `Error: …` carries none of them. So every
+   failure leaves the loop with its kind and a one-line instruction written for
+   that kind ("do not retry it and do not rephrase it"; "Do NOT repeat the same
+   name: establish the correct one first"; "Fix them and retry once"). The label
+   is an implementation detail — the instruction is the feature.
+2. **Retrying is a decision, not a reflex.** Only a `transient` failure of a
+   **read-only** tool is retried by the harness, once, below the model (a flaky
+   read should not cost a model round). Nothing else is ever repeated silently:
+   *transient* describes the error, *safe to repeat* describes the TOOL. The list
+   is explicit and conservative — `repo:read` tools plus `pc_status`,
+   `calculate`, `get_current_datetime`, `get_my_goals`, `get_my_notes` — and a
+   test asserts that no entry could write, spend or drive the PC.
+3. **`invalid-input` and `permission` are told, not auto-acted.** A corrective
+   retry of a bad argument would need the model to think of a better argument, so
+   the instruction is handed back rather than a step being spent on a guess. A
+   refusal must never be retried at all — that is the difference between a
+   refusal and a glitch, and it is the single most useful thing the taxonomy says.
+
+**A real bug it found on the way.** `pc_do`'s refusal and timeout were returned as
+unprefixed prose (`pc_do shell_run was refused on the PC: …`). Every consumer
+decides failure by prefix — the classifier, the journal's status, and the client's
+`tools` event (`success: !result.startsWith('Error')`) — so **a refusal on the PC
+was rendered as a ✓ and counted as a success**. Both now announce themselves
+(`Denied:` for a refusal, `Error:` for the timeout), which is also why the journal
+sorts a refusal into its own `denied` state rather than a red error.
+
+**Journal and UI.** A step now carries `outcome` (the kind) and `retried`, so the
+record answers "why did it stop?" without re-reading the transcript, and the step
+list shows a muted `↻ retried` badge and the failure reason in plain words. The
+journal preview strips the harness instruction — it is written for the model and is
+identical for every failure of a kind, so leaving it in would make every failed row
+look the same and hide what the tool actually said.
+
+**Provable by:** `toolOutcome.test.js` (21) — every case copied verbatim from the
+strings `netTools.js`, `repoAgentService.js`, `repoRunner.js`, `pcTools.js` and
+`toolScopes.js` actually emit, plus the signal ordering (an environment fault reads
+as fatal although it says "invalid"; a missing snippet reads as not-found although
+it says "was not found in"). `toolLoop.test.js` adds 8 cases: the instruction
+reaches the model, a refusal is classified as a decision, a success carries no
+note, a flaky **read** is retried below the model in one round, a **write** is
+never silently repeated, and a retry that fails again says so honestly instead of
+inviting a third attempt.
+
+#### The "ask" half ✅ shipped 2026-09-18
+
+The gap: the taxonomy tells the model not to retry a refused step and the loop
+carries a `reaskable` cause, but the USER had no way to say "actually, go ahead".
+
+**The shape, and why not a re-dispatch endpoint.** The obvious implementation is
+`POST …/steps/:id/retry` re-running the step. It is wrong three ways:
+
+1. **The cloud cannot do it.** A `pc_do` step's arguments are redacted in the
+   journal on purpose, so the server does not hold what it would need.
+2. **It would bypass the model.** A refusal is often a cue to *change* the request
+   — the tool may be gone, the name wrong, the intent stale. Re-running blindly
+   repeats the exact thing that was refused.
+3. **It would move the consent.** The decision belongs on the machine that owns the
+   resource (ADR-4). So the button **asks; it does not approve** — it sends an
+   ordinary user turn, the addon prompts again, and the user may still decline.
+
+That last point is the whole design. `frontend/src/utils/simpleAddon/retryMessage.js`
+builds the message; `StepList.jsx` renders a quiet "Try again" on a step whose
+`reaskable` is true, and nothing on the rest.
+
+**Three details that are not incidental:**
+
+- **The wording carries an explicit override.** By the time a retry is clicked,
+  TWO instructions saying "do not retry" are already in the model's context — the
+  refusal's own `HARNESS: REFUSED — do not retry it and do not rephrase it`, and
+  continuity's `Do not retry a refused step on your own`. A bare "try again" reads
+  as noise beside those, and the model stonewalls a legitimate request. So every
+  phrasing says *"I'm asking you to"* — the same words continuity uses for the
+  exception — and continuity now names the mechanism too.
+- **The message NAMES the step.** Continuity only knows the most recent run, and a
+  user can click the button on a step from ten turns ago. Without the name the
+  button works in the one case everyone tests and quietly targets nothing in the
+  case nobody does.
+- **The wording depends on the cause.** "I'll answer the prompt this time" is true
+  after an expiry and false after a decline — there the user *did* answer. The
+  retry message says "anyway" instead, rather than rewriting their own transcript
+  back at them.
+
+**`reaskable` is decided server-side, once.** `harness/refusalCause.js` holds the
+vocabulary and its `reaskable` flag; the journal puts the answer on the step, and
+the UI reads the field. A frontend keeping its own list would drift, and the
+failure mode is a button promising something the machine has already refused. A
+stale or unknown cause can only *fail to show* a button — the safe direction.
+
+**Provable by:** `retryMessage.test.js` (13) — what is offered (fail closed: no
+`reaskable`, no message), the override clause, the per-cause wording, naming and
+its bounds, and that the arguments are never read to build a name;
+`StepList.test.jsx` (+7) — shown only for a re-askable refusal with a handler
+wired, hands the whole step over, and the retry button is a SIBLING of the row
+button because a button inside a button is invalid HTML that browsers re-parent;
+`MessageBubble.test.jsx` (+2) — the WIRING, since a prop that arrives and is never
+passed on fails silently and looks identical to "not re-askable"; and
+`pcToolsRefusal.test.js` (+3) — the `reaskable` field itself, including that an
+unlabelled or unknown refusal is never re-askable and a `running` step is not
+either.
+
+#### Follow-up: the cause, not just the kind ✅ 2026-09-18
+
+**The taxonomy was not specific enough to act on.** `permission` says *a gate
+refused*, which is one kind covering six different situations — and two of them
+needed the opposite instruction to the one the model received:
+
+| PC refusal | Before | Why that was wrong |
+|---|---|---|
+| Emergency kill switch | `Error:` (a fault) | A deliberate hard stop, presented as a crash. Nothing in the message said not to retry. |
+| Approval prompt expired | `Error:` → kind **`FATAL`** | Nothing matched, so the model was handed `HARNESS: FAILED — this is not retryable … do not repeat it` for a user who was simply away from their desk for two minutes. |
+| Policy denial | `Denied:` | Right prefix, but indistinguishable from a human's refusal — so "ask them again" and "they must change a setting" read the same. |
+| User declined | `Denied:` | — |
+
+The cloud was inferring all of this from the reason TEXT
+(`/denied|not approved|permission policy/i`), so any improvement to a message
+silently reclassified a refusal as a fault.
+
+**Shipped.** The permission gate returns a `cause` (`kill-switch`,
+`policy-deny`, `user-declined`, `expired`, `no-requester`, `prompt-failed`); it
+crosses the relay in an anchored token (`DENIED[<cause>]: …` —
+`simple-addon/server/automation/refusal-wire.js`, read by
+`backend/services/pcTools.js`); `pcTools` maps it to a prefix, a reason and a next
+move; and the step record carries it (`step.cause`), so the UI can offer a retry
+only where one is honest. The old regex remains solely as a fallback for addon
+builds already in the field.
+
+Three design points worth keeping:
+
+1. **`reaskable`, not `retryable`.** "A person can be asked again" and "the
+   harness may repeat this by itself" are different questions that disagree on the
+   same refusal, and `toolOutcome.js` already owned the second word. The first
+   draft reused it and a spread operator silently swapped the meanings — the
+   rename is the fix, and a test now pins both on one result.
+2. **A hard stop is never re-askable.** `deny` is documented as a hard stop, so a
+   retry affordance for one would be a lie; only a human's answer or absence is.
+3. **An unknown cause means unknown.** A version skew must not be read as "false"
+   or "true" by default — it is a refusal with no stated semantics.
+
+**Two bugs this surfaced** (both were unseen because the old wording implied the
+opposite): the deadline's `approved: false` covered a human's "no" *and* nobody
+answering, so **an unanswerd prompt was reported to the user as a decision they
+made**; and a prompt that *threw* resolved the same way, blaming the user for a
+wiring fault. Both are now distinct causes (`expired`, `prompt-failed`).
+
+**Provable by:** `pcToolsRefusal.test.js` (15) — each cause's prefix, kind and
+guidance, the re-askable/hard-stop split asserted as policy, an unknown cause, a
+malformed token falling through, and four legacy-shape cases covering what the
+field is actually running; plus `permissions.test.js` (23 → **37**), which pins
+each refusal branch to its cause, the wire encoder, and the registry hop that
+would otherwise drop the cause *silently*.
+
+### P7 — Evals, metrics and hardening ⏳ scenario suite shipped 2026-09-18
 
 **Goal:** G10 — the plan becomes falsifiable.
 
@@ -401,11 +771,67 @@ plus one live scenario per class.
   transcript, the real loop runs, and the journal is the assertion target. One
   scenario per property in §0, so a regression in "acts instead of narrating" or
   "verifies before claiming" fails a named test.
-- Dashboards from what already exists: `routingTelemetry` (backend) +
-  `GET /api/agent/routing-stats` (addon) + the turn records from P0 →
-  steps/turn, tool mix by plane, cancels, approvals, cost per turn.
+
+  **Shipped** as `backend/__tests__/harness/harnessScenarios.test.js` — 11
+  scenarios driving the REAL `streamCompressionRequest`, with Bedrock's own
+  validation as the oracle and an in-memory journal store
+  (`setRunStoreForTests`) as the assertion target. Each one is named after the
+  property it falsifies:
+
+  | Scenario | Asserts |
+  |---|---|
+  | 1 acts instead of narrating | the `ACT_NUDGE` reaches the SECOND call's system prompt, the tool runs, `save_note:ok` is in the journal, and the answer is the confirmation rather than the preamble |
+  | 1 no infinite nudging | the model believed on the second decline: no tool, an empty-steps run, and the answer still delivered |
+  | 2 steps observable | four `step` events (`running`/`ok` ×2) reach the client, and the turn is persisted with ONE write carrying both steps, their durations and the round count |
+  | 2 redaction | a note body is `argsRedacted` with `argKeys: ['text']`, and the word does not appear anywhere in the persisted run |
+  | 3 cancel | a cancel mid-turn finishes the step in flight, runs nothing else, and persists `outcome: 'cancelled'` |
+  | 3 refusal | a denied `repo_commit_changes` never reaches its executor and is recorded `status: 'denied'` / `outcome: 'permission'` |
+  | 4 both hands | ONE turn using `repo_*`, `pc_do` and a cloud tool yields all three planes in the journal |
+  | 5 verification | `repo_edit_file` then `repo_run`, with the PASS output in the step's `resultPreview` |
+  | 6 cost | a runaway turn stops on the budget, the wrap-up carries `CONTEXT LIMIT REACHED` and NOT `TOOL LIMIT REACHED`, and fewer than 16 rounds were spent |
+  | failure guards | a refusal is executed once and comes back with `HARNESS: REFUSED`; a flaky READ is retried below the model and persists as ONE `ok` step with `retried: true` |
+
+  **It found a latent flaw in the older oracle on its first run:**
+  `llmServiceStreamingTools.test.js` validated `toolConfig.tools.map(t =>
+  t.toolSpec.name)`, which throws once P4 appends a `cachePoint` entry to that
+  list. Its own fixtures were too small to trigger caching, so the crash was
+  waiting for the first test whose prefix crossed the minimum. Both oracles now
+  filter to real specs. (It also confirms the cache points are actually being
+  attached to live-shaped requests, which is more than the unit suite could say.)
+
+- **Metrics** — ✅ Done 2026-09-18. `backend/services/harness/harnessStats.js`
+  reads the two sources that already existed and were read by nothing:
+  the durable per-user run ring (`stepJournal.readRuns`, which until now only
+  continuity ever touched, and it used one line of it) and the in-process
+  `routingTelemetry` counters. `GET /api/data/csimple/harness/stats`
+  (admin-only) serves one object: `runs.{byOutcome,byFailureKind,steps,plans,rounds,
+  durationMs}` + `telemetry.{turns,byIntent,toolCalls,toolsPerTurn,deniedToolCalls,
+  adminTurns}` + `notes` + `failureKinds`.
+
+  Three decisions worth keeping:
+
+  1. **Admin-only, and not because the runs are dangerous.** The run ring is
+     per-user, but the telemetry counters are **process-wide**. Served as a normal
+     per-user read, the join would tell any account how much *everyone else* had
+     been doing — a leak neither source has alone. `isAdminRequest` is the boundary.
+  2. **The caveats travel with the numbers.** `notes` and `telemetry.since` state
+     that the counters reset on deploy and that a denied step counts as failed.
+     A "turns: 12" with no lifetime invites the wrong conclusion, which is the
+     failure mode this whole section exists to avoid.
+  3. **Both halves are best-effort.** An unreadable journal or a throwing counter
+     shrinks the answer instead of 500-ing: an operator asking "how is it going"
+     should get whatever is readable.
 - **Security review pass** over P2 + P3 with `AUTOMATION_SECURITY.md` updated in
-  the same commit.
+  the same commit. **✅ Done 2026-09-18** — and redone over the PC surface, because
+  Layer 3h widened it. What it found and fixed:
+
+  | Question | Outcome |
+  |---|---|
+  | Can one user's turn dispatch to another user's device? | **No** — queue and device registry are both keyed by the caller's id |
+  | Is the addon's published catalog safe to render into a prompt? | **Fixed** — `category` was only length-bounded (24 chars is room for an instruction); it is now charset-filtered, like the tool name already was |
+  | Does the cloud path bypass the PC's policy? | **No** — it reaches `registry.executeTool` → `permissions.js`; the kill switch still wins |
+  | Is `pc_do` admin-gated? | **Deliberately not** — the resource is the user's own PC and its policy lives on that machine; a second cloud-side boundary would be weaker and could drift |
+  | Can an unanswered approval run later? | **Closed** — `approvalTimeoutMs` (relay path only, 110 s) expires the prompt as a refusal, and a late answer changes nothing. Before this, an `ask` prompt with no deadline could be approved after the cloud turn had given up. |
 
 ## 5. The hard problems, stated plainly
 
@@ -446,7 +872,7 @@ plus one live scenario per class.
 | Turns that act when a tool owns the request | harness scenarios (P7) | 100% of the "should act" set |
 | Turns that claim success without a verifying tool result | journal check | 0 |
 | Median steps/turn; tool mix by plane | turn records (P0) | visibility first, then cost work |
-| Input tokens per turn, cached share | turn records + `cachePoint` | ≥50% of prefix cached (P4) |
+| Input tokens per turn, cached share | turn records + `cachePoint` | ≥50% of prefix cached (P4) — **wired and measurable**: `usage.cached_tokens` on round 2+, not yet measured on a live turn |
 | Wall-clock of a PC-touching turn | journal + relay stats | <5 s for a 3-step turn (P2) |
 | Turns cancelled vs completed | control events (P1) | tracked; cancellations should be *possible*, not frequent |
 
@@ -468,3 +894,29 @@ Recommended first three commits, in order: **(1)** P0b loop collapse with the
 existing 18-call assertion as the guard, **(2)** P0 step journal + SSE + StepList,
 **(3)** P1 cancel. Those three deliver property #2 and #3 and make every later
 phase cheaper to build and verify.
+
+**Where the first session landed (2026-09-18):** P0b + P0, then P1, then P3, then
+P2 (steps 1–3) with the routing split, then P4, then P6, then P7's scenario
+suite. That session's plan for what came next — the security pass over the PC
+surface, P5's plan surface, the metrics dashboards, then the prefix diet — is
+recorded here only so the sequencing that followed is legible; all but the last
+of them is now done (see next paragraph).
+
+**Where it landed by the end of 2026-09-18:** everything above and then some —
+P7's security pass over the PC surface, P5, a P0 follow-up (**continuity**) whose
+by-product was the first real reader of the run ring, a conversation-sync weight
+guard, and P7's **metrics** (`harnessStats.js` + the admin-only
+`GET /csimple/harness/stats`). What remains is the **P4 prefix diet** and, in the
+"ask half" of a refusal, an in-chat way to allow a step that was refused — today the
+model is told not to retry it, but the user has no button that changes its mind.
+
+Those two, plus the gaps between a working tool and an **operable** one (turn state
+across instances, the run-ring's write path, the client-wiring tests, counters that
+survive a deploy), are itemized in [`BACKLOG.md`](BACKLOG.md) → *Production
+readiness — the /net harness as an operable tool*.
+
+**⚠️ Carried risk at this point:** two behaviours are shipped but unverified
+against a live model — prompt caching (P4) and the relay-only routing split
+(Layer 3h). Both are guarded (a latch that self-disables and logs; a rule that
+leaves same-machine behaviour untouched) and both are unit-tested, but neither
+has seen a real turn. They are the first things to check when the app is run.

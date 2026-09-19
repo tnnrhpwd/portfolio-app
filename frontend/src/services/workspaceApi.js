@@ -418,7 +418,12 @@ export async function mergeCloudConversations(token, conversations, deletedIds =
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
-    throw new Error(`Failed to merge conversations: ${text}`);
+    // The STATUS is attached, not just described in the message: the caller decides
+    // whether to retry without the agent detail, and that decision must not depend
+    // on the exact wording of an error body.
+    const error = new Error(`Failed to merge conversations: ${text}`);
+    error.status = res.status;
+    throw error;
   }
   return res.json();
 }

@@ -156,7 +156,10 @@ const Terms = () => {
                             </p>
                             <ul>
                                 <li>Everything in {PLAN_NAMES[PLAN_IDS.FREE]}</li>
-                                <li>Live screen viewing from your phone</li>
+                                {/* ⬜ "Live screen viewing from your phone" removed from the
+                                    Pro tier 2026-09-18 — the feature is not shipped, so it
+                                    was never something a membership could include.
+                                    BACKLOG.md → "Phone viewing". */}
                                 <li>{STORAGE_DISPLAY[PLAN_IDS.PRO]} cloud storage</li>
                                 <li>Email support</li>
                             </ul>

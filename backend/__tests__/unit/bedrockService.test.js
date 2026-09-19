@@ -221,7 +221,14 @@ describe('bedrockService — response shape translation', () => {
         const result = fromBedrockResponse(bedrockResponse);
         expect(result).toEqual({
             choices: [{ message: { role: 'assistant', content: 'Hello back!' }, finish_reason: 'stop' }],
-            usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+            // `cached_tokens` / `cache_write_tokens` are the prompt-cache counters
+            // (bedrockPromptCache.js). They are part of the shape on purpose: the
+            // cache saving has to be visible on the turn that pays for it, and an
+            // uncached model reporting nothing must read as 0, not undefined.
+            usage: {
+                prompt_tokens: 10, completion_tokens: 5, total_tokens: 15,
+                cached_tokens: 0, cache_write_tokens: 0,
+            },
             model: BEDROCK_MODEL_ID,
         });
     });
@@ -272,7 +279,10 @@ describe('bedrockService — createBedrockCompletion (mocked client)', () => {
         expect(sentCommand.input.inferenceConfig).toEqual({ maxTokens: 50, temperature: 0.2 });
 
         expect(response.choices[0].message.content).toBe('Hi!');
-        expect(response.usage).toEqual({ prompt_tokens: 3, completion_tokens: 2, total_tokens: 5 });
+        expect(response.usage).toEqual({
+            prompt_tokens: 3, completion_tokens: 2, total_tokens: 5,
+            cached_tokens: 0, cache_write_tokens: 0,
+        });
     });
 
     it('tags ThrottlingException with a BEDROCK_THROTTLED code', async () => {

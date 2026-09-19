@@ -64,7 +64,7 @@ function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-function ChatWindow({ conversation, isGenerating, progressNote, onSendMessage, onStopGeneration, onToggleSidebar, isOnline, agent, speech, sttEnabled, settings, pendingConfirmation, onConfirmOption, onDismissConfirmation, isConfirming, isAddonConnected, isAddonOutdated, onReportMessage, onCopyMessage, isSidebarOpen }) {
+function ChatWindow({ conversation, isGenerating, progressNote, onSendMessage, onStopGeneration, onToggleSidebar, isOnline, agent, speech, sttEnabled, settings, pendingConfirmation, onConfirmOption, onDismissConfirmation, isConfirming, isAddonConnected, isAddonOutdated, onReportMessage, onCopyMessage, isSidebarOpen, onRetryStep }) {
   const [input, setInput] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [dragActive, setDragActive] = useState(false);
@@ -298,6 +298,7 @@ function ChatWindow({ conversation, isGenerating, progressNote, onSendMessage, o
             enableMarkdown={settings?.enableMarkdown ?? true}
             onReportMessage={onReportMessage}
             onCopyMessage={onCopyMessage}
+            onRetryStep={onRetryStep}
           />
         ))}
 

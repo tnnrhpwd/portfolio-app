@@ -149,3 +149,104 @@ describe('StepList', () => {
     expect(screen.queryByText(/"query": "MARKER"/)).not.toBeInTheDocument();
   });
 });
+
+/**
+ * The "Try again" affordance on a refused step.
+ *
+ * The rule under test is that this component does NOT decide whether a retry is
+ * offered — `step.reaskable` does, computed server-side from the refusal
+ * vocabulary (`backend/services/harness/refusalCause.js`). A UI that kept its own
+ * list of which refusals are re-askable would drift from that table, and the
+ * failure mode is a button that promises something the machine has already
+ * refused. So: no `reaskable`, no button, and a policy denial never gets one.
+ */
+describe('StepList — retrying a refused step', () => {
+  const refused = (over = {}) => step({
+    id: 'refused',
+    tool: 'pc_do',
+    plane: 'addon',
+    status: 'denied',
+    label: 'Opening Notepad…',
+    resultPreview: 'Denied (expired): pc_do open_app was not run — the prompt was never answered.',
+    outcome: 'permission',
+    cause: 'expired',
+    reaskable: true,
+    ms: 0,
+    ...over,
+  });
+
+  it('offers the action on a re-askable refusal', () => {
+    render(<StepList steps={[refused()]} onRetryStep={() => {}} />);
+
+    const button = screen.getByRole('button', { name: 'Try again' });
+    expect(button).toBeInTheDocument();
+    // It asks; it does not approve. The tooltip must not overpromise.
+    expect(button).toHaveAttribute('title', expect.stringContaining('still say no'));
+  });
+
+  it('hands the whole step to the caller, not just an id', () => {
+    const onRetryStep = jest.fn();
+    render(<StepList steps={[refused()]} onRetryStep={onRetryStep} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    // The caller needs `cause` and `label` to phrase the message, so the record
+    // travels intact rather than being flattened to an identifier.
+    expect(onRetryStep).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'refused',
+      cause: 'expired',
+      label: 'Opening Notepad…',
+    }));
+  });
+
+  it('offers nothing when the refusal is not re-askable', () => {
+    // A stored policy (or the kill switch) refuses identically forever, so a
+    // retry would be a lie.
+    render(<StepList
+      steps={[refused({ cause: 'policy-deny', reaskable: false })]}
+      onRetryStep={() => {}}
+    />);
+
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+  });
+
+  it('offers nothing when no handler is wired up', () => {
+    // This is how the button disappears while a turn is running: the caller passes
+    // no handler rather than passing a disabled one.
+    render(<StepList steps={[refused()]} />);
+
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+  });
+
+  it('offers nothing on an ordinary failure or a success', () => {
+    render(<StepList
+      steps={[
+        step({ id: 'a', status: 'error', error: 'boom' }),
+        step({ id: 'b', status: 'ok' }),
+      ]}
+      onRetryStep={() => {}}
+    />);
+
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the retry button OUT of the row button', () => {
+    // The row is itself a <button> (it expands the detail), and a button inside a
+    // button is invalid HTML that browsers silently re-parent — which is how a
+    // click ends up toggling the detail instead of retrying.
+    const onRetryStep = jest.fn();
+    const { container } = render(<StepList steps={[refused()]} onRetryStep={onRetryStep} />);
+
+    expect(container.querySelectorAll('button button')).toHaveLength(0);
+  });
+
+  it('still opens the detail from the row when a retry is offered', () => {
+    const onRetryStep = jest.fn();
+    render(<StepList steps={[refused()]} onRetryStep={onRetryStep} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Opening Notepad…/ }));
+
+    expect(onRetryStep).not.toHaveBeenCalled();
+    expect(screen.getByText(/the prompt was never answered/)).toBeInTheDocument();
+  });
+});

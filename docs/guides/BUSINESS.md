@@ -84,7 +84,7 @@ For users who are 90% happy on Free but occasionally need more storage (e.g. a b
 ### Tier 2 — Do these next (moderate effort, validate demand first)
 
 #### A genuinely useful one-time "Pro feature" for non-subscribers
-Some users just dislike recurring billing. Pick **one** feature existing Pro users value most (ask them which feature they'd miss most) and offer it as a one-time lifetime unlock (e.g. "$39 once: live phone screen viewing, forever").
+Some users just dislike recurring billing. Pick **one** feature existing Pro users value most (ask them which feature they'd miss most) and offer it as a one-time lifetime unlock ("$39 once: X, forever"). The example here used to be live phone screen viewing — that feature is not built, so it cannot be the perk until [roadmap 10](../implementation/BACKLOG.md) ships.
 - Validate first: survey your current paying users — "would you rather pay $39 once for X than $15/mo?" If nobody says yes, skip this entirely.
 
 **Why realistic:** low build cost if #3's one-time payment flow already exists; only build if you get real signal, not because it sounds clever.
@@ -124,8 +124,14 @@ breaking an installed skill's core replay.
 | OCR — platform-funded, metered | same credit allowance | same credit allowance |
 | Local automation & addon | Unlimited (fair use) | Unlimited (fair use) |
 | Cloud storage | 100 MB | 50 GB |
-| Live phone viewing | — | Included |
+| Phone viewing (live screen from your phone) | — | ❌ **not shipped** — [roadmap 10](../implementation/BACKLOG.md) |
 | Support | Community | Email |
+
+> ⚠️ **Phone viewing was listed as a Pro benefit here until 2026-09-18.** It was
+> never built, so it has been pulled from every surface that sold it (plan cards,
+> `/pricing`, `/terms` §3.2, the plan emails). Do not re-list it until
+> [roadmap 10](../implementation/BACKLOG.md) ships — and note that existing Pro
+> subscribers were sold a benefit they cannot use.
 
 Locked decisions: **no BYOK** (all cloud AI is operator-funded and metered);
 **OCR platform-funded**; **cancellation deferred to period end**; **annual billing**;
@@ -210,9 +216,9 @@ inventing new tiers. Ordered by effort/risk.
 
 **Tier 2 — validate demand first, then build:**
 
-- ⬜ One-time lifetime unlock of *one* Pro feature (e.g. "live phone viewing,
-  $39 once") for users who dislike recurring billing — survey current Pro users
-  first; skip if there's no signal.
+- ⬜ One-time lifetime unlock of *one* Pro feature ($39 once) for users who dislike
+  recurring billing — survey current Pro users first; skip if there's no signal.
+  (Not phone viewing: it is not built — [roadmap 10](../implementation/BACKLOG.md).)
 - ⬜ Scheduled automation — start with a local reminder ("time to run your
   automation"), graduate to real background/remote execution only when paying
   demand for the cheap version exists.

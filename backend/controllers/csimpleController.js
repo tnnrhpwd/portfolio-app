@@ -16,6 +16,17 @@ const { DynamoDBDocumentClient, GetCommand, PutCommand, DeleteCommand, QueryComm
 const { encryptString, decryptString } = require('../utils/secretCrypto');
 const { paginatedScan } = require('../utils/paginatedScan');
 const { logger } = require('../utils/logger');
+const { isAdminRequest } = require('../middleware/adminAccess');
+const { harnessSummary } = require('../services/harness/harnessStats.js');
+const { readRuns } = require('../services/harness/stepJournal.js');
+const { getRoutingStats } = require('../services/routingTelemetry.js');
+
+/**
+ * When this process began serving. Reported alongside the telemetry counters,
+ * because they reset on every deploy and a "turns: 12" with no lifetime is a number
+ * that invites the wrong conclusion (see harnessStats.js).
+ */
+const PROCESS_STARTED_AT = new Date().toISOString();
 
 // Configure AWS DynamoDB Client
 const client = new DynamoDBClient({
@@ -1012,7 +1023,45 @@ const getSimpleUserContext = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Aggregate view of what the /net harness has been doing
+// @route   GET /api/data/csimple/harness/stats
+// @access  Admin only (the single ADMIN_USER_ID account)
+//
+// Six phases of harness behaviour are invisible in the aggregate: the chat shows
+// ONE turn's steps, and nothing showed the operator "how is it going". Both sources
+// already existed and were read by nothing.
+//
+// Admin-only, and not because the data is dangerous: the run ring is per-user, but
+// the telemetry counters are PROCESS-WIDE and would leak other users' activity
+// levels to anyone who could call this. The single admin account is the operator of
+// this deployment, so it is the right boundary.
+const getHarnessStats = asyncHandler(async (req, res) => {
+  if (!isAdminRequest(req)) {
+    res.status(403);
+    throw new Error('Harness statistics are restricted to the administrator.');
+  }
+
+  // Both halves are best-effort: an operator asking "how is it going" must get
+  // whatever is readable rather than a 500 because one source was unavailable.
+  let runs = [];
+  try {
+    runs = await readRuns(req.user.id);
+  } catch (err) {
+    logger.warn('[Simple] Harness stats: could not read the run ring:', err.message);
+  }
+
+  let telemetry = {};
+  try {
+    telemetry = getRoutingStats();
+  } catch (err) {
+    logger.warn('[Simple] Harness stats: could not read routing telemetry:', err.message);
+  }
+
+  res.status(200).json(harnessSummary({ runs, telemetry, startedAt: PROCESS_STARTED_AT }));
+});
+
 module.exports = {
+  getHarnessStats,
   getSimpleSettings,
   updateSimpleSettings,
   getSimpleConversations,

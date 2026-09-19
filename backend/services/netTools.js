@@ -21,6 +21,7 @@ const { logger } = require('../utils/logger');
 const { randomUUID } = require('crypto');
 const { canUseTool, denialReason } = require('./toolScopes');
 const { recordDeniedToolCall } = require('./routingTelemetry');
+const { normalisePlan, renderPlan } = require('./harness/planSurface.js');
 
 // Local DynamoDB client for memory/personality/behavior tool writes.
 // (Mirrors memoryService.js so tools can run without needing the caller
@@ -376,6 +377,50 @@ const TOOL_SCHEMAS = [
   {
     type: 'function',
     function: {
+      name: 'set_plan',
+      description: [
+        'Publish the step-by-step plan for a MULTI-STEP task, and update it as you go.',
+        'Call it BEFORE the first tool call of any task that needs more than two or three',
+        'steps — editing the repo, investigating something, building or checking anything,',
+        'anything you would describe to the user as "first I\'ll… then…".',
+        'The plan is shown to the user as a checklist, which is how they can see what you',
+        'are doing and correct you early.',
+        'Do NOT use it for a single tool call, or for a question you can simply answer.',
+        'Send the WHOLE list every time, not just the changed step.',
+        'Keep exactly one step `in_progress` while you work, flip it to `done` when it',
+        'finishes and mark the next one `in_progress`; end the turn with nothing in',
+        'progress. Use `blocked` only when you are waiting on the user.',
+      ].join(' '),
+      parameters: {
+        type: 'object',
+        properties: {
+          items: {
+            type: 'array',
+            description: 'The complete plan, in order. Include every step every time — this replaces the previous plan.',
+            items: {
+              type: 'object',
+              properties: {
+                text: {
+                  type: 'string',
+                  description: 'What this step achieves, in the user\'s terms (max 200 chars). Not a tool name.',
+                },
+                status: {
+                  type: 'string',
+                  enum: ['pending', 'in_progress', 'done', 'blocked'],
+                  description: 'Where this step is. Exactly one step may be `in_progress`.',
+                },
+              },
+              required: ['text'],
+            },
+          },
+        },
+        required: ['items'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'generate_image',
       description: 'Generate an image from a text prompt using AI. Use this whenever the user asks to generate, create, draw, render, or imagine an image, picture, photo, artwork, or illustration. Provide a detailed, vivid prompt describing exactly what should appear (subject, style, setting, lighting, mood, composition).',
       parameters: {
@@ -488,6 +533,21 @@ async function getExistingGoalTitles(userId) {
 }
 
 const TOOL_EXECUTORS = {
+  // ── The visible plan (harness/planSurface.js) ──────────────────────────────
+  //
+  // Stores the plan on the TOOL CONTEXT rather than in the database, because the
+  // plan belongs to the TURN: it is what this turn said it would do, and it is
+  // meaningful only alongside the steps that carried it out. The streaming route
+  // reads it off this same object to emit a `plan` event, and the journal
+  // persists it with the run. Storing it here also means a second `set_plan` in
+  // the same turn simply replaces the first — which is the update semantics the
+  // tool description promises.
+  async set_plan(args, context) {
+    const plan = normalisePlan(args?.items ?? args);
+    if (context && typeof context === 'object') context.plan = plan;
+    return renderPlan(plan);
+  },
+
   // ── Submit support ticket ───────────────────────────────────────────────
   async submit_support_ticket(args, context) {
     const { subject, description, category, priority = 'medium' } = args;
@@ -1044,6 +1104,18 @@ try {
   Object.assign(TOOL_EXECUTORS, repoAgent.REPO_TOOL_EXECUTORS);
 } catch (err) {
   logger.warn('[netTools] Failed to load repo agent tools:', err.message);
+}
+
+// ─── The user's own PC (desktop addon over the relay) ─────────────────────
+// TWO tools, not forty: the fixed prefix re-sends every schema on every call, so
+// the concrete addon tool name travels as an argument instead. Every action is
+// gated by the addon's own permissions.js — see pcTools.js.
+try {
+  const pcTools = require('./pcTools');
+  TOOL_SCHEMAS.push(...pcTools.PC_TOOL_SCHEMAS);
+  Object.assign(TOOL_EXECUTORS, pcTools.PC_TOOL_EXECUTORS);
+} catch (err) {
+  logger.warn('[netTools] Failed to load PC tools:', err.message);
 }
 
 // ─── Exports ────────────────────────────────────────────────────────────────

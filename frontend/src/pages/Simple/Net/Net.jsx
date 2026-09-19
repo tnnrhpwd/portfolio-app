@@ -179,6 +179,8 @@ function Net() {
             streamCallbacksRef.current?.onTools?.(event.tools);
           } else if (event.type === 'step') {
             streamCallbacksRef.current?.onStep?.(event.step);
+          } else if (event.type === 'plan') {
+            streamCallbacksRef.current?.onPlan?.(event.plan);
           } else if (event.type === 'run') {
             // The turn's id — what the Stop button needs to cancel server-side.
             streamCallbacksRef.current?.onRun?.(event.runId);

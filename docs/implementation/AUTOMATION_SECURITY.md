@@ -255,7 +255,6 @@ User types in chat ──► backend ──► agent-loop ──► registry.exe
 ---
 
 ## 7. Cloud relay
-
 The cloud relay (`cloudRelayService` in the addon) is a thin HTTPS client to
 the portfolio backend. It is the **only** outbound network surface other than
 direct LLM calls made from the backend itself.
@@ -278,6 +277,160 @@ executes `chat` / `agent_run` / `confirm`, each of which can drive tools /
 PowerShell. The addon performs no independent validation of the command, so
 the backend and the JWT are the entire boundary. **Whoever holds the user's
 JWT can run commands on the PC.**
+
+### 7.1.1 One tool call per command — `tool` kind (added 2026-09-18)
+
+The cloud harness (`/net`) dispatches single tool calls over this same queue via
+`dispatchToolToAddon()` (`backend/controllers/addonRelayController.js`), which
+picks the freshest **online** device from the existing registry and waits for the
+result. Notes that matter for this section's threat model:
+
+- **It adds no authority.** `agent_run` was already on this channel and reaches
+  *every* registered tool with the addon's own approval path bypassed (see 7.2).
+  One named tool is strictly narrower than "run this goal".
+- **The addon's permission gate is not bypassed by the new path.** The `tool`
+  branch calls an injected handler that `mountAutomation` wires to
+  `registry.executeTool` — the same call a local agent step makes, so category
+  modes, per-tool overrides, dry-run, the shell allow/deny list and the
+  **kill switch** all apply. A refusal returns as the command's `error`, which the
+  cloud loop feeds back to the model as that tool's result.
+- **Timing is a security property here.** A timeout is reported as *"the PC did
+  not answer"* and the dispatch is **never retried** — the command may already be
+  running, and retrying a PC action is how the same keystrokes happen twice.
+- The existing 7.2 caveat still applies to `chat`/`agent_run`, which remain the
+  broader path. Nothing here closes it.
+
+### 7.1.2 The cloud harness's PC tools — `pc_status` / `pc_do` (added 2026-09-18)
+
+Two tools in `backend/services/pcTools.js` expose this channel to the `/net` tool
+loop. What they do to the threat model:
+
+- **They add no reach.** `pc_do` dispatches a single named tool over the relay
+  command added in 7.1.1; `agent_run` was already on this channel and reaches
+  every tool. The difference is granularity, not authority.
+- **They do not bypass the gate.** The addon's `tool` branch runs the call
+  through `registry.executeTool`, so `permissions.js` applies exactly as it does to
+  a local step: category modes (defaults are `safe-read: allow`, everything else
+  `ask`), per-tool overrides, `dryRunMode`, the shell allow/deny list, audit
+  logging, and `globalKillSwitch`. The cloud can only ask.
+- **The addon now PUBLISHES more about itself.** Its heartbeat carries the tool
+  catalog (name + category, ≤60 entries) and the permission policy (category
+  modes + the three flags). This is the user's own machine reporting to the
+  user's own backend over TLS, and it is what stops the model guessing tool names
+  or promising an action the machine is about to refuse. The backend treats it as
+  **untrusted input**: fields are type-checked, clamped and allow-listed
+  (`sanitizeCatalog`) before being stored on a heartbeat row and rendered into a
+  prompt.
+- **Two failure modes are worded differently to the model** — a refusal is "do not
+  retry, ask the user", a timeout is "may still be waiting, do NOT repeat it". A
+  timeout is never retried by the dispatch itself, because the command may already
+  be running. Both results now carry a failure PREFIX (`Denied:` / `Error:`),
+  because every consumer decides "did this work?" by prefix — the classifier
+  (`harness/toolOutcome.js`), the journal's step status, and the client's `tools`
+  event. While these two were unprefixed prose, a refusal on the PC was rendered
+  as a ✓ and reported to the model as a success. Read this as a general rule for
+  anything new on this surface: **a failure must announce itself.**
+- **✅ A refusal now says WHY, and the cloud stopped guessing (2026-09-18).** The
+  gate has six refusal branches, and the cloud classified them with
+  `/denied|not approved|permission policy/i` over the reason text. Two matched
+  nothing and were therefore reported as faults:
+  - **the emergency kill switch** — a deliberate hard stop arrived as `Error:`;
+  - **an expired prompt** — "no answer within 110s" fell through the failure
+    taxonomy to **`FATAL`**, i.e. the model was literally told
+    `HARNESS: FAILED — this is not retryable … do not repeat it`. A user who was
+    away from their desk for two minutes got a step the model had been instructed
+    to abandon, on a refusal that was merely unanswered.
+
+  The gate now returns a `cause` (`kill-switch`, `policy-deny`, `user-declined`,
+  `expired`, `no-requester`, `prompt-failed`), it travels to the cloud in an
+  anchored token (`DENIED[<cause>]: …`, `simple-addon/server/automation/refusal-wire.js`
+  → `backend/services/pcTools.js`), and the cloud maps it to a prefix and a next
+  move. The distinction that matters is not cosmetic: **a refusal a PERSON made or
+  missed can be re-asked; one a stored SETTING made cannot.** `deny` is documented
+  as a hard stop, so offering a retry for one would be a lie — hence a
+  `reaskable` flag, deliberately *not* named `retryable` because
+  `toolOutcome.js` already uses that word for "the harness may auto-repeat this",
+  and the two disagree on the same refusal.
+
+  Two things this also fixed on the way: the deadline's `approved: false` covered
+  both a human's "no" and nobody answering, so **an unanswered prompt was reported
+  to the user as a decision they made** (it now carries `expired`), and a prompt
+  that *threw* resolved the same way, which would have blamed the user for a
+  wiring fault. Both are now separate causes. The old regex survives only as a
+  fallback for addon builds already in the field.
+- **The user can re-ask, and that does not move the gate (2026-09-18).** A refused
+  step offers a quiet **Try again** — but only where the refusal was a *person's
+  answer or absence* (`step.reaskable`, from `harness/refusalCause.js`; a policy
+  denial and the kill switch never get one, because they would refuse identically).
+
+  **The affordance asks; it does not approve.** It sends an ordinary chat turn
+  (rationale in `NET_HARNESS_PLAN.md` §P6), the relay dispatches again, and
+  `permissions.js` prompts again on the PC — where the user can decline again. No
+  new authority appears anywhere: the cloud still cannot say yes, the decision is
+  still made by the machine that owns the resource (ADR-4), and the approval
+  deadline still bounds the new prompt. What changed is only that the user has a way
+  to *ask* for a second attempt.
+
+  One consequence worth stating, because it is where this could have gone wrong: the
+  retry message carries an explicit **"I'm asking you to"**. Two instructions
+  telling the model not to retry are already in its context (the refusal's own
+  `HARNESS: REFUSED … do not retry`, and continuity's `Do not retry a refused step
+  on your own`), so a bare "try again" invites the model to refuse on the harness's
+  behalf. Continuity now names the exception in the same words.
+- **✅ The unanswered-`ask` gap is CLOSED (2026-09-18).** This was the real hole in
+  the surface: the cloud dispatch waited ~120 s, but the prompt on the PC had **no
+  deadline of its own**, so an `ask` tool the user never answered left the prompt
+  open indefinitely. The cloud then timed out reporting *"it may still be
+  running"* — an unknown — and minutes later, with nobody in that conversation,
+  clicking **Approve** would run the action. A late approval could execute
+  something no live turn was waiting for.
+
+  Now `permissions.requestApproval` accepts an `approvalTimeoutMs`, and the relay
+  path sets it (`relayApprovalTimeoutMs()`, default **110 s**, `ADDON_APPROVAL_TIMEOUT_MS`).
+  Slightly under the cloud's 120 s **on purpose**: the addon must answer first, so
+  the harness receives a definite **refusal** — which its taxonomy classifies as
+  `permission` ("do not retry it and do not rephrase it") — instead of an unknown
+  it can only warn about. Expiry resolves as a refusal with a reason
+  (`no answer within 110s — the request expired and nothing was run`), and an
+  answer that arrives afterwards changes nothing, because the call it belonged to
+  has already returned.
+
+  Two details that are deliberate, both pinned by tests:
+  - **The deadline is opt-in.** A LOCAL agent step passes no timeout, so a prompt
+    in front of the user still waits for the human on the human's schedule —
+    expiring that under them would be a regression, not a safety win.
+  - **The timer is not `unref`'d.** An unref'd timer does not hold the event loop
+    open, so when the deadline is the only pending work the process can exit
+    *before* it fires — the deadline skipped exactly when it matters. (Found by the
+    "never answered is refused" test, which hung rather than failing.)
+
+  Still open, and separate: a way for the cloud to **cancel** a dispatched command
+  whose turn has ended, rather than only refusing to wait for it. The command TTL
+  (5 min) bounds it; the approval deadline is what stops an action running late.
+
+#### Security pass over the exposed PC surface (2026-09-18)
+
+A directed review of this surface, because Layer 3h made `pc_do` reachable from the
+cloud on the relay-only path — i.e. the surface widened, so it was re-read.
+
+| Question | Finding |
+|---|---|
+| Can one user's turn dispatch to another user's device? | **No.** The queue (`addon_queue_${userId}`) and the device registry (`addon_devices_${userId}`) are both keyed by the *caller's* id, and `dispatchToolToAddon({ userId })` resolves the device from that user's own registry. There is no path by which a `deviceId` from a request body reaches another tenant's queue. |
+| Is the published catalog safe to render into a prompt? | **Now yes.** Tool names were already `[a-z0-9_]+`-filtered, but `category` was only *length*-bounded — 24 characters is room for an instruction, and it lands in a prompt. `sanitizeCatalog` now charset-filters it (and the policy's category keys), falling back to `unknown`. The addon's real vocabulary is `safe-read`, `sandboxed-write`, `shell`, `destructive`, `system`. |
+| Does the cloud path bypass the PC's policy? | **No.** It reaches `registry.executeTool` → `permissions.js`, so the kill switch, per-tool overrides and dry-run all still decide. Notably `globalKillSwitch` wins over everything — including this path. |
+| Is `pc_do` admin-gated? | **Deliberately not** (`toolScopes.js` has no entry ⇒ public). The resource is the user's *own* PC, registered under their own id, and the policy that governs it lives on that machine. Admin-gating it would add a second, weaker boundary that could drift from the real one. Stated here so it reads as a decision rather than an omission. |
+| Are tool arguments bounded on this path? | Length-bounded per argument (`netTools.enforceArgLimits`) before the dispatch; the queue item itself is a DynamoDB row, so an oversized payload fails the write rather than landing. |
+
+**The rules this surface keeps teaching.** Every consumer decides "did this work?"
+by PREFIX. Anything new here must prefix its failures (`Error:` / `Denied:`) or it
+will be counted as a success — which is how a PC refusal was rendered as a ✓ until
+2026-09-18. And every consumer that needs to *act* on a failure needs its CAUSE,
+not its wording: prose is the one thing that changes freely, so a classifier built
+on it re-breaks silently each time someone improves a sentence. When a producer
+knows why something was refused, it must say so as data — a closed vocabulary, not
+a sentence — and a reader must treat an unrecognised value as "unknown", never as
+a sensible default. `pc_do` guessed twice from prose and got the kill switch and
+the unanswered prompt wrong in the same direction.
 
 ### 7.2 Approval-model caveat (OPEN)
 
@@ -335,23 +488,37 @@ intentional for regression testing but means:
    NSIS installer while Windows was tearing the session down), so the exposure
    is now "downloads silently, runs when the user clicks", not "runs on quit".
    Sign Windows builds and enable signature checks.
-5. **Shell timeout & resource cap** — hard ceiling on CPU/memory + max stdout.
-6. **HTTPS cert TOFU** — pin the local cert when binding to LAN, reject MITM.
-7. **Permission audit trail** — separate file for permission *changes* (who
+5. **Prompt injection via captured content** — the loop's inputs include text it
+   did not choose: a webpage, an email, a chat window, a document, and any text
+   rendered *inside* a screenshot handed to a multimodal model. Nothing currently
+   distinguishes "the user told me to do this" from "the screen told me to do
+   this", while the same loop holds `shell_run`, `fs_write` and `input_*`. No
+   remote caller is needed for this one — a hostile string on screen is
+   sufficient. The reference implementation's answer is a classifier over tool
+   returns plus a steer to confirm with the user before acting; the local
+   equivalent is at minimum (a) a standing rule in `buildSystemPrompt` that screen
+   text is DATA, never instruction, (b) treating a tool call whose justification
+   exists only in captured text as requiring approval (`userInitiated` is already
+   the seam), and (c) an audit marker on the step, so a driven run can be reviewed
+   for it. Distinct from §7.2 (a `chat` command claiming to be user-initiated) and
+   from the repo agent's injection → commit vector in §10.
+6. **Shell timeout & resource cap** — hard ceiling on CPU/memory + max stdout.
+7. **HTTPS cert TOFU** — pin the local cert when binding to LAN, reject MITM.
+8. **Permission audit trail** — separate file for permission *changes* (who
    added a deny pattern, when) signed by the user JWT.
-8. **Tamper-evident logs** — periodic hash-chain checkpoint pushed to cloud.
-9. **`screen-relay.js` token/URL source** — it reads legacy top-level
+9. **Tamper-evident logs** — periodic hash-chain checkpoint pushed to cloud.
+10. **`screen-relay.js` token/URL source** — it reads legacy top-level
    `settings.json` `token`/`jwt`/`backendBaseUrl` instead of the shared
    `workspace-client.getToken()` + `BACKEND_URL`; unify so a stray
    `backendBaseUrl` field can't redirect uploads (potential SSRF/credential
    leak). `/api/open-file` accepts arbitrary paths (Explorer select only —
    low risk, not code execution).
-10. **Marketplace moderation** — publish is unmoderated and category
+11. **Marketplace moderation** — publish is unmoderated and category
     declarations are disclosure-only. Consider blocking (or flagging) publishes
     whose steps include `shell_run`/`browser_eval`, and show a stronger warning
     when `safe-read` steps would read files off-device. Residual
     social-engineering risk remains (the capability summary is the last gate).
-11. **Marketplace rating/ranking integrity** — enforce the run-before-rate gate
+12. **Marketplace rating/ranking integrity** — enforce the run-before-rate gate
     (currently `attemptedRun` is hardcoded `true` in `rateMarketSkill`) and
     avoid the full-table scan on `/market/skills` search (index it or cache).
 

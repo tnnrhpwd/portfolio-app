@@ -158,7 +158,11 @@ const FEATURES = Object.freeze({
   [PLAN_IDS.PRO]: [
     '✅ Everything in Free',
     AI_CHAT_FEATURE(PLAN_IDS.PRO),
-    '📱 Live screen viewing from your phone',
+    // ⬜ Phone viewing — NOT SHIPPED, so it is not sold (pulled from every
+    //    user-facing list 2026-09-18). Keep in step with the frontend mirror in
+    //    frontend/src/constants/pricing.js; see docs/implementation/BACKLOG.md
+    //    → "Phone viewing" before restoring this line.
+    // '📱 Live screen viewing from your phone',
     CLOUD_STORAGE_FEATURE(PLAN_IDS.PRO, '💾'),
     '✉️ Email support',
   ],
@@ -174,7 +178,8 @@ const FEATURES_PLAIN = Object.freeze({
   [PLAN_IDS.PRO]: [
     'Everything in Free',
     `AI chat — ${formatUsd(AI_CREDIT_ALLOWANCE[PLAN_IDS.PRO])}/month cloud credits`,
-    'Live screen viewing from your phone',
+    // ⬜ Phone viewing — NOT SHIPPED (2026-09-18); see BACKLOG.md → "Phone viewing".
+    // 'Live screen viewing from your phone',
     `${STORAGE_DISPLAY[PLAN_IDS.PRO]} cloud storage`,
     'Email support',
   ],
@@ -185,7 +190,7 @@ const FEATURES_PLAIN = Object.freeze({
 // ──────────────────────────────────────────────
 const DESCRIPTIONS = Object.freeze({
   [PLAN_IDS.FREE]: `AI chat with included credits, unlimited local automation, and ${STORAGE_DISPLAY[PLAN_IDS.FREE]} storage`,
-  [PLAN_IDS.PRO]:  `More AI credits, ${STORAGE_DISPLAY[PLAN_IDS.PRO]} storage, phone viewing, and email support`,
+  [PLAN_IDS.PRO]:  `More AI credits, ${STORAGE_DISPLAY[PLAN_IDS.PRO]} storage, and email support`,
 });
 
 /** Pricing-page comparison table rows (shared with the frontend). */
@@ -193,7 +198,8 @@ const COMPARISON = Object.freeze([
   { feature: 'AI chat (cloud credits)', free: `${formatUsd(AI_CREDIT_ALLOWANCE[PLAN_IDS.FREE])}/month`, pro: `${formatUsd(AI_CREDIT_ALLOWANCE[PLAN_IDS.PRO])}/month` },
   { feature: 'Local automation (Simple addon)', free: 'Unlimited', pro: 'Unlimited' },
   { feature: 'Cloud storage', free: STORAGE_DISPLAY[PLAN_IDS.FREE], pro: STORAGE_DISPLAY[PLAN_IDS.PRO] },
-  { feature: 'Live screen viewing from phone', free: '—', pro: 'Included' },
+  // ⬜ Phone viewing row removed 2026-09-18 — not shipped (BACKLOG.md → "Phone viewing").
+  // { feature: 'Live screen viewing from phone', free: '—', pro: 'Included' },
   { feature: 'Email support', free: 'Self-serve', pro: 'Included' },
 ]);
 

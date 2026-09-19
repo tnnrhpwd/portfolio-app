@@ -116,7 +116,12 @@ export const FEATURES = Object.freeze({
   [PLAN_IDS.PRO]: [
     '✅ Everything in Free',
     AI_CHAT_FEATURE(PLAN_IDS.PRO),
-    '📱 Live screen viewing from your phone',
+    // ⬜ Phone viewing — NOT SHIPPED, so it is not sold. `screen_relay` uploads a
+    //    frame and the addon publishes a local `screen.frame` SSE event, but no
+    //    surface renders one and nothing carries a stream to a phone. Pulled from
+    //    every user-facing list 2026-09-18 — see docs/implementation/BACKLOG.md
+    //    → "Phone viewing" before adding it back here.
+    // '📱 Live screen viewing from your phone',
     CLOUD_STORAGE_FEATURE(PLAN_IDS.PRO, '💾'),
     '✉️ Email support',
   ],
@@ -127,7 +132,8 @@ export const FEATURES = Object.freeze({
 // ──────────────────────────────────────────────
 export const DESCRIPTIONS = Object.freeze({
   [PLAN_IDS.FREE]: `AI chat with included credits, unlimited local automation, and ${STORAGE_DISPLAY[PLAN_IDS.FREE]} storage`,
-  [PLAN_IDS.PRO]:  `More AI credits, ${STORAGE_DISPLAY[PLAN_IDS.PRO]} storage, phone viewing, and email support`,
+  // ⬜ "phone viewing" dropped 2026-09-18 — not shipped (BACKLOG.md → "Phone viewing").
+  [PLAN_IDS.PRO]:  `More AI credits, ${STORAGE_DISPLAY[PLAN_IDS.PRO]} storage, and email support`,
 });
 
 /** Pricing-page comparison table rows (mirrors the backend constant). */
@@ -135,7 +141,8 @@ export const COMPARISON = Object.freeze([
   { feature: 'AI chat (cloud credits)', free: `${formatUsd(AI_CREDIT_ALLOWANCE[PLAN_IDS.FREE])}/month`, pro: `${formatUsd(AI_CREDIT_ALLOWANCE[PLAN_IDS.PRO])}/month` },
   { feature: 'Local automation (Simple addon)', free: 'Unlimited', pro: 'Unlimited' },
   { feature: 'Cloud storage', free: STORAGE_DISPLAY[PLAN_IDS.FREE], pro: STORAGE_DISPLAY[PLAN_IDS.PRO] },
-  { feature: 'Live screen viewing from phone', free: '—', pro: 'Included' },
+  // ⬜ Phone viewing row removed 2026-09-18 — not shipped (BACKLOG.md → "Phone viewing").
+  // { feature: 'Live screen viewing from phone', free: '—', pro: 'Included' },
   { feature: 'Email support', free: 'Self-serve', pro: 'Included' },
 ]);
 

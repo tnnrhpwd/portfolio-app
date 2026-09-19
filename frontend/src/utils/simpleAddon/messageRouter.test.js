@@ -66,6 +66,46 @@ describe('routeMessage — PC control', () => {
   });
 });
 
+describe('routeMessage — a relay-only addon prefers the cloud harness', () => {
+  // `isLoggedIn` matters for the relay path: the addon answers over the cloud, so
+  // an explicit PC request without a token is "unreachable", not a relay.
+  const remote = { isRemoteAddonOnline: true, isAddonConnected: false, isLoggedIn: true, provider: 'portfolio' };
+
+  it('sends a plain instruction to the cloud instead of the addon loop', () => {
+    const d = routeMessage({ text: 'tidy up my downloads', ...remote });
+
+    expect([d.kind, d.reason]).toEqual([ROUTE_KINDS.CHAT_CLOUD, 'remote-addon-prefer-cloud-harness']);
+    expect(d.skippedAddon).toBe(true);
+  });
+
+  it('still prefers the addon loop when the browser is ON that machine', () => {
+    // No hop at all there, and the classifier can disambiguate locally — this is
+    // the one case where the addon's own loop is the better brain.
+    const d = routeMessage({ text: 'tidy up my downloads', isAddonConnected: true });
+    expect([d.kind, d.reason]).toEqual([ROUTE_KINDS.AGENT, 'addon-reachable-logic-mode']);
+  });
+
+  it('an explicit "on my pc" request still goes straight to the relay', () => {
+    const d = routeMessage({ text: 'open edge on my pc', ...remote });
+    expect(d.kind).toBe(ROUTE_KINDS.PC_RELAY);
+  });
+
+  it('a cloud-only intent keeps its own reason, not this one', () => {
+    const d = routeMessage({ text: 'generate an image of a cat', ...remote });
+    expect(d.reason).toBe('cloud-only-intent-skip-addon');
+  });
+
+  it('a local chat provider still uses the addon\'s own model', () => {
+    const d = routeMessage({ text: 'hello there', isRemoteAddonOnline: true, provider: 'local' });
+    expect(d.kind).toBe(ROUTE_KINDS.CHAT_LOCAL);
+  });
+
+  it('with no addon reachable, nothing changes', () => {
+    const d = routeMessage({ text: 'hello', provider: 'portfolio' });
+    expect([d.kind, d.reason]).toEqual([ROUTE_KINDS.CHAT_CLOUD, 'plain-chat']);
+  });
+});
+
 describe('routeMessage — logic mode & cloud-only shortcut', () => {
   it('tries the addon first for a normal message', () => {
     const d = routeMessage({ text: 'tidy up my downloads', isAddonConnected: true });

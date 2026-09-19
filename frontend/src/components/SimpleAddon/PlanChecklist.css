@@ -1,0 +1,70 @@
+/* PlanChecklist — the agent's PLAN, above its step log.
+   Sits on the same token set as StepList (--text-secondary, --border, --success,
+   --accent, --surface) so it inherits both themes from whatever root the bubble is
+   rendered under, /net included.
+
+   Deliberately lighter than .steps: the plan is intent and changes often, the step
+   log is evidence and is the thing you go to when something went wrong. Same
+   chrome for both would make the eye treat a plan revision as a completed action. */
+
+.plan {
+  margin-top: 8px;
+  font-size: 0.82em;
+}
+
+.plan__summary {
+  padding: 0 2px 4px;
+  color: var(--text-muted, #718096);
+  font-size: 0.95em;
+  letter-spacing: 0.01em;
+}
+
+.plan__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 2px solid var(--border);
+}
+
+.plan__item {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 2px 0 2px 8px;
+  color: var(--text-secondary, #a0aec0);
+}
+
+/* Fixed width so the labels line up in a column — a checklist is scanned. */
+.plan__glyph {
+  flex: 0 0 1em;
+  text-align: center;
+  color: var(--text-muted, #718096);
+}
+
+.plan__text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Done work recedes: it is context for reading the current step, not a target. */
+.plan__item--done {
+  color: var(--text-muted, #718096);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--text-muted, #718096) 60%, transparent);
+}
+.plan__item--done .plan__glyph { color: var(--success, #38a169); }
+
+/* The one step the user is watching. Only this one is emphasised — and only this
+   one animates, so it is the thing the eye lands on in a long turn. */
+.plan__item--in_progress {
+  color: var(--text-primary, #f7fafc);
+  font-weight: 600;
+}
+.plan__item--in_progress .plan__glyph {
+  color: var(--accent);
+  animation: message-progress-pulse 1.1s ease-in-out infinite;
+}
+
+/* Waiting on the user, which is usually why a turn stalls. */
+.plan__item--blocked { color: var(--warning, #d69e2e); }
+.plan__item--blocked .plan__glyph { color: var(--warning, #d69e2e); }

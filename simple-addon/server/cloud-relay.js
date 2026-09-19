@@ -23,8 +23,18 @@ const API_BASE = `${BACKEND_URL}/api/data`;
 
 // Intervals
 const HEARTBEAT_INTERVAL = 30000;  // 30s
-const POLL_INTERVAL_IDLE = 3000;   // 3s when no active commands
-const POLL_INTERVAL_ACTIVE = 1000; // 1s during active execution (unused for now)
+// Poll intervals. The relay used a fixed 3s interval, which was fine when the
+// only remote work was "send a chat message" — one round trip and done. The
+// cloud harness dispatches TOOL CALLS, and those arrive in a burst: a 6-step PC
+// task paid 6 x 3s of pure polling before anything happened. The interval is now
+// adaptive — see _nextPollDelay.
+const POLL_INTERVAL_IDLE = 3000;   // nothing happening
+const POLL_INTERVAL_ACTIVE = 500;  // work just arrived or just ran
+/** How long a burst stays "hot" after the last command we saw. */
+const HOT_WINDOW_MS = 15000;
+/** Bounds on the server's own hint, so a bad value cannot make the addon hammer. */
+const SERVER_POLL_MS_MIN = 250;
+const SERVER_POLL_MS_MAX = POLL_INTERVAL_IDLE;
 
 class CloudRelayService {
   constructor(chatHandler, options = {}) {
@@ -32,7 +42,18 @@ class CloudRelayService {
     this._chatHandler = chatHandler; // Function to process chat locally
     this._confirmHandler = options.confirmHandler || null; // Resolve confirmations locally
     this._agentHandler = options.agentHandler || null;      // Run the agent loop locally
+    // One tool call dispatched by the cloud harness. It must go through the SAME
+    // registry.executeTool a local call uses, so permissions.js decides.
+    this._toolHandler = options.toolHandler || null;
+    // What this PC can do, for the cloud to publish back to the model. A getter
+    // rather than a snapshot: tools register on boot and permissions change at
+    // runtime, and a stale catalog is worse than none.
+    this._toolCatalog = options.toolCatalog || null;
     this._inFlight = new Set();  // command ids currently executing (dedupe)
+    // Adaptive-poll state: when work last arrived, and any cadence the server
+    // asked for on the last poll (it knows a cloud turn is dispatching).
+    this._lastWorkAt = 0;
+    this._serverPollMs = null;
     this._heartbeatTimer = null;
     this._pollTimer = null;
     this._running = false;
@@ -85,6 +106,61 @@ class CloudRelayService {
   }
 
   /**
+   * Register the single-tool handler (wired by mountAutomation, same place as
+   * the agent handler). Accepts `{ tool, args }` and returns the tool's result.
+   *
+   * The handler must route through the tool REGISTRY, not call a tool directly:
+   * the registry is where permissions.js is enforced (category modes, dry-run,
+   * the kill switch, the shell allow/deny list). A cloud turn that reached past
+   * it would be a hole in a gate this machine's user set.
+   */
+  setToolHandler(fn) {
+    this._toolHandler = fn;
+  }
+
+  /**
+   * Register the capability getter: `() => { tools, policy }`.
+   *
+   * The cloud harness has to know two things it cannot discover on its own —
+   * which tools exist on this machine, and what this machine's permission policy
+   * will do with them — or it can only guess tool names and promise the user
+   * outcomes it has no right to promise. Both are read live from the registry and
+   * from permissions.js, so the ONLY source of truth stays here.
+   */
+  setToolCatalog(fn) {
+    this._toolCatalog = fn;
+  }
+
+  /**
+   * The catalog as it should go on the wire: bounded, because the backend stores
+   * it on a heartbeat row and a malformed getter must not bloat every request.
+   */
+  _catalogForHeartbeat() {
+    if (typeof this._toolCatalog !== 'function') return undefined;
+    try {
+      const { tools, policy } = this._toolCatalog() || {};
+      const safeTools = (Array.isArray(tools) ? tools : [])
+        .slice(0, 60)
+        .map(t => ({ name: String(t?.name || '').slice(0, 40), category: String(t?.category || 'unknown').slice(0, 24) }))
+        .filter(t => t.name);
+      return {
+        tools: safeTools,
+        policy: policy && typeof policy === 'object'
+          ? {
+            categories: policy.categories && typeof policy.categories === 'object' ? policy.categories : {},
+            dryRunMode: !!policy.dryRunMode,
+            autoApproveAll: !!policy.autoApproveAll,
+            globalKillSwitch: !!policy.globalKillSwitch,
+          }
+          : null,
+      };
+    } catch (err) {
+      console.warn('[CloudRelay] tool catalog unavailable:', err.message);
+      return undefined;
+    }
+  }
+
+  /**
    * Start the heartbeat and polling loops.
    */
   start() {
@@ -96,9 +172,43 @@ class CloudRelayService {
     this._sendHeartbeat();
     this._heartbeatTimer = setInterval(() => this._sendHeartbeat(), HEARTBEAT_INTERVAL);
 
-    // Start polling for commands
+    // Start polling for commands. A self-scheduling timeout rather than a fixed
+    // interval, because the cadence depends on whether work is in flight.
     this._pollForCommands();
-    this._pollTimer = setInterval(() => this._pollForCommands(), POLL_INTERVAL_IDLE);
+    this._schedulePoll();
+  }
+
+  /**
+   * How long to wait before polling again.
+   *
+   * Two inputs, in order of authority:
+   *   1. the server's hint from the last poll — «I have a turn dispatching» —
+   *      which is the only way to make the FIRST command of a burst quick;
+   *   2. a local hot window — anything delivered or run in the last 15s means
+   *      more is probably coming, so come back fast until it goes quiet.
+   *
+   * The hint is clamped: a relay that polls as fast as a bad value says would
+   * turn one user's turn into a queue-hammering loop.
+   */
+  _nextPollDelay() {
+    const hinted = Number(this._serverPollMs);
+    if (Number.isFinite(hinted) && hinted > 0) {
+      return Math.min(Math.max(hinted, SERVER_POLL_MS_MIN), SERVER_POLL_MS_MAX);
+    }
+    return (Date.now() - this._lastWorkAt) < HOT_WINDOW_MS
+      ? POLL_INTERVAL_ACTIVE
+      : POLL_INTERVAL_IDLE;
+  }
+
+  /** Schedule the next poll at the current cadence. */
+  _schedulePoll() {
+    if (!this._running) return;
+    clearTimeout(this._pollTimer);
+    this._pollTimer = setTimeout(async () => {
+      await this._pollForCommands();
+      this._schedulePoll();
+    }, this._nextPollDelay());
+    if (this._pollTimer.unref) this._pollTimer.unref();
   }
 
   /**
@@ -111,7 +221,7 @@ class CloudRelayService {
       this._heartbeatTimer = null;
     }
     if (this._pollTimer) {
-      clearInterval(this._pollTimer);
+      clearTimeout(this._pollTimer);
       this._pollTimer = null;
     }
     console.log('[CloudRelay] Stopped');
@@ -135,6 +245,8 @@ class CloudRelayService {
           version: this._version,
           hostname: this._hostname,
           platform: `${this._platform}/${this._arch}`,
+          // What the cloud may ask this machine to do, and how it will answer.
+          ...(this._catalogForHeartbeat() || {}),
         }),
       });
 
@@ -183,7 +295,15 @@ class CloudRelayService {
       }
 
       const data = await res.json();
+
+      // Adopt (or drop) the server's requested cadence for the NEXT poll. Absent
+      // means "I have nothing in flight" — fall back to the local hot window.
+      this._serverPollMs = data.pollMs ?? null;
+
       if (data.commands && data.commands.length > 0) {
+        // Work arrived: stay hot so the next step of the same burst is picked up
+        // in half a second rather than three.
+        this._lastWorkAt = Date.now();
         console.log(`[CloudRelay] Received ${data.commands.length} pending command(s)`);
         for (const cmd of data.commands) {
           // Process each command (don't await — process in background)
@@ -227,6 +347,16 @@ class CloudRelayService {
         // the final answer (see automation/index.js runGoalToCompletion).
         if (!this._agentHandler) throw new Error('Agent handler not configured');
         result = await this._agentHandler(payload);
+      } else if (type === 'tool') {
+        // ⚠️ A tool call dispatched by the CLOUD HARNESS (`/net`). It runs
+        // through the same `registry.executeTool` a local agent step uses, so
+        // every control this machine already has applies unchanged: category
+        // modes (allow/ask/deny/dry-run), per-tool overrides, the shell
+        // allow/deny list, protected paths, audit logging, and the emergency
+        // kill switch. The cloud decides whether to ASK; this machine decides
+        // whether it HAPPENS — one policy per machine (plan ADR-4).
+        if (!this._toolHandler) throw new Error('Tool handler not configured');
+        result = await this._toolHandler(payload);
       } else {
         throw new Error(`Unknown command type: ${type}`);
       }

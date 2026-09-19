@@ -93,7 +93,10 @@ describe('runToolLoop — sequence', () => {
     const result = await runToolLoop({ ...baseArgs(), call, executeToolCall });
 
     expect(result.rounds).toBe(1);
-    expect(result.toolResults[0].result).toBe('Error: git grep exploded');
+    // The tool's own message still leads; the harness now APPENDS the next move
+    // its kind implies (see toolOutcome.js), which is what the model acts on.
+    expect(result.toolResults[0].result).toMatch(/^Error: git grep exploded/);
+    expect(result.toolResults[0].result).toMatch(/HARNESS: /);
     // The old behaviour rejected here, losing the whole turn.
     expect(result.response.choices[0].message.content).toBe('That failed, here is why.');
   });
@@ -230,7 +233,11 @@ describe('runToolLoop — hooks', () => {
 
     expect(ends).toHaveLength(1);
     expect(ends[0].error).toBeInstanceOf(Error);
-    expect(ends[0].result).toBe('Error: not confirmed');
+    expect(ends[0].result).toMatch(/^Error: not confirmed/);
+    // The hook carries the classification too, so the journal can record WHY a
+    // step failed rather than only that it did.
+    expect(ends[0].outcome).toBeTruthy();
+    expect(ends[0].retried).toBe(false);
   });
 });
 
@@ -244,9 +251,9 @@ describe('runToolLoop — cancel and approval', () => {
 
     expect(executeToolCall).not.toHaveBeenCalled();
     expect(beforeTool).toHaveBeenCalledTimes(1);
-    expect(result.toolResults[0].result).toBe('Denied: you declined');
+    expect(result.toolResults[0].result).toMatch(/^Denied: you declined/);
     // The refusal reaches the model, which is what lets it adapt instead of the
-    // turn just dying.
+    // turn just dying — and it arrives saying not to repeat it.
     expect(result.response.choices[0].message.content).toBe('Understood — nothing was committed.');
   });
 
@@ -315,6 +322,244 @@ describe('runToolLoop — cancel and approval', () => {
     expect(pushed.tool_calls).toHaveLength(2);
     const resultIds = messages.filter((m) => m.role === 'tool').map((m) => m.tool_call_id);
     expect(resultIds.sort()).toEqual(pushed.tool_calls.map((c) => c.id).sort());
+  });
+});
+
+describe('runToolLoop — the context governor', () => {
+  /**
+   * A loop that keeps asking for tools and gets a big result each time — the
+   * shape that grows a request without ever looking expensive in message count.
+   */
+  const hungryLoop = (resultText) => ({
+    call: scripted([asksForTools(toolCall('repo_read_file', { path: 'big.js' }))]),
+    executeToolCall: jest.fn(async () => ({
+      fnName: 'repo_read_file',
+      fnArgs: { path: 'big.js' },
+      result: resultText,
+    })),
+  });
+
+  test('thins old results and KEEPS working rather than failing the turn', async () => {
+    // Each round adds 4000 chars. With a 12K budget the loop must start trimming
+    // to stay alive — the whole point: an affordable turn, not a dead one.
+    const { call, executeToolCall } = hungryLoop('x'.repeat(4000));
+
+    const result = await runToolLoop({
+      ...baseArgs(), call, executeToolCall, maxRounds: 6, contextBudget: 12_000,
+    });
+
+    expect(result.rounds).toBe(6);
+    expect(result.contextTrims).toBeGreaterThan(0);
+    // Trimming was enough to keep going, so this is NOT a budget stop.
+    expect(result.overBudget).toBe(false);
+    expect(result.exhausted).toBe(true); // it still ran out of rounds, later
+    // Something was actually thinned, not merely re-counted.
+    const toolMsgs = result.toolResults.length;
+    expect(toolMsgs).toBe(6);
+  });
+
+  test('stops the turn when trimming cannot win, and says why', async () => {
+    // One result is larger than the whole budget and there is nothing else to
+    // trim: the only honest move is to stop and let the caller ask for prose.
+    const { call, executeToolCall } = hungryLoop('y'.repeat(50_000));
+
+    const result = await runToolLoop({
+      ...baseArgs(), call, executeToolCall, maxRounds: 6, contextBudget: 1000,
+    });
+
+    expect(result.overBudget).toBe(true);
+    expect(result.cancelled).toBe(false);
+    // Not "exhausted": rounds remained. The caller picks its notice off these two
+    // flags, so conflating them would tell the model the wrong reason it stopped.
+    expect(result.exhausted).toBe(false);
+    expect(result.rounds).toBeLessThan(6);
+  });
+
+  test('a budget stop still leaves the history a LEGAL request', async () => {
+    const messages = [SYSTEM, { role: 'user', content: 'read the big file' }];
+    const { call, executeToolCall } = hungryLoop('z'.repeat(20_000));
+
+    await runToolLoop({ ...baseArgs({ messages }), call, executeToolCall, maxRounds: 4, contextBudget: 500 });
+
+    // Every `role:'tool'` message must still have the call it answers above it —
+    // half a pair is a rejected request, not a degraded one.
+    const seen = new Set();
+    for (const message of messages) {
+      if (message.role === 'tool') expect(seen).toContain(message.tool_call_id);
+      for (const c of message.tool_calls || []) seen.add(c.id);
+    }
+  });
+
+  test('a budget of 0 disables the governor entirely', async () => {
+    const { call, executeToolCall } = hungryLoop('w'.repeat(5000));
+
+    const result = await runToolLoop({
+      ...baseArgs(), call, executeToolCall, maxRounds: 3, contextBudget: 0,
+    });
+
+    expect(result.contextTrims).toBe(0);
+    expect(result.overBudget).toBe(false);
+    expect(result.exhausted).toBe(true);
+  });
+
+  test('a CHAT turn over budget still gets its answer, not a wrap-up', async () => {
+    // The governor sits after a round of real work precisely so this case is
+    // untouched: a big incoming history on a turn that needs no tools must not
+    // turn into "sorry, too large".
+    const messages = [
+      SYSTEM,
+      { role: 'user', content: 'q'.repeat(30_000) },
+    ];
+    const call = scripted([says('here is your answer')]);
+
+    const result = await runToolLoop({
+      ...baseArgs({ messages }), call, executeToolCall: jest.fn(), contextBudget: 500,
+    });
+
+    expect(result.overBudget).toBe(false);
+    expect(result.rounds).toBe(0);
+    expect(result.response.choices[0].message.content).toBe('here is your answer');
+  });
+});
+
+describe('runToolLoop — a failure arrives classified, not as a bare string', () => {
+  test('a failed step carries the next move for its kind', async () => {
+    const call = scripted([
+      asksForTools(toolCall('repo_edit_file', { path: 'a.js' })),
+      says('I will read it first.'),
+    ]);
+    const executeToolCall = jest.fn(async () => ({
+      fnName: 'repo_edit_file',
+      fnArgs: {},
+      result: 'Error: old_string was not found in "a.js". Read it with repo_read_file and copy the snippet exactly.',
+    }));
+
+    const messages = [SYSTEM, { role: 'user', content: 'fix it' }];
+    await runToolLoop({ ...baseArgs({ messages }), call, executeToolCall });
+
+    // The tool said what went wrong. The harness adds what to do about it — the
+    // part a bare `Error: …` never carried.
+    const result = messages.find((m) => m.role === 'tool').content;
+    expect(result).toContain('old_string was not found');
+    expect(result).toMatch(/\n\nHARNESS: NOT FOUND/);
+    expect(result).toMatch(/Do NOT repeat the same name/i);
+  });
+
+  test('a refusal is classified as a decision, and reported as one', async () => {
+    const call = scripted([asksForTools(toolCall('repo_commit_changes')), says('Understood.')]);
+    const ends = [];
+    const messages = [SYSTEM, { role: 'user', content: 'commit it' }];
+
+    await runToolLoop({
+      ...baseArgs({ messages }),
+      call,
+      executeToolCall: jest.fn(),
+      beforeTool: async () => ({ allow: false, reason: 'you did not approve this step' }),
+      onToolEnd: (info) => ends.push(info),
+    });
+
+    expect(ends[0]).toMatchObject({ outcome: 'permission', retried: false });
+    // Telling the model "it will fail identically if repeated" is the whole point:
+    // re-asking is the most likely wrong next action after a refusal.
+    expect(messages.find((m) => m.role === 'tool').content).toMatch(/HARNESS: REFUSED/);
+  });
+
+  test('a successful step carries no note', async () => {
+    const call = scripted([asksForTools(toolCall('repo_search', { query: 'x' })), says('Done.')]);
+    const executeToolCall = jest.fn(async () => ({ fnName: 'repo_search', fnArgs: {}, result: '2 matches' }));
+
+    const messages = [SYSTEM, { role: 'user', content: 'find it' }];
+    await runToolLoop({ ...baseArgs({ messages }), call, executeToolCall });
+
+    expect(messages.find((m) => m.role === 'tool').content).toBe('2 matches');
+  });
+});
+
+describe('runToolLoop — the harness retries a transient READ itself', () => {
+  const transient = () => {
+    const err = new Error('connect ETIMEDOUT');
+    return { fnName: 'repo_read_file', fnArgs: { path: 'a' }, result: `Error: ${err.message}` };
+  };
+
+  test('a flaky read is repeated without spending a model round', async () => {
+    const call = scripted([
+      asksForTools(toolCall('repo_read_file', { path: 'a' })),
+      says('Read it.'),
+    ]);
+    // Fails once, then works — the classic flaky-network shape.
+    const executeToolCall = jest.fn()
+      .mockResolvedValueOnce(transient())
+      .mockResolvedValueOnce({ fnName: 'repo_read_file', fnArgs: { path: 'a' }, result: 'file body' });
+    const ends = [];
+    const messages = [SYSTEM, { role: 'user', content: 'read it' }];
+
+    const result = await runToolLoop({
+      ...baseArgs({ messages }), call, executeToolCall, onToolEnd: (i) => ends.push(i),
+    });
+
+    expect(executeToolCall).toHaveBeenCalledTimes(2);
+    // ONE round and one extra model call: the retry happened below the model.
+    expect(result.rounds).toBe(1);
+    expect(call.count()).toBe(2);
+    // The model sees the outcome, not the glitch.
+    expect(messages.find((m) => m.role === 'tool').content).toBe('file body');
+    expect(ends[0]).toMatchObject({ retried: true, outcome: null });
+  });
+
+  test('a transient failure of a tool that WRITES is never repeated', async () => {
+    // `generate_image` spends credits and `pc_do` drives the user's machine, so
+    // "transient" must not authorise a repeat: the model is told to repeat, and
+    // the model can decide, but the harness will not do it silently.
+    const call = scripted([asksForTools(toolCall('generate_image', { prompt: 'a cat' })), says('I will try once more.')]);
+    const executeToolCall = jest.fn(async () => ({
+      fnName: 'generate_image', fnArgs: {}, result: 'Error: 503 Service Unavailable',
+    }));
+
+    const messages = [SYSTEM, { role: 'user', content: 'draw a cat' }];
+    await runToolLoop({ ...baseArgs({ messages }), call, executeToolCall });
+
+    expect(executeToolCall).toHaveBeenCalledTimes(1);
+    expect(messages.find((m) => m.role === 'tool').content).toMatch(/HARNESS: TRANSIENT/);
+  });
+
+  test('after retrying, it tells the model the truth instead of inviting a third try', async () => {
+    const call = scripted([asksForTools(toolCall('repo_read_file', { path: 'a' })), says('It is down.')]);
+    const executeToolCall = jest.fn(async () => transient());
+    const ends = [];
+    const messages = [SYSTEM, { role: 'user', content: 'read it' }];
+
+    await runToolLoop({ ...baseArgs({ messages }), call, executeToolCall, onToolEnd: (i) => ends.push(i) });
+
+    expect(executeToolCall).toHaveBeenCalledTimes(2);
+    expect(ends[0]).toMatchObject({ retried: true, outcome: 'transient' });
+    const result = messages.find((m) => m.role === 'tool').content;
+    expect(result).toMatch(/already retried this step once/i);
+    expect(result).toMatch(/Do not retry a third time/i);
+  });
+
+  test('a retry still respects the round budget and the audit trail', async () => {
+    // The retry must not look like a step of its own to the journal: one step, one
+    // result, one row — with `retried` marking that it took two attempts.
+    const call = scripted([asksForTools(toolCall('repo_search', { query: 'x' })), says('Done.')]);
+    const executeToolCall = jest.fn()
+      .mockResolvedValueOnce({ fnName: 'repo_search', fnArgs: {}, result: 'Error: too many requests' })
+      .mockResolvedValueOnce({ fnName: 'repo_search', fnArgs: {}, result: '2 matches' });
+    const starts = [];
+    const ends = [];
+    const messages = [SYSTEM, { role: 'user', content: 'find it' }];
+
+    const result = await runToolLoop({
+      ...baseArgs({ messages }),
+      call,
+      executeToolCall,
+      onToolStart: (i) => starts.push(i),
+      onToolEnd: (i) => ends.push(i),
+    });
+
+    expect(starts).toHaveLength(1);
+    expect(ends).toHaveLength(1);
+    expect(result.toolResults).toHaveLength(1);
+    expect(result.toolResults[0].result).toBe('2 matches');
   });
 });
 

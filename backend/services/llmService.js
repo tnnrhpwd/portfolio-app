@@ -18,7 +18,11 @@ const { buildToolContext } = require('./netChatContext.js');
 const { filterToolSchemas, canUseTool, requiresApproval } = require('./toolScopes.js');
 const { describeToolActivity } = require('./toolProgress.js');
 const { DECISION_POLICY } = require('./turnIntent.js');
-const { runToolLoop, parseToolArguments, MAX_TOOL_ROUNDS, TOOL_LIMIT_NOTICE, TOOL_TURN_MAX_TOKENS } = require('./harness/toolLoop.js');
+const { runToolLoop, parseToolArguments, MAX_TOOL_ROUNDS, TOOL_LIMIT_NOTICE, CONTEXT_LIMIT_NOTICE, TOOL_TURN_MAX_TOKENS } = require('./harness/toolLoop.js');
+const { compactMessages, overBudget, maxContextChars } = require('./harness/contextBudget.js');
+const { planChanged } = require('./harness/planSurface.js');
+const { continuityNoteFromRuns } = require('./harness/continuity.js');
+const { readRuns } = require('./harness/stepJournal.js');
 const { createRun, finishRun, journalHooks } = require('./harness/stepJournal.js');
 const { openTurn } = require('./harness/turnControl.js');
 const { buildRoutingEvent, recordRoutingEvent } = require('./routingTelemetry.js');
@@ -290,6 +294,28 @@ function canUseRepoTools(toolContext) {
 }
 
 /**
+ * What the previous turn left unfinished, as a prompt note (harness/continuity.js).
+ *
+ * The FIRST reader of the turn journal, which until now was written-only. The
+ * point is behavioural: /net sends the model the visible prose of the conversation
+ * and nothing else, so an unfinished plan, a failed step or a turn the user
+ * stopped are all invisible to the next turn — and "keep going" would restart from
+ * nothing. Only the most recent run is consulted, and only its unfinished parts.
+ *
+ * Never throws: one extra read must not be able to fail a turn, the same rule the
+ * journal itself follows.
+ */
+async function loadContinuityNote(userId) {
+    if (!userId) return null;
+    try {
+        return continuityNoteFromRuns(await readRuns(userId));
+    } catch (err) {
+        logger.warn('[llmService] Could not read the turn journal for continuity:', err.message);
+        return null;
+    }
+}
+
+/**
  * Build the base system prompt parts used by both callLLMApi and streamCompressionRequest.
  */
 function buildSystemPromptParts(goalsSummary) {
@@ -311,6 +337,7 @@ function buildSystemPromptParts(goalsSummary) {
         `Current date/time: ${nowReadable} (${nowIso}). Use this for temporal context, but NEVER include a timestamp, date, or bracketed time prefix at the start of your replies — reply with plain prose only.`,
         'When the user asks you to write, create, or generate content (code, scripts, emails, documents, etc.), present the content directly in your response using proper formatting (e.g. code blocks for code). If the content might be useful to save, briefly mention they can copy it or ask you to save it as a note.',
         'AUTO-MEMORY: You can save important facts about the user (name, preferences, important dates, context) by including a [MEMORY_SAVE:filename] block in your response. Format:\n[MEMORY_SAVE:user_profile.md]\n- Name: John\n- Preference: dark mode\n[/MEMORY_SAVE]\nUse this when the user shares personal info, asks you to remember something, or reveals preferences. Keep memory files small and focused. Do NOT announce the memory save to the user — just do it silently alongside your normal response.',
+        'THE USER\'S OWN PC (desktop addon, if connected): pc_status lists the tools their computer offers and how their permission policy will treat each one; pc_do runs one of them. Actions on their PC are governed by the policy ON THAT MACHINE — anything set to ask shows the user a prompt there, and they may refuse. So: prefer pc_status over guessing names, say what you are about to do on their PC before you do it, and never report an action as done until pc_do returns.',
     ];
 
     if (goalsSummary) {
@@ -356,11 +383,37 @@ function injectMembershipContext(systemParts, user) {
 }
 
 /**
- * Auto-summarize conversation history when it exceeds a threshold.
- * Keeps the first message (for context) and last N messages, replacing
- * the middle with a summary message.
+ * Keep a long conversation affordable — by SIZE, and losing the least valuable
+ * thing first.
+ *
+ * This used to trigger on a message COUNT (>30) and then chop every middle
+ * message to 150 characters. Both halves of that were wrong: a turn that ran six
+ * tool rounds is fourteen tiny messages while a turn that read one 40 KB file is
+ * a single huge one, so the count was never a proxy for cost — and the chop hit
+ * the model's own prose and the tool evidence identically, oldest first, so the
+ * record of what actually happened went before the chatter. See
+ * `harness/contextBudget.js` for the order of loss it uses instead (thin an old
+ * result to its headline → drop an old tool step whole).
+ *
+ * The count-based summary survives as the FALLBACK for the one case size-based
+ * trimming cannot fix: a history that is long without being large, where the
+ * problem is simply the number of turns.
  */
 function compressConversationHistory(messages, maxMessages = 30) {
+    const budget = maxContextChars();
+    const oversized = overBudget(messages, budget);
+
+    if (oversized) {
+        const trimmed = compactMessages(messages, { maxChars: budget });
+        if (trimmed.changed) {
+            logger.debug(`📉 /net history trimmed: ${trimmed.omittedResults} tool result(s) thinned, ${trimmed.droppedSteps} old step(s) dropped (${messages.length} messages left).`);
+        }
+        if (!trimmed.overBudget) return messages;
+        // Still over after trimming everything it is allowed to touch — a single
+        // enormous message (a pasted file), which only the user can resolve. Fall
+        // through to the summary so the request stays as small as it can be.
+    }
+
     // Only compress if significantly over limit (user + assistant pairs)
     if (messages.length <= maxMessages) return messages;
 
@@ -618,6 +671,17 @@ async function callLLMApi(provider, model, userInput, goalsSummary = null, toolC
     // Repo editing instructions for contexts with repo capability
     if (canUseRepoTools(toolContext)) systemParts.push(repoSystemInstructions());
 
+    // What the previous turn left unfinished — only for a turn that can act on it
+    // (a tool-capable chat), and only when there IS something outstanding.
+    //
+    // The user comes from `toolContext.userId`, which BOTH routes build from
+    // `req.user.id` (netChatContext.js) — this function has no `req`, and the two
+    // call sites must not each invent their own source for the same value.
+    if (toolContext) {
+        const continuity = await loadContinuityNote(toolContext.userId);
+        if (continuity) systemParts.push(continuity);
+    }
+
 
     // Inject user context from cloud DB (memory, personality, behavior, workspace)
     if (userContext) {
@@ -668,7 +732,7 @@ async function callLLMApi(provider, model, userInput, goalsSummary = null, toolC
     // boundary, and the ask policy is a control gate, so this is a missing
     // prompt rather than a hole. Arming it here without a channel would instead
     // BREAK a working path: the tool would have to be denied.
-    const { response, toolResults, rounds: round, nudged } = await runToolLoop({
+    const loop = await runToolLoop({
         call: (msgs, opts) => makeLLMCall(provider, model, msgs, opts),
         executeToolCall,
         messages,
@@ -677,6 +741,29 @@ async function callLLMApi(provider, model, userInput, goalsSummary = null, toolC
         ...journalHooks(turnRun),
         logger,
     });
+
+    const { toolResults, rounds: round, nudged } = loop;
+    let response = loop.response;
+
+    // The plan this turn published, handed back to the addon JSON path so it can
+    // render the same checklist the web client gets over SSE.
+    if (toolContext?.plan) response._plan = toolContext.plan;
+
+    // Same graceful exit as the round budget, for the other reason a turn stops
+    // early: the history outgrew the context window. The wording has to name the
+    // REAL cause — a model told "no rounds left" when rounds remain answers the
+    // wrong question, and the user loses the ability to tell the two apart.
+    // `messages` was trimmed in place by the loop, so this call is the smallest
+    // version of the request that could still produce an answer.
+    if (loop.overBudget) {
+        const systemMessage = messages.find((m) => m.role === 'system');
+        if (systemMessage) systemMessage.content += CONTEXT_LIMIT_NOTICE;
+        try {
+            response = await makeLLMCall(provider, model, messages, llmOptions);
+        } catch (e) {
+            logger.warn('[llmService] context-limit wrap-up call failed — returning the partial turn:', e.message);
+        }
+    }
 
     if (turnRun) {
         turnRun.rounds = round;
@@ -1041,6 +1128,14 @@ async function streamCompressionRequest(req, res, dynamodb) {
     const systemParts = buildSystemPromptParts(goalsSummary);
     injectMembershipContext(systemParts, req.user);
     if (canUseRepoTools(toolContext)) systemParts.push(repoSystemInstructions());
+
+    // Same continuity note as the non-streaming route — one implementation, so the
+    // two paths cannot disagree about what the agent was doing. The user comes from
+    // `toolContext.userId` for the same reason as above.
+    if (toolContext) {
+        const continuity = await loadContinuityNote(toolContext.userId);
+        if (continuity) systemParts.push(continuity);
+    }
     if (userContext) {
         if (userContext.personalityContext) systemParts.push(userContext.personalityContext);
         if (userContext.workspaceContext) systemParts.push(userContext.workspaceContext);
@@ -1092,6 +1187,25 @@ async function streamCompressionRequest(req, res, dynamodb) {
         openSse();
         res.write(`data: ${JSON.stringify({ type: 'step', step })}\n\n`);
     };
+    // The agent's PLAN (harness/planSurface.js). `set_plan` puts it on the tool
+    // context, so the plan travels with the turn rather than through the database.
+    // Emitted only when it actually changed — a turn that calls set_plan three
+    // times should redraw the checklist three times, not on every step.
+    let lastPlanSent = null;
+    const emitPlanIfChanged = () => {
+        const plan = toolContext?.plan || null;
+        if (!plan || !planChanged(lastPlanSent, plan)) return;
+        lastPlanSent = plan;
+        openSse();
+        res.write(`data: ${JSON.stringify({ type: 'plan', plan })}\n\n`);
+    };
+    // Wrapped around the step hook rather than added as its own `onToolEnd`: the
+    // journal's hooks are spread in, and a second `onToolEnd` would silently
+    // replace them (and lose the step records with it).
+    const emitStepAndPlan = (step) => {
+        emitStep(step);
+        emitPlanIfChanged();
+    };
     // The turn's id, sent the moment the SSE opens, so the client can cancel a
     // turn it is no longer interested in (harness/turnControl.js).
     const emitRun = (runId) => {
@@ -1107,6 +1221,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
     // We must resolve tools before streaming the final answer.
     let round = 0;
     let nudgeUsed = false;
+    let loopOverBudget = false;
     const toolResults = [];
     let needsStreaming = true;
     // The turn's journal (harness/stepJournal.js). Only a tool turn has steps;
@@ -1129,7 +1244,9 @@ async function streamCompressionRequest(req, res, dynamodb) {
         if (!run) return;
         run.rounds = round;
         run.nudged = nudgeUsed;
-        await finishRun(run, { outcome });
+        // The plan is persisted WITH the turn (P5): it is what this turn said it
+        // would do, and it means nothing apart from the steps that carried it out.
+        await finishRun(run, { outcome, plan: toolContext?.plan || null });
     };
 
     if (useTools) {
@@ -1152,7 +1269,7 @@ async function streamCompressionRequest(req, res, dynamodb) {
                 onAnnounce: ({ name, label, round: currentRound }) => {
                     emitProgress(label, { tool: name, step: currentRound, maxSteps: MAX_TOOL_ROUNDS });
                 },
-                onStep: emitStep,
+                onStep: emitStepAndPlan,
             }),
             isCancelled: () => turn.isCancelled(),
             // The approval gate. Only tools the POLICY marks 'ask' prompt at all
@@ -1195,6 +1312,10 @@ async function streamCompressionRequest(req, res, dynamodb) {
 
         round = loop.rounds;
         nudgeUsed = loop.nudged;
+        // The loop stopped because the history outgrew the context budget and
+        // could not be trimmed below it. Handled with the round budget below:
+        // same wrap-up call, different (true) reason for it.
+        loopOverBudget = loop.overBudget;
         toolResults.push(...loop.toolResults);
 
         // Stopped at the user's request (or the client went away). The clean exit
@@ -1212,9 +1333,10 @@ async function streamCompressionRequest(req, res, dynamodb) {
         // The loop's last call already produced the answer — it ran tools, then
         // the model stopped asking for more — so send that text as `content`
         // rather than paying for a second (streamed) call to say the same thing.
-        // A loop that stopped on the ROUND BUDGET still wants tools, so it falls
-        // through to the wrap-up and streaming legs below instead.
-        if (!loop.cancelled && !loop.exhausted && toolResults.length > 0) {
+        // A loop that stopped on the ROUND BUDGET — or on the CONTEXT BUDGET —
+        // still wants tools, so it falls through to the wrap-up and streaming
+        // legs below instead.
+        if (!loop.cancelled && !loop.exhausted && !loop.overBudget && toolResults.length > 0) {
             const content = loop.response?.choices?.[0]?.message?.content || '';
             const { cleanedContent } = await processCloudMemorySaves(dynamodb, req.user.id, content);
 
@@ -1250,7 +1372,11 @@ async function streamCompressionRequest(req, res, dynamodb) {
 
     if (!needsStreaming) return;
 
-    // ── Wrap-up phase: rounds spent, but the model was still asking for tools ──
+    // ── Wrap-up phase: the turn stopped early with tools still wanted ──────
+    // Two reasons, one mechanism, two notices — never the wrong one:
+    //   - the ROUND budget (`TOOL_LIMIT_NOTICE`), or
+    //   - the CONTEXT budget, which trimming could not fix
+    //     (`CONTEXT_LIMIT_NOTICE`).
     // Ask for the answer with a NON-streamed call that keeps `tools` (and so its
     // `toolConfig`). Keeping the tools is what makes this safe: the history's
     // tool turns stay structured blocks instead of being flattened to text that
@@ -1260,9 +1386,9 @@ async function streamCompressionRequest(req, res, dynamodb) {
     // streaming leg below (still a valid request, see bedrockService).
     let wrapUpText = null;
     let wrapUpUsage = null;
-    if (useTools && round >= MAX_TOOL_ROUNDS) {
+    if (useTools && (round >= MAX_TOOL_ROUNDS || loopOverBudget)) {
         const systemMessage = messages.find((m) => m.role === 'system');
-        if (systemMessage) systemMessage.content += TOOL_LIMIT_NOTICE;
+        if (systemMessage) systemMessage.content += loopOverBudget ? CONTEXT_LIMIT_NOTICE : TOOL_LIMIT_NOTICE;
         emitProgress('Finishing up', { step: round, maxSteps: MAX_TOOL_ROUNDS });
         try {
             const wrapUp = await makeLLMCall(provider, model, messages, llmOptions);

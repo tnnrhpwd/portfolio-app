@@ -762,7 +762,9 @@ function Profile() {
                         <span className="planit-profile-state-icon">✨</span>
                         <div>
                           <strong>Free plan ready to go</strong>
-                          <p>Upgrade for more storage, live phone screen viewing, and email support.</p>
+                          {/* ⬜ "live phone screen viewing" removed 2026-09-18 — not
+                              shipped (BACKLOG.md → "Phone viewing"). */}
+                          <p>Upgrade for more storage and email support.</p>
                         </div>
                       </div>
                     )}
@@ -860,7 +862,9 @@ function Profile() {
                               <span className="upgrade-icon">🚀</span>
                               <div className="upgrade-text">
                                 <strong>Upgrade to Pro</strong>
-                                  <p>{STORAGE_DISPLAY[PLAN_IDS.PRO]} storage + live phone viewing + email support.</p>
+                                  {/* ⬜ "+ live phone viewing" removed 2026-09-18 — not
+                                      shipped (BACKLOG.md → "Phone viewing"). */}
+                                  <p>{STORAGE_DISPLAY[PLAN_IDS.PRO]} storage + email support.</p>
                               </div>
                             </div>
                             {purchasesEnabled ? (

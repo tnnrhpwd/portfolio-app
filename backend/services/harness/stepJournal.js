@@ -31,6 +31,7 @@ const { DynamoDBDocumentClient, GetCommand, PutCommand } = require('@aws-sdk/lib
 const { logger } = require('../../utils/logger');
 const { toolPlane, describeToolActivity } = require('../toolProgress.js');
 const { parseToolArguments } = require('./toolLoop.js');
+const { isReaskableCause } = require('./refusalCause.js');
 
 const TABLE_NAME = 'Simple';
 const RUN_KEY_PREFIX = 'csimple_runs_';
@@ -42,6 +43,9 @@ const MAX_STEPS = 40;             // steps kept per run; the rest are counted, n
 const MAX_RUNS = 10;              // runs kept per user (read-modify-write ring)
 const MAX_PREVIEW_CHARS = 120;    // per leaf value
 const MAX_ARG_STRING_CHARS = 2048; // longer than this: store the length, not the string
+
+/** The harness's own instructional tail on a failed result (see toolOutcome.js). */
+const HARNESS_NOTE_RE = /\n\nHARNESS: [\s\S]*$/;
 
 /**
  * Tools whose ARGUMENTS are the user's own private text.
@@ -154,6 +158,15 @@ function startStep(run, { tool, args = null, round = null, label = '', plane = '
     argKeys: redacted ? keys : [],
     resultPreview: null,
     error: null,
+    // The failure KIND (see toolOutcome.js), the producer's refusal CAUSE when it
+    // gave one, and whether that refusal is one a person could answer differently
+    // next time. All are null/false until the step closes, so a running step and a
+    // successful one are the same shape — and a running step must never look
+    // re-askable, because there is nothing to re-ask yet.
+    outcome: null,
+    cause: null,
+    reaskable: false,
+    retried: false,
     ms: null,
     startedAt: Date.now(),
   };
@@ -162,23 +175,47 @@ function startStep(run, { tool, args = null, round = null, label = '', plane = '
 }
 
 /** Close a step with its outcome. Mutates and returns the same record. */
-function completeStep(step, { result = '', error = null } = {}) {
+function completeStep(step, { result = '', error = null, outcome = null, cause = null, retried = false } = {}) {
   if (!step) return null;
   const text = String(result ?? '');
   const trimmed = text.trim();
   // A refusal is neither success nor failure: the user said no, and the record
-  // should say so rather than showing a tick beside a step that never ran.
+  // should say so rather than showing a tick beside a step that never ran. The
+  // denial may come from the harness's approval gate (`Denied: <reason>`) or from
+  // the PC's own `permissions.js` by way of `pc_do` (`Denied: pc_do … was refused
+  // on the PC: <reason>`) — both are a decision, so both match.
   step.status = error || /^Error/.test(trimmed)
     ? 'error'
-    : /^(?:Denied|Cancelled):/.test(trimmed)
+    : /^(?:Denied|Cancelled)(?::|\s)/.test(trimmed)
       ? 'denied'
       : 'ok';
+  // Annotated results carry the harness instruction on their own lines (see
+  // toolOutcome.js). That text is written for the MODEL, not for a step list: it
+  // is identical for every failure of the same kind, so leaving it in would make
+  // every failed step preview look the same and hide what the tool said. The
+  // preview shows the tool's own message; the kind is a field of its own.
   step.ms = Math.max(0, Date.now() - step.startedAt);
   step.error = error ? String(error.message || error) : null;
+  step.outcome = outcome || null;
+  // WHY a refusal happened, when the refuser said (a PC's permission gate does:
+  // `user-declined`, `expired`, `policy-deny`, `kill-switch`). It is kept apart
+  // from `outcome` because the two answer different questions — `permission` says
+  // a gate blocked it, this says whether a person or a setting did, which is the
+  // difference between a step worth offering to retry and one that is not.
+  step.cause = cause || null;
+  // …and the ANSWER to that question, decided here rather than by each reader.
+  // The client renders a "Try again" affordance off this field: if the UI kept its
+  // own copy of which causes are re-askable, that copy would drift from
+  // `refusalCause.js` and could one day offer a retry for a hard stop — a button
+  // that lies about what will happen. A stale client can only FAIL to show a
+  // button, which is the safe direction, but it should not have to guess at all.
+  step.reaskable = isReaskableCause(step.cause);
+  step.retried = !!retried;
+  const previewText = text.replace(HARNESS_NOTE_RE, '');
   // Bounded: a repo_read_file result is ~40 KB and the journal is a summary.
-  step.resultPreview = text.length > MAX_PREVIEW_CHARS
-    ? `${text.slice(0, MAX_PREVIEW_CHARS)}…[${text.length} chars]`
-    : text;
+  step.resultPreview = previewText.length > MAX_PREVIEW_CHARS
+    ? `${previewText.slice(0, MAX_PREVIEW_CHARS)}…[${text.length} chars]`
+    : previewText;
   return step;
 }
 
@@ -232,7 +269,7 @@ const store = () => _store || defaultStore();
  *
  * @returns {Promise<{saved: boolean}>}
  */
-async function finishRun(run, { outcome = 'completed', usage = null } = {}) {
+async function finishRun(run, { outcome = 'completed', usage = null, plan = null } = {}) {
   if (!run || !run.userId) return { saved: false };
   const record = {
     id: run.id,
@@ -246,6 +283,9 @@ async function finishRun(run, { outcome = 'completed', usage = null } = {}) {
     durationMs: Math.max(0, Date.now() - run.startedAt),
     steps: run.steps,
     stepsDropped: run.stepsDropped,
+    // The agent's own plan for this turn (harness/planSurface.js), when it
+    // published one. Stored beside the steps it explains, not instead of them.
+    plan: plan && plan.items?.length ? plan : null,
     usage: usage || null,
   };
 
@@ -294,11 +334,11 @@ function journalHooks(run, { onStep = null, onAnnounce = null } = {}) {
       if (step) open.set(toolCall.id, step);
       if (onStep) onStep(step);
     },
-    onToolEnd: ({ toolCall, result, error }) => {
+    onToolEnd: ({ toolCall, result, error, outcome, cause, retried }) => {
       const step = open.get(toolCall.id);
       if (!step) return;
       open.delete(toolCall.id);
-      if (onStep) onStep(completeStep(step, { result, error }));
+      if (onStep) onStep(completeStep(step, { result, error, outcome, cause, retried }));
     },
   };
 }

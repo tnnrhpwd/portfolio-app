@@ -116,7 +116,13 @@ function enforceAwsToolRules(input) {
     }
 
     if (input.toolConfig) {
-        const defined = new Set(input.toolConfig.tools.map((t) => t.toolSpec.name));
+        // `toolConfig.tools` may end with a `{ cachePoint }` entry (see
+        // bedrockPromptCache.js). It is not a tool spec, and reading `.toolSpec.name`
+        // off it throws — which is exactly the confusion this oracle exists to
+        // prevent, so skip anything that is not a spec.
+        const defined = new Set(
+            input.toolConfig.tools.filter((t) => t?.toolSpec).map((t) => t.toolSpec.name)
+        );
         for (const block of blocks) {
             if (block.toolUse && !defined.has(block.toolUse.name)) {
                 throw validationException(`The tool name ${block.toolUse.name} is not defined in the toolConfig.`);
