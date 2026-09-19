@@ -336,6 +336,53 @@ Two further faults surfaced in the same trace:
 
 ---
 
+## A tool that "succeeds" while achieving nothing (2026-09-18)
+
+The next real run reported *"stuck in another screen capture loop"*. Its histogram:
+
+```
+{"window_list": 5, "uia_snapshot": 2, "screen_capture": 22}
+```
+
+Every one of those 22 calls logged **`ok=true`**, and the run ended on
+`max-steps-reached (steps=60)`.
+
+**The stall detector was not broken — it was being told the run was fine.** It counts
+on the critic, the critic scores `ok` / `error` only, and `screen_capture` returns `ok`
+every time. So 22 identical captures scored as 22 *successes*, `stallCount` stayed at
+zero, and nothing could ever stop it. The same blindness had let `window_focus` repeat
+three times earlier.
+
+Two things follow from that, and they are the same lesson twice:
+
+- **Prose is not a control.** Prompt rule 7 already read *"Avoid spamming
+  screen_capture"*. It was ignored 22 times. The guard had to become mechanical.
+- **The correction has to arrive in the result the model reads next**, not as advice
+  in a system prompt it has already stopped weighing.
+
+So `act()` fingerprints every call as `tool:JSON(args)` and `_countRepeats()` counts
+how many *identical* actions have run consecutively. From `REPEAT_ACTION_LIMIT` (3)
+onward the action is flagged `repeated`, and the tool result carries:
+
+> `HARNESS: STOP — this is identical call 3 to screen_capture in a row, and nothing
+> changed as a result. Repeating it cannot make progress: it is not a way to look
+> harder, and it is not a way to wait for something. Do something DIFFERENT now …`
+
+`reflect()` then counts a repeat as **no progress even when the delta is positive**,
+which is what finally lets `STALL_THRESHOLD` fire on a loop that never fails.
+
+**Why it kept capturing.** `screen_capture` returns base64 PNG, and the agent runs on
+a **text** model that cannot read images — but its description never said so, so the
+model kept trying to see via the one tool whose name says "look". The description now
+states it outright and names the tools that actually read a screen: `screen_ocr`,
+`uia_snapshot` / `uia_find`, `screen_set_of_marks`.
+
+⚠️ **Known gap:** the fingerprint guard is evaded by a model that *varies* its
+arguments — a different capture region each time is a different fingerprint. A per-run
+cap on `screen_capture` (or refusing it for a text-only caller) would close that.
+
+---
+
 ## The agent loop (as designed)
 
 The loop is an explicit **Observe → Orient → Goal → Plan → Action** cycle with a

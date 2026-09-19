@@ -951,6 +951,48 @@
 			"type": "shell",
 			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add .vscode/tasks.json; git commit -m 'Track verification task labels'; git push origin master; Write-Output '--- STATUS ---'; git status --short; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js",
 			"group": "test"
+		},
+		{
+			"label": "analyse-screen-capture-loop",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-loop.cjs 2>&1 | Out-File -Encoding utf8 tmp-loop-out.txt; Get-Content tmp-loop-out.txt",
+			"group": "test"
+		},
+		{
+			"label": "repeat-loop-tests",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/agent-loop.test.js 2>&1 | Out-File -Encoding utf8 ../tmp-l3.txt; Select-String -Path ../tmp-l3.txt -Pattern 'FAIL|repeat|passed,' -Context 0,2 | ForEach-Object { $_.Line; $_.Context.PostContext }",
+			"group": "test"
+		},
+		{
+			"label": "repeat-tests-2",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/agent-loop.test.js 2>&1 | Select-Object -Last 3; Write-Output '=== baseline ==='; node server/automation/agent-loop.baseline.test.js 2>&1 | Select-Object -Last 2; Write-Output '=== stop-reason ==='; node server/automation/stop-reason.test.js 2>&1 | Select-Object -Last 2",
+			"group": "test"
+		},
+		{
+			"label": "chain-and-log-freshness",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Write-Output '--- LOG FRESHNESS ---'; Get-ChildItem 'C:\\Users\\tanne\\AppData\\Roaming\\simple-addon\\logs' | Select-Object Name,Length,LastWriteTime | Format-Table -AutoSize | Out-String -Width 100; Write-Output '--- chain ---'; npm --prefix 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon' run test:unit 2>&1 | Out-File -Encoding utf8 tmp-chain3.txt; Select-String -Path tmp-chain3.txt -Pattern '  FAIL  |[1-9][0-9]* failed' | ForEach-Object { $_.Line }; Get-Content tmp-chain3.txt -Tail 3",
+			"group": "test"
+		},
+		{
+			"label": "reanalyse-new-run",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-loop.cjs 2>&1 | Out-File -Encoding utf8 tmp-loop2.txt; Get-Content tmp-loop2.txt | Select-Object -Last 45",
+			"group": "test"
+		},
+		{
+			"label": "commit-repeat-guard-release",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Remove-Item -Force tmp-loop.cjs,tmp-loop-out.txt,tmp-loop2.txt,tmp-l1.txt,tmp-l2.txt,tmp-l3.txt,tmp-chain3.txt -ErrorAction SilentlyContinue; git add simple-addon/server/automation/agent-loop.js simple-addon/server/automation/agent-loop.test.js simple-addon/server/automation/tools/screen.js docs/implementation/agent.md; git status --short; git commit -m 'Count a repeated identical action as no progress' -m 'A run called screen_capture 22 times in a row and every call returned ok, so the critic scored 22 successes and stallCount never moved - the detector was working, it was being told the run was fine. The same blindness let window_focus repeat three times.' -m 'act() now fingerprints tool plus args and _countRepeats() counts consecutive identical actions. From the limit on, the action is flagged repeated, a HARNESS STOP notice is put in the result the model reads next, and reflect() counts the repeat as no progress even when the delta is positive, so the existing stall threshold finally fires. Prompt rule 7 already said avoid spamming screen_capture and was ignored 22 times, so this is mechanical rather than advisory.' -m 'Also: screen_capture returns base64 PNG and the agent is a text model that cannot read images - its description never said so, which is why it kept trying to see. It now says so and names screen_ocr, uia_snapshot and screen_set_of_marks.'; Write-Output '--- PUSH ---'; git push origin master; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js",
+			"group": "test"
+		},
+		{
+			"label": "docs-and-release-59",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add docs/implementation/agent.md .vscode/tasks.json; git commit -m 'Document the repeat guard and track task labels'; git push origin master; Write-Output '--- STATUS ---'; git status --short; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js",
+			"group": "test"
 		}
 	]
 }
