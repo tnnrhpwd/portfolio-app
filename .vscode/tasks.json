@@ -1143,6 +1143,66 @@
 			"type": "shell",
 			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add simple-addon/server/automation/agent-loop.js simple-addon/server/automation/agent-loop.test.js .vscode/tasks.json; git commit -m 'Count a run of reads as no progress, and make the acting tools salient' -m 'Third real run to fail the same way, and every step was a READ: window_list, perception_recent, uia_snapshot x3, perception_recent x2, uia_snapshot x3, screen_capture x5, then stalled. Fifteen steps, zero acting calls, every one returning ok.' -m 'Rule 18 said look then act and was ignored, so prose is out as a control. act() now reads the tool category from the registry - no list of read tools to keep in sync - and counts consecutive safe-read calls with no acting call between them. Past READ_STREAK_LIMIT the result carries a HARNESS note saying a read changes nothing and to act now or ask the user what cannot be found, and reflect() counts the streak as no progress even when the delta is positive, so the stall detector stops it within a few more steps.' -m 'Second, the AVAILABLE TOOLS list is in registration order, so about 25 read tools preceded the first acting one - and four runs anchored on reading. The prompt now has a HOW TO ACT block naming click_at, uia_invoke, text_type, input_tap and window_focus at the point of choosing, rather than leaving them to be found at the end of a list of readers.'; git push origin master; git stash push -m 'parallel session WIP, restored right after release' -- docs/implementation/NET_CHAT.md frontend/src/components/SimpleAddon/ChatWindow.jsx frontend/src/components/SimpleAddon/SimpleChat.jsx frontend/src/components/SimpleAddon/StepList.css frontend/src/components/SimpleAddon/StepList.jsx; Write-Output '--- TREE BEFORE RELEASE ---'; git status --short; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js; Set-Location ..; Write-Output '--- RESTORING WIP ---'; git stash pop; git status --short",
 			"group": "test"
+		},
+		{
+			"label": "check-ci-and-releases",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Write-Output '=== CI RUNS ==='; gh run list --repo tnnrhpwd/portfolio-app --workflow=build-addon.yml --limit 6; Write-Output '=== PUBLISHED RELEASES ==='; gh release list --repo tnnrhpwd/portfolio-app --limit 6; Write-Output '=== TAGS ==='; git tag --list 'addon-v*' | Select-Object -Last 5",
+			"group": "test"
+		},
+		{
+			"label": "watch-addon-ci-63",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; $id = (gh run list --repo tnnrhpwd/portfolio-app --workflow=build-addon.yml --limit 1 --json databaseId | ConvertFrom-Json)[0].databaseId; Write-Output ('watching run ' + $id); gh run watch $id --repo tnnrhpwd/portfolio-app --exit-status; Write-Output ('watch exit code: ' + $LASTEXITCODE); Write-Output '=== RELEASES NOW ==='; gh release list --repo tnnrhpwd/portfolio-app --limit 4",
+			"group": "test"
+		},
+		{
+			"label": "final-state-check",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Write-Output '=== CI ==='; gh run list --repo tnnrhpwd/portfolio-app --workflow=build-addon.yml --limit 3; Write-Output '=== RELEASES ==='; gh release list --repo tnnrhpwd/portfolio-app --limit 4",
+			"group": "test"
+		},
+		{
+			"label": "peek-read-payload",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-peek.cjs 2>&1 | Out-File -Encoding utf8 tmp-peek.txt; Get-Content tmp-peek.txt -TotalCount 60",
+			"group": "test"
+		},
+		{
+			"label": "peek-digest-real",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-peek.cjs 2>&1 | Out-File -Encoding utf8 tmp-peek.txt; Get-Content tmp-peek.txt -TotalCount 45",
+			"group": "test"
+		},
+		{
+			"label": "digest-tests",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/agent-loop.test.js 2>&1 | Out-File -Encoding utf8 ../tmp-l7.txt; Select-String -Path ../tmp-l7.txt -Pattern 'FAIL|DIGESTED|uia_find searches|passed,' -Context 0,2 | ForEach-Object { $_.Line; $_.Context.PostContext }",
+			"group": "test"
+		},
+		{
+			"label": "digest-tests-2",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Remove-Item -Force tmp-peek.cjs,tmp-peek.txt,tmp-l7.txt -ErrorAction SilentlyContinue; Set-Location simple-addon; node server/automation/agent-loop.test.js 2>&1 | Select-Object -Last 2; Write-Output '=== chain ==='; Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; npm --prefix 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon' run test:unit 2>&1 | Out-File -Encoding utf8 tmp-c3.txt; Write-Output '--- FAILS ---'; (Select-String -Path tmp-c3.txt -Pattern '  FAIL  ').Count; Get-Content tmp-c3.txt -Tail 2; Remove-Item -Force tmp-c3.txt -ErrorAction SilentlyContinue",
+			"group": "test"
+		},
+		{
+			"label": "find-failing-test",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/agent-loop.test.js 2>&1 | Out-File -Encoding utf8 ../tmp-l8.txt; Get-Content ../tmp-l8.txt | Select-String -Pattern 'FAIL' -Context 0,3 | ForEach-Object { $_.Line; $_.Context.PostContext }",
+			"group": "test"
+		},
+		{
+			"label": "digest-cap-tests",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Remove-Item -Force tmp-l8.txt -ErrorAction SilentlyContinue; Set-Location simple-addon; node server/automation/agent-loop.test.js 2>&1 | Select-Object -Last 2; Write-Output '=== chain ==='; Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; npm --prefix 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon' run test:unit 2>&1 | Out-File -Encoding utf8 tmp-c4.txt; Write-Output '--- FAILS ---'; (Select-String -Path tmp-c4.txt -Pattern '  FAIL  ').Count; Get-Content tmp-c4.txt -Tail 2; Remove-Item -Force tmp-c4.txt -ErrorAction SilentlyContinue",
+			"group": "test"
+		},
+		{
+			"label": "release-64",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add simple-addon/server/automation/agent-loop.js simple-addon/server/automation/agent-loop.test.js .vscode/tasks.json; git commit -m 'Give the model elements it can actually click, not four title-bar buttons' -m 'Measured against the real desktop: uia_snapshot of a VS Code window returns 23,719 characters holding 110 named elements. The shaper kept the first 800, and because every node serialised automationId, className, depth, enabled, offscreen, width and height alongside its name, 800 characters covered FOUR nodes: Minimize, Maximize, Close, File. So six real runs read the screen and never acted - there was never an element it could act on, and re-reading returned those same four names. It never reached for uia_find because nothing suggested anything was there to find.' -m 'An oversized element list is now DIGESTED: name, control type and screen coordinates, which is exactly what click_at needs. Nineteen elements fit where four did, verified against the live desktop. The companion note says the coordinates are clickable, forbids the re-read, explains that this is merely the FOREground window, and - from the user - that a browser tab which is not the active tab is not rendered at all, so the tab must be found by name and invoked before any of its page can be read.' -m 'Also fixes my own bug: the omitted-elements hint was appended after the budget check, so the digest overshot the cap it promised (875 of 800). Room is now reserved up front and a final trim guarantees the promise.'; git push origin master; git stash push -m 'parallel WIP, restored right after release' -- docs/implementation/NET_CHAT.md frontend/src/components/SimpleAddon/ChatWindow.jsx frontend/src/components/SimpleAddon/SimpleChat.jsx frontend/src/components/SimpleAddon/StepList.css frontend/src/components/SimpleAddon/StepList.jsx; Write-Output '--- TREE ---'; git status --short; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js; Set-Location ..; Write-Output '--- RESTORE ---'; git stash pop; git status --short",
+			"group": "test"
 		}
 	]
 }

@@ -13,7 +13,7 @@
 'use strict';
 
 const assert = require('assert');
-const { AgentLoop } = require('./agent-loop');
+const { AgentLoop, shapeOversizedResult } = require('./agent-loop');
 
 let passed = 0;
 let failed = 0;
@@ -987,6 +987,55 @@ function newLoop(overrides = {}) {
             await loop.act({ toolCalls: [{ id: `c${i++}`, function: { name, arguments: '{}' } }] });
         }
         assert.strictEqual(loop.state.consecutiveReads, 2, 'the acting call reset the streak');
+    });
+
+    await asyncTest('an oversized element list is DIGESTED into clickable elements', async () => {
+        // Measured against the real desktop: uia_snapshot of a VS Code window is
+        // 23,719 chars / 117 elements, and the old 800-char cut showed the model
+        // "Minimize, Maximize, Close, File" — four title-bar buttons — every time.
+        // Six runs read the screen and never acted, because there was never an
+        // element it could act ON.
+        const node = (name, i) => ({ name, controlType: 'Button', automationId: '', className: 'WinCaptionButton', depth: 5, x: 100 + i, y: 200 + i, width: 45, height: 33, enabled: true, offscreen: false });
+        const real = JSON.stringify({
+            window: 'portfolio-app - Visual Studio Code',
+            mode: 'interactive',
+            count: 117,
+            truncated: false,
+            nodes: [...Array.from({ length: 60 }, (_, i) => node(`Btn${i}`, i)), node('Dakota', 99), node('Compose', 98)],
+        });
+
+        const shaped = shapeOversizedResult(real, 800);
+        assert.strictEqual(shaped.kind, 'digest', 'an element list must be digested, not cut');
+        assert.ok(shaped.kept > 10, `far more than the old 4 should fit, got ${shaped.kept}`);
+        assert.ok(/x=\d+ y=\d+/.test(shaped.text), 'coordinates must survive — click_at needs them');
+        assert.ok(shaped.text.includes('omitted'), 'and it must say how many were left out');
+        assert.ok(shaped.text.length <= 800, `must respect the cap, got ${shaped.text.length}`);
+    });
+
+    await asyncTest('a digest tells the model to act, and that uia_find searches everything', async () => {
+        const node = (name, i) => ({ name, controlType: 'Button', x: i, y: i });
+        const fakes = makeFakes({
+            config: { IDLE_SLEEP_MS: 1, STALL_THRESHOLD: 99, RESULT_PREVIEW_CHARS: 200 },
+            llmClient: {
+                calls: 0,
+                async chat() {
+                    this.calls++;
+                    if (this.calls > 1) return { text: 'done <<GOAL_DONE>>', toolCalls: [] };
+                    return { text: '', toolCalls: [{ id: 'c1', function: { name: 'uia_snapshot', arguments: '{}' } }] };
+                },
+            },
+        });
+        const big = JSON.stringify({ window: 'Microsoft Edge', count: 40, nodes: Array.from({ length: 40 }, (_, i) => node(`Elem${i}`, i)) });
+        fakes.registry.executeTool = async () => ({ ok: true, result: big, mode: 'allow', durationMs: 1 });
+        const loop = new AgentLoop(fakes);
+        await loop.start({ goalSlug: 'g', skipPlanner: true });
+        await waitFor(() => loop.status().running === false, { label: 'loop finish', timeoutMs: 9000 });
+
+        const content = String(loop.state.history.find((m) => m.role === 'tool')?.content || '');
+        assert.ok(/click_at/.test(content), 'must say the coordinates are clickable');
+        assert.ok(/do not re-read it/i.test(content), 'must forbid the re-read that caused the loop');
+        assert.ok(/window_focus/.test(content), 'must explain that this is merely the FRONT window');
+        assert.ok(/uia_find/.test(content), 'must point at the desktop-wide search');
     });
 
     // ── Summary ──────────────────────────────────────────────────────────

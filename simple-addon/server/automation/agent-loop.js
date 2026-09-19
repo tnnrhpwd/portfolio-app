@@ -898,16 +898,35 @@ class AgentLoop {
                 ? (typeof out.result === 'string' ? out.result : JSON.stringify(out.result ?? null))
                 : String(out.error ?? '');
             const oversized = rawResult.length > cap;
+            const shaped = oversized ? shapeOversizedResult(rawResult, cap) : null;
             const summary = JSON.stringify({
                 ok: out.ok,
-                ...(out.ok ? { result: oversized ? rawResult.slice(0, cap) : out.result } : { error: rawResult }),
-                ...(oversized ? { cutFrom: rawResult.length, shown: cap } : {}),
+                ...(out.ok ? { result: oversized ? shaped.text : out.result } : { error: rawResult }),
+                ...(oversized ? { cutFrom: rawResult.length, shapedAs: shaped.kind } : {}),
                 mode: out.mode,
                 durationMs: out.durationMs,
-            }).slice(0, 1600);
+            }).slice(0, cap + 1200);
 
             const notes = [];
-            if (oversized) {
+            if (oversized && shaped.kind === 'digest') {
+                // The elements are named WITH coordinates, so this is directly
+                // actionable — say so, or the model treats it as another read.
+                // Also: this is always the window that happened to be IN FRONT (a real
+                // run read VS Code four times while the goal was a browser), and
+                // uia_find searches the whole desktop — two facts the model cannot
+                // infer from a list of element names.
+                notes.push(
+                    `HARNESS: the full result was ${rawResult.length} characters, so it is listed above as `
+                    + `${shaped.kept} of ${shaped.total} elements — name, type and screen coordinates. `
+                    + 'Those coordinates are clickable: act on one with click_at({ x, y }), or uia_invoke({ name: "..." }). '
+                    + 'Reading the same window again returns this same list, so do not re-read it. '
+                    + 'This is whatever window was in FRONT — if it is not the app you need, call window_focus first. '
+                    + 'A browser TAB that is not the active tab is not rendered at all, so nothing of its page appears here: '
+                    + 'find the tab itself by name (uia_find({ name: "Google Messages" })) and uia_invoke or click_at it to switch to it. '
+                    + 'And uia_find({ name: "..." }) searches the WHOLE desktop, so you can jump straight to a named '
+                    + 'element (a person, a button, a folder) without reading or focusing anything first.'
+                );
+            } else if (oversized) {
                 notes.push(
                     `HARNESS: that result was CUT from ${rawResult.length} characters to ${cap}. `
                     + 'Reading it again would cut in exactly the same place — it CANNOT show you more, so do not re-read it. '
@@ -1374,4 +1393,57 @@ function createAgentLoop(opts = {}) {
     return new AgentLoop(opts);
 }
 
-module.exports = { createAgentLoop, AgentLoop };
+/**
+ * Make an oversized result USEFUL, not merely shorter.
+ *
+ * A real `uia_snapshot` of a VS Code window is 23,720 characters holding 110 named
+ * elements. The old shaper kept the first 800 characters — which is the window
+ * caption buttons and the first menu item, because each node serialised
+ * automationId, className, depth, enabled, offscreen, width and height alongside its
+ * name. So the model saw "Minimize, Maximize, Close, File", and nothing else, and
+ * reading again returned those same four names. SIX real runs read the screen and
+ * never once acted, because there was never an element it could act ON. It never
+ * called uia_find because nothing suggested anything was there to find.
+ *
+ * So an oversized element list is DIGESTED rather than cut: name, control type and
+ * coordinates — exactly what click_at needs — and dozens fit where four did.
+ * Anything else falls back to a plain cut, and both announce themselves.
+ *
+ * @returns {{text: string, kind: 'digest'|'cut', kept?: number, total?: number}}
+ */
+function shapeOversizedResult(raw, cap) {
+    try {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.nodes) && parsed.nodes.length) {
+            const header = `window: ${parsed.window || '(unknown)'} — ${parsed.nodes.length} elements`
+                + (parsed.truncated ? ' (the tool itself capped the tree)' : '');
+            const lineFor = (n) => `- ${n.name || '(unnamed)'} [${n.controlType || n.type || 'element'}] x=${n.x} y=${n.y}`;
+            const hint = (m) => `[${m} more elements omitted — uia_find({ name: "..." }) to find one by name]`;
+            // Reserve room for the omitted-hint from the START. Adding it after the
+            // budget check is how the first version of this overshot the cap it
+            // promised (875 > 800) — the cap is a promise to the caller, not a target.
+            const reserve = 96;
+            const kept = [];
+            let used = header.length;
+            for (const n of parsed.nodes) {
+                const line = lineFor(n);
+                if (used + line.length + 1 + reserve > cap) break;
+                kept.push(line);
+                used += line.length + 1;
+            }
+            if (!kept.length) throw new Error('nothing fits');
+            const total = parsed.nodes.length;
+            let text = [header, ...kept, hint(total - kept.length)].join('\n');
+            // Belt and braces: a long header or wide coordinates can still push it
+            // over, so trim until it genuinely fits.
+            while (text.length > cap && kept.length > 0) {
+                kept.pop();
+                text = [header, ...kept, hint(total - kept.length)].join('\n');
+            }
+            return { text, kind: 'digest', kept: kept.length, total };
+        }
+    } catch { /* not JSON, or nothing fit — fall through to a plain cut */ }
+    return { text: raw.slice(0, cap), kind: 'cut' };
+}
+
+module.exports = { createAgentLoop, AgentLoop, shapeOversizedResult };
