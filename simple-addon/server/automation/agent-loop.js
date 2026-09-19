@@ -243,6 +243,18 @@ function buildSystemPrompt({ goal, workspaceContext, toolNames, skillHints, perc
             'approach. Two identical failures in a row means the plan is wrong, not that it needs a third ' +
             'try. After a second failure, re-read what the tool actually said, try one genuinely different ' +
             'approach, and if that fails call goal_ask_user instead of repeating.',
+        // Rule 18 exists because a real run on the goal above did TWENTY-FOUR steps
+        // and not one of them was an action: uia_snapshot and perception_recent, over
+        // and over, while the stall detector did the stopping. Rules 12-13 said HOW to
+        // act and rule 7 forbade repeating, but nothing said that looking again is not
+        // progress — so the model kept looking, which is the one thing that can never
+        // find the target it could not find the first time.
+        '18. LOOK, THEN ACT — do not keep looking. Reading the screen again does not reveal more: the ' +
+            'same tool returns the same result, and a result that was cut stays cut (and says so). After ' +
+            'at most two looks, DO something with what you have: click the element you found, or type into ' +
+            'the box you found. If you truly cannot find the target, ask a NARROWER question — uia_find ' +
+            'for one element by name, screen_ocr for the words on screen, a smaller region — or call ' +
+            'goal_ask_user. A run whose every step is a read is a failed run, however many steps it takes.',
         '',
         '== AVAILABLE TOOLS ==',
         toolNames.join(', '),

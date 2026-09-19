@@ -1089,6 +1089,36 @@
 			"type": "shell",
 			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Remove-Item -Force tmp-c.txt,tmp-l5.txt,tmp-last-out.txt,tmp-last.cjs -ErrorAction SilentlyContinue; git add .vscode/tasks.json; git commit -m 'Track task labels'; git push origin master; git stash push -m 'parallel session WIP, restored right after release' -- docs/implementation/NET_CHAT.md frontend/src/components/SimpleAddon/ChatWindow.jsx frontend/src/components/SimpleAddon/SimpleChat.jsx frontend/src/components/SimpleAddon/StepList.css frontend/src/components/SimpleAddon/StepList.jsx; Write-Output '--- TREE BEFORE RELEASE ---'; git status --short; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js; Set-Location ..; Write-Output '--- RESTORING WIP ---'; git stash pop; Write-Output '--- FINAL ---'; git status --short",
 			"group": "test"
+		},
+		{
+			"label": "list-agent-tools",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; Write-Output '=== core tool surface ==='; npm run validate:core:list 2>&1 | Select-Object -First 60",
+			"group": "test"
+		},
+		{
+			"label": "probe-tool-surface",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/eval/prompt-probe.js --tools 2>&1 | Select-Object -First 30",
+			"group": "test"
+		},
+		{
+			"label": "dump-prompt",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node simple-addon/server/automation/eval/prompt-probe.js 2>&1 | Out-File -Encoding utf8 tmp-prompt.txt; (Get-Content tmp-prompt.txt).Count",
+			"group": "test"
+		},
+		{
+			"label": "verify-prompt-rule-18",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node simple-addon/server/automation/eval/prompt-probe.js --grep 'LOOK, THEN ACT' 2>&1 | Out-File -Encoding utf8 tmp-prompt2.txt; Get-Content tmp-prompt2.txt | Select-Object -Last 8; Write-Output '=== tests ==='; Set-Location simple-addon; node server/automation/agent-loop.test.js 2>&1 | Select-Object -Last 2",
+			"group": "test"
+		},
+		{
+			"label": "release-62",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Remove-Item -Force tmp-prompt.txt,tmp-prompt2.txt -ErrorAction SilentlyContinue; git add simple-addon/server/automation/agent-loop.js simple-addon/server/automation/eval/prompt-probe.js simple-addon/package.json .vscode/tasks.json; git stash push --keep-index -m 'parallel session WIP, restored right after release'; git status --short; git commit -m 'Add rule 18 - look then act - and a local prompt probe' -m 'The probe prints the EXACT system prompt and tool surface the agent gets, offline and without updating the installed app. Until now the only way to see the prompt was to release, update, run the real task and read main.log - a whole cycle per attempt, which is how one day produced five releases that each found one problem.' -m 'Running it answered the first question immediately: all 53 tools are offered and every acting tool (click_at, uia_invoke, text_type, input_tap, uia_find, screen_ocr, screen_set_of_marks) is present, so capability was never the blocker.' -m 'Reading the prompt showed the real gap. Rules 12-13 said HOW to act and rule 7 forbade repeating the same call, but nothing said that looking again is not progress - and a real run spent all 24 steps reading (uia_snapshot, perception_recent) without one action. Rule 18 now bounds it: after at most two looks, act on what you have; if the target truly cannot be found, ask a narrower question (uia_find by name, screen_ocr, a smaller region) or call goal_ask_user.'; git push origin master; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js; Set-Location ..; Write-Output '--- RESTORING WIP ---'; git stash pop; git status --short",
+			"group": "test"
 		}
 	]
 }

@@ -25,6 +25,7 @@
     "eval:live": "node server/automation/eval/cli.js --live",
     "validate:core": "node server/automation/eval/validate-core-functionality.js",
     "validate:core:list": "node server/automation/eval/validate-core-functionality.js --list",
+    "probe:prompt": "node server/automation/eval/prompt-probe.js",
     "test": "npm run test:unit && npm run eval",
     "postinstall": "electron-builder install-app-deps"
   },
