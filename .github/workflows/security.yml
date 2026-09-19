@@ -68,7 +68,7 @@ jobs:
         # Pinned to the commit `main` pointed at on 2026-09-12 (latest release:
         # v3.97.4). This was a moving branch reference — the action's code could
         # change under the workflow between runs. Bump deliberately.
-        uses: trufflesecurity/trufflehog@4b7d1d3a6827691637eff750b6482042e06462d0 # main @ 2026-09-12
+        uses: trufflesecurity/trufflehog@ce7b2b838ceb4a90930c15cddd3848731604f5df # main @ 2026-09-12
         with:
           extra_args: --only-verified
 
