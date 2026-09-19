@@ -939,6 +939,18 @@
 			"type": "shell",
 			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add docs/implementation/agent.md simple-addon/server/automation/agent-loop.js simple-addon/server/automation/agent-loop.test.js simple-addon/server/automation/stop-reason.js simple-addon/server/automation/workspace-client.js .vscode/tasks.json; git commit -m 'Stop an LLM outage from burning the agent step budget' -m 'The reported loop was not window_focus - that fix worked: the log shows step 4 ok=false then step 5 ok=true, i.e. it corrected itself on the next call. The real trace was 66 LLM 429 lines and then max-steps-reached with 60 steps.' -m 'The llm-error arm returned stop:false with idle:false, so it retried at the 400ms working cadence, never reached reflect - the only thing that moves stallCount - and observe had already spent a step. So an outage and a productive step were indistinguishable in the counter.' -m 'Now: the step is refunded, the wait doubles from 4s to a 30s ceiling, 5 consecutive failures stop the run with reason llm-unavailable, and a successful call clears the counter. A refused workspace read is no longer retried every tick, and upsertGoal fills the required content so a status-only patch stops 400ing and leaving goals active.'; Write-Output '--- LATEST ---'; git log --oneline -2; Write-Output '--- REMAINING ---'; git status --short",
 			"group": "test"
+		},
+		{
+			"label": "ship-release-58",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add frontend/src/components/SimpleAddon/ChatWindow.css frontend/src/components/SimpleAddon/MessageBubble.css; git commit -m 'Progress dots follow the scheme accent; typing note matches message size' -m 'Committed from the addon-progress work already on disk so the release can proceed - not part of the LLM-outage fix.' -m 'The three typing dots wear var(--accent) instead of --text-secondary, so they follow the colour picker; --text-muted at 8px read as one faint mark. The typing note switches to --text-secondary and --font-size-msg, because the old 0.85rem resolved off the root --font-size-base and so grew with the accessibility scale while a message did not.'; Write-Output '--- STATUS ---'; git status --short; Write-Output '--- PUSH ---'; git push origin master; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js",
+			"group": "test"
+		},
+		{
+			"label": "commit-tasks-then-release",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add .vscode/tasks.json; git commit -m 'Track verification task labels'; git push origin master; Write-Output '--- STATUS ---'; git status --short; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js",
+			"group": "test"
 		}
 	]
 }
