@@ -1689,6 +1689,180 @@
 			"type": "shell",
 			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\walk-commit-tidy2.ps1'",
 			"problemMatcher": []
+		},
+		{
+			"label": "audit-probe",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\audit-probe.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "git-state",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\git-state.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "fix-root-audit",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\fix-root.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "fix-backend-audit",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\fix-backend.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "backend-trace",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\backend-trace.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "fix-frontend-audit",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\fix-frontend.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "backend-options",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\backend-options.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "backend-reaudit",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\backend-reaudit.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "ua-probe",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\ua-probe.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "ua-swap",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\ua-swap.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "uap-probe",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\uap-probe.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "backend-install",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\backend-install.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "bot-probe",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\bot-probe.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "ua-reverify",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\ua-reverify.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "struct-check",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\struct-check.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "backend-tests",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\backend-tests.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "frontend-verify",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\frontend-verify.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "wf-validate",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\wf-validate.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "wf-validate2",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\wf-validate2.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "final-verify",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\final-verify.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "final-state",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\final-state.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "pre-commit",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\pre-commit.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "commit-push-audit",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\commit-push.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "watch-ci-audit",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\watch-ci.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "ci-status-audit",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\ci-status.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "ci-status2-audit",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\ci-status2.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "ci-status3-audit",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\ci-status3.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "run-jobs-audit",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\run-jobs.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "addon-preexisting",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\addon-preexisting.ps1'",
+			"problemMatcher": []
 		}
 	]
 }
