@@ -49,6 +49,7 @@ side can do the other's job by accident.
 | **What is left to do, in order** | [`BACKLOG.md`](BACKLOG.md) |
 | **The loop as it actually runs** — real control flow, every exit, how to read a console log | [`Simple_Loop_Behaviour.md`](Simple_Loop_Behaviour.md) |
 | **From a chat sentence to tool calls, and testing the pieces without releasing the addon** | [`ADDON_TASK_FLOW.md`](ADDON_TASK_FLOW.md) |
+| **The addon's own chat window — a mirror of `/net`'s conversation, on the local agent loop** | [`ADDON_CHAT.md`](ADDON_CHAT.md) |
 | The loop as it was *designed* (state machine, endpoints, knobs) | below, *The agent loop* |
 | Threat model, trust boundaries, permissions, the safety surfaces the product exposes | [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md) |
 | Backend, data-layer and script audit passes (dated findings) | [`AUTOMATION_SECURITY.md`](AUTOMATION_SECURITY.md) → *Backend, data-layer and script audit passes* |

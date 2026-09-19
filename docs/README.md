@@ -22,6 +22,7 @@ docs/
 │   ├── BACKLOG.md                     # Everything still to do, in priority order
 │   ├── Simple_Loop_Behaviour.md       # What the loop ACTUALLY does at runtime
 │   ├── ADDON_TASK_FLOW.md             # Chat sentence → tool calls; testing the pieces without releasing
+│   ├── ADDON_CHAT.md                  # The addon's own chat window — a mirror of /net's conversation
 │   ├── AUTOMATION_SECURITY.md         # Threat model, safety surfaces, the Special tag + audit passes
 │   ├── MARKETPLACE.md                 # Published skills & shared goals
 │   ├── LLM_PROVIDERS.md               # Provider seam, model catalogue, the default model
@@ -60,6 +61,7 @@ A code comment cites the doc that owns the subject, never a chapter number — [
 - [Marketplace](./implementation/MARKETPLACE.md) - Published skills and shared goals: namespace, versioning, trust ranking, `/market`.
 - [LLM Providers](./implementation/LLM_PROVIDERS.md) - The provider seam, the catalogue the pickers use, and which model is the default.
 - [Net Chat](./implementation/NET_CHAT.md) - How a `/net` message is routed, the repo agent that can change this repo, and the one-app pass that put people in the same pane.
+- [Addon Chat](./implementation/ADDON_CHAT.md) - The addon's own chat window: the same conversation, the same cloud store and the same wording as `/net`, driven by the local agent loop.
 - [Goals](./implementation/GOALS.md) - The Dream board, goal map, optional horizon, the review pass and live console, and vision boards.
 - [Talk](./implementation/TALK.md) - The messenger: storage, encryption (not end-to-end), limits, avatars, unread counts.
 - [Profiles](./implementation/PROFILES.md) - `/u/<username>`, private-by-default visibility, and blocking without telling them.
