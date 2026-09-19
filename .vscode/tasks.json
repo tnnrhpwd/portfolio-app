@@ -1623,6 +1623,18 @@
 			"type": "shell",
 			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add docs/README.md docs/implementation/agent.md docs/implementation/ADDON_TASK_FLOW.md simple-addon/package.json simple-addon/server/automation/agent-loop.js simple-addon/server/automation/tools/ocr.js simple-addon/server/automation/tools/ocr.test.js simple-addon/server/automation/tools/system.js simple-addon/server/automation/eval/walkthrough.js .vscode/tasks.json; Write-Output '--- STAGED ---'; git diff --cached --name-only; git commit -m 'fix(simple-addon): stop screen_ocr reporting success with nothing in it' -m 'Two faults, both measured on the Google Messages task.' -m '1. screen_ocr answered ok:true with a char-spread object - 136714 keys, 1.7 MB. ConvertTo-Json left raw C0 controls (69 BELs) inside the JSON string, JSON.parse failed, ps-runner silently resolved the raw STDOUT string, and spreading it produced one key per character. OCR is the only way to read a Chromium page, so the agent had no working window on the page and no error saying so. PS_CLEAN_TEXT sanitises C0 (except tab/LF/CR) and DEL before serialising; assertOcrPayload throws instead of spreading a non-object.' -m '2. An unscoped capture covers the whole primary monitor, so it reads the other apps on it - including the chat window holding the very words being searched for. Searching one for Dakota gave 4 matches, all 4 in VS Code, none in the browser. screen_ocr now takes a window needle, resolved with the same Get-CandidateWindows the focus path uses and captured in a DPI-aware process so coordinates match click_at.' -m 'Also: prompt rule 14 tells the agent to pass window and that the tab strip is visible to UIA; new tools/ocr.test.js; new npm run walk staged runner and docs/implementation/ADDON_TASK_FLOW.md.'; Write-Output '--- PUSH ---'; git push origin master; Write-Output '--- SETTING ASIDE THE UNRELATED ARCHIVE MOVE ---'; git stash push -u -m 'unrelated docs/images archive move, restored right after release' -- docs/images docs/archive/images; Write-Output '--- STATUS BEFORE RELEASE ---'; git status --short; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js; Set-Location ..; Write-Output '--- RESTORING THE ARCHIVE MOVE ---'; git stash pop; Write-Output '--- STATUS AFTER ---'; git status --short",
 			"problemMatcher": []
+		},
+		{
+			"label": "ship-commit-ocr",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\ship-commit.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "ship-release-ocr",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\ship-release.ps1'",
+			"problemMatcher": []
 		}
 	]
 }
