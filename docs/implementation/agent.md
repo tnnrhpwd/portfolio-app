@@ -174,26 +174,59 @@ The end-to-end loop **signed-in user → cloud memory → local PC actions** wor
 | Live web panel + chat `/run` `/agent` | `frontend/src/components/SimpleAddon/*`, `SimpleChat.jsx` |
 | Eval harness | `server/automation/eval/` |
 
-### Driving a website the user is signed into (2026-09-18)
-
-The `browser_*` tools exist (`tools/browser.js`, `playwright-core`, Edge by
-default), and for a task on a site with no login they work as they are. For a site
-the user is **signed in to** — webmail, a chat app, a dashboard — three things had
-to change, and a real request failed on all three at once:
+### Doing a web task on the user's own PC (2026-09-18)
 
 > *"google message my girlfriend that I love her — I am already signed into google
 > message on microsoft edge"* → `🤖 Agent stopped — stalled (stalled).`
 
-| Problem | Why it stalled | Fix |
-|---|---|---|
-| The session was our OWN fresh profile | `launchPersistentContext(%APPDATA%\simple-addon\playwright-profiles\default)` starts empty, so their Google session was invisible and the page that loaded was a sign-in / device-pairing wall | `browser_open({ attach: true })` — `connectOverCDP` to the browser they are *already* signed into |
-| It was headless | `headless: headless !== false` on every call, so nobody could have signed in either | the wall explanation names it and says to reopen with `headless:false` |
-| Nothing DETECTED the wall | `browser_goto` returned `{status: 200, title}` — which reads as success — so the agent hunted for selectors that do not exist, each costing a 15 s timeout, scoring no progress until it stopped | `wall` + `wallExplanation` on `browser_goto`/`browser_status`, from `browser-session.classifyPageWall` |
+**The first fix was wrong, and the user said so.** It attached to a debug-port
+browser (`connectOverCDP`), which meant a *second* browser, its own profile, and a
+special launch command the user had to run:
 
-And one capability was simply missing: **`browser_fill` does not submit.** A chat or
-search box is committed with Enter, and there was no way to press a key — so "type a
-message and send it" could not be expressed with the tools that existed, and no
-amount of retrying would have closed that gap. `browser_press` is that primitive.
+> *"i dont like that it requires a separate browser. it needs to be able to use the
+> user's pc, utilizing the full power of the addon, mouse moves, typing, etc."*
+
+That is the right instinct. The addon is already *on* the machine, and it can
+already see and drive that machine. **A second browser was never necessary** — and
+requiring one turned the agent's job into the user's job.
+
+#### Nothing was missing
+
+Every primitive the request needed already existed. The failure was the plan and
+the prompt, not the toolbox:
+
+| Step of "message Dakota on Google Messages" | Primitive that already existed |
+|---|---|
+| find their browser window | `window_list` → `window_focus` (by `processName` or title) |
+| read what is actually on screen | `uia_snapshot` / `uia_find` / `uia_get_text` (Edge exposes a UIA tree), or `screen_ocr` / `screen_set_of_marks` |
+| click a conversation / the message box | `uia_invoke`, or `click_at` (real mouse, with modifiers) |
+| type the message and **send** it | `text_type` — which already had `pressEnterAfter`, plus `input_tap({ keys: ["enter"] })` |
+
+So the deliverable here was not a new tool. It was two defects:
+
+**1. `window_focus` failed in a way that could not be corrected.** A real run called
+it three times, got `window not found` three times, and stalled. The message named
+neither *what* it had searched for nor what was *actually* open — so the model could
+not tell what to change, could only guess again, and guessed identically. It now
+throws `Error: window_focus found no window matching <selector> — nothing was
+focused. Open windows right now: "…" (msedge), …` and says plainly not to repeat the
+call. `windowFocusMissMessage()` is pure and pinned by `tools/system.test.js`,
+because the *content* of that string is the whole fix — this is the same lesson as
+"a failure must announce itself", applied to a failure the agent had to *act* on.
+
+**2. The prompt pointed the wrong way.** Rules 12–13 told the agent to drive sites
+with `browser_*` and to start signed-in sites with `attach: true` — i.e. at the
+separate browser. Rules 12–14 are now **native-first**: for anything on the user's
+own PC, including a site they are signed into, drive their real window
+(`window_list` → `window_focus` → `uia_*` → `click_at` / `input_tap` / `text_type`),
+which uses the session they already have and asks nothing of them.
+
+#### What `browser_*` is still for
+
+Not deleted — demoted. It is the right tool for a site the user is **not** signed
+into, for a flow that must run repeatably or headlessly, and for reading a page's
+DOM (a selector is exact where a coordinate is a guess). It drives **our own**
+profile, so a signed-in site shows a sign-in / device-pairing wall.
 
 ⚠️ **The attach route needs a specific launch**, because Chrome/Edge ≥136 ignore
 `--remote-debugging-port` when the *default* profile directory is in use — so the
@@ -211,10 +244,12 @@ the reason — a tool that says "could not attach" with no command is another st
 `close()` on a CDP connection shuts down the user's own browser, tabs and all. A
 tool may not do that to a browser it did not start.
 
-The agent's system prompt now carries rules 12–15 covering this: drive sites with
-`browser_*` rather than guessing coordinates, use `attach` for signed-in sites, STOP
-on a wall and relay what it says, and ask for a missing detail (a contact's real
-name) early instead of clicking around the wrong page.
+`classifyPageWall` still detects the wall (`browser_goto` used to return
+`{status: 200, title}`, which reads as success, so the agent hunted for selectors
+that do not exist at 15 s each while scoring no progress), and `browser_press`
+still closes the real gap that **`browser_fill` does not submit** — a box is
+committed with Enter. Both facts hold on the native path too: `text_type` commits a
+chat box, `uia_invoke` does not.
 
 ### Verifying before an irreversible action — `user_confirm` (2026-09-18)
 

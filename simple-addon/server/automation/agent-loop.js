@@ -180,27 +180,32 @@ function buildSystemPrompt({ goal, workspaceContext, toolNames, skillHints, perc
               'If that step is waiting on something only the user can supply — money, a date, an appointment — ' +
               'call goal_ask_user instead of looking for a substitute.'
             : '',
-        // ── Anything involving a WEBSITE ─────────────────────────────────────
-        // Written after a real request ("google message my girlfriend that I love
-        // her — I am already signed into google message on microsoft edge") ended
-        // in a stall. The tools existed and the browser engine was installed; the
-        // agent had no way to know that (a) the browser tools were the right ones,
-        // (b) a signed-in site needs the user's own browser, or (c) a sign-in page
-        // is not something it can click through. See browser-session.js.
-        '12. For a website — webmail, a chat app, a dashboard, a portal — drive the browser with the ' +
-            'browser_* tools: browser_goto to open it, browser_text or browser_eval to read it, ' +
-            'browser_click to choose something, browser_fill to type into a field, and browser_press ' +
-            'with "Enter" to SUBMIT (filling a box does not send it). Do NOT hunt for a page with ' +
-            'screen_capture + click_at: a selector is exact and a guessed screen coordinate is not.',
-        '13. If the site is one the user is expected to be SIGNED IN to, start with ' +
-            'browser_open({ attach: true }) — that drives the browser they are already logged into. ' +
-            'Our own profile begins empty, so a signed-in site looks like a sign-in or QR-pairing page ' +
-            'and no amount of retrying will get past it.',
-        '14. If browser_goto or browser_status reports `wall`, STOP — a sign-in, device-pairing or 2FA ' +
-            'screen cannot be clicked through by you, and nothing you try on it will work. Relay what ' +
-            '`wallExplanation` says and wait for the user. Do not repeat the same call. If it says the ' +
-            'session is headless, browser_close then browser_open with headless:false so they can act ' +
-            'on the window.',
+        // ── Doing something on the user's own PC ─────────────────────────────
+        // Rewritten after a real request ("google message my girlfriend that I love
+        // her — I am already signed into google message on microsoft edge") stalled.
+        // The earlier version of these rules pointed at `browser_*` and at attaching
+        // to a debug-port browser — i.e. at a SECOND browser, which is both the wrong
+        // answer for a machine the addon can already see and a setup burden on the
+        // user. Everything needed to do it natively was already here: window_focus,
+        // uia_*, click_at, input_tap, text_type.
+        '12. To do something on the user\'s own PC — INCLUDING a website they are already signed ' +
+            'into — drive their real window: get the name from window_list, window_focus it, then LOOK ' +
+            'at it with uia_snapshot / uia_find / uia_get_text and ACT on what you actually found using ' +
+            'uia_invoke, click_at, input_tap or text_type. That is you operating the machine the way a ' +
+            'person does, and it uses the session they are already signed into — no sign-in, no second ' +
+            'browser, no extra setup from them.',
+        '13. To type and commit: text_type with pressEnterAfter:true types the text AND sends it (that ' +
+            'is how a chat or search box is submitted); input_tap({ keys: ["enter"] }) presses a key ' +
+            'wherever focus is; click_at drives the real mouse. Prefer uia_* over pixel-hunting — a UIA ' +
+            'name is exact and a coordinate is a guess — and fall back to screen_set_of_marks when a ' +
+            'page exposes no accessibility tree. A window_focus miss now lists the windows that DO ' +
+            'exist: read that list and pick a real one instead of repeating the same call.',
+        '14. browser_* is for the OTHER case: a site the user is NOT signed into, a flow to run ' +
+            'repeatably or headlessly, or reading a page\'s DOM. It drives OUR OWN profile, so a ' +
+            'signed-in site shows a sign-in or QR-pairing wall — and if browser_goto or browser_status ' +
+            'reports `wall`, STOP rather than clicking a screen that cannot go anywhere: relay what ' +
+            '`wallExplanation` says and use rule 12 for their signed-in session, or have them sign in ' +
+            'once with headless:false if ours is the right one.',
         '15. When a task needs a detail only the user has — a contact\'s real name, an account, a ' +
             'preference — call goal_ask_user for it EARLY. Guessing and then clicking around the wrong ' +
             'page is how a run stalls; one question is cheaper than ten failed attempts.',

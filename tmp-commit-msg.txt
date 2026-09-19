@@ -1,0 +1,23 @@
+Prefer driving the user's own PC over a second browser
+
+The agent could already do a web task natively — window_focus, uia_*, click_at,
+input_tap, and text_type (which already had pressEnterAfter) — so nothing was
+missing from the toolbox. Two defects made a real run stall, and one of them was
+mine: the previous fix pointed at a SECOND browser.
+
+1. window_focus failed uncorrectably. A real run called it three times, got
+   "window not found" three times, and stalled. The message named neither the
+   selector it had used nor the windows that were actually open, so the model
+   could not tell what to change — it could only guess again, and guessed
+   identically. It now reports both and says plainly not to repeat the call.
+   windowFocusMissMessage() is pure, so the content of that string — which is the
+   entire fix — is pinned by tools/system.test.js without needing PowerShell.
+
+2. The prompt pointed the wrong way. Rules 12–13 sent signed-in sites to
+   browser_* with attach:true, i.e. a second browser, its own profile, and a
+   launch command for the user to run — turning the agent's job into the user's
+   job. The addon is already on the machine and can already drive it. Rules 12–14
+   are now native-first: window_list -> window_focus -> uia_snapshot/uia_find ->
+   uia_invoke / click_at / input_tap / text_type. browser_* is kept, demoted, for
+   a site the user is NOT signed into, a repeatable or headless flow, and reading
+   a page's DOM — all still correct uses, with the CDP caveats unchanged.

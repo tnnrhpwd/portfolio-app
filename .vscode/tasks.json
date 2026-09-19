@@ -796,6 +796,24 @@
 			"type": "shell",
 			"command": "Remove-Item -Force tmp-bs.txt,tmp-bs2.txt,tmp-browser-e2e.cjs,tmp-e2e-out.txt,tmp-dbg.cjs,tmp-dbg.txt,tmp-addon8.txt -ErrorAction SilentlyContinue; $r = Get-ChildItem -Name tmp-* -ErrorAction SilentlyContinue; if ($r) { 'LEFT: ' + ($r -join ', ') } else { 'temp clean' }; $t = Get-ChildItem -Recurse -Filter 'tmp-*.test.js' -ErrorAction SilentlyContinue; if ($t) { $t.FullName } else { 'no stray fixtures' }",
 			"group": "test"
+		},
+		{
+			"label": "addon-chain-verify",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; npm --prefix 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon' run test:unit 2>&1 | Out-File -Encoding utf8 tmp-addon-chain.txt; Write-Output '--- TAIL ---'; Get-Content tmp-addon-chain.txt -Tail 20",
+			"group": "test"
+		},
+		{
+			"label": "git-state-check",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Remove-Item -Force tmp-addon-chain.txt -ErrorAction SilentlyContinue; Write-Output '--- BRANCH ---'; git rev-parse --abbrev-ref HEAD; Write-Output '--- STATUS ---'; git status --short; Write-Output '--- SYNC ---'; git rev-list --left-right --count origin/master...HEAD",
+			"group": "test"
+		},
+		{
+			"label": "commit-native-first",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add -A; git commit -F tmp-commit-msg.txt; Remove-Item -Force tmp-commit-msg.txt -ErrorAction SilentlyContinue; Write-Output '--- PUSH ---'; git push origin master; Write-Output '--- SYNC ---'; git rev-list --left-right --count origin/master...HEAD",
+			"group": "test"
 		}
 	]
 }

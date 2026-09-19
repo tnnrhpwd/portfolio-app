@@ -455,6 +455,54 @@ $wins | ForEach-Object { [pscustomobject]@{ pid = $_.Pid; name = $_.ProcessName;
     },
 };
 
+/**
+ * The message a failed `window_focus` throws.
+ *
+ * Split out as a PURE function so its content — literally the thing that decides whether
+ * the agent can correct itself or loops — is testable without PowerShell.
+ *
+ * Three obligations, each earned from the observed stall:
+ *   - say WHICH selector was used (the model cannot fix a filter it cannot see),
+ *   - name the windows that DO exist (so the next call can succeed),
+ *   - say plainly not to repeat the identical call (a repeat is how 3 rounds were lost).
+ */
+function windowFocusMissMessage(selector, openList) {
+    return `Error: window_focus found no window matching ${selector} — nothing was focused. `
+        + `Open windows right now: ${openList}. `
+        + 'Pick a name from that list, or call window_list for the full set. Do not repeat this exact call.';
+}
+
+/**
+ * One line naming the visible windows that currently exist, for a tool that missed.
+ *
+ * Exists so a failed `window_focus` is CORRECTABLE in one round: the model gets the
+ * real titles instead of re-guessing the same miss. Bounded, because the point is to
+ * let it pick a name rather than to dump the desktop.
+ *
+ * Best-effort by design — if this cannot run, the caller still throws a useful error.
+ */
+async function describeOpenWindows({ limit = 10 } = {}) {
+    try {
+        const script = `
+${WIN_PLACEMENT_PRELUDE}
+$rows = @(
+    Get-CandidateWindows | Select-Object -First ${Math.max(1, Math.min(30, limit))} | ForEach-Object {
+        [pscustomobject]@{ name = $_.ProcessName; title = $_.Title }
+    }
+)
+[pscustomobject]@{ windows = $rows } | ConvertTo-Json -Compress -Depth 4
+        `.trim();
+        const out = await runPsJson(script);
+        const rows = Array.isArray(out?.windows) ? out.windows : (out?.windows ? [out.windows] : []);
+        if (!rows.length) return '(none — no visible top-level window currently has a title)';
+        return rows
+            .map((r) => `"${String(r.title || '').slice(0, 70)}" (${r.name || '?'})`)
+            .join(', ');
+    } catch {
+        return '(could not be listed — try window_list)';
+    }
+}
+
 const windowFocus = {
     name: 'window_focus',
     category: 'system',
@@ -485,6 +533,15 @@ const windowFocus = {
         } else {
             throw new Error('window_focus: provide pid, processName, or titleContains');
         }
+        // Which selector was ACTUALLY used, for the failure message below. A bare
+        // "window not found" does not say whether it searched by title, process or
+        // pid — so the agent cannot tell what to change, and repeats the call. That
+        // is exactly what a real run did three times in a row before it stalled.
+        const selector = args.pid
+            ? `pid=${parseInt(args.pid, 10)}`
+            : args.titleContains
+                ? `titleContains="${String(args.titleContains)}"`
+                : `processName="${String(args.processName)}"`;
         const script = `
 ${WIN_PLACEMENT_PRELUDE}
 $wins = Get-CandidateWindows
@@ -506,7 +563,23 @@ if ($wp.showCmd -eq 2) {
 [WinPlacement]::SetForegroundWindow($h) | Out-Null
 [pscustomobject]@{ pid = $p.Pid; name = $p.ProcessName; title = $p.Title } | ConvertTo-Json -Compress
         `.trim();
-        return await runPsJson(script);
+        try {
+            return await runPsJson(script);
+        } catch (e) {
+            // ⚠️ SELF-CORRECTING FAILURE. Verified from a real run: three identical
+            // `window_focus` calls, each returning `window not found`, no progress,
+            // stalled. The tool knew nothing about WHY it missed, so there was
+            // nothing for the model to correct — it could only guess again.
+            //
+            // So a miss now reports the selector it used AND the windows that are
+            // actually open, which is enough to pick a real one on the next call
+            // instead of retrying blind. Prefixed `Error: ` per the convention every
+            // consumer uses to decide "did this work?".
+            if (/window not found/i.test(String(e?.message || ''))) {
+                throw new Error(windowFocusMissMessage(selector, await describeOpenWindows()));
+            }
+            throw e;
+        }
     },
 };
 
@@ -774,4 +847,4 @@ const clipboardWrite = {
     },
 };
 
-module.exports = { windowList, windowFocus, windowSnapshot, windowSetRect, processList, processKill, clipboardRead, clipboardWrite, parseCliXmlError };
+module.exports = { windowList, windowFocus, windowSnapshot, windowSetRect, processList, processKill, clipboardRead, clipboardWrite, parseCliXmlError, windowFocusMissMessage, describeOpenWindows };
