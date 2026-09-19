@@ -4,13 +4,19 @@
 name: Security Scan
 
 on:
-  push:
-    branches: [master]
+  # No `push` trigger on purpose. An advisory audit is a function of TIME, not
+  # of each commit: the weekly run catches newly-disclosed CVEs, and every PR is
+  # audited before it lands. Re-running it for each push to master duplicated
+  # work the PR had already done (and two rapid pushes ran it twice at once).
   pull_request:
     branches: [master]
   schedule:
     # Run weekly on Monday at 9 AM UTC
     - cron: '0 9 * * 1'
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   audit:

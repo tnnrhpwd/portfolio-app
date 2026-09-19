@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const permissions = require('../permissions');
+const paths = require('../paths');
 
 const MAX_READ_BYTES = 1024 * 1024;     // 1 MB
 const MAX_WRITE_BYTES = 2 * 1024 * 1024; // 2 MB
@@ -16,7 +17,11 @@ const MAX_LIST_ENTRIES = 1000;
 
 function allowedRoots() {
     const cfg = permissions.load();
-    return (cfg.fsRoots && cfg.fsRoots.length) ? cfg.fsRoots.map(r => path.resolve(r)) : [path.resolve(os.homedir())];
+    const configured = (cfg.fsRoots && cfg.fsRoots.length) ? cfg.fsRoots : [os.homedir()];
+    // Canonicalised (symlinks + Windows 8.3 short names expanded, case-folded
+    // on comparison) — see ../paths.js for why a raw path.resolve is not
+    // enough. A root typed in short form used to reject everything inside it.
+    return paths.canonicalRoots(configured);
 }
 
 function resolveInsideSandbox(p) {
@@ -26,30 +31,18 @@ function resolveInsideSandbox(p) {
 
     // Resolve symlinks BEFORE validating containment. A symlinked file or
     // directory inside the sandbox must not be able to redirect reads/writes/
-    // deletes to a target outside it.
+    // deletes to a target outside it. `canonicalForWrite` also expands the
+    // Windows 8.3 short form of any parent (e.g. C:\Users\RUNNER~1\…), which
+    // the JS realpath does NOT — that difference broke the eval suite on CI
+    // while passing locally.
     let realAbs;
     try {
-        if (fs.existsSync(abs)) {
-            // Target exists — resolve the WHOLE path (catches symlinked files
-            // and directories pointing outside the sandbox).
-            realAbs = fs.realpathSync(abs);
-        } else {
-            // Target doesn't exist yet (write/create): resolve the nearest
-            // existing ancestor, then re-append the missing tail so a symlinked
-            // parent directory can't redirect the write.
-            let ancestor = path.dirname(abs);
-            const missing = [];
-            while (ancestor !== path.dirname(ancestor) && !fs.existsSync(ancestor)) {
-                missing.unshift(path.basename(ancestor));
-                ancestor = path.dirname(ancestor);
-            }
-            realAbs = path.join(fs.realpathSync(ancestor), ...missing, path.basename(abs));
-        }
+        realAbs = paths.canonicalForWrite(abs);
     } catch (e) {
         throw new Error(`path outside sandbox (unresolvable): ${abs}`);
     }
 
-    if (!roots.some(r => realAbs === r || realAbs.startsWith(r + path.sep))) {
+    if (!paths.isWithin(realAbs, roots)) {
         throw new Error(`path outside sandbox: ${realAbs}. Allowed roots: ${roots.join(', ')}`);
     }
     return realAbs;

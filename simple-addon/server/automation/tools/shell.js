@@ -20,6 +20,7 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 const permissions = require('../permissions');
+const paths = require('../paths');
 
 const MAX_CMD_BYTES   = 16 * 1024;
 const MAX_STDOUT      = 1024 * 1024;
@@ -41,10 +42,18 @@ function scrubEnv() {
 
 function resolveCwd(requested) {
     const cfg = permissions.load();
-    const roots = (cfg.fsRoots && cfg.fsRoots.length) ? cfg.fsRoots : [os.homedir()];
+    const configured = (cfg.fsRoots && cfg.fsRoots.length) ? cfg.fsRoots : [os.homedir()];
+    const roots = paths.canonicalRoots(configured);
     if (!requested) return roots[0];
-    const abs = path.resolve(requested);
-    if (!roots.some(r => abs === r || abs.startsWith(r + path.sep))) {
+
+    // Canonicalise the request before comparing (../paths.js):
+    //   - `fs.realpathSync.native` expands Windows 8.3 short names, so a runner
+    //     whose %TEMP% is C:\Users\RUNNER~1\… no longer reads as "outside" the
+    //     long-form C:\Users\<user> root. That was a permanent CI-only failure.
+    //   - comparison is case-folded on Windows, where paths are
+    //     case-insensitive.
+    const abs = paths.canonicalExisting(requested) || path.resolve(requested);
+    if (!paths.isWithin(abs, roots)) {
         throw new Error(`cwd outside allowed roots: ${abs}. Allowed: ${roots.join(', ')}`);
     }
     if (!fs.existsSync(abs) || !fs.statSync(abs).isDirectory()) {

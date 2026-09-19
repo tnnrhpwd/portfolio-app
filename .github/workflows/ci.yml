@@ -6,8 +6,25 @@ name: CI
 on:
   push:
     branches: [master]
+    # A docs-only commit has nothing for these jobs to verify, and the addon job
+    # below is the most expensive minute this repo spends (windows-latest).
+    # Deliberately NOT applied to pull_request: a workflow skipped by a path
+    # filter reports NO check at all, which can leave a required status check
+    # pending on a docs-only PR.
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
   pull_request:
     branches: [master]
+
+# A second push to the same branch supersedes the first. Cancel the older run
+# instead of paying for two full suites (one of them a Windows runner) at once.
+# Nothing is published from this workflow, so a cancelled run loses no artifact.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint:

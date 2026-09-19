@@ -18,6 +18,13 @@ on:
 permissions:
   contents: write
 
+# Releasing is the one place Windows build minutes are unavoidable, so keep it
+# deliberate: a second run for the same ref WAITS rather than building beside
+# the first, and is never cancelled — this job publishes artifacts.
+concurrency:
+  group: build-addon-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build-and-release:
     runs-on: windows-latest
