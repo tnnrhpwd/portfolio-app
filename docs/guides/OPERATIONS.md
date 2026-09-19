@@ -80,6 +80,7 @@ the AWS bootstrap credentials:
 ```json
 {
   "JWT_SECRET": "...",
+  "SECRETS_ENCRYPTION_KEY": "...",
   "STRIPE_KEY": "sk_live_...",
   "STRIPE_WEBHOOK_SECRET": "whsec_...",
   "DEEPSEEK_API_KEY": "...",
@@ -95,6 +96,34 @@ the AWS bootstrap credentials:
 The backend hydrates these into `process.env` at boot via
 [`backend/utils/awsSecrets.js`](../../backend/utils/awsSecrets.js)
 (`loadAllSecrets`, called from `server.js` before routes load).
+
+#### `SECRETS_ENCRYPTION_KEY` — why it is not optional
+
+`backend/utils/secretCrypto.js` encrypts secret values before they are written to
+DynamoDB (`enc:v1:` rows). It takes its master key from `SECRETS_ENCRYPTION_KEY`
+and **falls back to `JWT_SECRET` when that variable is unset**, logging a warning.
+The fallback is for local dev only: it ties stored ciphertext to the JWT signing
+key, so the day `JWT_SECRET` is rotated every `enc:v1:` row becomes permanently
+undecryptable (`decryptString` returns `null` rather than throwing). Keep the two
+independent — generate the key, never hand-write it:
+
+```powershell
+# 32 random bytes, hex — the value stays in a shell variable and is never printed
+$b = New-Object byte[] 32
+[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b)
+$k = -join ($b | ForEach-Object { $_.ToString('x2') })
+node backend/scripts/put-secret.js -Name SECRETS_ENCRYPTION_KEY -Value $k
+```
+
+⚠️ **Setting it is a one-way door for existing rows.** The key is an input to the
+per-record KDF, so changing it makes ciphertext written under the old value
+unreadable. Today only `githubToken` (`SENSITIVE_KEYS` in
+`backend/controllers/csimpleController.js`) is encrypted that way, and it is a
+retired field — but check for `enc:v1:` values before rotating, and re-encrypt
+rather than rotate if anything live is using it. `MESSAGE_ENCRYPTION_KEY` (see
+[`../implementation/TALK.md`](../implementation/TALK.md)) is a **separate** key
+with the same property, and rotating *that* one does make stored message bodies
+unreadable.
 
 #### `backend/.env` is just the AWS bootstrap credentials
 
