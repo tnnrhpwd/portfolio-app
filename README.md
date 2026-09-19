@@ -68,7 +68,7 @@ every edit. Rules and failure triage: [`.github/copilot-instructions.md`](./.git
 ## Getting Started
 
 ### Prerequisites
-- Node.js 18+ 
+- Node.js 20.9+ (the backend's `sharp@0.35` requires >=20.9.0; Render reads the repo-root `.nvmrc`, currently 24)
 - npm 9+
 - AWS account (for DynamoDB and S3)
 

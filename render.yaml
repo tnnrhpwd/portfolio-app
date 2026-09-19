@@ -31,7 +31,7 @@ services:
     rootDir: backend
     plan: free
     installCommand: npm install
-    # Node version is read from the repo-root .nvmrc (currently 22).
+    # Node version is read from the repo-root .nvmrc (currently 24).
     buildCommand: npm run build
     # Must be `npm run server` — it resolves to `node server.js` in backend/package.json
     # (nodemon is a devDependency and is NOT installed in production).

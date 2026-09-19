@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
-const useragent = require('useragent');
+const { userAgentInfo } = require('./userAgent');
 const { logger } = require('./logger');
 const { getGeoForIp } = require('./geoLookup');
 const { expiresAtSeconds, TTL_ATTRIBUTE } = require('./analyticsRetention');
@@ -79,10 +79,10 @@ async function checkIP(req) {
 
         // Extract user agent information
         logger.debug('Extracting user agent information...');
-        const agent = useragent.parse(req.headers['user-agent']);
-        logger.debug('User agent parsed:', agent.toString());
+        const agent = userAgentInfo(req.headers['user-agent']);
+        logger.debug('User agent parsed:', JSON.stringify(agent));
         
-        const deviceInfo = `|Device:${agent.device.toString()}|OS:${agent.os.toString()}|Browser:${agent.toAgent()}`;
+        const deviceInfo = `|Device:${agent.device}|OS:${agent.os}|Browser:${agent.browser}`;
         logger.debug('Device info:', deviceInfo);
 
         text += deviceInfo;

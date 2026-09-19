@@ -4,7 +4,7 @@ const asyncHandler = require('express-async-handler');
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, ScanCommand, PutCommand, GetCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 const { sendEmail } = require('../services/emailService');
-const useragent = require('useragent');
+const { userAgentInfo } = require('./userAgent');
 const ipinfo = require('ipinfo');
 
 // Initialize DynamoDB client
@@ -96,12 +96,7 @@ const getIPLocationInfo = async (req) => {
     }
 
     // Extract user agent information
-    const agent = useragent.parse(req.headers['user-agent']);
-    const deviceInfo = {
-        browser: agent.toAgent(),
-        os: agent.os.toString(),
-        device: agent.device.toString()
-    };
+    const deviceInfo = userAgentInfo(req.headers['user-agent']);
 
     // Default location info. NOTE: timezone must always be a valid IANA zone
     // name (e.g. 'UTC') — unlike city/region/country, it's passed straight

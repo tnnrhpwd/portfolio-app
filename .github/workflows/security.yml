@@ -24,7 +24,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: '18'
+          # Node 20: sharp@0.35 in the backend requires >=20.9.0, so a Node 18
+          # audit pass would resolve a dependency tree the build job rejects.
+          node-version: '20'
           cache: 'npm'
 
       - name: Install root dependencies
