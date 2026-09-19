@@ -292,6 +292,50 @@ detector stopped the run.
 
 ---
 
+## An LLM failure must not burn the step budget (2026-09-18)
+
+A user reported a run *"stuck in a loop of running window focus for like 20/60
+steps"*. The `window_focus` fix had **worked** — the log shows `step 4 ok=false` →
+`step 5 ok=true`, i.e. it corrected itself on the next call. The loop was a different
+fault, and the report's own guess at the cause was wrong. The lesson generalises: read
+`%APPDATA%\simple-addon\logs\main.log` before believing the symptom.
+
+What the trace actually showed: **66** `LLM error: Too many AI requests for your
+account` lines, then `loop exited: max-steps-reached (steps=60)`.
+
+The cause was one arm of `tick()` returning `{ stop: false, idle: false }`:
+
+| Effect | Why it mattered |
+|---|---|
+| `idle: false` | retried at the 400 ms *working* cadence — ~1/second |
+| `reflect()` never ran | it is the only thing that moves `stallCount`, so the stall detector was **structurally blind** to LLM failures |
+| the step was already spent | `observe()` increments first, so each failed tick consumed one of 60 while attempting **nothing** |
+
+So an outage and a productive step were indistinguishable in the step counter, and the
+run burned its whole budget on a rate limit.
+
+**The fix** is `_onLlmError()`: the step is *refunded* (the budget is for **attempts** —
+otherwise "60 steps" quietly means fewer than 60 tries), the wait starts at 4 s and
+doubles to a 30 s ceiling, and 5 consecutive failures stop the run with the reason
+`llm-unavailable` rather than `max-steps-reached` — blaming the agent for an outage it
+cannot control is the wrong story to tell the user. `stop-reason.js` turns that into a
+sentence saying the service is rate-limiting the account and to wait. A successful call
+clears the counter, so a flaky link cannot accumulate its way to a stop.
+
+Two further faults surfaced in the same trace:
+
+- **A refused workspace read was retried every step.** All 60 ticks logged
+  `429: Too many workspace read requests`. Fixed by backing off *after a failure* only —
+  a **success** still refreshes every step, because that behaviour is documented and
+  tested. ⚠️ Do not read this as the cause of the LLM 429s: "workspace read requests"
+  and "AI requests" are **separate** limiters. Both faults were real and independent.
+- **A status-only goal PUT was rejected**: `upsertGoal(slug, {status:'failed'})` sends no
+  `content`, so the API answered `400 content must be a string` and the goal stayed
+  **`active`** after a max-steps run. `upsertGoal` now fills the required fields from the
+  current goal.
+
+---
+
 ## The agent loop (as designed)
 
 The loop is an explicit **Observe → Orient → Goal → Plan → Action** cycle with a

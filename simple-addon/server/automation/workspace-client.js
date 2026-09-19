@@ -221,7 +221,34 @@ const getNextGoal = async ()            => {
     return out?.goal ? out.goal : (out || null);
 };
 const getGoal     = (slug)              => req('GET', `/goal/${encodeURIComponent(slug)}`);
-const upsertGoal  = (slug, body)        => req('PUT', `/goal/${encodeURIComponent(slug)}`, body);
+/**
+ * PUT /goal/:slug — an UPSERT, so a partial patch must not require the caller to
+ * know the rest of the item.
+ *
+ * The API insists on a string `content`, so a status-only patch was rejected:
+ *
+ *   max-steps goal persist failed: PUT /goal/<slug> → 400:
+ *   {"dataMessage":"content must be a string"}
+ *
+ * That is the goal's final status going unrecorded — a run that exhausted its
+ * steps left the goal `active` (and the same bug hit `{status:'blocked'}` and
+ * `{status:'done'}`). Read the current item and fill in what the API requires.
+ *
+ * The extra GET is fine here: status changes happen once per run, unlike the
+ * per-tick polling that caused this run's 429s.
+ */
+async function upsertGoal(slug, body = {}) {
+    if (typeof body?.content === 'string') {
+        return req('PUT', `/goal/${encodeURIComponent(slug)}`, body);
+    }
+    const current = await getGoal(slug).catch(() => null);
+    const g = current?.goal || current || {};
+    return req('PUT', `/goal/${encodeURIComponent(slug)}`, {
+        name: g.name || g.slug || slug,
+        content: typeof g.content === 'string' ? g.content : '',
+        ...body,
+    });
+}
 const deleteGoal  = (slug)              => req('DELETE', `/goal/${encodeURIComponent(slug)}`);
 const appendAction= (record)            => req('POST', '/action/append', record);
 const appendLog   = (text)              => req('POST', '/log/append', { text });

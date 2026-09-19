@@ -73,6 +73,15 @@ const DEFAULT_CONFIG = {
     STALL_THRESHOLD: 3,           // consecutive no-progress actions → blocked
     MAX_STEPS_DEFAULT: DEFAULT_MAX_STEPS, // default hard step budget per goal (single source of truth — see DEFAULT_MAX_STEPS above)
     META_EVERY_ACTIONS: 50,       // meta-loop cadence in recorded actions
+    // How many LLM failures in a row before the run gives up. A failure retried
+    // in a hot loop is indistinguishable from progress in the step counter, so
+    // the bound is what makes it terminate at all. See _onLlmError().
+    LLM_ERROR_MAX_CONSECUTIVE: 5,
+    LLM_ERROR_BACKOFF_MS: 4000,       // wait after the 1st failure; doubles each time
+    LLM_ERROR_BACKOFF_MAX_MS: 30000,  // ceiling for that backoff
+    // After a FAILED workspace context/skill fetch, wait this many steps before
+    // trying again — a refused read must not be retried on every tick.
+    CONTEXT_RETRY_STEPS: 10,
     SKILL_PROMOTE_MIN_REPEATS: 3, // n-gram repeats before a skill draft
 };
 
@@ -433,21 +442,45 @@ class AgentLoop {
         const toolSchemas = this.registry.toolSchemasForLlm();
         const toolNames = toolSchemas.map(t => t.function.name);
 
-        // Refresh workspace context every step (cheap; ensures memory edits land).
-        let wsContextString = '';
-        try {
-            const ctxPreview = await this.wsClient.getContext({ message: this.state.currentGoal?.name });
-            wsContextString = ctxPreview?.workspaceContext || '';
-        } catch (e) {
-            this.log('[agent] workspace context fetch failed:', e.message);
+        // Workspace context is refreshed every step ON PURPOSE ("ensures memory
+        // edits land"), and that stays true. What was wrong was retrying it every
+        // step while the workspace was REFUSING us: a 60-step run logged
+        // `workspace context fetch failed: … 429: Too many workspace read
+        // requests. Slow down.` on every single tick — hammering the limiter that
+        // was already rejecting it. After a failure we now wait CONTEXT_RETRY_STEPS
+        // before trying again; a success still refreshes every step.
+        //
+        // ⚠️ This is NOT what caused the LLM 429s that burned the step budget:
+        // "Too many workspace read requests" and "Too many AI requests" are
+        // separate limiters. It is a real, logged fault on its own (every orient
+        // ran with NO workspace context), not the cause of the loop.
+        const sinceContextFailure = this.state.step - (this.state.contextFailedStep ?? -Infinity);
+        let wsContextString = this.state.wsContextString || '';
+        if (sinceContextFailure >= this.config.CONTEXT_RETRY_STEPS) {
+            try {
+                const ctxPreview = await this.wsClient.getContext({ message: this.state.currentGoal?.name });
+                wsContextString = ctxPreview?.workspaceContext || '';
+                this.state.wsContextString = wsContextString;
+                this.state.contextFailedStep = null;
+            } catch (e) {
+                this.state.contextFailedStep = this.state.step;
+                this.log('[agent] workspace context fetch failed:', e.message);
+            }
         }
 
-        // Find skills (cached + workspace) that might match this goal. Best-effort.
-        let skillHints = [];
-        try {
-            skillHints = await findRelevantSkills(this.state.currentGoal, { wsClient: this.wsClient, log: this.log, skillModule: this._skillModule() });
-        } catch (e) {
-            this.log('[agent] skill hint resolution failed:', e.message);
+        // Find skills (cached + workspace) that might match this goal. Best-effort,
+        // backing off the same way when the workspace is refusing reads.
+        const sinceSkillFailure = this.state.step - (this.state.skillFailedStep ?? -Infinity);
+        let skillHints = this.state.skillHints || [];
+        if (sinceSkillFailure >= this.config.CONTEXT_RETRY_STEPS) {
+            try {
+                skillHints = await findRelevantSkills(this.state.currentGoal, { wsClient: this.wsClient, log: this.log, skillModule: this._skillModule() });
+                this.state.skillHints = skillHints;
+                this.state.skillFailedStep = null;
+            } catch (e) {
+                this.state.skillFailedStep = this.state.step;
+                this.log('[agent] skill hint resolution failed:', e.message);
+            }
         }
 
         // Get latest perception frame for real-time environmental context.
@@ -738,6 +771,10 @@ class AgentLoop {
             return { type: 'llm-error' };
         }
 
+        // An answer arrived, so whatever run of failures preceded this is over.
+        // Cleared HERE (not in tick) so "consecutive" means what it says.
+        this.state.consecutiveLlmErrors = 0;
+
         const text = (result?.text || '').trim();
         const toolCalls = result?.toolCalls || [];
 
@@ -869,6 +906,45 @@ class AgentLoop {
         return { stop: false };
     }
 
+    /**
+     * The LLM did not answer. Decide whether to wait or to stop.
+     *
+     * This used to return `{ stop: false, idle: false, reason: 'llm-error' }`,
+     * which meant three things at once, all wrong:
+     *   - retry IMMEDIATELY (idle:false selects the 400 ms working delay),
+     *   - never reach `reflect()`, which is the only thing that moves
+     *     `stallCount` — so the stall detector was blind to it,
+     *   - still spend a step, because `observe()` had already incremented it.
+     *
+     * A rate-limited account therefore spun at ~1/sec and burned the full budget
+     * in silence. Verified in `main.log`: 26 consecutive
+     * `LLM error: Too many AI requests for your account` lines, then
+     * `loop exited: max-steps-reached (steps=60)` — while the user saw only a
+     * spinner and a rising step count, which reads as "it is stuck in a loop".
+     *
+     * So: a failure is REFUNDED (the budget is for attempts, and an outage is not
+     * an attempt — otherwise "60 steps" quietly means fewer than 60 tries), the
+     * wait grows, and a run of failures ends the run with a reason that explains
+     * itself instead of "max steps reached".
+     */
+    _onLlmError() {
+        const n = (this.state.consecutiveLlmErrors = (this.state.consecutiveLlmErrors || 0) + 1);
+        if (this.state.step > 0) this.state.step--;
+
+        const max = this.config.LLM_ERROR_MAX_CONSECUTIVE;
+        if (n >= max) {
+            this.state.stopReason = 'llm-unavailable';
+            this.log(`[agent] stopping: ${n} consecutive LLM failures — the model is not answering`);
+            return { stop: true, reason: 'llm-unavailable' };
+        }
+        const wait = Math.min(
+            this.config.LLM_ERROR_BACKOFF_MS * Math.pow(2, n - 1),
+            this.config.LLM_ERROR_BACKOFF_MAX_MS
+        );
+        this.log(`[agent] LLM failure ${n}/${max} — waiting ${wait}ms before retrying`);
+        return { stop: false, idle: false, reason: 'llm-error', sleepMs: wait };
+    }
+
     /** One inner-loop pass: observe → orient → plan → act → reflect. */
     async tick() {
         this._setStage('OBSERVING');
@@ -879,7 +955,7 @@ class AgentLoop {
         const action = await this.plan(frame, situation);
         if (action.type === 'llm-error') {
             this._setStage('REFLECTING');
-            return { stop: false, idle: false, reason: 'llm-error' };
+            return this._onLlmError();
         }
         if (action.type === 'idle') {
             // Terminal tick: no tool call — the loop sleeps longer and lets the
@@ -913,7 +989,9 @@ class AgentLoop {
                 this.state.stopReason = r.reason;
                 break;
             }
-            const sleepMs = r.idle ? this.config.IDLE_SLEEP_MS : STEP_DELAY_MS;
+            // A tick may name its own wait (LLM backoff); otherwise idle ticks
+            // sleep long and working ticks barely pause.
+            const sleepMs = r.sleepMs ?? (r.idle ? this.config.IDLE_SLEEP_MS : STEP_DELAY_MS);
             await new Promise(res => setTimeout(res, sleepMs));
 
             // Meta-loop (OpenClaw-style self-reflection): every META_EVERY_ACTIONS

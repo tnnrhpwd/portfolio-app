@@ -34,6 +34,10 @@ const OUTCOMES = Object.freeze({
   GOAL_ENDED: 'goal-ended',
   STOPPED: 'stopped',
   ERROR: 'error',
+  // The model stopped answering (usually rate limiting). Distinct from ERROR
+  // because the cause is outside the run and the fix is to wait, not to look at
+  // anything on this machine — so it must not re-use the generic error sentence.
+  LLM_UNAVAILABLE: 'llm-unavailable',
 });
 
 /** Loop stop reasons look like `goal status=<status>`; pull the status out. */
@@ -56,6 +60,9 @@ function classifyStop(reason) {
   if (STALLED_RE.test(raw)) return OUTCOMES.STALLED;
   if (raw === 'max-steps-reached') return OUTCOMES.MAX_STEPS;
   if (/timeout/i.test(raw)) return OUTCOMES.TIMEOUT;
+  // Checked BEFORE the general error arm: a sustained outage has its own
+  // explanation, while a lone `llm-error` stays a plain error.
+  if (raw === 'llm-unavailable') return OUTCOMES.LLM_UNAVAILABLE;
   if (/^llm-error|^error/i.test(raw)) return OUTCOMES.ERROR;
   if (/^manual|^user|^stopped/i.test(raw)) return OUTCOMES.STOPPED;
   return OUTCOMES.STOPPED;
@@ -137,6 +144,13 @@ function stopReport({ stopReason, steps = 0, maxSteps = null, stallCount = 0, ha
 
     case OUTCOMES.TIMEOUT:
       return { outcome, reason: 'it ran past the time limit for one run and was stopped.' };
+
+    case OUTCOMES.LLM_UNAVAILABLE:
+      return {
+        outcome,
+        reason: 'the AI service stopped accepting requests — it is rate-limiting this account — so the agent stopped '
+          + 'instead of retrying forever. Nothing on your PC broke and there is nothing to fix: wait a few minutes and ask again.',
+      };
 
     case OUTCOMES.ERROR:
       return { outcome, reason: 'a model call failed, so the agent could not continue.' };

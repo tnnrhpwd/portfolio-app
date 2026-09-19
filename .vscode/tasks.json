@@ -866,6 +866,79 @@
 			"command": "Set-Location frontend; npx vite build 2>&1 | Out-File -Encoding utf8 ..\\tmp-ap4.txt; Select-String -Path ..\\tmp-ap4.txt -Pattern 'transformed|built in|Build failed|Expected|error during' | Select-Object -First 10 | ForEach-Object { $_.Line }; Set-Location ..; node node_modules/jest/bin/jest.js --config package.json frontend/src/utils/simpleAddon/agentProgress.test.js 2>&1 | Out-File -Encoding utf8 tmp-ap5.txt; Select-String -Path tmp-ap5.txt -Pattern 'Test Suites:|Tests:' | ForEach-Object { $_.Line }; Remove-Item -Force tmp-ap4.txt,tmp-ap5.txt -ErrorAction SilentlyContinue",
 			"problemMatcher": [],
 			"group": "test"
+		},
+		{
+			"label": "trace-window-focus-loop",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-trace.cjs 2>&1 | Out-File -Encoding utf8 tmp-trace-out.txt; Get-Content tmp-trace-out.txt -TotalCount 60",
+			"group": "test"
+		},
+		{
+			"label": "read-addon-logs",
+			"type": "shell",
+			"command": "Set-Location 'C:\\Users\\tanne\\AppData\\Roaming\\simple-addon\\logs'; Write-Output '--- SIZES ---'; Get-ChildItem | Select-Object Name,Length,LastWriteTime | Format-Table -AutoSize | Out-String -Width 120; Write-Output '--- window_focus COUNT in main.log ---'; (Select-String -Path main.log -Pattern 'window_focus' -AllMatches).Count; Write-Output '--- last 5 lines ---'; Get-Content main.log -Tail 5",
+			"group": "test"
+		},
+		{
+			"label": "window-focus-evidence",
+			"type": "shell",
+			"command": "Set-Location 'C:\\Users\\tanne\\AppData\\Roaming\\simple-addon\\logs'; Write-Output '--- window_focus lines ---'; Select-String -Path main.log -Pattern 'window_focus' | ForEach-Object { $_.Line.Substring(0, [Math]::Min(220, $_.Line.Length)) }; Write-Output '--- LLM error count ---'; (Select-String -Path main.log -Pattern 'LLM error').Count; Write-Output '--- tool call / step lines sample ---'; Select-String -Path main.log -Pattern '\\[agent\\]' | Select-Object -Last 40 | ForEach-Object { $_.Line.Substring(0, [Math]::Min(200, $_.Line.Length)) }",
+			"group": "test"
+		},
+		{
+			"label": "llm-loop-tests",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/agent-loop.test.js 2>&1 | Out-File -Encoding utf8 ../tmp-l1.txt; Select-String -Path ../tmp-l1.txt -Pattern 'LLM|llm|workspace context|passed,|FAIL' | Select-Object -Last 20 | ForEach-Object { $_.Line }; Write-Output '=== stop-reason ==='; node server/automation/stop-reason.test.js 2>&1 | Select-Object -Last 6; Write-Output '=== baseline ==='; node server/automation/agent-loop.baseline.test.js 2>&1 | Select-Object -Last 3",
+			"group": "test"
+		},
+		{
+			"label": "llm-loop-test-details",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Get-Content tmp-l1.txt | Select-String -Pattern 'FAIL' -Context 0,2 | ForEach-Object { $_.Line; $_.Context.PostContext }",
+			"group": "test"
+		},
+		{
+			"label": "llm-loop-tests-2",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/agent-loop.test.js 2>&1 | Out-File -Encoding utf8 ../tmp-l2.txt; Select-String -Path ../tmp-l2.txt -Pattern 'FAIL|passed,' -Context 0,2 | ForEach-Object { $_.Line; $_.Context.PostContext }",
+			"group": "test"
+		},
+		{
+			"label": "llm-loop-tests-3",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/agent-loop.test.js 2>&1 | Select-Object -Last 12",
+			"group": "test"
+		},
+		{
+			"label": "addon-chain-verify-2",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; npm --prefix 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon' run test:unit 2>&1 | Out-File -Encoding utf8 tmp-chain2.txt; Write-Output '--- FAILURES ---'; Select-String -Path tmp-chain2.txt -Pattern '  FAIL  |[1-9][0-9]* failed' | ForEach-Object { $_.Line }; Write-Output '--- TAIL ---'; Get-Content tmp-chain2.txt -Tail 4",
+			"group": "test"
+		},
+		{
+			"label": "verify-notes-final",
+			"type": "shell",
+			"command": "foreach ($f in 'frontend/src/components/SimpleAddon/MessageBubble.css','frontend/src/components/SimpleAddon/ChatWindow.css') { $c=Get-Content $f -Raw; '{0}: braces {1}/{2}  comments {3}/{4}' -f (Split-Path $f -Leaf), ([regex]::Matches($c,'\\{')).Count,([regex]::Matches($c,'\\}')).Count,([regex]::Matches($c,'/\\*')).Count,([regex]::Matches($c,'\\*/')).Count }; Set-Location frontend; npx vite build 2>&1 | Out-File -Encoding utf8 ..\\tmp-nh.txt; Select-String -Path ..\\tmp-nh.txt -Pattern 'transformed|built in|Build failed|Expected' | Select-Object -First 8 | ForEach-Object { $_.Line }; Set-Location ..; Remove-Item -Force frontend\\tmp-notes-harness.html,tmp-nh.txt -ErrorAction SilentlyContinue; $r = Get-ChildItem -Recurse -Filter 'tmp-*harness*' -Name -ErrorAction SilentlyContinue; if ($r) { 'LEFT: ' + ($r -join ', ') } else { 'harness removed' }",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "cleanup-then-status",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Remove-Item -Force tmp-trace.cjs,tmp-trace-out.txt,tmp-l1.txt,tmp-l2.txt,tmp-chain2.txt -ErrorAction SilentlyContinue; Write-Output '--- TEMP LEFT ---'; Get-ChildItem -Filter 'tmp-*' -File | Select-Object -ExpandProperty Name; Write-Output '--- STATUS ---'; git status --short",
+			"group": "test"
+		},
+		{
+			"label": "inspect-unexpected-changes",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git diff --stat frontend/src/components/SimpleAddon/ChatWindow.css frontend/src/components/SimpleAddon/MessageBubble.css; Write-Output '--- CSS DIFF ---'; git diff frontend/src/components/SimpleAddon/ChatWindow.css frontend/src/components/SimpleAddon/MessageBubble.css | Select-Object -First 40; Write-Output '--- tmp-nh.txt HEAD ---'; Get-Content tmp-nh.txt -TotalCount 5",
+			"group": "test"
+		},
+		{
+			"label": "commit-llm-loop-fix",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add docs/implementation/agent.md simple-addon/server/automation/agent-loop.js simple-addon/server/automation/agent-loop.test.js simple-addon/server/automation/stop-reason.js simple-addon/server/automation/workspace-client.js .vscode/tasks.json; git commit -m 'Stop an LLM outage from burning the agent step budget' -m 'The reported loop was not window_focus - that fix worked: the log shows step 4 ok=false then step 5 ok=true, i.e. it corrected itself on the next call. The real trace was 66 LLM 429 lines and then max-steps-reached with 60 steps.' -m 'The llm-error arm returned stop:false with idle:false, so it retried at the 400ms working cadence, never reached reflect - the only thing that moves stallCount - and observe had already spent a step. So an outage and a productive step were indistinguishable in the counter.' -m 'Now: the step is refunded, the wait doubles from 4s to a 30s ceiling, 5 consecutive failures stop the run with reason llm-unavailable, and a successful call clears the counter. A refused workspace read is no longer retried every tick, and upsertGoal fills the required content so a status-only patch stops 400ing and leaving goals active.'; Write-Output '--- LATEST ---'; git log --oneline -2; Write-Output '--- REMAINING ---'; git status --short",
+			"group": "test"
 		}
 	]
 }

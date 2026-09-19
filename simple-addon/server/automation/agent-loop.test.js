@@ -663,6 +663,143 @@ function newLoop(overrides = {}) {
         assert.ok(fakes.events._log.some((e) => e.type === 'agent.skill-draft'), 'agent.skill-draft published');
     });
 
+    // ── LLM outage: the loop must stop, not spin ─────────────────────────
+    //
+    // Regression tests for a real run. A rate-limited account produced 26
+    // consecutive "LLM error" lines, one per second, and then
+    // `loop exited: max-steps-reached (steps=60)` — the user saw a spinner and a
+    // rising step count and reported it as "stuck in a loop of running window
+    // focus for like 20/60 steps". Each failing tick did nothing except spend a
+    // step, because the llm-error arm returned stop:false, skipped reflect() (the
+    // only thing that moves stallCount), and took the 400 ms working delay.
+
+    await asyncTest('a persistent LLM failure stops the run instead of burning the budget', async () => {
+        const fakes = makeFakes({
+            config: { IDLE_SLEEP_MS: 1, LLM_ERROR_MAX_CONSECUTIVE: 3, LLM_ERROR_BACKOFF_MS: 1 },
+            llmClient: { async chat() { throw new Error('Too many AI requests for your account.'); } },
+        });
+        const loop = new AgentLoop(fakes);
+        await loop.start({ goalSlug: 'g', skipPlanner: true });
+        await waitFor(() => loop.status().running === false, { label: 'llm-outage loop to stop' });
+
+        const s = loop.status();
+        // NOT 'max-steps-reached': the budget was not actually spent, and saying
+        // so would blame the agent for an outage it cannot control.
+        assert.strictEqual(s.stopReason, 'llm-unavailable');
+        assert.ok(
+            s.stopReason !== 'max-steps-reached',
+            'a rate limit must not be reported as an exhausted step budget'
+        );
+    });
+
+    await asyncTest('an LLM failure does not spend the step budget', async () => {
+        let attempts = 0;
+        const fakes = makeFakes({
+            // Cap must be ABOVE the two failures, or the run stops instead of
+            // recovering — which is what my first draft of this test got wrong.
+            config: { IDLE_SLEEP_MS: 1, LLM_ERROR_MAX_CONSECUTIVE: 3, LLM_ERROR_BACKOFF_MS: 1 },
+            llmClient: {
+                async chat() {
+                    attempts++;
+                    // Fail twice, then answer: the run should continue, and the two
+                    // failures must not have consumed steps.
+                    if (attempts <= 2) throw new Error('Too many AI requests for your account.');
+                    return { text: 'done <<GOAL_DONE>>', toolCalls: [] };
+                },
+            },
+        });
+        const loop = new AgentLoop(fakes);
+        await loop.start({ goalSlug: 'g', skipPlanner: true });
+        await waitFor(() => loop.status().running === false, { label: 'loop finish' });
+
+        const s = loop.status();
+        assert.strictEqual(s.stopReason, 'goal-done-sentinel', 'the run recovered once the LLM answered');
+        // Three attempts, but only ONE of them did any work — so exactly one step.
+        assert.strictEqual(s.step, 1, `expected the 2 failures to be refunded, got step=${s.step}`);
+        assert.strictEqual(attempts, 3, 'all three attempts were made');
+    });
+
+    await asyncTest('a recovered LLM failure clears the consecutive counter', async () => {
+        let attempts = 0;
+        const fakes = makeFakes({
+            config: { IDLE_SLEEP_MS: 1, LLM_ERROR_MAX_CONSECUTIVE: 3, LLM_ERROR_BACKOFF_MS: 1 },
+            llmClient: {
+                async chat() {
+                    attempts++;
+                    // Alternate: fail, succeed, fail, fail, succeed — never three
+                    // IN A ROW, so a flaky link must not accumulate its way to a stop.
+                    if (attempts % 2 === 1 && attempts < 5) throw new Error('Too many AI requests');
+                    if (attempts === 5) return { text: 'done <<GOAL_DONE>>', toolCalls: [] };
+                    return { text: '', toolCalls: [{ id: `c${attempts}`, function: { name: 'toolA', arguments: '{}' } }] };
+                },
+            },
+        });
+        const loop = new AgentLoop(fakes);
+        await loop.start({ goalSlug: 'g', skipPlanner: true });
+        await waitFor(() => loop.status().running === false, { label: 'loop finish' });
+
+        assert.strictEqual(loop.status().stopReason, 'goal-done-sentinel', 'intermittent failures must not stop the run');
+        assert.strictEqual(loop.state.consecutiveLlmErrors, 0, 'counter cleared on a successful call');
+    });
+
+    await asyncTest('an LLM failure waits before retrying, and the wait grows', async () => {
+        const waits = [];
+        const fakes = makeFakes({
+            config: { IDLE_SLEEP_MS: 1, LLM_ERROR_MAX_CONSECUTIVE: 4, LLM_ERROR_BACKOFF_MS: 100, LLM_ERROR_BACKOFF_MAX_MS: 250 },
+            llmClient: { async chat() { throw new Error('Too many AI requests'); } },
+        });
+        const loop = new AgentLoop(fakes);
+        // The arm itself is what we assert on: it must name a wait, so _runLoop
+        // sleeps instead of retrying at the 400 ms working cadence.
+        for (let i = 0; i < 3; i++) {
+            loop.state.step = 5;
+            const r = loop._onLlmError();
+            waits.push(r.sleepMs);
+            assert.strictEqual(r.sleepMs > 0, true, 'a failure must name a wait');
+        }
+        assert.deepStrictEqual(waits, [100, 200, 250], 'backoff doubles then honours the ceiling');
+    });
+
+    await asyncTest('a REFUSED workspace read is not retried on every step', async () => {
+        // The success path is deliberately unchanged: the log documented that
+        // context refreshes every step "so memory edits land", and a test above
+        // depends on that. The fault was retrying while the workspace was already
+        // refusing: a real 60-step run logged
+        // `workspace context fetch failed: … 429: Too many workspace read requests`
+        // on every tick — i.e. hammering the limiter that was rejecting it.
+        let contextCalls = 0;
+        const fakes = makeFakes({
+            // Small cadence and a short run: STEP_DELAY_MS is a fixed 400 ms, so a
+            // longer run simply exceeds the harness's wait window.
+            config: { IDLE_SLEEP_MS: 1, CONTEXT_RETRY_STEPS: 2 },
+            llmClient: {
+                calls: 0,
+                async chat() {
+                    this.calls++;
+                    if (this.calls >= 7) return { text: 'done <<GOAL_DONE>>', toolCalls: [] };
+                    return { text: '', toolCalls: [{ id: `c${this.calls}`, function: { name: 'toolA', arguments: '{}' } }] };
+                },
+            },
+        });
+        // Every read is REFUSED, exactly like the 429 in the log.
+        fakes.wsClient.getContext = async () => { contextCalls++; throw new Error('429: Too many workspace read requests. Slow down.'); };
+        fakes.wsClient.listSkills = async () => { throw new Error('429: Too many workspace read requests. Slow down.'); };
+        const loop = new AgentLoop(fakes);
+        await loop.start({ goalSlug: 'g', skipPlanner: true });
+        await waitFor(() => loop.status().running === false, { label: 'loop finish', timeoutMs: 9000 });
+
+        const steps = loop.status().step;
+        assert.ok(steps >= 6, `expected a multi-step run, got ${steps}`);
+        assert.ok(
+            contextCalls < steps,
+            `context was retried ${contextCalls} times over ${steps} steps — a refused read must back off`
+        );
+        assert.ok(
+            contextCalls <= Math.ceil(steps / 2) + 1,
+            `expected ~${Math.ceil(steps / 2) + 1} attempts, got ${contextCalls}`
+        );
+    });
+
     // ── Summary ──────────────────────────────────────────────────────────
     console.log(`\n${passed} passed, ${failed} failed`);
     process.exit(failed === 0 ? 0 : 1);
