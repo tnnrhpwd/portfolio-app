@@ -85,6 +85,9 @@ const DEFAULT_CONFIG = {
     // Consecutive IDENTICAL calls (same tool, same args) after which the action is
     // treated as no progress and the model is told outright. See act()/reflect().
     REPEAT_ACTION_LIMIT: 3,
+    // How much of a tool result the model actually sees. Anything longer is cut AND
+    // announced (see act()) — a silent cut teaches the model nothing except to retry.
+    RESULT_PREVIEW_CHARS: 800,
     SKILL_PROMOTE_MIN_REPEATS: 3, // n-gram repeats before a skill draft
 };
 
@@ -840,21 +843,48 @@ class AgentLoop {
             const stuck = repeats >= this.config.REPEAT_ACTION_LIMIT;
 
             // Compact tool result for next turn — full result already in action log
+            //
+            // ⚠️ A truncation that is not ANNOUNCED is a trap. A real run read the
+            // screen 24 times and never once acted: a whole UIA tree was cut to 800
+            // chars, usually mid-JSON so it could not be reasoned over, and re-reading
+            // produced the SAME 800 chars. The model kept reading, hoping for more,
+            // and only one of those steps was ever an attempt to ACT.
+            // So a capped result must say it is capped, say how much was dropped, and
+            // say what WOULD show more — otherwise it invites exactly the repeat it
+            // cannot satisfy.
+            const cap = this.config.RESULT_PREVIEW_CHARS;
+            const rawResult = out.ok
+                ? (typeof out.result === 'string' ? out.result : JSON.stringify(out.result ?? null))
+                : String(out.error ?? '');
+            const oversized = rawResult.length > cap;
             const summary = JSON.stringify({
                 ok: out.ok,
-                ...(out.ok ? { result: typeof out.result === 'string' ? out.result.slice(0, 800) : out.result } : { error: out.error }),
+                ...(out.ok ? { result: oversized ? rawResult.slice(0, cap) : out.result } : { error: rawResult }),
+                ...(oversized ? { cutFrom: rawResult.length, shown: cap } : {}),
                 mode: out.mode,
                 durationMs: out.durationMs,
-            }).slice(0, 1200);
+            }).slice(0, 1600);
+
+            const notes = [];
+            if (oversized) {
+                notes.push(
+                    `HARNESS: that result was CUT from ${rawResult.length} characters to ${cap}. `
+                    + 'Reading it again would cut in exactly the same place — it CANNOT show you more, so do not re-read it. '
+                    + 'Ask a NARROWER question instead: uia_find to search for one element by name, a smaller region, or screen_ocr for the words on screen.'
+                );
+            }
+            if (stuck) {
+                notes.push(
+                    `HARNESS: STOP — this is identical call ${repeats} to ${tc.function.name} in a row, and nothing changed as a result. `
+                    + 'Repeating it cannot make progress: it is not a way to look harder, and it is not a way to wait for something. '
+                    + 'Do something DIFFERENT now — act on what you have already seen (uia_invoke, click_at, text_type), '
+                    + 'use a different tool to get the information, or ask the user with goal_ask_user.'
+                );
+            }
             this.state.history.push({
                 role: 'tool',
                 tool_call_id: tc.id || `${tc.function.name}_${this.state.step}`,
-                content: stuck
-                    ? `${summary}\n\nHARNESS: STOP — this is identical call ${repeats} to ${tc.function.name} in a row, and nothing changed as a result. `
-                        + 'Repeating it cannot make progress: it is not a way to look harder, and it is not a way to wait for something. '
-                        + 'Do something DIFFERENT now — act on what you have already seen (uia_invoke, click_at, text_type), '
-                        + 'use a different tool to get the information, or ask the user with goal_ask_user.'
-                    : summary,
+                content: notes.length ? `${summary}\n\n${notes.join('\n\n')}` : summary,
             });
             this.log(`[agent] step ${this.state.step} tool=${tc.function.name} ok=${out.ok}`);
             outcomes.push({ name: tc.function.name, args: argsObj, out, repeated: stuck });

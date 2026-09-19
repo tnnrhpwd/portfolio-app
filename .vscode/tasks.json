@@ -1005,6 +1005,48 @@
 			"type": "shell",
 			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Remove-Item -Force tmp-as.txt -ErrorAction SilentlyContinue; git add .vscode/tasks.json frontend/src/utils/simpleAddon/agentSteps.js frontend/src/utils/simpleAddon/agentSteps.test.js; git commit -m 'Add agentSteps helper with tests' -m 'Committed from the parallel addon-progress work already written to disk, so the release could proceed - not part of the repeat-guard fix. Its suite passes 17/17, checked before committing so master stays green.'; Write-Output '--- STATUS ---'; git status --short; Write-Output '--- PUSH ---'; git push origin master; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js",
 			"group": "test"
+		},
+		{
+			"label": "verify-steps-list",
+			"type": "shell",
+			"command": "Set-Location c:\\Users\\tanne\\Documents\\Github\\portfolio-app; node node_modules/jest/bin/jest.js --config package.json frontend/src/utils/simpleAddon/agentSteps.test.js frontend/src/utils/simpleAddon/agentProgress.test.js frontend/src/components/SimpleAddon/StepList.test.jsx 2>&1 | Out-File -Encoding utf8 tmp-steps.txt; Set-Location frontend; npx vite build 2>&1 | Out-File -Encoding utf8 ..\\tmp-build.txt; Set-Location ..; Select-String -Path tmp-steps.txt -Pattern 'Tests:|Test Suites:|✕|Cannot find' | Select-Object -First 25 | ForEach-Object { $_.Line }; '--- BUILD ---'; Select-String -Path tmp-build.txt -Pattern 'modules transformed|rror|failed' | Select-Object -First 12 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-steps-build",
+			"type": "shell",
+			"command": "Set-Location c:\\Users\\tanne\\Documents\\Github\\portfolio-app; Remove-Item -Force tmp-steps-harness.html,tmp-steps.txt -ErrorAction SilentlyContinue; Remove-Item -Force frontend\\tmp-notes-harness.html -ErrorAction SilentlyContinue; Set-Location frontend; npx vite build 2>&1 | Out-File -Encoding utf8 ..\\tmp-build.txt; Set-Location ..; $c = Get-Content frontend\\src\\components\\SimpleAddon\\StepList.css -Raw; 'braces {0}/{1}  comments {2}/{3}' -f ([regex]::Matches($c,'\\{')).Count,([regex]::Matches($c,'\\}')).Count,([regex]::Matches($c,'/\\*')).Count,([regex]::Matches($c,'\\*/')).Count; Get-ChildItem -Name tmp-* -ErrorAction SilentlyContinue",
+			"group": "test"
+		},
+		{
+			"label": "verify-steps-final-build",
+			"type": "shell",
+			"command": "Set-Location c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\frontend; npx vite build 2>&1 | Out-File -Encoding utf8 ..\\tmp-final-build.txt; Set-Location ..; Select-String -Path tmp-final-build.txt -Pattern 'modules transformed|Build failed|Expected identifier' | Select-Object -First 6 | ForEach-Object { $_.Line }; Remove-Item -Force tmp-final-build.txt",
+			"group": "test"
+		},
+		{
+			"label": "dump-last-run",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-last.cjs 2>&1 | Out-File -Encoding utf8 tmp-last-out.txt; Get-Content tmp-last-out.txt -TotalCount 70",
+			"group": "test"
+		},
+		{
+			"label": "truncation-note-tests",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/agent-loop.test.js 2>&1 | Out-File -Encoding utf8 ../tmp-l4.txt; Select-String -Path ../tmp-l4.txt -Pattern 'FAIL|cut result|passed,' -Context 0,2 | ForEach-Object { $_.Line; $_.Context.PostContext }",
+			"group": "test"
+		},
+		{
+			"label": "chain-before-release-60",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Remove-Item -Force tmp-last.cjs,tmp-last-out.txt,tmp-l4.txt -ErrorAction SilentlyContinue; npm --prefix 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon' run test:unit 2>&1 | Out-File -Encoding utf8 tmp-chain4.txt; Write-Output '--- FAILURES ---'; Select-String -Path tmp-chain4.txt -Pattern '  FAIL  |[1-9][0-9]* failed' | ForEach-Object { $_.Line }; Write-Output '--- TAIL ---'; Get-Content tmp-chain4.txt -Tail 3; Remove-Item -Force tmp-chain4.txt -ErrorAction SilentlyContinue",
+			"group": "test"
+		},
+		{
+			"label": "commit-truncation-release",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add simple-addon/server/automation/agent-loop.js simple-addon/server/automation/agent-loop.test.js .vscode/tasks.json docs/implementation/agent.md; git status --short; git commit -m 'Announce a truncated tool result instead of silently slicing it' -m 'A run read the screen 24 times over and never once acted: no click_at, no uia_invoke, no text_type. The cause was our own truncation - a whole UIA tree was sliced to 800 chars, usually mid-JSON so it could not be reasoned over, and every re-read produced the SAME 800 chars. The model kept reading, hoping for more.' -m 'A capped result now says it was capped, reports how much was dropped, says plainly that re-reading cuts in the same place and cannot show more, and names the narrower question to ask instead: uia_find for one element by name, a smaller region, or screen_ocr.' -m 'The repeat guard also fired in the field: this run stopped itself at 24 steps with stalled after 3 consecutive no-progress ticks, instead of running to 60.'; Write-Output '--- PUSH ---'; git push origin master; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js",
+			"group": "test"
 		}
 	]
 }

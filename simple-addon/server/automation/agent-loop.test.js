@@ -877,6 +877,35 @@ function newLoop(overrides = {}) {
         );
     });
 
+    await asyncTest('a cut result says it was cut, and says re-reading cannot help', async () => {
+        // A real run read the screen 24 times and never once acted: a whole UIA tree
+        // was sliced to 800 chars, usually mid-JSON, and every re-read produced the
+        // SAME 800 chars. A silent cut invites exactly the repeat it cannot satisfy.
+        const big = '{"elements":' + 'x'.repeat(5000) + '}';
+        const fakes = makeFakes({
+            config: { IDLE_SLEEP_MS: 1, STALL_THRESHOLD: 99, RESULT_PREVIEW_CHARS: 200 },
+            llmClient: {
+                calls: 0,
+                async chat() {
+                    this.calls++;
+                    if (this.calls > 1) return { text: 'done <<GOAL_DONE>>', toolCalls: [] };
+                    return { text: '', toolCalls: [{ id: 'c1', function: { name: 'uia_snapshot', arguments: '{}' } }] };
+                },
+            },
+        });
+        const loop = new AgentLoop(fakes);
+        const registry = fakes.registry;
+        registry.executeTool = async () => ({ ok: true, result: big, mode: 'allow', durationMs: 1 });
+        await loop.start({ goalSlug: 'g', skipPlanner: true });
+        await waitFor(() => loop.status().running === false, { label: 'loop finish', timeoutMs: 9000 });
+
+        const content = String(loop.state.history.find((m) => m.role === 'tool')?.content || '');
+        assert.ok(content.includes('CUT'), 'the cut must be announced, not silent');
+        assert.ok(content.includes(String(big.length)), 'must report how much was dropped');
+        assert.ok(/cannot show you more|do not re-read/i.test(content), 'must say re-reading cannot help');
+        assert.ok(/uia_find/.test(content), 'must name the narrower question to ask instead');
+    });
+
     // ── Summary ──────────────────────────────────────────────────────────
     console.log(`\n${passed} passed, ${failed} failed`);
     process.exit(failed === 0 ? 0 : 1);
