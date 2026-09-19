@@ -1127,8 +1127,17 @@ function newLoop(overrides = {}) {
         // The user's own instruction: if the tab is not there, open one. An inactive
         // tab is never rendered, so "open it ourselves" has to be named as the
         // fallback — otherwise the agent keeps hunting for something invisible.
-        assert.ok(/--new-tab/.test(content), 'must say how to open the site when no tab exists');
+        //
+        // ⚠️ Asserted on the SHAPE, not on a literal command. This previously required
+        // the exact string `--new-tab`, which existed only inside a hardcoded example
+        // (`open_app({ name: "msedge.exe", args: "--new-tab <url>" })`). Removing that
+        // hardcoding therefore FAILED the suite, i.e. the test defended the very thing
+        // that made the guidance site-specific. What must hold is that the fallback is
+        // NAMED, with the tool, the argument shape, and the browser the agent actually
+        // saw — so the final assertion requires window_list and forbids a literal one.
+        assert.ok(/new-tab/i.test(content), 'must say how to open the site when no tab exists');
         assert.ok(/open_app/.test(content), 'and with which tool');
+        assert.ok(/window_list/.test(content), 'and it must say to use the browser that was actually seen');
     });
 
     await asyncTest('the prompt AUTHORISES acting on the user\'s behalf', async () => {
