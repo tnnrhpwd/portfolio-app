@@ -84,7 +84,9 @@ export function formatBytes(n) {
 
 /** A tool's arguments as one short parenthetical. Empty for no arguments, and
  *  for the PII tools the addon deliberately strips (`text_type`, `clipboard_write`,
- *  `audio_speak`) — the absence is the feature, so nothing is invented here. */
+ *  `audio_speak`, `user_confirm`) — the absence is the feature, so nothing is
+ *  invented here. The list lives in the addon (`event-detail.js`); this function
+ *  renders whatever it is handed, so it needs no copy of it. */
 export function previewArgs(args) {
   if (!args || typeof args !== 'object') return '';
   const entries = Object.entries(args);

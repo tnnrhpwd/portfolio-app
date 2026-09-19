@@ -384,7 +384,6 @@ function withApprovalDeadline(promise, timeoutMs) {
 
 /**
  * How long a RELAY-dispatched tool call may wait for an approval.
- *
  * Slightly under the cloud's dispatch window on purpose: the addon must answer
  * BEFORE the cloud gives up, so the harness receives a definite refusal (which
  * its taxonomy classifies as `permission` — "do not retry, tell the user")
@@ -394,6 +393,68 @@ function relayApprovalTimeoutMs() {
     const raw = Number(process.env.ADDON_APPROVAL_TIMEOUT_MS);
     if (Number.isFinite(raw) && raw > 0) return raw;
     return 110_000;
+}
+
+/**
+ * Ask the human to approve a SPECIFIC action, and BLOCK until they answer.
+ *
+ * **Why this is not `goal_ask_user`.** That tool writes the question into the goal
+ * and marks it `blocked`, then returns immediately — the run carries on without an
+ * answer, so it can never gate anything. A user asked for exactly this and could
+ * not get it: *"please google message my girlfriend that I love her … please verify
+ * before sending the message."* Nothing in the toolset could stop before an
+ * irreversible action, show the content, and continue only on a yes.
+ *
+ * It reuses the approval channel that already exists (`setApprovalRequester` →
+ * the permission-center prompt), so the question appears in the same place the user
+ * already answers tool permissions, and the relay path bounds it with the same
+ * deadline (`approvalTimeoutMs`, 110 s under the cloud's 120 s).
+ *
+ * ⚠️ **`autoApproveAll` does NOT satisfy a confirmation, and that is deliberate.**
+ * A blanket "stop asking me" is a preference about *tool permissions*; this call
+ * exists because the agent was told to verify a specific piece of content with a
+ * specific person. Silently auto-approving it would defeat the only thing it is
+ * for. (`requestApproval` honours the flag because there it means "do not prompt
+ * me for tool calls", which is a different promise.)
+ *
+ * @param {object} args
+ * @param {string} args.what        one line naming the action, shown to the user
+ * @param {string} [args.details]   the exact content — recipient and body text
+ * @param {number} [args.approvalTimeoutMs] deadline; unset = wait for the human
+ * @returns {Promise<{approved: boolean, reason?: string, unavailable?: boolean}>}
+ */
+async function requestConfirmation({ what, details = '', approvalTimeoutMs } = {}) {
+    const action = String(what || '').trim();
+    if (!action) return { approved: false, reason: 'nothing was described to confirm' };
+
+    if (!_approvalRequester) {
+        // Unattended (no UI wired up). This MUST fail rather than pass: the caller
+        // is about to do something irreversible, and "nobody could be asked" is not
+        // a yes. It is a distinct flag so the caller can say which happened.
+        return { approved: false, unavailable: true, reason: 'no approval UI is connected, so the user could not be asked' };
+    }
+
+    try {
+        const ans = await withApprovalDeadline(
+            // The prompt shows the raw args (the permission center reads the queue,
+            // not the SSE event — see `defaultApprovalRequester`), so the content
+            // being verified is exactly what the user is shown.
+            Promise.resolve().then(() => _approvalRequester('user_confirm', {
+                action,
+                ...(details ? { details: String(details) } : {}),
+            })),
+            approvalTimeoutMs,
+        );
+        if (ans?.approved) return { approved: true, approvedBy: ans.approvedBy || 'user' };
+        return {
+            approved: false,
+            reason: ans?.failed
+                ? 'the confirmation prompt failed to appear'
+                : (ans?.expired ? 'the confirmation was not answered in time' : (ans?.reason || 'the user declined')),
+        };
+    } catch (e) {
+        return { approved: false, reason: `the confirmation prompt failed: ${e.message}` };
+    }
 }
 
 /**
@@ -603,6 +664,7 @@ module.exports = {
     resolveBindHost,
     effectiveMode,
     requestApproval,
+    requestConfirmation,
     relayApprovalTimeoutMs,
     // The refusal vocabulary: `cause` is what the cloud classifies on, so it has
     // to be shared rather than string-matched. See CAUSES above.

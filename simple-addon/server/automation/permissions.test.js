@@ -419,6 +419,114 @@ asyncTest('registry: the audit record keeps the cause next to the prose', async 
     assert.match(written[0].result, /kill switch/i);
 });
 
+// ── requestConfirmation: the blocking "verify before you do it" ─────────────
+// A user asked for this in so many words and nothing could provide it:
+// "Dakota is my girlfriend … please verify before sending the message."
+// `goal_ask_user` cannot (it writes a note and returns), and the tool-level
+// permission gate asks about a TOOL, not about the content.
+
+asyncTest('confirm: an approved confirmation approves', async () => {
+    reset({});
+    permissions.setApprovalRequester(async (toolName, args) => {
+        assert.strictEqual(toolName, 'user_confirm');
+        // The prompt must carry the content the user is being asked to verify,
+        // or they are approving a description rather than the thing itself.
+        assert.strictEqual(args.action, 'Send a message to Dakota');
+        assert.strictEqual(args.details, 'I love you');
+        return { approved: true, approvedBy: 'user' };
+    });
+
+    const r = await permissions.requestConfirmation({ what: 'Send a message to Dakota', details: 'I love you' });
+    assert.strictEqual(r.approved, true);
+});
+
+asyncTest('confirm: a declined confirmation is refused, with the reason', async () => {
+    reset({});
+    permissions.setApprovalRequester(async () => ({ approved: false, reason: 'wrong person' }));
+    const r = await permissions.requestConfirmation({ what: 'Send a message to Dakota', details: 'hi' });
+    assert.strictEqual(r.approved, false);
+    assert.match(r.reason, /wrong person/);
+});
+
+asyncTest('confirm: NO PROMPT AVAILABLE fails closed', async () => {
+    // The whole point. Unattended (no UI wired up) must never read as a yes — the
+    // caller is about to do something that cannot be undone.
+    reset({});
+    permissions.setApprovalRequester(null);
+    const r = await permissions.requestConfirmation({ what: 'Send a message to Dakota' });
+    assert.strictEqual(r.approved, false);
+    assert.strictEqual(r.unavailable, true);
+});
+
+asyncTest('confirm: autoApproveAll does NOT satisfy it', async () => {
+    // A blanket "stop asking me about tool permissions" is a different promise from
+    // "I want to check this message before it is sent". Silently satisfying the
+    // second with the first would defeat the only thing this call is for.
+    reset({ autoApproveAll: true });
+    let asked = false;
+    permissions.setApprovalRequester(async () => { asked = true; return { approved: false, reason: 'not yes' }; });
+    const r = await permissions.requestConfirmation({ what: 'Send a message to Dakota' });
+    assert.strictEqual(asked, true, 'the user must still be asked');
+    assert.strictEqual(r.approved, false);
+});
+
+asyncTest('confirm: an unanswered prompt expires as a refusal', async () => {
+    reset({});
+    permissions.setApprovalRequester(async () => new Promise(() => {})); // never answers
+    const r = await permissions.requestConfirmation({ what: 'Send a message', approvalTimeoutMs: 30 });
+    assert.strictEqual(r.approved, false);
+    assert.match(r.reason, /not answered in time/);
+});
+
+asyncTest('confirm: a broken prompt is a refusal, not a pass', async () => {
+    reset({});
+    permissions.setApprovalRequester(async () => { throw new Error('IPC closed'); });
+    const r = await permissions.requestConfirmation({ what: 'Send a message' });
+    assert.strictEqual(r.approved, false);
+    assert.match(r.reason, /prompt failed/);
+});
+
+test('confirm: an empty action is refused without asking anyone', () => {
+    // Nothing to verify means nothing was described means no approval.
+    return permissions.requestConfirmation({ what: '   ' }).then((r) => {
+        assert.strictEqual(r.approved, false);
+    });
+});
+
+asyncTest('the user_confirm TOOL refuses with a Denied: prefix', async () => {
+    // Prefix is load-bearing: every consumer decides "did this work?" from it, and
+    // for this tool a misread would mean "the user approved" — the worst way to be
+    // wrong. A success is the only thing that may look like success.
+    const { userConfirm } = require('./tools/user-confirm');
+    reset({});
+    permissions.setApprovalRequester(async () => ({ approved: false, reason: 'not now' }));
+    let err = null;
+    try { await userConfirm.run({ what: 'Send a message to Dakota', details: 'I love you' }, {}); }
+    catch (e) { err = e; }
+    assert.ok(err, 'a refusal must throw');
+    assert.match(err.message, /^Denied: /);
+    assert.match(err.message, /did NOT approve/);
+    assert.match(err.message, /Do not perform it/);
+});
+
+asyncTest('the user_confirm TOOL returns approved only on a real yes', async () => {
+    const { userConfirm } = require('./tools/user-confirm');
+    reset({});
+    permissions.setApprovalRequester(async () => ({ approved: true, approvedBy: 'user' }));
+    const out = await userConfirm.run({ what: 'Send a message to Dakota', details: 'I love you' }, {});
+    assert.strictEqual(out.approved, true);
+    assert.strictEqual(out.details, 'I love you');
+});
+
+asyncTest('the user_confirm TOOL requires a description', async () => {
+    const { userConfirm } = require('./tools/user-confirm');
+    reset({});
+    let err = null;
+    try { await userConfirm.run({}, {}); } catch (e) { err = e; }
+    assert.ok(err);
+    assert.match(err.message, /what is required/);
+});
+
 // ── Summary + cleanup ───────────────────────────────────────────────────────
 (async () => {
     for (const t of queue) await t();

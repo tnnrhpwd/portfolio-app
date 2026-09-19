@@ -29,7 +29,15 @@
  */
 
 /** Tools whose arguments/results are human content. Reported as ABSENT. */
-const PII_TOOL_NAMES = Object.freeze(['text_type', 'clipboard_write', 'audio_speak']);
+const PII_TOOL_NAMES = Object.freeze([
+    'text_type', 'clipboard_write', 'audio_speak',
+    // `user_confirm` carries the exact thing about to be sent — the body of a
+    // message the user has not approved yet, and often not published anywhere. The
+    // prompt the user reads comes from the approval QUEUE (raw, deliberately); the
+    // EVENT ring feeds the live console and every SSE subscriber, so the content is
+    // absent there for the same reason `text_type`'s is.
+    'user_confirm',
+]);
 /** The same list as a Set — callers test membership far more often than they iterate. */
 const PII_TOOLS = new Set(PII_TOOL_NAMES);
 

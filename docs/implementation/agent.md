@@ -216,6 +216,45 @@ The agent's system prompt now carries rules 12–15 covering this: drive sites w
 on a wall and relay what it says, and ask for a missing detail (a contact's real
 name) early instead of clicking around the wrong page.
 
+### Verifying before an irreversible action — `user_confirm` (2026-09-18)
+
+The same request that exposed the browser gaps also asked for something no tool
+could do: *"Dakota is my girlfriend … **please verify before sending the message**."*
+
+- **`goal_ask_user` cannot gate anything.** It writes the question into the goal,
+  marks it `blocked`, and RETURNS — the run carries on without an answer.
+- **The permission gate asks about a TOOL, not the content.** "May I run
+  `browser_press`?" cannot show *about to send “I love you” to Dakota*.
+- And there is no undo. A sent message is sent.
+
+So `user_confirm` (`tool/user-confirm.js`) blocks on the same approval prompt the user
+already answers tool permissions in, and returns only when they have answered. It is
+the one tool that trades a pause for certainty, on exactly the actions where being
+wrong is not recoverable: sending a message or email, posting, submitting a form,
+buying, deleting.
+
+Three things about it are deliberate:
+
+| Decision | Why |
+|---|---|
+| **`autoApproveAll` does NOT satisfy it** | A blanket "stop asking me about tool permissions" is a different promise from "I want to check this message before it is sent". Honouring the flag here would defeat the only thing the call is for. |
+| **No prompt available ⇒ REFUSAL** (`unavailable: true`) | The caller is about to do something irreversible, and "nobody could be asked" is not a yes. It fails closed. |
+| **Refusal is prefixed `Denied:`** | Every consumer decides "did this work?" from the prefix (`AUTOMATION_SECURITY.md`). A bare sentence would be counted as SUCCESS — and here that would read as *the user approved*, the worst possible way to be wrong. |
+
+The relay path bounds it with the same deadline as any other prompt (110 s, under the
+cloud's 120 s), so an unanswered confirmation becomes a definite refusal rather than
+an unknown. The content being confirmed is human text the user has not sent yet, so
+`user_confirm` is on the `PII_TOOLS` list — the prompt the user reads comes from the
+approval QUEUE (raw, deliberately), while the event stream reports nothing, the same
+split `text_type` already relies on.
+
+The system prompt's rules 16–17 pair with it: confirm before anything irreversible
+and never report something as sent unless it returned `approved:true`; and if a call
+fails, the next attempt must be DIFFERENT — two identical failures mean the plan is
+wrong, not that it needs a third try. That second rule was written from a real trace:
+three identical `window_focus` calls, each `window not found`, until the stall
+detector stopped the run.
+
 ---
 
 ## The agent loop (as designed)

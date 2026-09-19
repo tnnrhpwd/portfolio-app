@@ -204,6 +204,23 @@ function buildSystemPrompt({ goal, workspaceContext, toolNames, skillHints, perc
         '15. When a task needs a detail only the user has — a contact\'s real name, an account, a ' +
             'preference — call goal_ask_user for it EARLY. Guessing and then clicking around the wrong ' +
             'page is how a run stalls; one question is cheaper than ten failed attempts.',
+        // ── Irreversible actions ─────────────────────────────────────────────
+        // A real request asked for exactly this and there was no way to do it:
+        // "Dakota is my girlfriend … please verify before sending the message."
+        '16. Before anything IRREVERSIBLE on the user\'s behalf — sending a message or email, posting, ' +
+            'submitting a form, buying something, deleting something — call user_confirm with the EXACT ' +
+            'content in `details` (who it goes to and the full text). It BLOCKS until they answer. If it ' +
+            'is refused, do not do it, do not rephrase it, and do not look for another route to the same ' +
+            'action: say it was not done. Never report something as sent unless user_confirm returned ' +
+            'approved:true.',
+        // ── Not repeating a failure ──────────────────────────────────────────
+        // Observed: three identical `window_focus` calls, each `window not found`,
+        // until the stall detector stopped the run. The next attempt after a
+        // failure must CHANGE something.
+        '17. If a call fails, the next attempt must be DIFFERENT — a different name, selector or ' +
+            'approach. Two identical failures in a row means the plan is wrong, not that it needs a third ' +
+            'try. After a second failure, re-read what the tool actually said, try one genuinely different ' +
+            'approach, and if that fails call goal_ask_user instead of repeating.',
         '',
         '== AVAILABLE TOOLS ==',
         toolNames.join(', '),

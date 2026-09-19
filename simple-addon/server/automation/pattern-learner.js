@@ -39,7 +39,7 @@ const INTERESTING_TOOLS = new Set([
 ]);
 
 // PII-sensitive tools whose args we should never fingerprint by content
-const PII_TOOLS = new Set(['text_type', 'clipboard_write', 'audio_speak']);
+const PII_TOOLS = new Set(['text_type', 'clipboard_write', 'audio_speak', 'user_confirm']);
 
 class PatternLearner extends EventEmitter {
     constructor() {

@@ -51,6 +51,7 @@ const {
 const { uiaFind, uiaInvoke, uiaGetText, uiaSnapshot } = require('./tools/uia');
 const { perceptionRecent } = require('./perception');
 const { goalUpdate, goalCreate, goalAskUser } = require('./tools/goal');
+const { userConfirm } = require('./tools/user-confirm');
 const { inputHold, inputTap, clickAt, mousePath, mouseDrag } = require('./tools/input');
 const { openApp } = require('./tools/open-app');
 const { waitFor } = require('./tools/wait-for');
@@ -152,6 +153,9 @@ function registerAllTools() {
     registry.register(goalUpdate);
     registry.register(goalCreate);
     registry.register(goalAskUser);
+    // The one tool that stops the run for a human answer before something that
+    // cannot be taken back. See tools/user-confirm.js.
+    registry.register(userConfirm);
 
     // Vision+UIA fusion (multimodal click fallback)
     registry.register(findVisualTarget);
