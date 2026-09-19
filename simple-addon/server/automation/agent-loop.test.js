@@ -906,6 +906,46 @@ function newLoop(overrides = {}) {
         assert.ok(/uia_find/.test(content), 'must name the narrower question to ask instead');
     });
 
+    await asyncTest('an LLM outage suppresses the OPTIONAL LLM calls', async () => {
+        // Lessons, reflection and meta-reflection are all extra requests against the
+        // very limit we are waiting out — making them during an outage deepens it.
+        const { loop } = newLoop();
+        let lessons = 0;
+        loop.critic = { score: () => -1, writeLesson: async () => { lessons++; return 'lesson-slug'; } };
+        const action = { text: '', expected: 'toolA', toolCalls: [] };
+        const outcome = { outcomes: [{ name: 'toolA', out: { ok: false } }] };
+
+        await loop.reflect(action, outcome);
+        assert.strictEqual(lessons, 1, 'a lesson IS written in normal operation');
+
+        loop.state.consecutiveLlmErrors = 2; // account is refusing requests
+        await loop.reflect(action, outcome);
+        assert.strictEqual(lessons, 1, 'and is NOT attempted while the model is not answering');
+    });
+
+    await asyncTest('a retry announces itself so a pause does not look frozen', async () => {
+        // The step is refunded on an LLM failure, so the counter deliberately does
+        // not move — a user watching "Step 1 of 60" saw a frozen run, not a backoff.
+        const fakes = makeFakes({
+            config: { LLM_ERROR_MAX_CONSECUTIVE: 3, LLM_ERROR_BACKOFF_MS: 100, LLM_ERROR_BACKOFF_MAX_MS: 500 },
+        });
+        const loop = new AgentLoop(fakes);
+        loop.state.step = 3;
+        loop._onLlmError();
+        loop.state.consecutiveLlmErrors = 0;
+        const r = loop._onLlmError();
+
+        const publishes = fakes.events._log.filter((e) => e.type === 'agent.llm-retry');
+        assert.strictEqual(publishes.length, 2, 'each failure publishes a retry event');
+        assert.strictEqual(publishes[0].data.attempt, 1);
+        assert.strictEqual(publishes[0].data.maxAttempts, 3);
+        assert.ok(publishes[0].data.waitMs > 0, 'the first retry reports how long it will wait');
+        assert.ok(/rate limited/i.test(publishes[0].data.message), 'and says why');
+        assert.strictEqual(r.sleepMs, publishes[1].data.waitMs, 'the published wait is the wait actually taken');
+        // Two failures were refunded, so the counter is two BELOW where it started.
+        assert.strictEqual(loop.state.step, 1, 'the step is refunded, not advanced');
+    });
+
     // ── Summary ──────────────────────────────────────────────────────────
     console.log(`\n${passed} passed, ${failed} failed`);
     process.exit(failed === 0 ? 0 : 1);

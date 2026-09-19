@@ -929,7 +929,12 @@ class AgentLoop {
         else this.state.stallCount = 0;
 
         // The critic writes one idempotent lesson per failing tick (Phase 4).
-        if (delta < 0) {
+        //
+        // Skipped while the account is refusing requests: this is an OPTIONAL
+        // self-improvement call, it cannot succeed during an outage, and each attempt
+        // spends another request against the very limit it is already over — so these
+        // extra calls deepen the rate limit they are waiting out.
+        if (delta < 0 && !this.state.consecutiveLlmErrors) {
             const slug = await this.critic.writeLesson(action, outcome, {
                 wsClient: this.wsClient,
                 goalSlug: this.state.currentGoal?.slug,
@@ -938,8 +943,8 @@ class AgentLoop {
             if (slug) this.state.lastLesson = slug;
         }
 
-        // Reflection
-        if (this.state.step % REFLECT_EVERY === 0) {
+        // Reflection — skipped during an outage for the same reason as the lesson above.
+        if (this.state.step % REFLECT_EVERY === 0 && !this.state.consecutiveLlmErrors) {
             try {
                 const refl = await this._lazyLoadLlm().chat({
                     message: reflectionPrompt(this.state.currentGoal),
@@ -1009,15 +1014,26 @@ class AgentLoop {
         if (this.state.step > 0) this.state.step--;
 
         const max = this.config.LLM_ERROR_MAX_CONSECUTIVE;
+        const wait = Math.min(
+            this.config.LLM_ERROR_BACKOFF_MS * Math.pow(2, n - 1),
+            this.config.LLM_ERROR_BACKOFF_MAX_MS
+        );
+        // Published so a UI has something to show. Without it, the step counter is
+        // the only moving part — and the refund above deliberately holds it still,
+        // so the run reads as frozen on "Step 1 of 60" for ~58s while it is really
+        // working through a bounded backoff. A pause must say that it is a pause.
+        this._publish('agent.llm-retry', {
+            goalSlug: this.state.currentGoal?.slug,
+            attempt: n,
+            maxAttempts: max,
+            waitMs: n >= max ? 0 : wait,
+            message: 'the AI service is not accepting requests (rate limited) — waiting before trying again',
+        });
         if (n >= max) {
             this.state.stopReason = 'llm-unavailable';
             this.log(`[agent] stopping: ${n} consecutive LLM failures — the model is not answering`);
             return { stop: true, reason: 'llm-unavailable' };
         }
-        const wait = Math.min(
-            this.config.LLM_ERROR_BACKOFF_MS * Math.pow(2, n - 1),
-            this.config.LLM_ERROR_BACKOFF_MAX_MS
-        );
         this.log(`[agent] LLM failure ${n}/${max} — waiting ${wait}ms before retrying`);
         return { stop: false, idle: false, reason: 'llm-error', sleepMs: wait };
     }
@@ -1072,10 +1088,11 @@ class AgentLoop {
             await new Promise(res => setTimeout(res, sleepMs));
 
             // Meta-loop (OpenClaw-style self-reflection): every META_EVERY_ACTIONS
-            // steps, review the recent action log and append a written note.
+            // steps, review the recent action log and append a written note. Also
+            // skipped during an LLM outage — it is another optional call.
             if (this.state.step - this.state.lastMetaStep >= this.config.META_EVERY_ACTIONS) {
                 this.state.lastMetaStep = this.state.step;
-                await this._runMetaReflection();
+                if (!this.state.consecutiveLlmErrors) await this._runMetaReflection();
             }
         }
 
