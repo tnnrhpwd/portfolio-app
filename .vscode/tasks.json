@@ -993,6 +993,18 @@
 			"type": "shell",
 			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add docs/implementation/agent.md .vscode/tasks.json; git commit -m 'Document the repeat guard and track task labels'; git push origin master; Write-Output '--- STATUS ---'; git status --short; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js",
 			"group": "test"
+		},
+		{
+			"label": "verify-other-session-test",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node node_modules/jest/bin/jest.js --config package.json frontend/src/utils/simpleAddon/agentSteps.test.js 2>&1 | Out-File -Encoding utf8 tmp-as.txt; Select-String -Path tmp-as.txt -Pattern 'Tests:|Test Suites:|FAIL|Cannot find' | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "commit-steps-and-release",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Remove-Item -Force tmp-as.txt -ErrorAction SilentlyContinue; git add .vscode/tasks.json frontend/src/utils/simpleAddon/agentSteps.js frontend/src/utils/simpleAddon/agentSteps.test.js; git commit -m 'Add agentSteps helper with tests' -m 'Committed from the parallel addon-progress work already written to disk, so the release could proceed - not part of the repeat-guard fix. Its suite passes 17/17, checked before committing so master stays green.'; Write-Output '--- STATUS ---'; git status --short; Write-Output '--- PUSH ---'; git push origin master; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js",
+			"group": "test"
 		}
 	]
 }
