@@ -1036,6 +1036,11 @@ function newLoop(overrides = {}) {
         assert.ok(/do not re-read it/i.test(content), 'must forbid the re-read that caused the loop');
         assert.ok(/window_focus/.test(content), 'must explain that this is merely the FRONT window');
         assert.ok(/uia_find/.test(content), 'must point at the desktop-wide search');
+        // The user's own instruction: if the tab is not there, open one. An inactive
+        // tab is never rendered, so "open it ourselves" has to be named as the
+        // fallback — otherwise the agent keeps hunting for something invisible.
+        assert.ok(/--new-tab/.test(content), 'must say how to open the site when no tab exists');
+        assert.ok(/open_app/.test(content), 'and with which tool');
     });
 
     // ── Summary ──────────────────────────────────────────────────────────

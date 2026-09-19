@@ -923,6 +923,9 @@ class AgentLoop {
                     + 'This is whatever window was in FRONT — if it is not the app you need, call window_focus first. '
                     + 'A browser TAB that is not the active tab is not rendered at all, so nothing of its page appears here: '
                     + 'find the tab itself by name (uia_find({ name: "Google Messages" })) and uia_invoke or click_at it to switch to it. '
+                    + 'If NO such tab exists, do not keep searching for it — OPEN ONE: '
+                    + 'open_app({ name: "msedge.exe", args: "--new-tab <the site url>" }). That opens it in the browser they are '
+                    + 'already signed into, so it needs no sign-in and sidesteps the missing tab entirely. '
                     + 'And uia_find({ name: "..." }) searches the WHOLE desktop, so you can jump straight to a named '
                     + 'element (a person, a button, a folder) without reading or focusing anything first.'
                 );
