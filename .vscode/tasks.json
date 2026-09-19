@@ -1083,6 +1083,12 @@
 			"type": "shell",
 			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add simple-addon/server/automation/agent-loop.js simple-addon/server/automation/agent-loop.test.js .vscode/tasks.json; git stash push --keep-index -m 'parallel session WIP, restored right after release'; Write-Output '--- TREE BEFORE RELEASE (my files staged, their WIP set aside) ---'; git status --short; git commit -m 'Do not spend optional LLM calls during a rate limit, and announce a retry' -m 'A run on 1.0.60 failed on the VERY FIRST call - Too many AI requests for your account - so it could not plan step one. It then sat in the backoff (4s, 8s, 16s, 30s) and the user reported it as stuck on step one.' -m 'That reading was fair, and it was my doing: the step is refunded on an LLM failure, so the counter deliberately does not move, which left Step 1 of 60 on screen for about a minute with nothing else moving. A pause must say it is a pause, so each failure now publishes agent.llm-retry with the attempt number, the cap, the wait, and the reason.' -m 'Lessons, reflection and meta-reflection are also skipped while the account is refusing: they are OPTIONAL self-improvement calls, they cannot succeed during an outage, and each one spends another request against the limit being waited out.'; git push origin master; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js; Set-Location ..; Write-Output '--- RESTORING WIP ---'; git stash pop; Write-Output '--- FINAL STATUS ---'; git status --short",
 			"group": "test"
+		},
+		{
+			"label": "release-61b",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Remove-Item -Force tmp-c.txt,tmp-l5.txt,tmp-last-out.txt,tmp-last.cjs -ErrorAction SilentlyContinue; git add .vscode/tasks.json; git commit -m 'Track task labels'; git push origin master; git stash push -m 'parallel session WIP, restored right after release' -- docs/implementation/NET_CHAT.md frontend/src/components/SimpleAddon/ChatWindow.jsx frontend/src/components/SimpleAddon/SimpleChat.jsx frontend/src/components/SimpleAddon/StepList.css frontend/src/components/SimpleAddon/StepList.jsx; Write-Output '--- TREE BEFORE RELEASE ---'; git status --short; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js; Set-Location ..; Write-Output '--- RESTORING WIP ---'; git stash pop; Write-Output '--- FINAL ---'; git status --short",
+			"group": "test"
 		}
 	]
 }
