@@ -1635,6 +1635,24 @@
 			"type": "shell",
 			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\ship-release.ps1'",
 			"problemMatcher": []
+		},
+		{
+			"label": "ship-verify-ocr",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\ship-verify.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "ship-clean-ocr",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\ship-clean.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "ship-release-ocr2",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\ship-release2.ps1'",
+			"problemMatcher": []
 		}
 	]
 }
