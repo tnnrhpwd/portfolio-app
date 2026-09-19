@@ -287,10 +287,11 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  /* `--text-muted` is tuned for de-emphasised body ink; at 8px it left the three
-     dots reading as one faint mark. `--text-secondary` is visible on both
-     grounds and is the ink the cloud path's progress dots already use. */
-  background: var(--text-secondary, #a0aec0);
+  /* The dots are the “live” part, so they wear the scheme's accent — the same
+     ink the cloud path's progress dots use, and it follows the colour picker.
+     `--text-muted` (the old value) is de-emphasised body ink; at 8px it left
+     the three dots reading as one faint mark. */
+  background: var(--accent);
   animation: typing 1.4s infinite;
 }
 
@@ -313,8 +314,15 @@
    as the agent changes step, so it WRAPS rather than being clipped — a tool name
    plus why it failed is the entire value of the line. */
 .chat-window__typing-note {
-  color: var(--text-secondary, #a0aec0);
-  font-size: 0.85rem;
+  /* A hint, in the standard's secondary ink, at the SAME size as a message.
+     `--font-size-msg` is the chat's own message size (SimpleTheme.css: 13/14/16px
+     per the chat's font-size setting) and is what `.message__text` uses. The old
+     `0.85rem` resolved off `html`'s font-size — `--font-size-base`, i.e.
+     `--nav-size × 0.36 × --font-size-scale` — so it grew with the user's
+     accessibility setting while a message did not. `1rem` is ~17.3px at the
+     defaults, and more at a raised scale. */
+  color: var(--text-secondary);
+  font-size: var(--font-size-msg);
   font-style: italic;
   line-height: 1.35;
   min-width: 0;

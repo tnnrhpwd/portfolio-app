@@ -122,8 +122,14 @@
   align-items: center;
   gap: 8px;
   margin-top: 6px;
-  color: var(--text-secondary, #a0aec0);
-  font-size: 0.85em;
+  /* A hint, so it wears the standard's secondary ink (`--text-secondary` is the
+     chat's mode-correct name for that role in `SimpleTheme.css`) — and the SAME
+     size as the message it sits under (`--font-size-msg`, which is what
+     `.message__text` uses and what the chat's font-size setting re-points).
+     It used to be `0.85em`: smaller than a message, and `em` here resolves
+     against a 14px literal, so it drifted from the user's own setting. */
+  color: var(--text-secondary);
+  font-size: var(--font-size-msg);
   font-style: italic;
 }
 
@@ -137,7 +143,9 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: currentColor;
+  /* The one thing that should read as “live” wears the scheme's accent, so the
+     indicator follows the colour picker like every other accent on the site. */
+  background: var(--accent);
   animation: message-progress-pulse 1.1s ease-in-out infinite;
 }
 
