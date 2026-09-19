@@ -894,4 +894,4 @@ const clipboardWrite = {
     },
 };
 
-module.exports = { windowList, windowFocus, windowSnapshot, windowSetRect, processList, processKill, clipboardRead, clipboardWrite, parseCliXmlError, windowFocusMissMessage, describeOpenWindows, normaliseTitle };
+module.exports = { windowList, windowFocus, windowSnapshot, windowSetRect, processList, processKill, clipboardRead, clipboardWrite, parseCliXmlError, windowFocusMissMessage, describeOpenWindows, normaliseTitle, WIN_PLACEMENT_PRELUDE };

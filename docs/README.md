@@ -21,6 +21,7 @@ docs/
 │   ├── agent.md                       # Simple platform, repo map & the doc index (START HERE)
 │   ├── BACKLOG.md                     # Everything still to do, in priority order
 │   ├── Simple_Loop_Behaviour.md       # What the loop ACTUALLY does at runtime
+│   ├── ADDON_TASK_FLOW.md             # Chat sentence → tool calls; testing the pieces without releasing
 │   ├── AUTOMATION_SECURITY.md         # Threat model, safety surfaces, the Special tag + audit passes
 │   ├── MARKETPLACE.md                 # Published skills & shared goals
 │   ├── LLM_PROVIDERS.md               # Provider seam, model catalogue, the default model

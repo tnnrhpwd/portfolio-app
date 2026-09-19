@@ -246,12 +246,16 @@ function buildSystemPrompt({ goal, workspaceContext, toolNames, skillHints, perc
         // to set up a debug-port browser to compensate. The native path below is the one
         // that actually works on a machine the addon can already see.
         '14. A Chromium browser may expose NO page to UIA — only its own chrome (Back, ' +
-            'Refresh, Address and search bar, caption buttons). That is NORMAL, not a failure: ' +
+            'Refresh, Address and search bar) plus its TAB STRIP, where each open tab is a ' +
+            'TabItem you can reach with uia_invoke. No page content is NORMAL, not a failure: ' +
             'when uia_snapshot of a browser window shows no page content, do NOT take the same ' +
-            'snapshot again (it will be byte-identical). READ the page with screen_ocr, which ' +
-            'returns the visible text WITH coordinates, and screen_set_of_marks, which numbers ' +
-            'everything clickable; then ACT on those coordinates with click_at. That is how a ' +
-            'page with no accessibility tree gets read and clicked.',
+            'snapshot again (it will be byte-identical). READ the page with screen_ocr and ' +
+            'PASS window:"<the browser window name>" — an unscoped capture covers the whole ' +
+            'monitor, so it also reads your OTHER apps including this chat window, and the ' +
+            'words you are searching for will match your own conversation instead of the page. ' +
+            'Then act on the OCR coordinates with click_at. screen_set_of_marks numbers the ' +
+            'clickable UI Automation elements it can see, which on a Chromium page means the ' +
+            'browser chrome around the page — so locate page controls by their OCR text.',
         '15. When a task needs a detail only the user has — a contact\'s real name, an account, a ' +
             'preference — call goal_ask_user for it EARLY. Guessing and then clicking around the wrong ' +
             'page is how a run stalls; one question is cheaper than ten failed attempts.',
