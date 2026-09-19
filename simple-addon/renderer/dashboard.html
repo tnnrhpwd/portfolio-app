@@ -1463,6 +1463,23 @@
     </div>
     <div class="panel">
       <h2>Addon Updates</h2>
+      <!-- Which rev this copy is, above the rev published online. Two lines rather
+           than one, because during a local build (`npm run build:local`) this build is
+           AHEAD of what everyone else runs — the updater reports nothing in that case,
+           so a single "latest" field would show an empty readout exactly when the
+           question "am I ahead of the published rev?" is the one being asked. -->
+      <div style="margin:2px 0 12px;">
+        <div style="display:flex; gap:8px; align-items:baseline;">
+          <span style="color:var(--muted); font-size:12px; min-width:112px;">This build</span>
+          <span id="rev-local" style="font-weight:600;">—</span>
+          <span id="rev-local-note" style="color:var(--muted); font-size:12px;"></span>
+        </div>
+        <div style="display:flex; gap:8px; align-items:baseline; margin-top:3px;">
+          <span style="color:var(--muted); font-size:12px; min-width:112px;">Published online</span>
+          <span id="rev-published" style="font-weight:600;">—</span>
+          <span id="rev-published-note" style="color:var(--muted); font-size:12px;"></span>
+        </div>
+      </div>
       <div class="row">
         <div>
           <div class="name" id="update-state-name">Checking...</div>
@@ -1984,7 +2001,7 @@ async function refreshStatus() {
     );
     publishReadout([
       { label: 'Port', value: s.port || '—' },
-      { label: 'Version', value: s.version || '—' },
+      { label: 'Version', value: s.rev != null ? `rev ${s.rev}` : (s.version || '—') },
       { label: 'Python', value: s.pythonReady ? 'ready' : (s.pythonStatus || 'unknown') },
       { label: 'Resources', value: s.resourcesPath ? s.resourcesPath.split(/[\\/]/).filter(Boolean).pop() : '—' },
     ]);
@@ -2015,7 +2032,8 @@ async function refreshStatus() {
     }
 
     document.getElementById('status-resources-path').textContent = s.resourcesPath || '—';
-    document.getElementById('status-version').textContent = s.version || '—';
+    document.getElementById('status-version').textContent =
+      s.rev != null ? `rev ${s.rev} (v${s.version})` : (s.version || '—');
     document.getElementById('status-start-at-login').checked = !!s.startAtLogin;
   } catch (e) {
     setHeadState('Addon unreachable', 'err');
@@ -4599,6 +4617,59 @@ setInterval(refreshEyeCalibrationSummary, 30000); // calibration changes rarely
 setInterval(refreshEyeHeatmap, 2000);
 
 // ── Updates tab ──
+// ── Revision readout: this build above the published rev ──
+// The rev is the third semver component (1.0.69 → rev 69) — the same number the tray
+// calls "Build #N". `channel` comes from build-info.json: 'local' means this copy was
+// built here by scripts/build-local.js and published to nobody, 'dev' means the app is
+// running from source so there is no packaged build to describe.
+function renderRevBlock(s) {
+  const localEl = document.getElementById('rev-local');
+  const localNote = document.getElementById('rev-local-note');
+  const pubEl = document.getElementById('rev-published');
+  const pubNote = document.getElementById('rev-published-note');
+  if (!localEl || !pubEl) return;
+
+  const rev = typeof s.rev === 'number' ? s.rev : null;
+  const publishedRev = typeof s.publishedRev === 'number' ? s.publishedRev : null;
+
+  localEl.textContent = rev !== null ? `rev ${rev}` : (s.currentVersion || '—');
+
+  if (s.channel === 'local') {
+    localNote.textContent = 'local build — not published';
+    localNote.style.color = 'var(--yellow)';
+  } else if (s.channel === 'dev') {
+    localNote.textContent = 'dev — running from source';
+    localNote.style.color = 'var(--muted)';
+  } else {
+    localNote.textContent = 'released';
+    localNote.style.color = 'var(--muted)';
+  }
+
+  // Any note below the published rev names the version first, so an unknown version
+  // never leaves a stray separator behind.
+  const prefix = s.publishedVersion ? `v${s.publishedVersion}` : '';
+  const note = (text) => (prefix ? `${prefix} · ${text}` : text);
+
+  if (publishedRev !== null) {
+    pubEl.textContent = `rev ${publishedRev}`;
+    if (rev !== null && rev > publishedRev) {
+      pubNote.textContent = note(`this build is ${rev - publishedRev} ahead`);
+      pubNote.style.color = 'var(--muted)';
+    } else if (rev !== null && rev < publishedRev) {
+      pubNote.textContent = note('newer than this build');
+      pubNote.style.color = 'var(--yellow)';
+    } else {
+      pubNote.textContent = note('same as this build');
+      pubNote.style.color = 'var(--muted)';
+    }
+  } else {
+    // No update check has reported a release yet — say so rather than showing a zero.
+    pubEl.textContent = '—';
+    pubNote.textContent = s.supported ? 'not checked yet' : 'unknown';
+    pubNote.style.color = 'var(--muted)';
+  }
+}
+
 async function refreshUpdateStatus() {
   try {
     const s = await api('/api/update/status');
@@ -4606,6 +4677,10 @@ async function refreshUpdateStatus() {
     const descEl = document.getElementById('update-state-desc');
     const checkBtn = document.getElementById('update-check');
     const installBtn = document.getElementById('update-install');
+
+    // Painted before the early return below: even when this build has no updater at
+    // all, "which rev am I?" still has an answer.
+    renderRevBlock(s);
 
     if (!s.supported) {
       nameEl.textContent = 'Not supported in this build';

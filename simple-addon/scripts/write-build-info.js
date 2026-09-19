@@ -13,16 +13,32 @@
  * `releaseDate` is newer than what's actually running, despite the version
  * check saying otherwise, that's a strong sign the version bump was missed
  * and the build/release process itself should be double-checked.
+ *
+ * `rev` and `channel` are what let a running copy say which rev it is and
+ * whether it came from this machine or from CI:
+ *   - channel 'local'   — built by scripts/build-local.js, published to nobody
+ *   - channel 'release' — built by the addon release workflow, published to all
+ * The dashboard shows "this build" above "published online" so a local build is
+ * never confused with the rev everyone else is running.
  */
 
 const fs = require('fs');
 const path = require('path');
 
 const pkg = require('../package.json');
+const { getRev } = require('./rev-version');
+
 const outPath = path.join(__dirname, '..', 'build-info.json');
+
+// 'local' when scripts/build-local.js stamped this build (it sets the env var),
+// 'release' for anything the CI release workflow produces. Defaults to
+// 'release' so an unstamped/unknown build is never advertised as a local one.
+const channel = process.env.SIMPLE_ADDON_CHANNEL === 'local' ? 'local' : 'release';
 
 const info = {
   version: pkg.version,
+  rev: getRev(pkg.version),
+  channel,
   builtAt: new Date().toISOString(),
 };
 

@@ -15,8 +15,7 @@
 
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
-const fs = require('fs');
-const path = require('path');
+const { readBuildInfo } = require('./build-info');
 
 // ─── Configure electron-updater ─────────────────────────────────────────────────
 
@@ -63,18 +62,11 @@ const TRANSIENT_RETRY_MAX_MS = 2 * 60 * 1000;   // cap each retry at 2 min
 const MAX_TRANSIENT_RETRIES = 6;                // ~8 min of retries, covers a full CI build
 
 /**
- * Read this build's own build-info.json (written by scripts/write-build-info.js
- * just before packaging — see that file for why this exists). Returns null in
- * dev/unpackaged runs, or if an older build predates this file existing.
+ * This build's own identity — see ./build-info.js. Returns null in
+ * dev/unpackaged runs, or if an older build predates that file existing.
  */
 function readOwnBuildInfo() {
-  try {
-    const p = path.join(__dirname, 'build-info.json');
-    if (!fs.existsSync(p)) return null;
-    return JSON.parse(fs.readFileSync(p, 'utf-8'));
-  } catch {
-    return null;
-  }
+  return readBuildInfo();
 }
 
 class UpdateManager {
@@ -102,6 +94,14 @@ class UpdateManager {
     // a strong sign a release was published without bumping the version.
     this.possibleStaleVersion = false;
     this.ownBuildInfo = readOwnBuildInfo();
+
+    // The newest PUBLISHED release this updater has seen, whether or not it is
+    // newer than the running build — electron-updater only emits
+    // `update-available` when it is, but it still hands the latest release info
+    // to `update-not-available`. The dashboard shows it as "published online"
+    // beneath this build's rev, which is the whole point: a local build that is
+    // AHEAD of everyone else can still say what everyone else is running.
+    this.publishedInfo = null;
   }
 
   /**
@@ -210,6 +210,7 @@ class UpdateManager {
       log.info(`[Updater] Update available: Build #${build} (v${info.version})`);
       this.updateAvailable = true;
       this.updateInfo = info;
+      this.publishedInfo = info;
       this.status = 'downloading';
       this.possibleStaleVersion = false; // a genuinely newer version was found
       this._resetTransientFailures();
@@ -222,6 +223,10 @@ class UpdateManager {
       log.info('[Updater] App is up to date.');
       this.updateAvailable = false;
       this.updateInfo = null;
+      // `info` here is the latest RELEASE (that is what the stale-version check
+      // below compares against). Keep the previous value when an older
+      // electron-updater build emits this event without it.
+      this.publishedInfo = info || this.publishedInfo;
       this.status = 'up-to-date';
       this._lastKnownStatus = 'up-to-date';
       this._resetTransientFailures();
@@ -344,4 +349,4 @@ class UpdateManager {
   }
 }
 
-module.exports = { UpdateManager };
+module.exports = { UpdateManager, readOwnBuildInfo };

@@ -14,6 +14,7 @@ const { PythonManager } = require('./python-manager');
 const { ActionBridge } = require('./server/action-bridge');
 const { UpdateManager } = require('./auto-updater');
 const SimpleAppearance = require('./renderer/appearance/appearance');
+const { getRev } = require('./scripts/rev-version');
 const log = require('electron-log');
 
 // ─── Logging ────────────────────────────────────────────────────────────────────
@@ -396,6 +397,9 @@ ipcMain.handle('dashboard:get-status', () => {
     pythonReady: /^ready$/i.test((trayManager?.pythonStatus || '').trim()) || /^found:/i.test((trayManager?.pythonStatus || '').trim()),
     resourcesPath: getResourcesPath(),
     version: app.getVersion(),
+    // The rev (1.0.69 → 69) is the form the dashboard and tray speak in, so the
+    // Status panel can say "rev 69" without re-parsing the version.
+    rev: getRev(app.getVersion()),
     startAtLogin: loginSettings.openAtLogin,
   };
 });

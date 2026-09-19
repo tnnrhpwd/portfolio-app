@@ -12,17 +12,59 @@
  * initialization order between main.js and the lazily-required server.
  */
 
+const { readBuildInfo } = require('../build-info');
+const { getRev } = require('../scripts/rev-version');
+
 let _updateManager = null;
 
 function configure({ updateManager }) {
     _updateManager = updateManager || null;
 }
 
+/**
+ * What this build is: its rev, and where it came from.
+ *
+ * channel:
+ *   'local'   — built by scripts/build-local.js; published to nobody yet
+ *   'release' — built by the release workflow (or an older build predating the stamp)
+ *   'dev'     — running from source, so there is no packaged build to describe
+ */
+function localBuild() {
+    const version = require('../package.json').version;
+    // The manager caches its own copy at construction; fall back to the file when
+    // there is no manager (unsupported/headless) so the rev is still reported.
+    const info = _updateManager?.ownBuildInfo || readBuildInfo();
+    return {
+        version,
+        rev: getRev(version),
+        channel: info?.channel || 'dev',
+        builtAt: info?.builtAt || null,
+    };
+}
+
 /** Human-readable state derived from the UpdateManager's internal flags. */
 function getStatus() {
+    const local = localBuild();
+
+    // The newest PUBLISHED release, as last reported by an update check — whether
+    // or not it is newer than this build. This is what lets the dashboard put
+    // "this build" above "published online" and say which way the gap runs.
+    const published = _updateManager?.publishedInfo || null;
+
+    const shared = {
+        currentVersion: local.version, // kept: the existing UI reads this name
+        rev: local.rev,
+        channel: local.channel,
+        builtAt: local.builtAt,
+        publishedVersion: published?.version || null,
+        publishedRev: published?.version ? getRev(published.version) : null,
+        publishedAt: published?.releaseDate || null,
+    };
+
     if (!_updateManager) {
-        return { supported: false, state: 'unsupported', currentVersion: require('../package.json').version };
+        return { supported: false, state: 'unsupported', ...shared };
     }
+
     return {
         supported: true,
         // idle | checking | downloading | ready | up-to-date | error
@@ -31,13 +73,13 @@ function getStatus() {
         updateDownloaded: !!_updateManager.updateDownloaded,
         downloadProgress: _updateManager.downloadProgress || 0,
         latestVersion: _updateManager.updateInfo?.version || null,
-        currentVersion: require('../package.json').version,
         // Secondary safety net (see auto-updater.js's _checkForStaleVersion):
         // true if a release with this same version number was published
         // *after* this build was actually compiled — a sign the version
         // bump was skipped when that release went out, so "up to date"
         // above may not actually be true.
         possibleStaleVersion: !!_updateManager.possibleStaleVersion,
+        ...shared,
     };
 }
 
