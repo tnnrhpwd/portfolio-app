@@ -180,6 +180,30 @@ function buildSystemPrompt({ goal, workspaceContext, toolNames, skillHints, perc
               'If that step is waiting on something only the user can supply — money, a date, an appointment — ' +
               'call goal_ask_user instead of looking for a substitute.'
             : '',
+        // ── Anything involving a WEBSITE ─────────────────────────────────────
+        // Written after a real request ("google message my girlfriend that I love
+        // her — I am already signed into google message on microsoft edge") ended
+        // in a stall. The tools existed and the browser engine was installed; the
+        // agent had no way to know that (a) the browser tools were the right ones,
+        // (b) a signed-in site needs the user's own browser, or (c) a sign-in page
+        // is not something it can click through. See browser-session.js.
+        '12. For a website — webmail, a chat app, a dashboard, a portal — drive the browser with the ' +
+            'browser_* tools: browser_goto to open it, browser_text or browser_eval to read it, ' +
+            'browser_click to choose something, browser_fill to type into a field, and browser_press ' +
+            'with "Enter" to SUBMIT (filling a box does not send it). Do NOT hunt for a page with ' +
+            'screen_capture + click_at: a selector is exact and a guessed screen coordinate is not.',
+        '13. If the site is one the user is expected to be SIGNED IN to, start with ' +
+            'browser_open({ attach: true }) — that drives the browser they are already logged into. ' +
+            'Our own profile begins empty, so a signed-in site looks like a sign-in or QR-pairing page ' +
+            'and no amount of retrying will get past it.',
+        '14. If browser_goto or browser_status reports `wall`, STOP — a sign-in, device-pairing or 2FA ' +
+            'screen cannot be clicked through by you, and nothing you try on it will work. Relay what ' +
+            '`wallExplanation` says and wait for the user. Do not repeat the same call. If it says the ' +
+            'session is headless, browser_close then browser_open with headless:false so they can act ' +
+            'on the window.',
+        '15. When a task needs a detail only the user has — a contact\'s real name, an account, a ' +
+            'preference — call goal_ask_user for it EARLY. Guessing and then clicking around the wrong ' +
+            'page is how a run stalls; one question is cheaper than ten failed attempts.',
         '',
         '== AVAILABLE TOOLS ==',
         toolNames.join(', '),
@@ -613,6 +637,14 @@ class AgentLoop {
         try {
             const fresh = await this.wsClient.getGoal(this.state.currentGoal.slug);
             if (!fresh || ['done', 'failed', 'paused', 'blocked'].includes(fresh.status)) {
+                // Log the transition, not just the fact: "goal status=done" reached
+                // a user once with no way to tell whether the run had done anything
+                // first, because the step count was dropped from the message. The
+                // step count here is what distinguishes "this request never ran"
+                // from "it ran and was cut short", and that distinction is the whole
+                // diagnosis.
+                this.log(`[agent] goal ${this.state.currentGoal.slug} is "${fresh?.status || 'missing'}" `
+                    + `— stopping after ${this.state.step} step(s)`);
                 return { status: 'terminal', reason: `goal status=${fresh?.status || 'missing'}` };
             }
             this.state.currentGoal = fresh;
@@ -624,6 +656,10 @@ class AgentLoop {
         // letting it spin until maxSteps. Only autoAbandon makes the block
         // permanent — otherwise the run stops but the goal stays active.
         if (this.state.stallCount >= this.config.STALL_THRESHOLD) {
+            // The count is the whole value of this reason: "stalled" alone tells a
+            // reader nothing they can act on, and it was being thrown away here —
+            // computed for the event, then replaced with that bare word before
+            // being returned. `stop-reason.js` reads the count back out.
             const reason = `stalled after ${this.state.stallCount} consecutive no-progress ticks`;
             if (this.state.currentGoal?.autoAbandon === true) {
                 try { await this.wsClient.upsertGoal(this.state.currentGoal.slug, { status: 'blocked' }); }
@@ -632,7 +668,7 @@ class AgentLoop {
             } else {
                 this._publish('goal.stalled', { goalSlug: this.state.currentGoal?.slug, reason });
             }
-            return { status: 'terminal', reason: 'stalled' };
+            return { status: 'terminal', reason };
         }
 
         return { status: 'continue' };

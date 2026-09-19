@@ -41,6 +41,20 @@ const FIXED_CREATED_AT = '2000-01-01T00:00:00.000Z';
 /** Bounds. A run is a summary, not a transcript. */
 const MAX_STEPS = 40;             // steps kept per run; the rest are counted, not stored
 const MAX_RUNS = 10;              // runs kept per user (read-modify-write ring)
+/**
+ * Ceiling on the serialized ring, in characters.
+ *
+ * DynamoDB rejects an item over 400 KB, and this row also carries
+ * `id`/`createdAt`/`updatedAt`. The budget stops well short of the hard limit
+ * because exceeding it is **silent**: `finishRun` is best-effort by design (a
+ * journal must never break a turn), so an oversized `Put` fails into a
+ * `logger.warn` and the journal simply stops recording, with nothing on screen
+ * to say so. Today's bounds keep a real ring well under this — the guard exists
+ * because nothing in the module *enforces* that, and a new heavy field, or a
+ * raised `MAX_RUNS`/`MAX_PREVIEW_CHARS`, would cross it without a symptom.
+ * `fitRuns` guarantees the ring fits.
+ */
+const RUN_ITEM_MAX_CHARS = 300000;
 const MAX_PREVIEW_CHARS = 120;    // per leaf value
 const MAX_ARG_STRING_CHARS = 2048; // longer than this: store the length, not the string
 
@@ -226,6 +240,53 @@ let _store = null;
 /** Test hook: swap the persistence layer (mirrors repoAgentService's proposal store). */
 function setRunStoreForTests(store) { _store = store; }
 
+/**
+ * Fit a run list into the item budget. Pure, so the policy is testable without a
+ * store, a turn or a clock.
+ *
+ * Two reductions, in order, both reported to the caller:
+ *
+ *   1. **Drop the OLDEST runs.** They are history; the run just finished is the
+ *      one someone is asking about, and the ring was already capped at
+ *      `MAX_RUNS`.
+ *   2. **Trim the surviving record's bulk.** `steps` and `plan` are what make a
+ *      run big, and a record without them still answers "when, how long, how
+ *      many rounds, how did it end" — which beats losing the run entirely.
+ *
+ * @returns {{runs: object[], dropped: number, trimmed: boolean}}
+ */
+function fitRuns(runs) {
+  const kept = Array.isArray(runs) ? [...runs] : [];
+  let dropped = 0;
+  while (kept.length > 1 && JSON.stringify(kept).length > RUN_ITEM_MAX_CHARS) {
+    kept.pop();
+    dropped += 1;
+  }
+  let trimmed = false;
+  if (kept.length && JSON.stringify(kept).length > RUN_ITEM_MAX_CHARS) {
+    const head = kept[0];
+    trimmed = true;
+    kept[0] = {
+      ...head,
+      steps: [],
+      plan: null,
+      usage: null,
+      stepsTrimmed: Array.isArray(head.steps) ? head.steps.length : 0,
+    };
+  }
+  return { runs: kept, dropped, trimmed };
+}
+
+/**
+ * A rejected conditional write: someone else replaced the row between our load
+ * and our save. Matched by name because it arrives from the SDK and only some
+ * SDK versions populate `code`.
+ */
+function isConflict(err) {
+  return err?.name === 'ConditionalCheckFailedException'
+    || err?.code === 'ConditionalCheckFailedException';
+}
+
 function defaultStore() {
   const client = new DynamoDBClient({
     region: process.env.AWS_REGION,
@@ -241,18 +302,31 @@ function defaultStore() {
         TableName: TABLE_NAME,
         Key: { id: `${RUN_KEY_PREFIX}${userId}`, createdAt: FIXED_CREATED_AT },
       }));
-      if (!Item?.text) return [];
-      try { return JSON.parse(Item.text) || []; } catch { return []; }
+      // `revision` is the row's own `updatedAt`, handed back so `save` can require
+      // that nothing changed in between — see the retry in `finishRun`.
+      const revision = Item?.updatedAt || null;
+      if (!Item?.text) return { runs: [], revision };
+      try { return { runs: JSON.parse(Item.text) || [], revision }; }
+      catch { return { runs: [], revision }; }
     },
-    async save(userId, runs) {
+    async save(userId, runs, { expectedRevision = null } = {}) {
+      const updatedAt = new Date().toISOString();
       await dynamodb.send(new PutCommand({
         TableName: TABLE_NAME,
         Item: {
           id: `${RUN_KEY_PREFIX}${userId}`,
           createdAt: FIXED_CREATED_AT,
           text: JSON.stringify(runs),
-          updatedAt: new Date().toISOString(),
+          updatedAt,
         },
+        // Optimistic concurrency. Without it, two overlapping turns for one user
+        // are a read-modify-write race and the later write drops the other run.
+        ConditionExpression: expectedRevision
+          ? 'updatedAt = :expected'
+          : 'attribute_not_exists(updatedAt)',
+        ...(expectedRevision
+          ? { ExpressionAttributeValues: { ':expected': expectedRevision } }
+          : {}),
       }));
     },
   };
@@ -267,7 +341,18 @@ const store = () => _store || defaultStore();
  * self-cleaning, the same shape `msg_index_<userId>` uses for the Talk
  * dashboard. Never throws — a journal that can fail a turn is worse than none.
  *
- * @returns {Promise<{saved: boolean}>}
+ * Two things it has to get right, and used to get wrong:
+ *
+ *   - **The row must fit.** `fitRuns` holds the serialized ring under
+ *     `RUN_ITEM_MAX_CHARS` by dropping the oldest runs and, if that is not
+ *     enough, by trimming the surviving record's steps. Both are returned and
+ *     logged, because the failure being replaced was a silent one.
+ *   - **A concurrent turn must not vanish.** The save is conditional on the
+ *     revision it read, with ONE re-read/re-merge on a lost race.
+ *
+ * @returns {Promise<{saved: boolean, dropped?: number, trimmed?: boolean}>}
+ *   `{saved: false}` **exactly** — no extra keys — on every failure path, so a
+ *   caller can test it without caring which failure it was.
  */
 async function finishRun(run, { outcome = 'completed', usage = null, plan = null } = {}) {
   if (!run || !run.userId) return { saved: false };
@@ -290,21 +375,47 @@ async function finishRun(run, { outcome = 'completed', usage = null, plan = null
   };
 
   try {
-    const existing = await store().load(run.userId);
-    const runs = [record, ...(Array.isArray(existing) ? existing : [])].slice(0, MAX_RUNS);
-    await store().save(run.userId, runs);
-    return { saved: true };
+    // One retry, and only for a lost race: a conflict means another turn wrote
+    // between our load and our save, so re-reading and re-merging IS the fix. A
+    // second conflict means someone is writing in a tight loop, and dropping this
+    // run is better than holding a reply open — the journal is best-effort.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const loaded = await store().load(run.userId);
+      // Tolerates a store that returns a bare array — the shape the harness
+      // scenario suite's fake still uses — so an injected store cannot break the
+      // read path.
+      const existing = Array.isArray(loaded) ? loaded : loaded?.runs;
+      const revision = Array.isArray(loaded) ? null : loaded?.revision ?? null;
+      const { runs, dropped, trimmed } = fitRuns(
+        [record, ...(Array.isArray(existing) ? existing : [])].slice(0, MAX_RUNS),
+      );
+      try {
+        await store().save(run.userId, runs, { expectedRevision: revision });
+        if (dropped || trimmed) {
+          // Loud on purpose: the failure this replaced was a silent one.
+          logger.warn?.(
+            `[stepJournal] run ${run.id} fitted the ring by dropping ${dropped} older run(s)`
+            + `${trimmed ? ' and trimming its own steps' : ''} (budget ${RUN_ITEM_MAX_CHARS} chars)`,
+          );
+        }
+        return { saved: true, dropped, trimmed };
+      } catch (err) {
+        if (attempt === 0 && isConflict(err)) continue;
+        throw err;
+      }
+    }
   } catch (err) {
     logger.warn?.(`[stepJournal] could not save run ${run.id}: ${err.message}`);
-    return { saved: false };
   }
+  return { saved: false };
 }
 
 /** Read a user's recent runs. Never throws — the UI degrades to "no history". */
 async function readRuns(userId) {
   if (!userId) return [];
   try {
-    const runs = await store().load(userId);
+    const loaded = await store().load(userId);
+    const runs = Array.isArray(loaded) ? loaded : loaded?.runs;
     return Array.isArray(runs) ? runs : [];
   } catch {
     return [];
@@ -356,4 +467,6 @@ module.exports = {
   PRIVATE_ARG_TOOLS,
   MAX_STEPS,
   MAX_RUNS,
+  RUN_ITEM_MAX_CHARS,
+  fitRuns,
 };

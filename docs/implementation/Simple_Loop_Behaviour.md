@@ -206,6 +206,42 @@ At the end of every run `_setStage('IDLE')` emits `agent.stage {stage:'IDLE'}`
 followed by `agent.stopped`. **The trailing `stage → idle` line means the run has
 finished, not that it is waiting** — the loop never idles at the end of its life.
 
+### What a stop looks like to the USER (fixed 2026-09-18)
+
+Every exit above carries a raw `stopReason` written for the log — `goal
+status=done`, `stalled`, `max-steps-reached`. Until this date the /net chat
+rendered that token as the run's `status` **and** its `reason`, so a run that
+produced no final answer read:
+
+```
+🤖 Agent stopped — goal status=done (goal status=done).
+🤖 Agent stopped — stalled (stalled).
+```
+
+The same token twice, with the step count — which the addon had — dropped on that
+path, and `stepLog`, which names every tool that was tried, never shown at all.
+
+Now `simple-addon/server/automation/stop-reason.js` is the single translator:
+`status` is a coarse token (`done | stalled | max-steps | timeout | goal-ended |
+stopped | error`) and `reason` is a SENTENCE, and
+`frontend/src/utils/simpleAddon/agentStopMessage.js` renders it with the step
+count and the last few attempted tools.
+
+⚠️ **The `steps === 0` distinction is the load-bearing part.** `goal status=done`
+with no steps means the agent looked at the goal, found it already terminal, and
+stopped before doing anything — *the request never ran*, which is a different
+problem from a run that tried and gave up. Both used to produce the identical
+message, so the user could not tell which had happened. This is also logged
+(`[agent] goal <slug> is "done" — stopping after N step(s)`) because the old
+message destroyed the evidence needed to diagnose it: a real report of
+`goal status=done` could not be explained afterwards, precisely because the step
+count never reached the screen.
+
+Two related losses were fixed in the same pass: `agent-loop.refreshGoalStatus()`
+computed `stalled after N consecutive no-progress ticks` for the event and then
+returned the bare word `stalled`, discarding the count; and the timeout path
+returned `reason: 'run-timeout'`, another token, as the user's only explanation.
+
 The kill switch is enforced per tool call (inside `permissions.effectiveMode`), not
 by the loop: a run with the kill switch on keeps stepping and every tool call comes
 back denied.

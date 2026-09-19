@@ -203,26 +203,6 @@ model calls and writing files. Two acceptable answers, in order of effort — ma
 service explicitly single-instance and fail loudly if it is not, or move
 turns/approvals to DynamoDB with a short TTL.
 
-### R2 — The run record is one item, and its failure mode is silence
-
-`harness/stepJournal.js` keeps a per-user ring in a **single** DynamoDB item
-(`csimple_runs_<userId>`, `MAX_RUNS = 10`) written as a whole-array
-read-modify-write: `text: JSON.stringify(runs)`. Two consequences that only show up
-in production:
-
-- **Size.** Ten runs of full step records share one item, against DynamoDB's 400 KB
-  item limit — and since P0's trace landed, a turn's steps are a real payload
-  (~300–500 bytes each, up to 16 per turn, plus the plan). Nothing in the module
-  bounds the item's total size, and `finishRun` is deliberately best-effort
-  (`catch` → a `logger.warn` → `{saved:false}`), so crossing the limit means the
-  journal **quietly stops recording** rather than telling anyone.
-- **Lost updates.** Two overlapping turns for one user is a read-modify-write race;
-  the later write wins and the other run vanishes from the ring.
-
-Either is survivable if it is *known*. Both are better fixed: one item per run plus a
-query, or a size guard that drops the oldest runs until the item fits — and says so
-when it does.
-
 ### R3 — Test the client wiring the user actually touches
 
 `SimpleChat` has no test, and it is the component that owns the harness's controls:
@@ -252,15 +232,6 @@ counters, and its own `notes` say so: the counters reset on deploy and `since` m
 when they started. `toolsPerTurn`, `deniedToolCalls` and the intent mix are exactly
 the numbers worth watching *over time*, so either export them or persist a periodic
 snapshot — the run ring already proves the persistence pattern.
-
-### R6 — A refusal needs a way to be allowed
-
-The taxonomy tells the model not to retry a refused step and not to rephrase it —
-correct — and then leaves the user with no way to change their mind, so the same
-request has to be re-typed from scratch. `TOOL_POLICY` in `toolScopes.js` is the
-seam, and the conversation is where the decision should be handed back: *"you
-refused this earlier — allow it?"*. Distinct from R1, which is about the approval
-reaching the right process at all.
 
 ### R7 — The prefix diet
 

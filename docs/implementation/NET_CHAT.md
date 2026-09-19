@@ -1063,6 +1063,43 @@ which `buildToolContext` fills from `req.user.id` for both, so the two routes ca
 each invent their own source for the same value.
 
 
+### Layer 3m — the turn record is durable, and it has to FIT (added 2026-09-18)
+
+The journal (Layer 3d) is one row per user — `csimple_runs_<userId>`, a ring of the
+newest `MAX_RUNS` (10). Two properties of that row were true only by assumption, and
+are now enforced:
+
+- **It fits, or it says so.** DynamoDB rejects an item over 400 KB, and `finishRun`
+  is best-effort by design (a journal must never break a turn) — so an oversized
+  `Put` used to fail into a `logger.warn` and the journal **quietly stopped
+  recording**, with nothing on screen to say so. `fitRuns()` now holds the
+  serialized ring under `RUN_ITEM_MAX_CHARS` by dropping the OLDEST runs first and,
+  if a single record still will not fit, by trimming that record's
+  `steps`/`plan`/`usage` and counting what it lost in `stepsTrimmed`. Both
+  reductions are returned from `finishRun` (`{saved: true, dropped, trimmed}`) and
+  logged. Today's bounds keep a real ring well under the ceiling: the guard exists
+  because nothing *enforced* that, so a new heavy field — or a raised
+  `MAX_RUNS`/`MAX_PREVIEW_CHARS` — would have crossed it without a symptom.
+- **A concurrent turn cannot vanish.** The save is conditional on the row revision
+  it read (`updatedAt`), with ONE re-read/re-merge on a lost race. Two overlapping
+  turns for one user were a read-modify-write race before this, and the later write
+  silently dropped the other run.
+
+`{saved: false}` stayed **exactly** that — no extra keys — on every failure path, so
+a caller still cannot care which failure it was. The store contract grew (`load` →
+`{runs, revision}`, `save(userId, runs, {expectedRevision})`), and both `readRuns`
+and `finishRun` still tolerate a store that returns a bare array, because the
+harness scenario suite's fake has that shape.
+
+**Provable by:** `stepJournal.test.js` — `fitRuns` (drops the oldest, trims the
+survivor rather than losing the run, leaves a fitting ring untouched and
+unmutated) and `finishRun` (an untroubled save reports itself untroubled; a lost
+race is retried and re-merged so the other turn survives; a second conflict gives up
+rather than holding the turn open; a bare-array store still works). 51 tests across
+`stepJournal` + `harnessScenarios`; 37 across `harnessStats` +
+`harnessStatsEndpoint` + `continuity`.
+
+
 ### Key separation (who owns what)
 
 | Capability | Where it lives | Endpoint / mechanism | Who decides |

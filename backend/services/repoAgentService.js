@@ -615,7 +615,19 @@ const REPO_TOOL_EXECUTORS = {
         ? 'PASSED'
         : `FAILED (exit ${result.exitCode ?? 'unknown'})`;
     const header = `${result.command || task} — ${status} in ${(result.durationMs / 1000).toFixed(1)}s`;
-    const note = result.truncated ? '\n(output was trimmed to the first and last lines)' : '';
+    // Say WHAT was kept, not just that something was dropped.
+    //
+    // The old note ("trimmed to the first and last lines") became actively
+    // misleading once the shaping started rescuing failures from the middle: a
+    // model that reads "first and last lines" concludes the failure detail is not
+    // in the result, and goes off to re-read the source — which is the exact
+    // behaviour `repo_run` exists to remove. Naming the excerpts is what makes the
+    // result trustworthy enough to act on.
+    const note = !result.truncated
+      ? ''
+      : result.excerpts
+        ? `\n(output was trimmed to its first and last lines PLUS ${result.excerpts} failure excerpt(s) taken from the middle — the failure detail IS below, so read it before re-reading the source)`
+        : '\n(output was trimmed to the first and last lines)';
     return `${header}${note}\n\n${result.output}`;
   },
 

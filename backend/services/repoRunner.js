@@ -193,14 +193,101 @@ function resolveTestTarget(target, { repoRoot }) {
 }
 
 /**
- * Shape a process's output for a model: keep the head and the tail, drop the
- * middle, and say how much was dropped.
+ * Line shapes that START a failure, per the runners this repo actually uses.
  *
- * Both ends matter — a Jest failure shows the failing assertion near the end,
- * while a build error appears near the top — and the middle is where the 40,000
- * lines of passing tests live.
+ * ⚠️ **Why head+tail was not enough.** The two ends are where the *verdict* is: a
+ * build error appears near the top, the `Test Suites:` / `Tests:` counts at the
+ * very end. But a failing Jest run prints its failure DETAIL in the middle — the
+ * `●` block, the assertion diff, the code frame — between the two. So a run that
+ * failed 3 suites came back to the model as "3 failed, 12 passed" with **nothing
+ * about what failed**, and the only way to find out was to go and read the files.
+ * That is exactly the "verification is re-reading" consequence G6 set out to
+ * remove, and it makes the runner useless in the one case it exists for.
  *
- * @returns {{text: string, truncated: boolean, omittedLines: number, totalLines: number}}
+ * Deliberately anchored and specific. A loose `/error/i` would match a passing
+ * test whose name mentions error handling, and a signal list that fires on
+ * everything keeps nothing. Each pattern matches the FIRST line of a failure
+ * block; the lines that follow it are pulled in by `SIGNAL_CONTEXT_LINES`.
+ */
+const FAILURE_SIGNALS = Object.freeze([
+  /^\s*●/,                                // Jest: start of a failed test/suite block
+  /^\s*✕/,                                // Jest verbose; the addon scripts' own FAIL mark
+  /^(?:FAIL|FAILED)\b/,                   // Jest's per-suite banner
+  /^\s*✖/,                                // ESLint stylish summary ("✖ 3 problems")
+  /\): error TS\d+/,                      // tsc diagnostic
+  /^\s*\d+:\d+\s+(?:error|warning)\s/,    // ESLint stylish, one line per problem
+  /^\s*(?:Expected|Received)(?::|\s)/,    // Jest assertion diff
+  /^error during build/,                  // Vite
+  /^\s*✗/,                                // Vite's own failure mark
+  /^\s*AssertionError/,                   // bare assertion from a node script
+  /Cannot find module/,
+  /^\s*(?:SyntaxError|TypeError|ReferenceError)\b/,
+  /^(?:Error|Denied):\s/,                 // this repo's own convention (see AUTOMATION_SECURITY.md)
+]);
+
+/**
+ * How many lines after a signal belong to that failure's excerpt.
+ *
+ * A bare signal line is not enough — Jest's `●` is a header, and its diff and code
+ * frame follow. Six covers `●` + the diff + the first stack frame without dragging
+ * in the next test.
+ */
+const SIGNAL_CONTEXT_LINES = 6;
+
+/** Ceiling on the excerpt block. 500 lint errors must not refill the budget. */
+const MAX_SIGNAL_LINES = 40;
+
+/**
+ * Pull the failures out of the part of the output that would otherwise be dropped.
+ *
+ * Scans only the MIDDLE (a signal in the head or tail is already visible), takes
+ * each signal plus a little context, merges overlapping windows, and stops at a
+ * hard line budget — reporting how many excerpts it could not fit, so the model
+ * knows the extract is incomplete rather than assuming it is the whole story.
+ *
+ * @returns {{blocks: string[], keptLines: number, groups: number, dropped: number}}
+ */
+function failureExcerpts(lines, from, to, { maxLines = MAX_SIGNAL_LINES, context = SIGNAL_CONTEXT_LINES } = {}) {
+  const blocks = [];
+  const kept = new Set();
+  let groups = 0;
+  let dropped = 0;
+  let cursor = from;
+
+  for (let i = from; i < to; i += 1) {
+    if (!FAILURE_SIGNALS.some((re) => re.test(lines[i]))) continue;
+    // Overlapping windows are one excerpt: two signals four lines apart describe
+    // the same failure, and printing the lines twice is worse than printing them once.
+    if (i < cursor) continue;
+
+    const end = Math.min(i + context + 1, to);
+    // ALL-OR-NOTHING against the budget. A window is added only if it fits whole,
+    // because half an excerpt stops at an arbitrary line — and the line it would
+    // cut is usually the `Received:` that explains the failure. This also makes
+    // `maxLines` a real ceiling rather than an approximate one: a partial window
+    // is how the first version overshot it (42 lines against a stated 40).
+    if (kept.size + (end - i) > maxLines) { dropped += 1; continue; }
+
+    for (let j = i; j < end; j += 1) kept.add(j);
+    blocks.push(lines.slice(i, end).join('\n'));
+    groups += 1;
+    cursor = end;
+  }
+
+  return { blocks, keptLines: kept.size, groups, dropped };
+}
+
+/**
+ * Shape a process's output for a model: keep the head, the tail, and any
+ * failures hiding in the middle; drop the rest, and say how much was dropped.
+ *
+ * Both ends matter — a Jest failure summary is at the end, a build error near the
+ * top — and the middle is where the 40,000 lines of passing tests live. The
+ * exception is a FAILURE, which is the one thing in the middle worth keeping: see
+ * `FAILURE_SIGNALS`.
+ *
+ * @returns {{text: string, truncated: boolean, omittedLines: number, totalLines: number,
+ *            keptLines: number, excerpts: number}}
  */
 function shapeOutput(raw, {
   headLines = RESULT_HEAD_LINES,
@@ -213,12 +300,28 @@ function shapeOutput(raw, {
 
   let shaped = text;
   let omittedLines = 0;
+  let keptLines = 0;
+  let excerpts = 0;
   if (totalLines > headLines + tailLines) {
-    omittedLines = totalLines - headLines - tailLines;
+    const middleEnd = totalLines - tailLines;
+    const { blocks, keptLines: kept, groups, dropped } = failureExcerpts(lines, headLines, middleEnd);
+    // The excerpts already came out of the middle, so they are not "omitted".
+    omittedLines = middleEnd - headLines - kept;
+    keptLines = kept;
+    excerpts = groups;
+
+    // The plain phrasing is kept when nothing was rescued: an earlier reader (and
+    // an earlier test) knows that shape, and inventing a more elaborate note for
+    // the common case would be noise.
+    const note = groups
+      ? `… [${omittedLines} line(s) omitted; ${groups} failure excerpt(s) kept below${dropped ? `, ${dropped} more not shown` : ''}] …`
+      : `… [${omittedLines} line(s) omitted] …`;
+
     shaped = [
       ...lines.slice(0, headLines),
-      `… [${omittedLines} line(s) omitted] …`,
-      ...lines.slice(totalLines - tailLines),
+      note,
+      ...(blocks.length ? ['', ...blocks, ''] : []),
+      ...lines.slice(middleEnd),
     ].join('\n');
   }
 
@@ -230,7 +333,15 @@ function shapeOutput(raw, {
     truncated = true;
   }
 
-  return { text: shaped.trim(), truncated, omittedLines, totalLines };
+  return {
+    text: shaped.trim(),
+    truncated,
+    omittedLines,
+    totalLines,
+    // Reported so a caller can say "the evidence is in here" without re-parsing.
+    keptLines,
+    excerpts,
+  };
 }
 
 let _tasks = TASKS;
@@ -327,6 +438,7 @@ async function runTask({ task, target, repoRoot }) {
       durationMs,
       output: `${command} was killed after ${Math.round(spec.timeoutMs / 1000)}s (its time limit).\n\n${shaped.text}`,
       truncated: shaped.truncated,
+      excerpts: shaped.excerpts,
     };
   }
 
@@ -339,6 +451,9 @@ async function runTask({ task, target, repoRoot }) {
     durationMs,
     output: shaped.text || '(no output)',
     truncated: shaped.truncated,
+    // Carried out of the runner so the caller can say WHAT was kept, not just that
+    // something was dropped. See the note in `repoAgentService.repo_run`.
+    excerpts: shaped.excerpts,
   };
 }
 
@@ -352,5 +467,10 @@ module.exports = {
   TASKS,
   TASK_NAMES,
   SAFE_ENV_KEYS,
+  // The failure vocabulary, exported so the extract is testable directly and so a
+  // new runner can be checked against it rather than assumed to fit.
+  FAILURE_SIGNALS,
+  MAX_SIGNAL_LINES,
+  SIGNAL_CONTEXT_LINES,
   _setTasksForTests,
 };

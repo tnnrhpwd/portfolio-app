@@ -998,9 +998,12 @@ carried by everything *around* the tool rather than by the tool:
    so a runner never waits for input. Pinned by a test that sets those variables
    and asserts the child reports them absent.
 4. **Bounded by construction.** Per-task timeouts (30s–10min), `SIGKILL` on
-   overrun, a 4 MB buffer, and output shaped to head + tail (60 + 40 lines, 8 KB)
-   with the omission counted — because a 40k-line Jest dump is worthless to a
-   model and would cost more than the turn.
+   overrun, a 4 MB buffer, and output shaped to head + failure excerpts + tail
+   (60 + up to 40 + 40 lines, 8 KB) with the omission counted — because a
+   40k-line Jest dump is worthless to a model and would cost more than the turn.
+   The middle is not simply dropped: a failing run keeps its assertion diffs
+   (see `NET_HARNESS_PLAN.md` §P3), since the verdict alone tells the model that
+   something broke and nothing about what.
 5. **Its own capability.** `repo:run` is separate from `repo:write`, admin-only,
    and filtered out of the offered schemas for everyone else — so a future
    read-only or write-only admin does not implicitly get execution.

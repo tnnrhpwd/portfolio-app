@@ -45,6 +45,7 @@ const { screenOcr } = require('./tools/ocr');
 const { screenSetOfMarks } = require('./tools/set-of-marks');
 const {
     browserOpen, browserGoto, browserClick, browserFill,
+    browserPress,
     browserText, browserEval, browserScreenshot, browserStatus, browserClose,
 } = require('./tools/browser');
 const { uiaFind, uiaInvoke, uiaGetText, uiaSnapshot } = require('./tools/uia');
@@ -74,6 +75,7 @@ const { parseClassifierVerdict, decideClassification, createVerdictCache, CLASSI
 const { buildRoutingEvent, emitRoutingEvent } = require('./routing-telemetry');
 
 const { createAgentLoop } = require('./agent-loop');
+const { stopReport } = require('./stop-reason');
 const { ContinuousListener } = require('./listener');
 const { mirrorWorkspace } = require('./workspace-mirror');
 const { compile: nlCompile, editSteps: nlEditSteps } = require('./nl-compiler');
@@ -107,6 +109,7 @@ function registerAllTools() {
     registry.register(browserGoto);
     registry.register(browserClick);
     registry.register(browserFill);
+    registry.register(browserPress);
     registry.register(browserText);
     registry.register(browserEval);
     registry.register(browserScreenshot);
@@ -569,7 +572,8 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
             if (Date.now() > deadline) {
                 loop.stop('run-timeout');
                 await flushSteps();
-                return { actionable: true, goalSlug: slug, goalId, status: 'timeout', reason: 'run-timeout', steps: loop.status().step, result: null };
+                const report = stopReport({ stopReason: 'run-timeout', steps: loop.status().step, maxSteps: loop.status().maxSteps });
+                return { actionable: true, goalSlug: slug, goalId, status: report.outcome, reason: report.reason, steps: loop.status().step, result: null };
             }
             await flushSteps();
             await new Promise((r) => setTimeout(r, 500));
@@ -578,15 +582,27 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
 
         const s = loop.status();
         const done = s.stopReason === 'goal-done-sentinel';
+        // `status` is a coarse token a caller can switch on; `reason` is a SENTENCE
+        // for the person waiting. These used to be the same expression, so the chat
+        // rendered "Agent stopped — stalled (stalled)" — a raw log token printed
+        // twice, telling the user nothing about what was tried or why it gave up.
+        // See stop-reason.js, which owns that translation.
+        const report = stopReport({
+            stopReason: s.stopReason,
+            steps: s.step,
+            maxSteps: s.maxSteps,
+            stallCount: s.stallCount,
+            hadAnswer: !!s.finalAnswer,
+        });
         return {
             actionable: true,
             goalSlug: slug,
             goalId,
-            status: done ? 'done' : (s.stopReason || 'stopped'),
+            status: done ? 'done' : report.outcome,
             result: s.finalAnswer || null,
             steps: s.step,
             stepLog: s.stepLog || [],
-            reason: s.stopReason,
+            reason: report.reason,
         };
     }
 

@@ -242,7 +242,12 @@ function newLoop(overrides = {}) {
         fakes.wsClient.upsertGoal = async (slug, patch) => { upserts.push({ slug, patch }); return {}; };
         const decision = await loop.selectGoal();
         assert.strictEqual(decision.status, 'terminal');
-        assert.strictEqual(decision.reason, 'stalled');
+        // The COUNT is the useful half of this reason, and it used to be computed
+        // for the event and then thrown away — the loop returned the bare word
+        // 'stalled' instead, which is what the chat rendered as
+        // "Agent stopped — stalled (stalled)". Asserted in full so a future tidy-up
+        // cannot quietly go back to the token.
+        assert.strictEqual(decision.reason, 'stalled after 3 consecutive no-progress ticks');
         assert.strictEqual(upserts.length, 0, 'no blocked write without autoAbandon');
     });
 
@@ -255,7 +260,7 @@ function newLoop(overrides = {}) {
         fakes.wsClient.upsertGoal = async (slug, patch) => { if (patch.status === 'blocked') blocked = true; return {}; };
         const decision = await loop.selectGoal();
         assert.strictEqual(decision.status, 'terminal');
-        assert.strictEqual(decision.reason, 'stalled');
+        assert.strictEqual(decision.reason, 'stalled after 3 consecutive no-progress ticks');
         assert.strictEqual(blocked, true, 'goal marked blocked when autoAbandon');
     });
 
@@ -488,7 +493,9 @@ function newLoop(overrides = {}) {
         assert.strictEqual(started.running, true);
         await waitFor(() => loop.status().running === false, { label: 'stalling loop to stop' });
 
-        assert.strictEqual(loop.status().stopReason, 'stalled');
+        // Includes the count (see `stop-reason.js`): the bare word 'stalled' is what
+        // the chat used to print, twice, telling the user nothing.
+        assert.strictEqual(loop.status().stopReason, 'stalled after 3 consecutive no-progress ticks');
         assert.strictEqual(blocked, true, 'goal marked blocked');
         assert.strictEqual(loop.status().stallCount, 3, 'stallCount reached threshold');
         assert.strictEqual(fakes.events._log.filter((e) => e.type === 'goal.blocked').length, 1, 'goal.blocked published once');

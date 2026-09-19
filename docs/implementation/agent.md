@@ -174,6 +174,48 @@ The end-to-end loop **signed-in user → cloud memory → local PC actions** wor
 | Live web panel + chat `/run` `/agent` | `frontend/src/components/SimpleAddon/*`, `SimpleChat.jsx` |
 | Eval harness | `server/automation/eval/` |
 
+### Driving a website the user is signed into (2026-09-18)
+
+The `browser_*` tools exist (`tools/browser.js`, `playwright-core`, Edge by
+default), and for a task on a site with no login they work as they are. For a site
+the user is **signed in to** — webmail, a chat app, a dashboard — three things had
+to change, and a real request failed on all three at once:
+
+> *"google message my girlfriend that I love her — I am already signed into google
+> message on microsoft edge"* → `🤖 Agent stopped — stalled (stalled).`
+
+| Problem | Why it stalled | Fix |
+|---|---|---|
+| The session was our OWN fresh profile | `launchPersistentContext(%APPDATA%\simple-addon\playwright-profiles\default)` starts empty, so their Google session was invisible and the page that loaded was a sign-in / device-pairing wall | `browser_open({ attach: true })` — `connectOverCDP` to the browser they are *already* signed into |
+| It was headless | `headless: headless !== false` on every call, so nobody could have signed in either | the wall explanation names it and says to reopen with `headless:false` |
+| Nothing DETECTED the wall | `browser_goto` returned `{status: 200, title}` — which reads as success — so the agent hunted for selectors that do not exist, each costing a 15 s timeout, scoring no progress until it stopped | `wall` + `wallExplanation` on `browser_goto`/`browser_status`, from `browser-session.classifyPageWall` |
+
+And one capability was simply missing: **`browser_fill` does not submit.** A chat or
+search box is committed with Enter, and there was no way to press a key — so "type a
+message and send it" could not be expressed with the tools that existed, and no
+amount of retrying would have closed that gap. `browser_press` is that primitive.
+
+⚠️ **The attach route needs a specific launch**, because Chrome/Edge ≥136 ignore
+`--remote-debugging-port` when the *default* profile directory is in use — so the
+obvious command silently does nothing and looks like our bug:
+
+```
+msedge.exe --remote-debugging-port=9222 --user-data-dir="%LOCALAPPDATA%\simple-addon\edge-automation"
+```
+
+That profile is also what makes it work: the user signs in **once** in the window it
+opens, and every later run reuses it. `launchHint()` returns exactly this, including
+the reason — a tool that says "could not attach" with no command is another stall.
+
+⚠️ An attached session is **detached, never closed** (`browser_close`): calling
+`close()` on a CDP connection shuts down the user's own browser, tabs and all. A
+tool may not do that to a browser it did not start.
+
+The agent's system prompt now carries rules 12–15 covering this: drive sites with
+`browser_*` rather than guessing coordinates, use `attach` for signed-in sites, STOP
+on a wall and relay what it says, and ask for a missing detail (a contact's real
+name) early instead of clicking around the wrong page.
+
 ---
 
 ## The agent loop (as designed)

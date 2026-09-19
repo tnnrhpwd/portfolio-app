@@ -652,6 +652,150 @@
 			"type": "shell",
 			"command": "Remove-Item -Force tmp-marker-a.txt,tmp-marker-b.txt,tmp-marker-c.txt,tmp-be.txt,tmp-be2.txt,tmp-fe.txt,tmp-fe2.txt,tmp-fe3.txt,tmp-fe4.txt,tmp-fe5.txt,tmp-final2.txt,tmp-final3.txt,tmp-cont.txt -ErrorAction SilentlyContinue; $r = Get-ChildItem -Name tmp-* -ErrorAction SilentlyContinue; if ($r) { 'LEFT: ' + ($r -join ', ') } else { 'temp clean' }",
 			"group": "test"
+		},
+		{
+			"label": "verify-reporunner",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci repoRunner 2>&1 | Out-File -Encoding utf8 ..\\tmp-run1.txt; Write-Output '=== RESULT ==='; Select-String -Path ..\\tmp-run1.txt -Pattern 'Test Suites:|Tests:|✕|Expected|Received|at Object' | Select-Object -First 40 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-reporunner2",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci repoRunner 2>&1 | Out-File -Encoding utf8 ..\\tmp-run2.txt; Write-Output '=== RESULT ==='; Select-String -Path ..\\tmp-run2.txt -Pattern 'Test Suites:|Tests:|✕|Expected|Received' | Select-Object -First 30 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-real-jest-shape",
+			"type": "shell",
+			"command": "node tmp-shape-check.cjs 2>&1 | Out-File -Encoding utf8 tmp-shape-out.txt; Get-Content tmp-shape-out.txt | Select-Object -First 45",
+			"group": "test"
+		},
+		{
+			"label": "cleanup-shape",
+			"type": "shell",
+			"command": "Remove-Item -Force tmp-shape-check.cjs,tmp-shape-out.txt,tmp-run1.txt,tmp-run2.txt -ErrorAction SilentlyContinue; Write-Output '--- stray tmp files ---'; $r = Get-ChildItem -Name tmp-* -ErrorAction SilentlyContinue; if ($r) { $r } else { 'none' }; Write-Output '--- stray tmp tests ---'; $t = Get-ChildItem -Recurse -Filter 'tmp-*.test.js' -ErrorAction SilentlyContinue; if ($t) { $t.FullName } else { 'none' }",
+			"group": "test"
+		},
+		{
+			"label": "cleanup-shape2",
+			"type": "shell",
+			"command": "Remove-Item -Force tmp-r2.txt -ErrorAction SilentlyContinue; $r = Get-ChildItem -Name tmp-* -ErrorAction SilentlyContinue; if ($r) { 'LEFT: ' + ($r -join ', ') } else { 'temp clean' }",
+			"group": "test"
+		},
+		{
+			"label": "verify-reporunner3",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci repoRunner repoAgentService toolOutcome 2>&1 | Out-File -Encoding utf8 ..\\tmp-run3.txt; Write-Output '=== RESULT ==='; Select-String -Path ..\\tmp-run3.txt -Pattern 'Test Suites:|Tests:|✕|Expected|Received' | Select-Object -First 30 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-final-round",
+			"type": "shell",
+			"command": "Set-Location backend; npm test -- --ci repoRunner repoAgentService continuity __tests__/harness pcToolsRefusal toolOutcome toolLoop stepJournal llmService harnessStats 2>&1 | Out-File -Encoding utf8 ..\\tmp-final9.txt; Set-Location ..; Write-Output '=== BACKEND ==='; Select-String -Path tmp-final9.txt -Pattern 'Test Suites:|Tests:|FAIL' | ForEach-Object { $_.Line }; Remove-Item -Force tmp-run1.txt,tmp-run2.txt,tmp-run3.txt,tmp-final9.txt -ErrorAction SilentlyContinue; $r = Get-ChildItem -Name tmp-* -ErrorAction SilentlyContinue; if ($r) { 'LEFT: ' + ($r -join ', ') } else { 'temp clean' }",
+			"group": "test"
+		},
+		{
+			"label": "cleanup-strays",
+			"type": "shell",
+			"command": "Get-ChildItem -Name tmp-* -ErrorAction SilentlyContinue | ForEach-Object { $_ }; Remove-Item -Force tmp-r2.txt,tmp-r2b.txt -ErrorAction SilentlyContinue; Write-Output '--- after ---'; $r = Get-ChildItem -Name tmp-* -ErrorAction SilentlyContinue; if ($r) { 'LEFT: ' + ($r -join ', ') } else { 'temp clean' }",
+			"group": "test"
+		},
+		{
+			"label": "verify-stop-reason",
+			"type": "shell",
+			"command": "Set-Location simple-addon; node server/automation/stop-reason.test.js 2>&1 | Out-File -Encoding utf8 ..\\tmp-sr.txt; Select-String -Path ..\\tmp-sr.txt -Pattern 'FAIL|stop-reason.test:' | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-stop-message",
+			"type": "shell",
+			"command": "node node_modules/jest/bin/jest.js --config package.json frontend/src/utils/simpleAddon/agentStopMessage.test.js 2>&1 | Out-File -Encoding utf8 tmp-asm.txt; Select-String -Path tmp-asm.txt -Pattern 'Tests:|Suites:|✕|Expected|Received|at Object' | Select-Object -First 30 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-stop-message2",
+			"type": "shell",
+			"command": "node node_modules/jest/bin/jest.js --config package.json frontend/src/utils/simpleAddon/agentStopMessage.test.js 2>&1 | Out-File -Encoding utf8 tmp-asm2.txt; Select-String -Path tmp-asm2.txt -Pattern 'Tests:|Suites:|✕|Expected|Received' | Select-Object -First 30 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-addon-chain2",
+			"type": "shell",
+			"command": "Set-Location simple-addon; npm run test:unit 2>&1 | Out-File -Encoding utf8 ..\\tmp-addon5.txt; Write-Output '=== FAILURES ==='; $c = Get-Content ..\\tmp-addon5.txt; $f = $c | Select-String -Pattern '^\\s*FAIL|AssertionError|^FAIL'; if ($f) { $f | ForEach-Object { $_.Line } } else { 'none' }; Write-Output '=== KEY SUITES ==='; $c | Select-String -Pattern 'agent-loop|stop-reason|permissions.test' | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-addon-chain3",
+			"type": "shell",
+			"command": "Set-Location simple-addon; npm run test:unit 2>&1 | Out-File -Encoding utf8 ..\\tmp-addon6.txt; Write-Output '=== FAILURES ==='; $c = Get-Content ..\\tmp-addon6.txt; $f = $c | Select-String -Pattern '^\\s*FAIL|AssertionError|^FAIL'; if ($f) { $f | ForEach-Object { $_.Line } } else { 'none' }; Write-Output '=== TAIL ==='; $c | Select-Object -Last 4",
+			"group": "test"
+		},
+		{
+			"label": "verify-fe-stop",
+			"type": "shell",
+			"command": "node node_modules/jest/bin/jest.js --config package.json frontend/src/components/SimpleAddon frontend/src/utils/simpleAddon 2>&1 | Out-File -Encoding utf8 tmp-fe9.txt; Write-Output '=== FRONTEND TESTS ==='; Select-String -Path tmp-fe9.txt -Pattern 'Test Suites:|Tests:|FAIL' | ForEach-Object { $_.Line }; Set-Location frontend; npx vite build 2>&1 | Out-File -Encoding utf8 ..\\tmp-fe10.txt; Write-Output '=== BUILD ==='; Select-String -Path ..\\tmp-fe10.txt -Pattern 'transformed|error|Error' | Select-Object -First 6 | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-addon-chain4",
+			"type": "shell",
+			"command": "Set-Location simple-addon; npm run test:unit 2>&1 | Out-File -Encoding utf8 ..\\tmp-addon7.txt; $c = Get-Content ..\\tmp-addon7.txt; Write-Output '=== FAILURES ==='; $f = $c | Select-String -Pattern '^\\s*FAIL|AssertionError'; if ($f) { $f | ForEach-Object { $_.Line } } else { 'none' }; Write-Output '=== TAIL ==='; $c | Select-Object -Last 3",
+			"group": "test"
+		},
+		{
+			"label": "cleanup-stop",
+			"type": "shell",
+			"command": "Remove-Item -Force tmp-sr.txt,tmp-asm.txt,tmp-asm2.txt,tmp-fe9.txt,tmp-fe10.txt,tmp-addon5.txt,tmp-addon6.txt,tmp-addon7.txt -ErrorAction SilentlyContinue; $r = Get-ChildItem -Name tmp-* -ErrorAction SilentlyContinue; if ($r) { 'LEFT: ' + ($r -join ', ') } else { 'temp clean' }",
+			"group": "test"
+		},
+		{
+			"label": "verify-browser-session",
+			"type": "shell",
+			"command": "Set-Location simple-addon; node server/automation/browser-session.test.js 2>&1 | Out-File -Encoding utf8 ..\\tmp-bs.txt; Select-String -Path ..\\tmp-bs.txt -Pattern 'FAIL|browser-session.test:' | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-browser-session2",
+			"type": "shell",
+			"command": "Set-Location simple-addon; node server/automation/browser-session.test.js 2>&1 | Out-File -Encoding utf8 ..\\tmp-bs2.txt; Select-String -Path ..\\tmp-bs2.txt -Pattern 'FAIL|browser-session.test:' | ForEach-Object { $_.Line }",
+			"group": "test"
+		},
+		{
+			"label": "verify-browser-e2e",
+			"type": "shell",
+			"command": "node tmp-browser-e2e.cjs 2>&1 | Out-File -Encoding utf8 tmp-e2e-out.txt; Get-Content tmp-e2e-out.txt",
+			"group": "test"
+		},
+		{
+			"label": "dbg-exports",
+			"type": "shell",
+			"command": "node -e \"const b=require('./simple-addon/server/automation/tools/browser'); console.log('keys:', Object.keys(b).join(',')); console.log('typeof browserOpen:', typeof b.browserOpen);\" 2>&1 | Out-File -Encoding utf8 tmp-dbg.txt; Get-Content tmp-dbg.txt | Select-Object -Last 8",
+			"group": "test"
+		},
+		{
+			"label": "dbg-exports2",
+			"type": "shell",
+			"command": "node tmp-dbg.cjs 2>&1 | Out-File -Encoding utf8 tmp-dbg.txt; Get-Content tmp-dbg.txt",
+			"group": "test"
+		},
+		{
+			"label": "verify-browser-e2e2",
+			"type": "shell",
+			"command": "node tmp-browser-e2e.cjs 2>&1 | Out-File -Encoding utf8 tmp-e2e-out.txt; Get-Content tmp-e2e-out.txt",
+			"group": "test"
+		},
+		{
+			"label": "verify-addon-chain5",
+			"type": "shell",
+			"command": "Set-Location simple-addon; npm run test:unit 2>&1 | Out-File -Encoding utf8 ..\\tmp-addon8.txt; $c = Get-Content ..\\tmp-addon8.txt; Write-Output '=== FAILURES ==='; $f = $c | Select-String -Pattern '^\\s*FAIL|AssertionError'; if ($f) { $f | ForEach-Object { $_.Line } } else { 'none' }; Write-Output '=== KEY SUITES ==='; $c | Select-String -Pattern 'browser-session.test:|agent-loop.test:|pattern-learner.test:|permissions.test:' | ForEach-Object { $_.Line }; Write-Output '=== TAIL ==='; $c | Select-Object -Last 3",
+			"group": "test"
+		},
+		{
+			"label": "cleanup-browser",
+			"type": "shell",
+			"command": "Remove-Item -Force tmp-bs.txt,tmp-bs2.txt,tmp-browser-e2e.cjs,tmp-e2e-out.txt,tmp-dbg.cjs,tmp-dbg.txt,tmp-addon8.txt -ErrorAction SilentlyContinue; $r = Get-ChildItem -Name tmp-* -ErrorAction SilentlyContinue; if ($r) { 'LEFT: ' + ($r -join ', ') } else { 'temp clean' }; $t = Get-ChildItem -Recurse -Filter 'tmp-*.test.js' -ErrorAction SilentlyContinue; if ($t) { $t.FullName } else { 'no stray fixtures' }",
+			"group": "test"
 		}
 	]
 }

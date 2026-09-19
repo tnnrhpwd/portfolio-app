@@ -77,7 +77,7 @@ Measured facts that the plan is built on (2026-09-18):
 | **G3** | No approval on the cloud side. `toolScopes.js` is capability gating (admin vs not), not policy (ask/allow/deny per tool) | `repo_commit_changes` runs because you are an admin, never because you were asked |
 | **G4** | ~~The addon plane is unreachable from the cloud loop.~~ **Closed 2026-09-18** — `pc_status`/`pc_do` (P2) plus the routing split (Layer 3h): a relay-only addon hands the turn to the cloud harness, which can now act on both planes in one turn | "open notepad, then summarise the file you just read" works from a phone |
 | **G5** | The relay's shape is wrong for per-tool dispatch (3 s poll × up to 16 rounds ≈ 48 s of pure polling) | fixed by the adaptive poll (P2 step 1): idle 3 s → hot 500 ms |
-| **G6** | No execution. `repo_*` can search/read/edit/commit but cannot run a build or a test | property #5 cannot be met; verification is re-reading |
+| **G6** | ~~No execution. `repo_*` can search/read/edit/commit but cannot run a build or a test~~ **Closed 2026-09-18** (P3) — `repo_run` with a frozen task map, no shell and a scrubbed child env; property #5 is met, and the output shaping now keeps the FAILURES in the middle of a failing run rather than only the verdict at the ends | the turn can verify itself instead of re-reading to check |
 | **G7** | ~~No prompt caching (`cachePoint` appears nowhere in the backend); compaction is a 150-char-per-message truncation~~ **Closed 2026-09-18** (P4) — cache points on the system block + tool specs, and size-aware compaction that thins old tool results before dropping old steps | the cached prefix is charged once per turn, not 18×; a long chat keeps its tool evidence |
 | **G8** | ~~No plan surface. Multi-step work is invisible until the reply~~ **Closed 2026-09-18** (P5) — `set_plan` publishes the plan as a checklist above the step list, live, and it is persisted with the turn | the user can see the *intent* and correct it mid-flight, not just review the steps |
 | **G9** | ~~Recovery is a single nudge, with no failure taxonomy~~ **Closed 2026-09-18** (P6) — a failure is classified into five kinds, each with the next move its kind implies, and a transient failure of a read-only tool is retried by the harness itself | "why did it stop?" is answerable from the journal; a refusal is never retried |
@@ -438,13 +438,50 @@ written, because `test:file` already covers addon tests exactly as the addon run
 them (`node <target>`) — an allowlist entry that names a non-existent file is
 worse than no entry.
 
-**Provable by:** `repoRunner.test.js` (22, incl. REAL child processes: the secret
+**Provable by:** `repoRunner.test.js` (29, incl. REAL child processes: the secret
 scrub, the timeout kill, the bounded output, the kill switch) plus `test:file`
 target validation — which is the security boundary for that task and is tested
 directly rather than only through a spawn.
 
 **Still owed:** the whole-suite addon run, and a `repo_run` case driven live
 against the real queue (tests only, so far).
+
+#### Follow-up: keep the FAILURE, not just the verdict ✅ 2026-09-18
+
+Head+tail shaping had a hole in exactly the case the runner exists for. The two
+ends are where the *verdict* is — a build error near the top, `Test Suites:` /
+`Tests:` at the very end — but **a failing Jest run prints its failure detail in
+the middle**, between them: the `●` block, the assertion diff, the code frame. So
+a run that failed 3 suites reached the model as *"3 failed, 12 passed"* with
+nothing about what failed, and finding out meant going and reading the files —
+precisely the "verification is re-reading" consequence that motivated `repo_run`
+in the first place.
+
+`shapeOutput` now keeps three regions instead of two: head, any **failure
+excerpts** from the middle, and tail. Excerpts are found by an anchored signal
+vocabulary (`FAILURE_SIGNALS` — Jest `●`/`✕`/`FAIL`, tsc `error TS####`, ESLint
+`✖` and per-problem lines, Vite, and this repo's own `Error:`/`Denied:`), take a
+little context after each so the diff travels with the header, merge overlapping
+windows, and stop at a hard 40-line budget — reporting how many excerpts did not
+fit so the model knows the extract is partial.
+
+Two things the tests caught:
+
+- **The budget was a lie.** The first version checked the ceiling before adding a
+  window, so the last window could overshoot it (42 lines against a stated 40). It
+  is now all-or-nothing per window — half an excerpt would stop at an arbitrary
+  line, and the line it cut is usually the `Received:` that explains the failure.
+- **The accounting is an invariant, so it is tested as one.**
+  `head + tail + keptLines + omittedLines === totalLines`. The excerpts come *out*
+  of the middle, so counting them as omitted as well would overstate what was
+  dropped — and a model told "340 lines omitted" while the failures sit right there
+  reads a truncated run as an empty one.
+
+**Verified against real output, not just fixtures** — the lesson from the P6
+taxonomy. A generated 268-line failing Jest run through the real `shapeOutput`:
+all three failing tests named, assertion diffs and code frames intact,
+`2` excerpts rescued from the middle with the third already visible in the tail,
+and the accounting exact at `60 + 11 + 40 + 157 = 268`.
 
 ### P4 — Context and cost governance ⏳ shipped 2026-09-18 (except the prefix diet)
 

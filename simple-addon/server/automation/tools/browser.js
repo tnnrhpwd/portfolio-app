@@ -26,6 +26,36 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { cdpCandidates, launchHint, classifyPageWall } = require('../browser-session');
+
+/**
+ * Is the current page a wall (sign-in, device pairing, 2FA) rather than the thing
+ * the user asked for?
+ *
+ * Called by `browser_goto` and `browser_status` so the answer reaches the model
+ * WITHOUT it having to guess. The old behaviour returned `{status: 200, title}` for
+ * a sign-in page, which reads as success — so the agent hunted for selectors that
+ * do not exist, each burning a 15 s timeout, and the run scored no progress until
+ * it stalled. See `browser-session.js` for why that page was a wall to begin with.
+ *
+ * Best-effort by design: a page whose body cannot be read still yields a verdict
+ * from the URL and title alone.
+ */
+async function inspectPage(session) {
+    const page = session?.page;
+    if (!page) return { wall: null, explanation: null };
+    let text = '';
+    try {
+        text = await page.locator('body').innerText({ timeout: 2_000 });
+    } catch { /* a page that never settles still has a url and a title */ }
+    return classifyPageWall({
+        url: page.url(),
+        title: await page.title().catch(() => ''),
+        text,
+        headless: session.headless === true,
+        attached: session.attached === true,
+    });
+}
 
 // playwright-core is loaded lazily so the addon doesn't pay the require cost
 // until a browser tool actually runs.
@@ -77,13 +107,53 @@ function resolveBrowserChannel() {
     );
 }
 
-async function ensureSession({ headless, profile, viewport } = {}) {
+async function ensureSession({ headless, profile, viewport, attach, cdpUrl, cdpPort } = {}) {
     if (_session) return _session;
     const pw = loadPlaywright();
     const { channel, executablePath } = resolveBrowserChannel();
     const profileName = String(profile || 'default').replace(/[^\w.-]/g, '_');
     const userDataDir = path.join(userDataRoot(), profileName);
     fs.mkdirSync(userDataDir, { recursive: true });
+
+    // ── Attach to the browser the user is ALREADY signed into ────────────────
+    //
+    // This is the difference between "sign in first" and just working. Our own
+    // persistent profile starts empty, so every signed-in site is a wall; the
+    // user's real browser already has the session. Requires the browser to have
+    // been started with --remote-debugging-port on a NON-default profile
+    // (Chrome/Edge ≥136 ignore the port on the default one) — see launchHint().
+    if (attach) {
+        const candidates = cdpCandidates(cdpUrl ?? cdpPort);
+        if (!candidates.length) {
+            throw new Error(`attach needs a loopback debugging endpoint — tried "${cdpUrl ?? cdpPort}". ${launchHint().command}`);
+        }
+        let lastErr = null;
+        for (const endpoint of candidates) {
+            try {
+                const browser = await pw.chromium.connectOverCDP(endpoint, { timeout: 8_000 });
+                const context = browser.contexts()[0] || await browser.newContext();
+                const pages = context.pages();
+                const page = pages[pages.length - 1] || await context.newPage();
+                _session = {
+                    browser,
+                    context,
+                    page,
+                    channel,
+                    executablePath,
+                    userDataDir: null,
+                    profile: profileName,
+                    attached: true,
+                    cdpUrl: endpoint,
+                    startedAt: Date.now(),
+                };
+                return _session;
+            } catch (e) { lastErr = e; }
+        }
+        throw new Error(
+            `Could not attach to a browser on ${candidates.join(' or ')} (${lastErr?.message || 'no endpoint answered'}). `
+            + `${launchHint().why} Expected launch: ${launchHint().command}`
+        );
+    }
 
     // launchPersistentContext gives us BrowserContext+cookies+localStorage in
     // a single call; far simpler than launch() + newContext().
@@ -111,16 +181,32 @@ async function ensureSession({ headless, profile, viewport } = {}) {
         executablePath,
         userDataDir,
         profile: profileName,
+        attached: false,
+        headless: headless !== false,
         startedAt: Date.now(),
     };
     return _session;
 }
 
+/**
+ * Close the session.
+ *
+ * ⚠️ An ATTACHED session is never closed, only disconnected from. `browser.close()`
+ * on a CDP connection shuts down the user's browser — with every tab they had open
+ * and every sign-in state along with it — which is not something a "close the
+ * browser session" tool may do to a browser it did not start. We drop our
+ * reference; they keep their browser.
+ */
 async function closeSession() {
-    if (!_session) return false;
+    if (!_session) return { closed: false, reason: 'no session' };
+    if (_session.attached) {
+        const url = _session.cdpUrl;
+        _session = null;
+        return { closed: true, detached: true, cdpUrl: url, note: 'detached — the user\'s own browser was left running' };
+    }
     try { await _session.context.close(); } catch {}
     _session = null;
-    return true;
+    return { closed: true };
 }
 
 function describePage(page) {
@@ -139,26 +225,35 @@ const browserOpen = {
         'Launch (or attach to) the singleton browser session. Idempotent: if a session ' +
         'is already running, returns its current url/profile. Use `profile` to keep separate ' +
         'cookie jars per workflow (default: "default"). Set `headless: false` if the user ' +
-        'wants to watch the browser visibly.',
+        'wants to watch the browser visibly. ' +
+        'IMPORTANT: set `attach: true` when the task needs a site the user is ALREADY signed into ' +
+        '(webmail, a chat app, a dashboard) — it drives the browser they are logged into instead of a ' +
+        'fresh profile that shows a sign-in page. That browser must have been started with ' +
+        'a --remote-debugging-port on a non-default profile; if the attach fails this returns the exact ' +
+        'command to run, so relay it to the user rather than retrying.',
     parameters: {
         type: 'object',
         properties: {
-            headless: { type: 'boolean', description: 'Default true. Set false to show the window.' },
+            headless: { type: 'boolean', description: 'Default true. Set false to show the window. Irrelevant when attach is true.' },
             profile: { type: 'string', description: 'Profile dir name (alphanumeric). Default "default".' },
             viewport: {
                 type: 'object',
                 properties: { width: { type: 'integer' }, height: { type: 'integer' } },
             },
+            attach: { type: 'boolean', description: 'Drive the browser the user is already signed into, over CDP, instead of launching our own profile.' },
+            cdpPort: { type: 'integer', description: 'Debugging port of that browser. Default: try 9222, 9223, 9333.' },
         },
     },
     async run(args = {}) {
         const s = await ensureSession(args);
         return {
             opened: true,
+            attached: !!s.attached,
+            ...(s.cdpUrl ? { cdpUrl: s.cdpUrl } : {}),
             channel: s.channel,
             executablePath: s.executablePath,
             profile: s.profile,
-            userDataDir: s.userDataDir,
+            ...(s.userDataDir ? { userDataDir: s.userDataDir } : {}),
             url: s.page.url(),
             title: await s.page.title(),
         };
@@ -170,7 +265,10 @@ const browserGoto = {
     category: 'sandboxed-write',
     description:
         'Navigate the browser to a URL. Opens the session if none exists. ' +
-        'Waits for the network to be roughly idle before returning.',
+        'Waits for the network to be roughly idle before returning. ' +
+        'The result includes `wall` when the page is a sign-in / device-pairing / 2FA screen rather than ' +
+        'the page you wanted — when it is set, STOP: no selector you try will work on it, and only the user ' +
+        'can clear it. `wallExplanation` says which move to make.',
     parameters: {
         type: 'object',
         properties: {
@@ -187,10 +285,15 @@ const browserGoto = {
             waitUntil: args.waitUntil || 'domcontentloaded',
             timeout: args.timeoutMs || DEFAULT_NAV_TIMEOUT_MS,
         });
+        const inspection = await inspectPage(s);
         return {
             url: s.page.url(),
             title: await s.page.title(),
             status: resp ? resp.status() : null,
+            // Inline, next to the status, so a 200 cannot read as "we are where we
+            // wanted to be" when the page is actually a wall.
+            wall: inspection.wall,
+            wallExplanation: inspection.explanation,
         };
     },
 };
@@ -327,21 +430,72 @@ const browserScreenshot = {
     },
 };
 
+/**
+ * Press a key in the page or in a specific element.
+ *
+ * **Why this had to exist before the chat could send a message anywhere.**
+ * `browser_fill` sets a field's value, and that is all — it does not submit. Most
+ * web chat inputs are submitted with Enter, and a search box with Enter too, so
+ * "type a message and send it" was not expressible with the tools that existed:
+ * the agent could put text in the box and then had no way to commit it. That is a
+ * capability gap, not a prompting problem, and no amount of retrying would close
+ * it.
+ *
+ * With no selector it presses at page level (`page.keyboard.press`), which is
+ * what an input that already has focus needs; with a selector it focuses that
+ * element first.
+ */
+const browserPress = {
+    name: 'browser_press',
+    category: 'sandboxed-write',
+    description:
+        'Press a keyboard key — use this to SUBMIT: a chat or search box is usually sent with "Enter". ' +
+        'Give `selector` to focus that element first (e.g. the message box), or omit it to press wherever ' +
+        'focus already is. Keys are Playwright names: Enter, Tab, Escape, ArrowDown, Control+A, Backspace.',
+    parameters: {
+        type: 'object',
+        properties: {
+            key: { type: 'string', description: 'Key name, e.g. "Enter".' },
+            selector: { type: 'string', description: 'Optional: focus this element before pressing.' },
+            timeoutMs: { type: 'integer' },
+        },
+        required: ['key'],
+    },
+    async run(args = {}) {
+        const key = String(args.key || '').trim();
+        if (!key) throw new Error('key is required (e.g. "Enter")');
+        const s = await ensureSession();
+        if (args.selector) {
+            await s.page.locator(args.selector).first().focus({ timeout: args.timeoutMs || DEFAULT_ACTION_TIMEOUT_MS });
+        }
+        await s.page.keyboard.press(key);
+        return { pressed: key, ...(args.selector ? { inSelector: args.selector } : {}), url: s.page.url() };
+    },
+};
+
 const browserStatus = {
     name: 'browser_status',
     category: 'safe-read',
-    description: 'Return whether a browser session is open and its current url/title/profile.',
+    description:
+        'Return whether a browser session is open, its current url/title/profile, and — importantly — ' +
+        'whether the page is a `wall` (sign-in / pairing / 2FA) with `wallExplanation` naming the next move. ' +
+        'Check this before clicking anything you are unsure about.',
     parameters: { type: 'object', properties: {} },
     async run() {
         if (!_session) return { open: false };
+        const inspection = await inspectPage(_session);
         return {
             open: true,
             url: _session.page.url(),
             title: await _session.page.title().catch(() => ''),
             profile: _session.profile,
             channel: _session.channel,
+            attached: !!_session.attached,
+            headless: _session.headless === true,
             startedAt: _session.startedAt,
             uptimeMs: Date.now() - _session.startedAt,
+            wall: inspection.wall,
+            wallExplanation: inspection.explanation,
         };
     },
 };
@@ -349,11 +503,10 @@ const browserStatus = {
 const browserClose = {
     name: 'browser_close',
     category: 'sandboxed-write',
-    description: 'Close the browser session and release resources.',
+    description: 'Close the browser session and release resources. An ATTACHED session is only detached from — the user\'s own browser is left running.',
     parameters: { type: 'object', properties: {} },
     async run() {
-        const closed = await closeSession();
-        return { closed };
+        return await closeSession();
     },
 };
 
@@ -362,6 +515,7 @@ module.exports = {
     browserGoto,
     browserClick,
     browserFill,
+    browserPress,
     browserText,
     browserEval,
     browserScreenshot,
@@ -369,4 +523,7 @@ module.exports = {
     browserClose,
     // Exposed for tests / shutdown hooks.
     _closeSession: closeSession,
+    // …and the wall inspection, so its "is this page a dead end?" decision can be
+    // exercised against a fake page without launching a browser.
+    _inspectPage: inspectPage,
 };

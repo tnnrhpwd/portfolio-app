@@ -47,6 +47,7 @@ import {
   syncWithFallback,
 } from '../../utils/simpleAddon/conversationWeight.js';
 import { retryMessageFor } from '../../utils/simpleAddon/retryMessage.js';
+import { agentStopMessage } from '../../utils/simpleAddon/agentStopMessage.js';
 import { DEFAULT_CLOUD_PROVIDER, DEFAULT_LOCAL_MODEL_ID, modelDisplayName, providerLabel } from '../../constants/aiModel.js';
 import './SimpleChat.css';
 import './SimpleTheme.css';
@@ -1706,9 +1707,14 @@ function SimpleChat({
             const stepNote = typeof agentResult.steps === 'number'
               ? `\n\n_(ran ${agentResult.steps} step${agentResult.steps === 1 ? '' : 's'})_`
               : '';
+            // No final answer: explain the stop from the evidence rather than
+            // printing the addon's raw status token twice. `agentStopMessage` also
+            // renders `stepLog`, which is the answer to "what did it try?" — the
+            // step count and the log were both available here and both discarded
+            // before, which is why a stalled run read as a bare one-word error.
             const content = agentResult.result
               ? `${agentResult.result}${stepNote}`
-              : `🤖 **Agent stopped** — ${agentResult.status || 'no result'}${agentResult.reason ? ` (${agentResult.reason})` : ''}.`;
+              : agentStopMessage(agentResult);
             const assistantMessage = {
               id: (Date.now() + 1).toString(),
               role: 'assistant',

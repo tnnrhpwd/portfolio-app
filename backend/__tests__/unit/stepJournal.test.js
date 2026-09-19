@@ -12,15 +12,32 @@
 
 const journal = require('../../services/harness/stepJournal.js');
 
-/** In-memory store, mirroring the shape the DynamoDB one exposes. */
+/**
+ * In-memory store, mirroring the shape the DynamoDB one exposes — INCLUDING its
+ * revision and its conditional write, because the lost-race path is the point.
+ */
 function memStore() {
   const rows = new Map();
   return {
     rows,
-    async load(userId) { return rows.get(userId) || []; },
-    async save(userId, runs) { rows.set(userId, runs); },
+    async load(userId) {
+      const row = rows.get(userId);
+      return row ? { runs: row.runs, revision: row.revision } : { runs: [], revision: null };
+    },
+    async save(userId, runs, { expectedRevision = null } = {}) {
+      const row = rows.get(userId);
+      if ((row?.revision ?? null) !== expectedRevision) {
+        const err = new Error('the conditional request failed');
+        err.name = 'ConditionalCheckFailedException';
+        throw err;
+      }
+      revisionSeq += 1;
+      rows.set(userId, { runs, revision: `rev-${revisionSeq}` });
+    },
   };
 }
+
+let revisionSeq = 0;
 
 let store;
 
@@ -178,6 +195,36 @@ describe('step lifecycle', () => {
   });
 });
 
+describe('fitRuns — the item budget', () => {
+  const huge = (id) => ({ id, steps: [{ resultPreview: 'x'.repeat(journal.RUN_ITEM_MAX_CHARS) }] });
+
+  test('drops the OLDEST runs first, and stays inside the budget', () => {
+    const out = journal.fitRuns([huge('new'), huge('mid'), huge('old')]);
+
+    expect(out.runs[0].id).toBe('new');
+    expect(out.runs.map((r) => r.id)).not.toContain('old');
+    expect(out.dropped).toBeGreaterThan(0);
+    expect(JSON.stringify(out.runs).length).toBeLessThanOrEqual(journal.RUN_ITEM_MAX_CHARS);
+  });
+
+  test('trims the surviving record rather than losing the run entirely', () => {
+    const out = journal.fitRuns([{ ...huge('only'), plan: { items: [{ text: 'x' }] } }]);
+
+    expect(out.runs).toHaveLength(1);
+    expect(out.trimmed).toBe(true);
+    expect(out.runs[0].id).toBe('only');            // the run is still identifiable
+    expect(out.runs[0].steps).toEqual([]);
+    expect(out.runs[0].stepsTrimmed).toBe(1);       // …and says what it lost
+    expect(out.runs[0].plan).toBeNull();
+  });
+
+  test('leaves a ring that fits exactly as it was', () => {
+    const runs = [{ id: 'a', steps: [] }, { id: 'b', steps: [] }];
+    expect(journal.fitRuns(runs)).toEqual({ runs, dropped: 0, trimmed: false });
+    expect(runs[0].steps).toEqual([]);               // and does not mutate its input
+  });
+});
+
 describe('finishRun — the per-user ring', () => {
   test('writes once, newest first, and is readable back', async () => {
     const run = journal.createRun({ userId: 'u1', provider: 'bedrock', model: 'm' });
@@ -220,6 +267,70 @@ describe('finishRun — the per-user ring', () => {
     await expect(journal.finishRun(journal.createRun({}), { outcome: 'completed' }))
       .resolves.toEqual({ saved: false });
     expect(store.rows.size).toBe(0);
+  });
+
+  test('reports an untroubled save as untroubled', async () => {
+    const run = journal.createRun({ userId: 'u1' });
+    await expect(journal.finishRun(run, { outcome: 'completed' }))
+      .resolves.toEqual({ saved: true, dropped: 0, trimmed: false });
+  });
+
+  test('a lost race is retried once and re-merged, so the other turn survives', async () => {
+    const other = { id: 'other-run', at: '2026-01-01T00:00:00.000Z', steps: [] };
+    let stored = [];
+    let revision = null;
+    let writes = 0;
+    journal.setRunStoreForTests({
+      async load() {
+        // By the retry's read, the concurrent turn has committed — which is
+        // exactly what a non-retrying save would have silently overwritten.
+        if (writes === 1) { stored = [other]; revision = 'rev-2'; }
+        return { runs: stored, revision };
+      },
+      async save(_userId, runs) {
+        writes += 1;
+        if (writes === 1) {
+          const err = new Error('the conditional request failed');
+          err.name = 'ConditionalCheckFailedException';
+          throw err;
+        }
+        stored = runs;
+        revision = `rev-${writes}`;
+      },
+    });
+
+    const run = journal.createRun({ userId: 'u1' });
+    await expect(journal.finishRun(run, { outcome: 'completed' })).resolves.toMatchObject({ saved: true });
+
+    const runs = await journal.readRuns('u1');
+    expect(runs.map((r) => r.id)).toEqual([run.id, 'other-run']);
+  });
+
+  test('a second conflict gives up rather than holding the turn open', async () => {
+    journal.setRunStoreForTests({
+      async load() { return { runs: [], revision: 'rev' }; },
+      async save() {
+        const err = new Error('the conditional request failed');
+        err.name = 'ConditionalCheckFailedException';
+        throw err;
+      },
+    });
+
+    const run = journal.createRun({ userId: 'u1' });
+    await expect(journal.finishRun(run, { outcome: 'completed' })).resolves.toEqual({ saved: false });
+  });
+
+  test('tolerates a store that returns a bare array', async () => {
+    // The harness scenario suite's fake still has this shape; a journal that
+    // only understood `{runs, revision}` would break it on the read path.
+    journal.setRunStoreForTests({
+      async load() { return []; },
+      async save() {},
+    });
+
+    const run = journal.createRun({ userId: 'u1' });
+    await expect(journal.finishRun(run, { outcome: 'completed' })).resolves.toMatchObject({ saved: true });
+    await expect(journal.readRuns('u1')).resolves.toEqual([]);
   });
 });
 

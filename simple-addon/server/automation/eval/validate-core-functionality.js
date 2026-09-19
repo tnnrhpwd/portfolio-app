@@ -56,6 +56,7 @@ function registerAllTools() {
     const { screenSetOfMarks } = require('../tools/set-of-marks');
     const {
         browserOpen, browserGoto, browserClick, browserFill,
+        browserPress,
         browserText, browserEval, browserScreenshot, browserStatus, browserClose,
     } = require('../tools/browser');
     const { uiaFind, uiaInvoke, uiaGetText, uiaSnapshot } = require('../tools/uia');
@@ -69,7 +70,7 @@ function registerAllTools() {
         fsRead, fsList, windowList, processList, clipboardRead, screen, screenOcr, screenSetOfMarks,
         uiaFind, uiaGetText, uiaSnapshot, perceptionRecent,
         browserOpen, browserGoto, browserText, browserScreenshot, browserStatus,
-        fsWrite, clipboardWrite, browserClick, browserFill, browserClose,
+        fsWrite, clipboardWrite, browserClick, browserFill, browserPress, browserClose,
         windowFocus, uiaInvoke, inputHold, inputTap, clickAt, mousePath, mouseDrag, windowSetRect,
         processKill, shell, browserEval,
         skillRun, screenRelay, openApp, textType,
