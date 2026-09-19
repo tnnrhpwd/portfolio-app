@@ -37,6 +37,7 @@ class TrayManager {
    * Create the system tray icon.
    * @param {Object} callbacks
    * @param {Function} callbacks.onOpenDashboard — called with an optional initial tab id
+   * @param {Function} callbacks.onOpenChat — open the agent chat window
    * @param {Function} callbacks.onOpenWebApp
    * @param {Function} callbacks.onQuit
    * @param {Function} callbacks.onInstallUpdate — install the downloaded update
@@ -176,6 +177,13 @@ class TrayManager {
       {
         label: 'Open Dashboard',
         click: () => this.callbacks.onOpenDashboard?.(),
+      },
+      // The chat is a separate window rather than a dashboard view because it is a
+      // mirror of /net's page, not a panel: it owns the whole window the way the
+      // website's conversation owns the whole route. See docs/implementation/ADDON_CHAT.md.
+      {
+        label: 'Open Chat',
+        click: () => this.callbacks.onOpenChat?.(),
       },
       {
         label: 'Open Web App',

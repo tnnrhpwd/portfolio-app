@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Automation entry point — wires the tool registry, permission store, and
  * Express endpoints into the existing Simple addon server.
  *
@@ -658,6 +658,44 @@ function mountAutomation(app, { cloudRelay, log = console.log } = {}) {
             };
         });
     }
+
+    // ─── Cloud conversation store (the SAME row /net syncs) ────────────────
+    //
+    // The addon's chat keeps its conversations in the cloud row
+    // `csimple_convos_<userId>`, via these two routes. They exist so the RENDERER
+    // never holds the user's JWT: the token lives in this process (cloud-relay →
+    // `setTokenGetter`), the same reason `compile-natural` and `edit-natural` are
+    // proxied rather than called from the page. A `file://` window with the auth
+    // token in it is a token that leaks with any renderer bug.
+    //
+    // Not signed in is a normal state, not an error: `GET` answers 200 with
+    // `signedIn: false` so the chat can say "this stays on this PC" instead of
+    // painting a failure over a fresh install.
+    app.get('/api/conversations', async (req, res) => {
+        try {
+            res.json(await wsClient.getConversations());
+        } catch (e) {
+            res.status(e.status || 502).json({ error: e.message, signedIn: true });
+        }
+    });
+
+    // ⚠️ The backend's status is passed through UNCHANGED. The renderer's size policy
+    // retries without the agent detail only on a 413, so flattening every failure to
+    // 502 here would turn that retry into a guess at the error's wording — or worse,
+    // hide the one signal that says "this payload is too heavy".
+    app.post('/api/conversations/merge', async (req, res) => {
+        // A missing token is "signed out", not a server fault. The chat renders 401 as
+        // "on this PC only" and anything else as a failure, so this distinction is the
+        // difference between an honest empty state and a red error on a fresh install.
+        if (!wsClient.getToken()) return res.status(401).json({ error: 'not signed in' });
+        try {
+            const { conversations, deletedIds } = req.body || {};
+            const out = await wsClient.mergeConversations({ conversations, deletedIds });
+            res.json(out);
+        } catch (e) {
+            res.status(e.status || 502).json({ error: e.message });
+        }
+    });
 
     app.post('/api/agent/run', async (req, res) => {
         try {

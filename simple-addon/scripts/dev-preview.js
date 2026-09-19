@@ -47,6 +47,7 @@ const EVENTS_PATH = '/__dev/events';
  *  the three the app actually opens. */
 const KNOWN_PAGES = [
   { file: 'dashboard.html', what: 'Dashboard (the main window)' },
+  { file: 'chat.html', what: 'Chat (the agent conversation, a mirror of /net)' },
   { file: 'calibration.html', what: 'Eye-tracking calibration (fullscreen)' },
   { file: 'eye-overlay.html', what: 'Gaze overlay (transparent, drawn over the desktop)' },
 ];
@@ -127,6 +128,7 @@ const SHIM = `
   }
 
   window.simpleDashboard = makeBridge('simpleDashboard');
+  window.simpleChat = makeBridge('simpleChat');
   window.calibrationAPI = makeBridge('calibrationAPI');
   window.eyeOverlayAPI = makeBridge('eyeOverlayAPI');
 

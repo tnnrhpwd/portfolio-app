@@ -48,6 +48,7 @@ let calibrationWindow = null;
 let eyeOverlayWindow = null;       // transparent click-through gaze dot
 let eyeOverlayAutoTrain = null;    // {timer, lastSampleAt, lastCursor, lastCursorAt, lastGaze, lastGazeAt}
 let dashboardWindow = null;        // unified lightweight dashboard (Phase 6)
+let chatWindow = null;             // the agent chat — a mirror of /net's conversation
 let pythonStatusDetail = '';       // full text of the last Python setup error
 
 // ─── Resource Paths ─────────────────────────────────────────────────────────────
@@ -302,8 +303,73 @@ function openDashboard(initialTab) {
   dashboardWindow.on('closed', () => { dashboardWindow = null; });
 }
 
+/**
+ * Open (or focus) the single chat window.
+ *
+ * The addon's chat is a MIRROR of the `/net` page's conversation: the same bubbles,
+ * the same live "what is it doing" note, the same step list, the same honest report
+ * when a run ends without an answer. What differs is the engine — this one drives the
+ * addon's OWN agent loop on this machine (`POST /api/agent/run` + `/api/agent/events`)
+ * instead of the cloud harness, so it works signed out and needs no relay hop.
+ *
+ * Opened from the tray and from the dashboard; like the dashboard it is a singleton
+ * (a second window would be a second view of the same agent, which is noise).
+ */
+function openChat() {
+  if (chatWindow && !chatWindow.isDestroyed()) {
+    chatWindow.focus();
+    return;
+  }
+  chatWindow = new BrowserWindow({
+    width: 1040, height: 760, minWidth: 420, minHeight: 480, title: 'Simple Chat',
+    backgroundColor: appearanceWindowBackground(),
+    webPreferences: {
+      contextIsolation: true, nodeIntegration: false,
+      preload: path.join(__dirname, 'renderer', 'chat-preload.js'),
+    },
+  });
+  chatWindow.setMenuBarVisibility(false);
+  const port = trayManager?.serverPort || 3001;
+  const params = new URLSearchParams(appearanceParams({ port: String(port) }));
+  const url = `file://${path.join(__dirname, 'renderer', 'chat.html').replace(/\\/g, '/')}?${params.toString()}`;
+  chatWindow.loadURL(url);
+  chatWindow.on('closed', () => { chatWindow = null; });
+}
+
 ipcMain.handle('dashboard:open-web-app', () => {
   shell.openExternal(WEBAPP_URL);
+  return { ok: true };
+});
+
+ipcMain.handle('dashboard:open-chat', () => {
+  openChat();
+  return { ok: true };
+});
+
+/**
+ * The chat window's own native hooks.
+ *
+ * Both of these take a STRING FROM A MODEL'S REPLY, which is why they live in the
+ * main process with a scheme check rather than in the renderer: `shell.openExternal`
+ * acts on whatever it is given, so `file://`, `javascript:` or a shell URI there
+ * would be a hole opened by a sentence the agent happened to write.
+ */
+ipcMain.handle('chat:open-external', (_event, url) => {
+  if (typeof url === 'string' && /^https?:\/\//i.test(url)) {
+    shell.openExternal(url);
+    return { ok: true };
+  }
+  return { ok: false, error: 'Only http(s) links can be opened' };
+});
+
+ipcMain.handle('chat:open-path', (_event, targetPath) => {
+  if (typeof targetPath !== 'string' || !targetPath.trim()) return { ok: false, error: 'No path given' };
+  // `showItemInFolder` selects the file when it exists; `openPath` covers a folder.
+  try {
+    shell.showItemInFolder(targetPath);
+  } catch {
+    shell.openPath(targetPath);
+  }
   return { ok: true };
 });
 
@@ -1646,6 +1712,7 @@ app.on('ready', async () => {
   trayManager.create({
     onOpenWebApp: () => shell.openExternal(WEBAPP_URL),
     onOpenDashboard: (tab) => openDashboard(tab),
+    onOpenChat: () => openChat(),
     // Explicit update install. This is the only thing that installs an update
     // now: auto-updater.js turns off electron-updater's install-on-quit, which
     // otherwise ran the NSIS installer while Windows was shutting the session

@@ -640,6 +640,7 @@
     </div>
     <div class="drawer-group">
       <div class="drawer-label">This app</div>
+      <button class="drawer-link" id="drawer-chat" type="button">Open chat</button>
       <button class="drawer-link" id="drawer-restart" type="button">Restart server</button>
       <button class="drawer-link" id="drawer-log" type="button">Open log file</button>
       <button class="drawer-link" id="drawer-resources" type="button">Open resources folder</button>
@@ -1836,6 +1837,12 @@ function drawerAction(controlId, tabId) {
 }
 
 document.getElementById('drawer-restart').addEventListener('click', drawerAction('status-restart-server', 'status'));
+// NOT `drawerAction`: the chat is its own WINDOW (a mirror of /net's page), so there is
+// no control on a tab to click afterwards — the window opening IS the result.
+document.getElementById('drawer-chat').addEventListener('click', () => {
+  setDrawerOpen(false);
+  window.simpleDashboard.openChat();
+});
 document.getElementById('drawer-log').addEventListener('click', drawerAction('status-open-log'));
 document.getElementById('drawer-resources').addEventListener('click', drawerAction('status-open-resources'));
 document.getElementById('drawer-updates').addEventListener('click', drawerAction('update-check', 'updates'));

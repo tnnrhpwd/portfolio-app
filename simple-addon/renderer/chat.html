@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Simple Chat</title>
+<!-- Appearance FIRST: `bootstrap()` writes data-scheme / data-mode on <html> from the
+     values main.js put on this window's URL, so the very first frame is already the
+     right colours and the right mode — fetching them later would flash the wrong one.
+     The palette lives in appearance/appearance.css; chat/chat.css only references it. -->
+<link rel="stylesheet" href="appearance/appearance.css">
+<script src="appearance/appearance.js"></script>
+<script>window.SimpleAppearance.bootstrap();</script>
+<link rel="stylesheet" href="chat/chat.css">
+</head>
+<body>
+  <div id="room" aria-hidden="true"></div>
+
+  <div class="chat-app">
+    <header class="chat-head">
+      <button id="rail-toggle" class="chat-head__menu" type="button"
+              aria-label="Conversations" aria-expanded="false" aria-controls="rail">☰</button>
+      <div class="chat-head__info">
+        <h1 id="chat-title" class="chat-head__title">New chat</h1>
+        <span id="chat-state" class="chat-head__state">Connecting…</span>
+      </div>
+      <div class="chat-head__actions">
+        <span id="chat-sync" class="chat-head__sync" role="status" aria-live="polite"></span>
+        <button id="new-chat" class="chat-head__btn" type="button">＋ New chat</button>
+        <button id="stop-btn" class="chat-head__btn chat-head__btn--stop" type="button" hidden>■ Stop</button>
+      </div>
+    </header>
+
+    <div class="chat-body">
+      <aside id="rail" class="chat-rail" aria-label="Conversations" inert>
+        <div class="chat-rail__head">On this PC</div>
+        <div id="rail-list" class="chat-rail__list"></div>
+      </aside>
+      <button id="scrim" class="chat-scrim" type="button" tabindex="-1" aria-label="Close conversations" hidden></button>
+
+      <main class="chat-main">
+        <div id="messages" class="chat-messages" role="log" aria-live="polite" aria-relevant="additions text"></div>
+
+        <form id="composer" class="composer" autocomplete="off">
+          <div id="approvals" class="composer__approvals"></div>
+          <div class="composer__row">
+            <textarea id="input" class="composer__input" rows="1"
+                      placeholder="Ask for something to be done on this PC…"
+                      aria-label="Message"></textarea>
+            <button id="send" class="composer__send" type="submit" aria-label="Send" disabled>↑</button>
+          </div>
+          <p class="composer__hint">
+            <kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line ·
+            every action still goes through your permission settings.
+          </p>
+        </form>
+      </main>
+    </div>
+  </div>
+
+  <!-- Classic scripts, in dependency order: the renderer has no bundler, and Chromium
+       refuses module scripts from file:// — which is why every addon page is written
+       this way. Each module also works under Node so its test can require it. -->
+  <script src="chat/chat-format.js"></script>
+  <script src="chat/chat-store.js"></script>
+  <script src="chat/chat-sync.js"></script>
+  <script src="chat.js"></script>
+</body>
+</html>

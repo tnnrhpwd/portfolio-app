@@ -191,10 +191,13 @@ async function requestGoalReview(force = false) {
     return json;
 }
 
-async function req(method, urlPath, body) {
+async function req(method, urlPath, body, base) {
     const token = _tokenGetter();
     if (!token) throw new Error('No auth token (sign in on the web app first)');
-    const url = `${BASE}${urlPath}`;
+    // `base` is overridable because not every csimple route lives under /workspace:
+    // the conversation store is `/api/data/csimple/conversations` (see CSIMPLE_BASE).
+    const origin = base || BASE;
+    const url = `${origin}${urlPath}`;
     const res = await fetch(url, {
         method,
         headers: {
@@ -213,6 +216,60 @@ async function req(method, urlPath, body) {
         throw e;
     }
     return json;
+}
+
+const CHAT_CONVOS_PATH = '/conversations';
+/** The conversation row is a csimple route, NOT a workspace one — see `req`'s `base`. */
+const CSIMPLE_BASE = `${BACKEND_URL}/api/data/csimple`;
+
+/**
+ * The user's cloud conversations — the SAME row /net syncs (`csimple_convos_<userId>`).
+ *
+ * Signed out is NOT an error here: it is the normal state of a fresh install, and the
+ * chat window has to be able to say "this stays on this PC" rather than showing a
+ * failure. So the signed-out answer is a 200 with `signedIn: false`.
+ *
+ * `conversations` comes back as `null` from the backend when nothing is stored yet, so
+ * it is normalised to an array: every consumer would otherwise need the same guard.
+ */
+async function getConversations() {
+    const token = _tokenGetter();
+    if (!token) return { signedIn: false, conversations: [], deletedIds: [], updatedAt: null };
+    try {
+        const out = await req('GET', CHAT_CONVOS_PATH, undefined, CSIMPLE_BASE);
+        return {
+            signedIn: true,
+            conversations: Array.isArray(out?.conversations) ? out.conversations : [],
+            deletedIds: Array.isArray(out?.deletedIds) ? out.deletedIds.map(String) : [],
+            updatedAt: out?.updatedAt || null,
+        };
+    } catch (e) {
+        // A stale/expired token is the same user-visible situation as signed out; the
+        // chat should offer to carry on locally, not paint a red failure over it.
+        if (e.status === 401 || e.status === 403) {
+            return { signedIn: false, conversations: [], deletedIds: [], updatedAt: null };
+        }
+        throw e;
+    }
+}
+
+/**
+ * Merge this device's conversations into the cloud copy and return the merged list.
+ *
+ * The server is the authority on the merge (it holds every other device's copy), so
+ * the answer is what the caller adopts.
+ *
+ * ⚠️ `e.status` is carried through on failure ON PURPOSE: the caller's size policy
+ * (`renderer/chat/chat-sync.js`) retries WITHOUT the agent detail only when the server
+ * refused the payload as 413. Losing the status here would turn that retry into a
+ * guess at the error's wording.
+ */
+async function mergeConversations({ conversations, deletedIds } = {}) {
+    if (!Array.isArray(conversations)) throw new Error('conversations must be an array');
+    return req('POST', `${CHAT_CONVOS_PATH}/merge`, {
+        conversations,
+        deletedIds: Array.isArray(deletedIds) ? deletedIds : [],
+    }, CSIMPLE_BASE);
 }
 
 const getNextGoal = async ()            => {
@@ -441,6 +498,8 @@ module.exports = {
     upsertLesson,
     requestGoalReview,
     appendGoalAgentStep,
+    getConversations,
+    mergeConversations,
     compileNaturalViaBackend,
     editNaturalViaBackend,
     agentChat,

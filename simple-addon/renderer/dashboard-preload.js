@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('simpleDashboard', {
   getStartAtLogin: () => ipcRenderer.invoke('dashboard:get-start-at-login'),
   setStartAtLogin: (enabled) => ipcRenderer.invoke('dashboard:set-start-at-login', enabled),
   openWebApp: () => ipcRenderer.invoke('dashboard:open-web-app'),
+  openChat: () => ipcRenderer.invoke('dashboard:open-chat'),
   openExternal: (url) => ipcRenderer.invoke('dashboard:open-external', url),
   getEyeTrackingStatus: () => ipcRenderer.invoke('dashboard:get-eye-tracking-status'),
   getGazeHeatmap: () => ipcRenderer.invoke('dashboard:get-gaze-heatmap'),
