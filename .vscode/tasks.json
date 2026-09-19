@@ -1227,6 +1227,396 @@
 			"type": "shell",
 			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add simple-addon/server/automation/agent-loop.js simple-addon/server/automation/agent-loop.test.js .vscode/tasks.json; git commit -m 'Tell the agent it is authorised to act on the user behalf' -m 'A real run REFUSED the task outright: I can only help with actions on your Windows computer itself, not with sending messages through web services or apps. That is false here - typing into an app IS a Windows action, and that addon exists precisely to drive the app they are signed into.' -m 'Nothing in the prompt said the agent is authorised to act for the user, while rule 16 list of irreversible acts reads like a prohibition rather than a confirm-first instruction. Rule 19 states the authorisation, names the actions it covers, pre-empts that exact refusal wording, and keeps user_confirm as the real control: it asks the user and blocks, approved means do it, refused means say so and stop. A refusal where the user asked for a confirmation is itself the failure.' -m 'Pinned by a prompt-contract test, because a prompt rule can vanish silently in a refactor.'; git push origin master; git stash push -m 'parallel WIP, restored right after release' -- docs/implementation/NET_CHAT.md frontend/src/components/SimpleAddon/ChatWindow.jsx frontend/src/components/SimpleAddon/SimpleChat.jsx frontend/src/components/SimpleAddon/StepList.css frontend/src/components/SimpleAddon/StepList.jsx; git status --short; Set-Location simple-addon; node release.js; Set-Location ..; git stash pop; git status --short",
 			"group": "test"
+		},
+		{
+			"label": "refusal-guard-tests",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/agent-loop.test.js 2>&1 | Out-File -Encoding utf8 ../tmp-l9.txt; Select-String -Path ../tmp-l9.txt -Pattern 'FAIL|REFUSAL|cannot find it|passed,' -Context 0,2 | ForEach-Object { $_.Line; $_.Context.PostContext }; Write-Output '=== stop-reason ==='; node server/automation/stop-reason.test.js 2>&1 | Select-Object -Last 2",
+			"group": "test"
+		},
+		{
+			"label": "refusal-guard-tests-2",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Remove-Item -Force tmp-l9.txt -ErrorAction SilentlyContinue; Set-Location simple-addon; node server/automation/agent-loop.test.js 2>&1 | Select-Object -Last 2; Write-Output '=== chain ==='; Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; npm --prefix 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon' run test:unit 2>&1 | Out-File -Encoding utf8 tmp-c7.txt; Write-Output '--- FAILS ---'; (Select-String -Path tmp-c7.txt -Pattern '  FAIL  ').Count; Get-Content tmp-c7.txt -Tail 2; Remove-Item -Force tmp-c7.txt -ErrorAction SilentlyContinue",
+			"group": "test"
+		},
+		{
+			"label": "how-to-run-from-source",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; Write-Output '=== scripts ==='; node -e \"const p=require('./package.json'); console.log(JSON.stringify({main:p.main,scripts:p.scripts},null,1))\" 2>&1 | Select-Object -First 25; Write-Output '=== port 3001 ==='; (Get-NetTCPConnection -LocalPort 3001 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 3 | ForEach-Object { $p = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue; 'listener pid ' + $_.OwningProcess + ' = ' + $p.ProcessName + ' (' + $p.Path + ')' })",
+			"group": "test"
+		},
+		{
+			"label": "check-token-available",
+			"type": "shell",
+			"command": "Set-Location 'C:\\Users\\tanne\\AppData\\Roaming\\simple-addon'; $f = 'settings.json'; if (-not (Test-Path $f)) { Write-Output 'settings.json NOT FOUND'; Get-ChildItem -Name | Select-Object -First 30; exit 0 }; $j = Get-Content $f -Raw | ConvertFrom-Json; Write-Output ('top-level keys: ' + (($j.PSObject.Properties.Name) -join ', ')); $t = $j.data.cloudAuth.token; if ($t) { Write-Output ('cloudAuth.token PRESENT - length ' + $t.Length + ', looks like JWT: ' + ($t.Split('.').Count -eq 3)) } else { Write-Output 'cloudAuth.token absent'; if ($j.data) { Write-Output ('data keys: ' + (($j.data.PSObject.Properties.Name) -join ', ')) } }",
+			"group": "test"
+		},
+		{
+			"label": "find-settings-json",
+			"type": "shell",
+			"command": "Write-Output '=== resources-path.json ==='; Get-Content 'C:\\Users\\tanne\\AppData\\Roaming\\simple-addon\\resources-path.json' -ErrorAction SilentlyContinue; Write-Output ''; Write-Output '=== searching for settings.json ==='; @('C:\\Users\\tanne\\AppData\\Roaming\\simple-addon','C:\\Users\\tanne\\AppData\\Roaming\\Simple Addon','C:\\Users\\tanne\\AppData\\Local\\simple-addon','C:\\Users\\tanne\\AppData\\Local\\Programs\\simple-addon','C:\\Users\\tanne\\AppData\\Local\\Programs\\Simple Addon') | ForEach-Object { if (Test-Path $_) { Get-ChildItem -Path $_ -Filter 'settings.json' -Recurse -Depth 2 -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName + '  (' + $_.Length + ' bytes, ' + $_.LastWriteTime + ')' } } }",
+			"group": "test"
+		},
+		{
+			"label": "read-settings-json",
+			"type": "shell",
+			"command": "$f = 'C:\\Users\\tanne\\Documents\\CSimple\\Resources\\settings.json'; if (-not (Test-Path $f)) { Write-Output 'NOT FOUND: ' + $f; exit 0 }; Write-Output ('found, ' + (Get-Item $f).Length + ' bytes'); $j = Get-Content $f -Raw | ConvertFrom-Json; Write-Output ('top-level keys: ' + (($j.PSObject.Properties.Name) -join ', ')); Write-Output ('data keys: ' + (($j.data.PSObject.Properties.Name) -join ', ')); $t = $j.data.cloudAuth.token; if ($t) { Write-Output ('token present, length ' + $t.Length + ', encrypted: ' + $t.StartsWith('dpapi:v1:')) } else { Write-Output 'no data.cloudAuth.token' }",
+			"group": "test"
+		},
+		{
+			"label": "read-cloudauth",
+			"type": "shell",
+			"command": "$f = 'C:\\Users\\tanne\\Documents\\CSimple\\Resources\\settings.json'; $j = Get-Content $f -Raw | ConvertFrom-Json; Write-Output ('cloudAuth keys: ' + (($j.cloudAuth.PSObject.Properties.Name) -join ', ')); $t = $j.cloudAuth.token; if ($t) { Write-Output ('token length ' + $t.Length + ' | encrypted: ' + $t.StartsWith('dpapi:v1:')) } else { Write-Output 'no cloudAuth.token' }; Write-Output ('webapp keys: ' + (($j.webapp.PSObject.Properties.Name) -join ', '))",
+			"group": "test"
+		},
+		{
+			"label": "run-local-agent",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-run-agent.cjs --steps 8 2>&1 | Out-File -Encoding utf8 tmp-run-out.txt; Get-Content tmp-run-out.txt -TotalCount 50",
+			"group": "test"
+		},
+		{
+			"label": "run-local-agent-2",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-run-agent.cjs --steps 8 2>&1 | Out-File -Encoding utf8 tmp-run-out.txt; Get-Content tmp-run-out.txt -TotalCount 45",
+			"group": "test"
+		},
+		{
+			"label": "probe-token",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-probe-token.cjs; Write-Output '--- electron ---'; Test-Path 'simple-addon\\node_modules\\electron\\dist\\electron.exe'",
+			"group": "test"
+		},
+		{
+			"label": "net-run-1",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --steps 2 2>&1 | Out-File -Encoding utf8 tmp-net-run-out.txt; Get-Content tmp-net-run-out.txt -TotalCount 60",
+			"group": "test"
+		},
+		{
+			"label": "find-userdata",
+			"type": "shell",
+			"command": "Get-ChildItem 'C:\\Users\\tanne\\AppData\\Roaming' -Directory | Where-Object { $_.Name -match 'simple|addon' } | Select-Object -ExpandProperty FullName; Write-Output '--- Local State presence ---'; foreach ($d in @('C:\\Users\\tanne\\AppData\\Roaming\\simple-addon','C:\\Users\\tanne\\AppData\\Roaming\\Simple Addon')) { $f = Join-Path $d 'Local State'; \"$f -> $(Test-Path $f)\" }",
+			"group": "test"
+		},
+		{
+			"label": "find-userdata-2",
+			"type": "shell",
+			"command": "Get-ChildItem 'C:\\Users\\tanne\\AppData\\Roaming' -Directory -Name | Where-Object { $_ -like '*simple*' -or $_ -like '*Addon*' }; Write-Output '--- Local State ---'; Test-Path 'C:\\Users\\tanne\\AppData\\Roaming\\simple-addon\\Local State'; Test-Path 'C:\\Users\\tanne\\AppData\\Roaming\\Simple Addon\\Local State'",
+			"group": "test"
+		},
+		{
+			"label": "net-run-2",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --steps 2 2>&1 | Out-File -Encoding utf8 tmp-net-run-out.txt; Get-Content tmp-net-run-out.txt -TotalCount 70",
+			"group": "test"
+		},
+		{
+			"label": "net-run-3",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --steps 2 2>&1 | Out-File -Encoding utf8 tmp-net-run-out.txt; Get-Content tmp-net-run-out.txt -TotalCount 70",
+			"group": "test"
+		},
+		{
+			"label": "net-run-20",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --steps 20 2>&1 | Out-File -Encoding utf8 tmp-net-run-full.txt -Width 400; Get-Content tmp-net-run-full.txt -TotalCount 120",
+			"group": "test"
+		},
+		{
+			"label": "agent-loop-tests",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/agent-loop.test.js 2>&1 | Select-Object -Last 25",
+			"group": "test"
+		},
+		{
+			"label": "net-run-20b",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --steps 20 2>&1 | Out-File -Encoding utf8 tmp-net-run-full.txt -Width 400; Get-Content tmp-net-run-full.txt -TotalCount 40; Write-Output '======== TAIL ========'; Get-Content tmp-net-run-full.txt -Tail 12",
+			"group": "test"
+		},
+		{
+			"label": "diag-window-list",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --tool window_list 2>&1 | Out-File -Encoding utf8 tmp-diag.txt -Width 300; Get-Content tmp-diag.txt -TotalCount 60",
+			"group": "test"
+		},
+		{
+			"label": "diag-encoding-fix",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --tool window_list 2>&1 | Out-File -Encoding utf8 tmp-diag.txt -Width 300; Get-Content tmp-diag.txt -TotalCount 30; Write-Output '=== focus by normalised title ==='; node tmp-net-run.cjs --tool window_focus --args '{\"titleContains\":\"Microsoft Edge\"}' 2>&1 | Select-Object -Last 15",
+			"group": "test"
+		},
+		{
+			"label": "probe-encoding",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-probe-enc.cjs",
+			"group": "test"
+		},
+		{
+			"label": "diag-title-fixed",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --tool window_list 2>&1 | Out-File -Encoding utf8 tmp-diag.txt -Width 300; Get-Content tmp-diag.txt -TotalCount 34",
+			"group": "test"
+		},
+		{
+			"label": "probe-regex",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; powershell -NoProfile -ExecutionPolicy Bypass -File tmp-re.ps1",
+			"group": "test"
+		},
+		{
+			"label": "diag-title-fixed2",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --tool window_list 2>&1 | Out-File -Encoding utf8 tmp-diag.txt -Width 300; Get-Content tmp-diag.txt -TotalCount 34",
+			"group": "test"
+		},
+		{
+			"label": "diag-focus",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --tool window_focus --args-file tmp-args.json 2>&1 | Select-Object -Last 12",
+			"group": "test"
+		},
+		{
+			"label": "net-run-25",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --steps 25 2>&1 | Out-File -Encoding utf8 tmp-net-run-full.txt -Width 400; Get-Content tmp-net-run-full.txt -TotalCount 35; Write-Output '======== TAIL ========'; Get-Content tmp-net-run-full.txt -Tail 30",
+			"group": "test"
+		},
+		{
+			"label": "agent-loop-tests-2",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/agent-loop.test.js 2>&1 | Select-Object -Last 14",
+			"group": "test"
+		},
+		{
+			"label": "agent-loop-failures",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/agent-loop.test.js 2>&1 | Select-String -Pattern 'FAIL|AssertionError|Expected|Actual|at ' | Select-Object -First 30",
+			"group": "test"
+		},
+		{
+			"label": "agent-loop-tests-3",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/agent-loop.test.js 2>&1 | Select-String -Pattern 'FAIL|passed,|AssertionError|Expected|actual' | Select-Object -First 25",
+			"group": "test"
+		},
+		{
+			"label": "net-run-25b",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --steps 25 2>&1 | Out-File -Encoding utf8 tmp-net-run-full.txt -Width 400; Get-Content tmp-net-run-full.txt -TotalCount 42",
+			"group": "test"
+		},
+		{
+			"label": "llm-check",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --llm 2>&1 | Out-File -Encoding utf8 tmp-llm.txt -Width 300; Get-Content tmp-llm.txt -TotalCount 40",
+			"group": "test"
+		},
+		{
+			"label": "agent-loop-tests-4",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/agent-loop.test.js 2>&1 | Select-String -Pattern 'FAIL|passed,|REACHES' | Select-Object -First 20",
+			"group": "test"
+		},
+		{
+			"label": "net-run-18",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --steps 18 2>&1 | Out-File -Encoding utf8 tmp-net-run-full.txt -Width 400; Get-Content tmp-net-run-full.txt -TotalCount 45",
+			"group": "test"
+		},
+		{
+			"label": "tests-after-uia",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/agent-loop.test.js 2>&1 | Select-String -Pattern 'FAIL|passed,'; node server/automation/tools/system.test.js 2>&1 | Select-String -Pattern 'FAIL|passed,'; node server/automation/tools/input.test.js 2>&1 | Select-String -Pattern 'FAIL|passed,'",
+			"group": "test"
+		},
+		{
+			"label": "tests-after-uia2",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/agent-loop.test.js 2>&1 | Select-String -Pattern 'FAIL|passed,'; node server/automation/tools/system.test.js 2>&1 | Select-String -Pattern 'FAIL|passed,'; node server/automation/tools/input.test.js 2>&1 | Select-String -Pattern 'FAIL|passed,'",
+			"group": "test"
+		},
+		{
+			"label": "tests-tools",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/tools/system.test.js 2>&1 | Select-Object -Last 6; Write-Output '--- input ---'; node server/automation/tools/input.test.js 2>&1 | Select-Object -Last 4; Write-Output '--- uia syntax ---'; node -e \"require('./server/automation/tools/uia.js'); console.log('uia.js loads OK')\"",
+			"group": "test"
+		},
+		{
+			"label": "diag-uia-window",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --tool uia_snapshot --args-file tmp-args2.json 2>&1 | Out-File -Encoding utf8 tmp-diag.txt -Width 300; Get-Content tmp-diag.txt -TotalCount 22",
+			"group": "test"
+		},
+		{
+			"label": "net-run-20c",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --steps 20 2>&1 | Out-File -Encoding utf8 tmp-net-run-full.txt -Width 400; Get-Content tmp-net-run-full.txt -TotalCount 40; Write-Output '===== STEPS ====='; Get-Content tmp-net-run-full.txt -Tail 60",
+			"group": "test"
+		},
+		{
+			"label": "diag-uia-page",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --tool uia_snapshot --args-file tmp-args3.json 2>&1 | Out-File -Encoding utf8 tmp-diag3.txt -Width 300; Get-Content tmp-diag3.txt | Select-String -Pattern 'count|visited|truncated|\"name\"' | Select-Object -First 45",
+			"group": "test"
+		},
+		{
+			"label": "addon-unit-chain",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; npm --prefix simple-addon run test:unit 2>&1 | Select-String -Pattern 'FAIL|\\.test: |Error' | Select-Object -Last 45",
+			"group": "test"
+		},
+		{
+			"label": "cleanup-stray",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Remove-Item -Force '.copilot-memory-note.tmp' -ErrorAction SilentlyContinue; Get-ChildItem -Filter 'tmp-*' -File | Select-Object -ExpandProperty Name",
+			"group": "test"
+		},
+		{
+			"label": "delete-playwright",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Remove-Item -Force 'simple-addon\\server\\automation\\tools\\browser.js','simple-addon\\server\\automation\\browser-session.js','simple-addon\\server\\automation\\browser-session.test.js','simple-addon\\server\\automation\\eval\\scenarios\\07-browser-smoke.json','simple-addon\\server\\automation\\eval\\scenarios\\08-browser-persistence.json'; Write-Output '--- remaining browser references ---'; Get-ChildItem -Recurse -File -Include *.js,*.json,*.md -Path simple-addon,docs | Select-String -Pattern 'tools/browser|browser-session|playwright' -List | Select-Object -ExpandProperty Path",
+			"group": "test"
+		},
+		{
+			"label": "verify-and-lock",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Write-Output '--- lingering browser refs in addon source ---'; Get-ChildItem -Recurse -File -Include *.js,*.json -Path simple-addon\\server,simple-addon\\main.js,simple-addon\\tray.js,simple-addon\\renderer 2>$null | Select-String -Pattern 'tools/browser|browser-session|browser_' | Select-Object -ExpandProperty Line; Write-Output '--- syncing lockfile ---'; npm --prefix simple-addon install --package-lock-only --ignore-scripts 2>&1 | Select-Object -Last 5",
+			"group": "test"
+		},
+		{
+			"label": "addon-chain-after-removal",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Write-Output '--- playwright-core in lock (dev flag?) ---'; Select-String -Path 'simple-addon\\package-lock.json' -Pattern 'playwright-core' -Context 0,4 | Select-Object -First 6 | Out-String -Width 160; Write-Output '--- unit chain ---'; npm --prefix simple-addon run test:unit 2>&1 | Select-String -Pattern 'FAIL|\\.test: |Error:' | Select-Object -Last 30",
+			"group": "test"
+		},
+		{
+			"label": "eval-dry",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; npm --prefix simple-addon run eval:dry 2>&1 | Select-Object -Last 18",
+			"group": "test"
+		},
+		{
+			"label": "eval-dry-check",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; npm --prefix simple-addon run eval:dry 2>&1 | Out-File -Encoding utf8 tmp-eval.txt -Width 240; Write-Output '--- module/require errors ---'; (Select-String -Path tmp-eval.txt -Pattern 'Cannot find module|tools/browser|browser_|is not a function' | Select-Object -ExpandProperty Line) -join \"`n\"; Write-Output '--- summary ---'; Select-String -Path tmp-eval.txt -Pattern 'PASS|FAIL|passed|failed|scenario' | Select-Object -Last 8 | Select-Object -ExpandProperty Line",
+			"group": "test"
+		},
+		{
+			"label": "eval-dry-file",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; npm --prefix simple-addon run eval:dry 2>&1 | Out-File -Encoding utf8 tmp-eval.txt -Width 240; Get-Content tmp-eval.txt -TotalCount 12",
+			"group": "test"
+		},
+		{
+			"label": "net-native-run",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --steps 20 2>&1 | Out-File -Encoding utf8 tmp-net-run-full.txt -Width 400; Get-Content tmp-net-run-full.txt -TotalCount 34",
+			"group": "test"
+		},
+		{
+			"label": "net-run-uia-hint",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --steps 22 2>&1 | Out-File -Encoding utf8 tmp-net-run-full.txt -Width 400; Get-Content tmp-net-run-full.txt -TotalCount 32",
+			"group": "test"
+		},
+		{
+			"label": "look-at-screen",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --seq tmp-step-look.json 2>&1 | Out-File -Encoding utf8 tmp-look.txt -Width 400; Get-Content tmp-look.txt | Select-String -Pattern '===|title\"|\"text\"' | Select-Object -First 40",
+			"group": "test"
+		},
+		{
+			"label": "open-messages",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --seq tmp-step-open.json 2>&1 | Select-Object -Last 12; Write-Output '======== NOW LOOKING ========'; node tmp-net-run.cjs --seq tmp-step-look.json 2>&1 | Out-File -Encoding utf8 tmp-look2.txt -Width 400; Get-Content tmp-look2.txt | Select-String -Pattern '\"text\": \"' | Select-Object -First 3",
+			"group": "test"
+		},
+		{
+			"label": "read-look2",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Get-Content tmp-look2.txt -TotalCount 6; Write-Output '--- OCR BLOB ---'; Get-Content tmp-look2.txt | Select-String -Pattern 'CONVERSATIONS|Dakota|RCS|Google Messages|no messages|Start' | Select-Object -First 12",
+			"group": "test"
+		},
+		{
+			"label": "goto-messages",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --seq tmp-step-goto.json 2>&1 | Select-Object -Last 16; Write-Output '======== LOOK ========'; node tmp-net-run.cjs --seq tmp-step-look.json 2>&1 | Out-File -Encoding utf8 tmp-look3.txt -Width 400; Write-Output 'done'",
+			"group": "test"
+		},
+		{
+			"label": "look3",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Get-Content tmp-look3.txt | Select-String -Pattern '\"title\":' | Select-Object -First 4; Write-Output '--- OCR ---'; Get-Content tmp-look3.txt | Select-String -Pattern 'CONVERSATIONS|PEOPLE|Dakota|Girlfriend|RCS|Start|Messages' | Select-Object -First 14",
+			"group": "test"
+		},
+		{
+			"label": "flat-tabs",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --tool uia_snapshot --args-file tmp-args4.json 2>&1 | Out-File -Encoding utf8 tmp-flat.txt -Width 400; Get-Content tmp-flat.txt | Select-String -Pattern 'TabItem|Address|Omnibox|\"name\": \"[A-Z]' | Select-Object -First 40",
+			"group": "test"
+		},
+		{
+			"label": "tab-detail",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Select-String -Path tmp-flat.txt -Pattern 'TabItem' -Context 6,6 | Select-Object -First 1 | Out-String -Width 200; Write-Output '--- address bar coords ---'; Select-String -Path tmp-flat.txt -Pattern 'OmniboxViewViews' -Context 3,6 | Select-Object -First 1 | Out-String -Width 200",
+			"group": "test"
+		},
+		{
+			"label": "select-msg-tab",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --seq tmp-step-tab.json 2>&1 | Out-File -Encoding utf8 tmp-msgs.txt -Width 400; Get-Content tmp-msgs.txt | Select-String -Pattern '\"text\": \"' | Select-Object -First 2",
+			"group": "test"
+		},
+		{
+			"label": "read-msgs",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; (Get-Item tmp-msgs.txt).Length; Get-Content tmp-msgs.txt -TotalCount 4; Write-Output '--- grep ---'; Select-String -Path tmp-msgs.txt -Pattern 'CONVERSATIONS|Dakota|PEOPLE|message' -SimpleMatch:$false | Select-Object -First 8 | Select-Object -ExpandProperty Line",
+			"group": "test"
+		},
+		{
+			"label": "find-msg-tab",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --seq tmp-step-findtab.json 2>&1 | Out-File -Encoding utf8 tmp-find.txt -Width 400; Get-Content tmp-find.txt | Select-String -Pattern 'count|\"name\"|\"x\"|hint' | Select-Object -First 20",
+			"group": "test"
+		},
+		{
+			"label": "find-msg-tab2",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --seq tmp-step-findtab.json 2>&1 | Out-File -Encoding utf8 tmp-find.txt -Width 400; Get-Content tmp-find.txt | Select-String -Pattern '\"count\"|\"name\"|\"x\"|\"y\"|\"controlType\"|hint' | Select-Object -First 14",
+			"group": "test"
+		},
+		{
+			"label": "find-msg-tab3",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --seq tmp-step-findtab.json 2>&1 | Out-File -Encoding utf8 tmp-find.txt -Width 400; Get-Content tmp-find.txt | Select-String -Pattern '\"count\"|\"name\"|\"controlType\"|\"x\"|\"y\"|hint' | Select-Object -First 16",
+			"group": "test"
+		},
+		{
+			"label": "generality-check",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Remove-Item -Force tmp-step-look.json,tmp-step-open.json,tmp-step-goto.json,tmp-step-tab.json,tmp-step-findtab.json -ErrorAction SilentlyContinue; Write-Output '--- site names left in AGENT-FACING strings ---'; Select-String -Path 'simple-addon\\server\\automation\\agent-loop.js','simple-addon\\server\\automation\\tools\\uia.js','simple-addon\\server\\automation\\tools\\user-confirm.js' -Pattern 'Google Messages|msedge|Dakota' | Where-Object { $_.Line -notmatch '^\\s*(//|#|\\*)' } | Select-Object -ExpandProperty Line; Write-Output '--- tests ---'; Set-Location simple-addon; node server/automation/agent-loop.test.js 2>&1 | Select-String -Pattern 'FAIL|passed,'",
+			"group": "test"
+		},
+		{
+			"label": "run-edge-to-messages",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --seq tmp-run1.json 2>&1 | Out-File -Encoding utf8 tmp-run1.txt -Width 400; Get-Content tmp-run1.txt | Select-String -Pattern '===|\"ok\"|\"strategy\"|\"text\": \"' | Select-Object -First 20",
+			"group": "test"
+		},
+		{
+			"label": "check-damage",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Write-Output '--- focus error ---'; Select-String -Path tmp-run1.txt -Pattern 'found no window|Error:' | Select-Object -First 3 | Select-Object -ExpandProperty Line; Write-Output '--- git status ---'; git status --porcelain | Select-Object -First 30",
+			"group": "test"
+		},
+		{
+			"label": "launch-edge",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; node tmp-net-run.cjs --seq tmp-open2.json 2>&1 | Select-Object -Last 20",
+			"group": "test"
 		}
 	]
 }

@@ -133,11 +133,6 @@ const TOOL_ALIASES = Object.freeze({
     get_text: 'uia_get_text',
     get_ui_text: 'uia_get_text',
 
-    // browser
-    open_browser: 'browser_open',
-    go_to: 'browser_goto',
-    click_browser: 'browser_click',
-
     // screen / OCR
     screen: 'screen_capture',
     take_screenshot: 'screen_capture',
@@ -359,12 +354,6 @@ function _deriveVisualQuery(step, resolvedArgs) {
     }
     if (step.tool === 'click_at') {
         return 'the same target that was expected at this click location';
-    }
-    if (step.tool === 'browser_click') {
-        // `SIMPLE_MARKETPLACE_PLAN.md` broaden coverage: a web element can move/change between runs, so
-        // on failure re-target it visually by its selector description.
-        const sel = String(resolvedArgs?.selector || '').trim();
-        return sel ? `click the on-screen element matching the browser selector "${sel}"` : null;
     }
     return null;
 }

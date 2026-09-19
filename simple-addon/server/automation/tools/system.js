@@ -7,6 +7,14 @@
 
 const { spawn } = require('child_process');
 
+// This module has its own PowerShell transport (`-EncodedCommand`, chosen because these
+// scripts share a large prelude and `-Command -` overran the ~32K command-line limit),
+// so it does NOT inherit fixes made in ps-runner.js. The output-encoding prelude is
+// imported rather than copied so the two can't drift apart again — see the long note
+// on ENCODING_PRELUDE for what it fixes (window titles arrived with a U+200B mangled
+// to `?`, so the title the agent was told to copy could never match).
+const { ENCODING_PRELUDE } = require('../ps-runner');
+
 const PS_TIMEOUT = 15_000;
 
 // Absolute path to powershell.exe so we don't depend on the spawned process's
@@ -32,7 +40,7 @@ function runPs(script) {
         // addition — no error surfaced in the UI, it just looked like
         // windows stopped moving at all. Comments only document the *source*
         // — stripping them here doesn't change what actually executes.
-        const stripped = stripPsComments(String(script));
+        const stripped = ENCODING_PRELUDE + stripPsComments(String(script));
         const encoded = Buffer.from(stripped, 'utf16le').toString('base64');
         const child = spawn(PS_EXE, [
             '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
@@ -125,6 +133,15 @@ async function runPsJson(script) {
     try { return JSON.parse(out); }
     catch { return out.trim(); }
 }
+
+// ⚠️ Built from CODE POINTS, never written as a `\u200b` escape. An escape has to
+// survive a JS template literal AND the UTF-16LE `-EncodedCommand` transport, and it
+// did not: the over-escaped `\s` arrived in PowerShell as a literal `s` inside the
+// character class, so normalising a title silently deleted every letter `s` from it
+// ("Simple" → "imple", "Personal" → "Per onal"). Real characters have no escaping to
+// get wrong.
+const ZERO_WIDTH_CHARS = [0x200b, 0x200c, 0x200d, 0x2060, 0xfeff]
+    .map((c) => String.fromCharCode(c)).join('');
 
 // Shared P-Invoke prelude for reading/writing a window's WINDOWPLACEMENT
 // (position + size + minimized/maximized/normal state). Used by both
@@ -426,7 +443,7 @@ function Get-CandidateWindows {
         }
         if (-not $name -or $name -in $script:ShellHostDenylist) { return $true }
         if (Test-WindowCloaked $hwnd) { return $true }
-        $list.Add([pscustomobject]@{ Hwnd = $hwnd; Pid = $procId; ProcessName = $name; Title = $title })
+        $list.Add([pscustomobject]@{ Hwnd = $hwnd; Pid = $procId; ProcessName = $name; Title = ($title -replace '[${ZERO_WIDTH_CHARS} ]+', ' ') })
         return $true
     }
     [void][WinPlacement]::EnumWindows($callback, [IntPtr]::Zero)
@@ -435,6 +452,29 @@ function Get-CandidateWindows {
 `;
 
 // ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Normalise a window title so the agent can COPY IT BACK and have the copy match.
+ *
+ * Real window titles are full of characters that look like a space and are not one.
+ * Edge's title is `... - Personal - Microsoft\u00a0Edge` — a NON-BREAKING SPACE. The
+ * agent was shown that title, echoed it back into `window_focus({ titleContains })`,
+ * and the `-like` match failed, three times, until the run stalled. A title the model
+ * cannot reproduce verbatim is not an identifier; it is a trap.
+ *
+ * So every title that crosses this boundary is folded to plain single-spaced text, and
+ * matching folds the needle the same way. `\s` is Unicode-aware in both JS and .NET,
+ * so U+00A0 and friends are covered on both sides of the call.
+ */
+function normaliseTitle(value) {
+    // ⚠️ `\s` does NOT match U+200B in either JS or .NET — it is a format character
+    // (Cf), not whitespace (Zs). Measured on this machine, Edge's title holds a U+200B
+    // between "Microsoft" and "Edge". Left in place it is invisible, so the model
+    // reads a title with a hidden character, retypes it without one, and the match
+    // fails with nothing on screen to explain why. Zero-width characters are named
+    // explicitly for that reason.
+    return String(value ?? '').replace(/[\s\u200b\u200c\u200d\u2060\ufeff]+/g, ' ').trim();
+}
 
 const windowList = {
     name: 'window_list',
@@ -451,7 +491,9 @@ $wins | ForEach-Object { [pscustomobject]@{ pid = $_.Pid; name = $_.ProcessName;
         `.trim();
         const result = await runPsJson(script);
         const arr = Array.isArray(result) ? result : (result ? [result] : []);
-        return { count: arr.length, windows: arr };
+        // Titles are normalised on the way OUT, so anything the agent reads here is a
+        // string it can hand straight back to window_focus. See normaliseTitle().
+        return { count: arr.length, windows: arr.map((w) => ({ ...w, title: normaliseTitle(w?.title) })) };
     },
 };
 
@@ -496,7 +538,7 @@ $rows = @(
         const rows = Array.isArray(out?.windows) ? out.windows : (out?.windows ? [out.windows] : []);
         if (!rows.length) return '(none — no visible top-level window currently has a title)';
         return rows
-            .map((r) => `"${String(r.title || '').slice(0, 70)}" (${r.name || '?'})`)
+            .map((r) => `"${normaliseTitle(r.title).slice(0, 70)}" (${r.name || '?'})`)
             .join(', ');
     } catch {
         return '(could not be listed — try window_list)';
@@ -525,7 +567,10 @@ const windowFocus = {
             const pid = parseInt(args.pid, 10);
             filterExpr = `$wins | Where-Object { $_.Pid -eq ${pid} } | Select-Object -First 1`;
         } else if (args.titleContains) {
-            const needle = String(args.titleContains).replace(/'/g, "''");
+            // Titles are already normalised where they are read (see the prelude's
+            // `Title = ($title -replace ...)`), so the needle is normalised the same way
+            // and a plain substring match is then exact. `-like` is case-insensitive.
+            const needle = normaliseTitle(args.titleContains).replace(/'/g, "''");
             filterExpr = `$wins | Where-Object { $_.Title -like '*${needle}*' } | Select-Object -First 1`;
         } else if (args.processName) {
             const name = String(args.processName).replace(/'/g, "''");
@@ -564,7 +609,8 @@ if ($wp.showCmd -eq 2) {
 [pscustomobject]@{ pid = $p.Pid; name = $p.ProcessName; title = $p.Title } | ConvertTo-Json -Compress
         `.trim();
         try {
-            return await runPsJson(script);
+            const out = await runPsJson(script);
+            return out && typeof out === 'object' ? { ...out, title: normaliseTitle(out.title) } : out;
         } catch (e) {
             // ⚠️ SELF-CORRECTING FAILURE. Verified from a real run: three identical
             // `window_focus` calls, each returning `window not found`, no progress,
@@ -674,7 +720,8 @@ const windowSetRect = {
             const pid = parseInt(args.pid, 10);
             filterExpr = `$wins | Where-Object { $_.Pid -eq ${pid} } | Select-Object -First 1`;
         } else if (args.titleContains) {
-            const needle = String(args.titleContains).replace(/'/g, "''");
+            // Same normalised-title match as window_focus — see the prelude.
+            const needle = normaliseTitle(args.titleContains).replace(/'/g, "''");
             filterExpr = `$wins | Where-Object { $_.Title -like '*${needle}*' } | Select-Object -First 1`;
         } else if (args.processName) {
             const name = String(args.processName).replace(/'/g, "''");
@@ -847,4 +894,4 @@ const clipboardWrite = {
     },
 };
 
-module.exports = { windowList, windowFocus, windowSnapshot, windowSetRect, processList, processKill, clipboardRead, clipboardWrite, parseCliXmlError, windowFocusMissMessage, describeOpenWindows };
+module.exports = { windowList, windowFocus, windowSnapshot, windowSetRect, processList, processKill, clipboardRead, clipboardWrite, parseCliXmlError, windowFocusMissMessage, describeOpenWindows, normaliseTitle };

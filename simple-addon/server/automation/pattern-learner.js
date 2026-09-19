@@ -33,8 +33,8 @@ const MAX_LOG_ENTRIES = 500;
 // Tools to include in pattern analysis (exclude read-only boring ones)
 const INTERESTING_TOOLS = new Set([
     'shell_run', 'text_type', 'input_tap', 'input_hold', 'click_at',
-    'find_and_click_visual', 'uia_invoke', 'window_focus', 'browser_goto',
-    'browser_click', 'browser_fill', 'browser_press', 'fs_write', 'clipboard_write',
+    'find_and_click_visual', 'uia_invoke', 'window_focus',
+    'fs_write', 'clipboard_write',
     'skill_run', 'goal_update', 'audio_speak', 'open_app',
 ]);
 

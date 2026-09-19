@@ -43,11 +43,6 @@ const screen = require('./tools/screen');
 const screenRelay = require('./tools/screen-relay');
 const { screenOcr } = require('./tools/ocr');
 const { screenSetOfMarks } = require('./tools/set-of-marks');
-const {
-    browserOpen, browserGoto, browserClick, browserFill,
-    browserPress,
-    browserText, browserEval, browserScreenshot, browserStatus, browserClose,
-} = require('./tools/browser');
 const { uiaFind, uiaInvoke, uiaGetText, uiaSnapshot } = require('./tools/uia');
 const { perceptionRecent } = require('./perception');
 const { goalUpdate, goalCreate, goalAskUser } = require('./tools/goal');
@@ -105,17 +100,6 @@ function registerAllTools() {
     registry.register(screen);
     registry.register(screenOcr);
     registry.register(screenSetOfMarks);
-    // Browser (Chromium via playwright-core)
-    registry.register(browserOpen);
-    registry.register(browserGoto);
-    registry.register(browserClick);
-    registry.register(browserFill);
-    registry.register(browserPress);
-    registry.register(browserText);
-    registry.register(browserEval);
-    registry.register(browserScreenshot);
-    registry.register(browserStatus);
-    registry.register(browserClose);
     registry.register(uiaFind);
     registry.register(uiaGetText);
     registry.register(uiaSnapshot);

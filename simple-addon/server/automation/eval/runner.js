@@ -366,12 +366,7 @@ async function runScenarioObject(scenario, opts = {}) {
                     addAction: async () => {}, // suppress cloud audit during eval
                     userInitiated: true,        // bypass approval prompts
                 };
-                let stepArgs = expandEnv(step.args || {});
-                // `--live` forces any browser step to run headed (visible window)
-                // instead of the default headless mode, so a human can watch it.
-                if (opts.live && step.tool === 'browser_open') {
-                    stepArgs = { ...stepArgs, headless: false };
-                }
+                const stepArgs = expandEnv(step.args || {});
                 const outcome = await registry.executeTool(step.tool, stepArgs, ctx);
                 const failures = evaluateExpectations(i, step.expect, outcome);
                 report.steps.push({

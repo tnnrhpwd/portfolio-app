@@ -37,7 +37,11 @@ const OUTCOMES = Object.freeze({
   // The model stopped answering (usually rate limiting). Distinct from ERROR
   // because the cause is outside the run and the fix is to wait, not to look at
   // anything on this machine — so it must not re-use the generic error sentence.
+  // The model declined the request itself. Its own words are the wrong thing to
+  // show the user: they cannot act on "I am not able to send messages", only on
+  // "the model refused". Distinct from ERROR because nothing went wrong.
   LLM_UNAVAILABLE: 'llm-unavailable',
+  DECLINED: 'declined',
 });
 
 /** Loop stop reasons look like `goal status=<status>`; pull the status out. */
@@ -63,6 +67,7 @@ function classifyStop(reason) {
   // Checked BEFORE the general error arm: a sustained outage has its own
   // explanation, while a lone `llm-error` stays a plain error.
   if (raw === 'llm-unavailable') return OUTCOMES.LLM_UNAVAILABLE;
+  if (raw === 'declined') return OUTCOMES.DECLINED;
   if (/^llm-error|^error/i.test(raw)) return OUTCOMES.ERROR;
   if (/^manual|^user|^stopped/i.test(raw)) return OUTCOMES.STOPPED;
   return OUTCOMES.STOPPED;
@@ -150,6 +155,14 @@ function stopReport({ stopReason, steps = 0, maxSteps = null, stallCount = 0, ha
         outcome,
         reason: 'the AI service stopped accepting requests — it is rate-limiting this account — so the agent stopped '
           + 'instead of retrying forever. Nothing on your PC broke and there is nothing to fix: wait a few minutes and ask again.',
+      };
+
+    case OUTCOMES.DECLINED:
+      return {
+        outcome,
+        reason: 'the model declined to carry the request out, twice in a row — it was asked to reconsider once, with the '
+          + 'authorisation spelled out, and refused again. Nothing on your PC is at fault and retrying unchanged will not help. '
+          + 'This is a known failure mode for requests it reads as acting on your behalf; report it with the task text.',
       };
 
     case OUTCOMES.ERROR:

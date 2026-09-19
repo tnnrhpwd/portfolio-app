@@ -34,8 +34,8 @@ const NON_DESTRUCTIVE = new Set(['safe-read', 'sandboxed-write']);
 const FORM_GOALS_PROMPT = [
     'You are the goal-formation stage of a Windows automation agent.',
     'Given the context, propose 1-3 concrete, USEFUL, NON-DESTRUCTIVE automation goals the agent could pursue next.',
-    'Prefer tasks that read/organize/search local files, look things up in the browser, or prepare short reports.',
-    'For each goal list only real tool names the agent actually has: fs_list, fs_read, window_list, process_list, browser_open, browser_goto, screen_capture, uia_snapshot.',
+    'Prefer tasks that read/organize/search local files, look something up on a site the user is already signed into, or prepare short reports.',
+    'For each goal list only real tool names the agent actually has: fs_list, fs_read, window_list, process_list, window_focus, screen_ocr, uia_find, click_at, text_type.',
     'Reply with ONLY a JSON array: [{"title":"...","description":"...","tools":["fs_list","..."],"confidence":0.0-1.0}].',
 ].join(' ');
 

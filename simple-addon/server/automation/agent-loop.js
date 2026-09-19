@@ -71,6 +71,10 @@ const DEFAULT_CONFIG = {
     DRIFT_THRESHOLD: 0.35,        // orientation delta that forces re-eval
     IDLE_SLEEP_MS: 2500,          // sleep when plan() returns idle
     STALL_THRESHOLD: 3,           // consecutive no-progress actions → blocked
+    // How many times a stall may be ESCALATED before the run is given up on. See
+    // refreshGoalStatus(): the first stall injects a directive and keeps going,
+    // because stopping is the one outcome that cannot succeed. Only the last one stops.
+    STALL_ESCALATE_LIMIT: 2,
     MAX_STEPS_DEFAULT: DEFAULT_MAX_STEPS, // default hard step budget per goal (single source of truth — see DEFAULT_MAX_STEPS above)
     META_EVERY_ACTIONS: 50,       // meta-loop cadence in recorded actions
     // How many LLM failures in a row before the run gives up. A failure retried
@@ -92,6 +96,10 @@ const DEFAULT_CONFIG = {
     // How much of a tool result the model actually sees. Anything longer is cut AND
     // announced (see act()) — a silent cut teaches the model nothing except to retry.
     RESULT_PREVIEW_CHARS: 800,
+    // How much of the PREVIOUS step's tool results is carried into the next tick's
+    // message. This is the only channel a tool result has to reach the model — see
+    // the note in orient() before changing it.
+    TOOL_RESULTS_CHARS: 2400,
     SKILL_PROMOTE_MIN_REPEATS: 3, // n-gram repeats before a skill draft
 };
 
@@ -169,7 +177,18 @@ async function findRelevantSkills(goal, { wsClient, log, skillModule } = {}) {
 
 function buildSystemPrompt({ goal, workspaceContext, toolNames, skillHints, perceptionContext }) {
     return [
-        'You are an autonomous Windows automation agent running inside the user\'s PC via the Simple addon.',
+        // ⚠️ The opening line used to read "You are an autonomous Windows automation
+        // agent running inside the user's PC". Two runs refused the task with almost
+        // exactly that limitation played back at the user: "I can only help with
+        // actions on your Windows computer itself ... not with sending messages
+        // through web services or apps." The model was not being stubborn — it was
+        // told, in the first line it reads, that its remit is Windows. Typing into a
+        // signed-in web app IS acting on this computer, so the remit is stated
+        // properly here rather than left to be inferred from a tool list.
+        'You are an autonomous computer-use agent operating the user\'s own PC, acting FOR them — ' +
+            'including inside the apps and websites they are signed into (their browser, their web apps, ' +
+            'their messaging). You are NOT limited to Windows system chores: opening and driving their ' +
+            'signed-in apps is the normal case.',
         'You are pursuing a specific GOAL on behalf of the user. Take small, deliberate steps.',
         '',
         '== GOAL ==',
@@ -221,12 +240,18 @@ function buildSystemPrompt({ goal, workspaceContext, toolNames, skillHints, perc
             'name is exact and a coordinate is a guess — and fall back to screen_set_of_marks when a ' +
             'page exposes no accessibility tree. A window_focus miss now lists the windows that DO ' +
             'exist: read that list and pick a real one instead of repeating the same call.',
-        '14. browser_* is for the OTHER case: a site the user is NOT signed into, a flow to run ' +
-            'repeatably or headlessly, or reading a page\'s DOM. It drives OUR OWN profile, so a ' +
-            'signed-in site shows a sign-in or QR-pairing wall — and if browser_goto or browser_status ' +
-            'reports `wall`, STOP rather than clicking a screen that cannot go anywhere: relay what ' +
-            '`wallExplanation` says and use rule 12 for their signed-in session, or have them sign in ' +
-            'once with headless:false if ours is the right one.',
+        // ⚠️ This slot used to describe `browser_*` — Playwright driving a SECOND browser
+        // with its own profile. That path is gone: it could never reach a site the user is
+        // signed into (a different profile is a different session), and it asked the user
+        // to set up a debug-port browser to compensate. The native path below is the one
+        // that actually works on a machine the addon can already see.
+        '14. A Chromium browser may expose NO page to UIA — only its own chrome (Back, ' +
+            'Refresh, Address and search bar, caption buttons). That is NORMAL, not a failure: ' +
+            'when uia_snapshot of a browser window shows no page content, do NOT take the same ' +
+            'snapshot again (it will be byte-identical). READ the page with screen_ocr, which ' +
+            'returns the visible text WITH coordinates, and screen_set_of_marks, which numbers ' +
+            'everything clickable; then ACT on those coordinates with click_at. That is how a ' +
+            'page with no accessibility tree gets read and clicked.',
         '15. When a task needs a detail only the user has — a contact\'s real name, an account, a ' +
             'preference — call goal_ask_user for it EARLY. Guessing and then clicking around the wrong ' +
             'page is how a run stalls; one question is cheaper than ten failed attempts.',
@@ -359,6 +384,9 @@ class AgentLoop {
             stage: 'IDLE',
             loop: 'idle',
             stallCount: 0,
+            stallEscalations: 0,
+            escalation: null,
+            lastToolResults: null,
             lastOutcomeDelta: 0,
             lastLesson: null,
             lastMetaStep: 0,
@@ -613,9 +641,43 @@ class AgentLoop {
 
         // Last user-ish message: a tick prompt that nudges the model to take the
         // next concrete action OR call goal_update to finalize.
+        //
+        // The authorisation is repeated HERE, not only as rule 19 in the system
+        // prompt. This is the last thing the model reads before choosing, and a rule
+        // nineteen positions up a long system prompt was demonstrably not enough: a
+        // run on the build that contained rule 19 still refused.
+        const authorisation = 'You are acting for the user on their own machine, on their instruction: this is authorised. '
+            + 'If the job is inside an app or website they are signed into, drive it by clicking and typing. '
+            + 'Never reply that you are unable to do it — call user_confirm before anything irreversible instead.';
+
+        // ⚠️⚠️ THIS IS THE ONLY CHANNEL A TOOL RESULT HAS TO REACH THE MODEL.
+        //
+        // A tool result cannot travel as a `role: 'tool'` history entry, because
+        // `llm-provider.js`'s backend-proxy `chat()` forwards ONLY 'user' and
+        // 'assistant' messages — every tool message is dropped before the request is
+        // built. So the result the loop carefully shapes (digest, HARNESS notes,
+        // truncation warnings) was written into history and then thrown away one
+        // layer up: the model never saw a single thing any tool returned.
+        //
+        // That is what a blind agent looks like from outside — a real run called
+        // `window_list` three times, then `perception_recent`, then `uia_snapshot`,
+        // made no acting call, and stalled. It was not refusing and it was not
+        // ignoring the screen: it had never been shown the screen.
+        //
+        // Folding the results into the tick message is deliberate rather than
+        // pushing extra 'user' entries into history: this keeps exactly one user
+        // message per turn, so the provider's user/assistant alternation is intact
+        // for any backend (Bedrock Converse rejects consecutive same-role turns).
+        const lastResults = this.state.step > 1 && this.state.lastToolResults
+            ? `WHAT YOUR LAST TOOL CALLS RETURNED:\n${this.state.lastToolResults}\n\n`
+            : '';
+        // A stall directive outranks everything else in this message: it is the only
+        // thing the model is being asked to change, and it is delivered exactly once.
+        const escalation = this.state.escalation ? `>>> ${this.state.escalation}\n\n` : '';
+        this.state.escalation = null;
         const userTick = this.state.step === 1
-            ? 'Begin. What is your first action?'
-            : 'Continue. Based on the recent action results, what is your next action? Use a tool, or finalize with goal_update + "<<GOAL_DONE>>".';
+            ? `Begin. What is your first action? ${authorisation}`
+            : `${escalation}${lastResults}Continue. Based on the results above, what is your next action? Use a tool, or finalize with goal_update + "<<GOAL_DONE>>". ${authorisation}`;
 
         return { block, hash: this._stringHash(block), drifted, systemPrompt, userTick };
     }
@@ -760,6 +822,45 @@ class AgentLoop {
         // letting it spin until maxSteps. Only autoAbandon makes the block
         // permanent — otherwise the run stops but the goal stays active.
         if (this.state.stallCount >= this.config.STALL_THRESHOLD) {
+            // ⚠️ ESCALATE FIRST, STOP LAST.
+            //
+            // Terminating here was killing the run at the exact moment the guidance
+            // became deliverable. A real run stalled after six consecutive reads
+            // (window_list, window_focus, uia_snapshot ×2, uia_find ×2, screen_ocr) and
+            // was stopped at step 8 — while the escalation text written to push it into
+            // acting had just been handed to the model for the first time AND COULD NOW
+            // ACTUALLY BE READ (before the tool-results fix, results never reached the
+            // model at all). Ending the run there throws away the one turn in which the
+            // correction has any chance of landing.
+            //
+            // So a stall is answered with a DIRECTIVE and the run continues; only the
+            // final escalation gives up. "Tried to fix itself and still stalled" is a
+            // real answer; "stopped before it was ever told" is not.
+            const escalations = (this.state.stallEscalations = (this.state.stallEscalations || 0) + 1);
+            if (escalations <= this.config.STALL_ESCALATE_LIMIT) {
+                const stallCount = this.state.stallCount;
+                this.state.stallCount = 0;
+                const acted = (this.state.consecutiveReads || 0) === 0;
+                this.state.escalation =
+                    `STOP READING AND ACT. ${stallCount} consecutive calls changed nothing on screen.`
+                    + (acted
+                        ? ' You are stuck because the same thing is being looked at repeatedly.'
+                        : ' Every one of those calls only READ the screen — nothing has been clicked, typed or opened yet, so the screen could not possibly have changed.')
+                    // ⚠️ window_focus is deliberately NOT in this list. It was, and a real
+                    // run satisfied the directive by re-focusing the same window and then
+                    // went straight back to reading — the letter of the instruction met, no
+                    // progress made. Focusing a window is a prerequisite, not an action.
+                    + '\nYour NEXT call must be one that CHANGES what is on screen: open_app, click_at, uia_invoke, text_type, input_tap or mouse_drag.'
+                    + '\nIf the thing you need is not on screen, it has to be OPENED before it can be read — opening it is the action you are missing.';
+                this.log(`[agent] stalled — escalating (${escalations}/${this.config.STALL_ESCALATE_LIMIT}) with a directive to act`);
+                this._publish('agent.escalated', {
+                    goalSlug: this.state.currentGoal?.slug,
+                    escalation: escalations,
+                    reason: `escalating after ${stallCount} no-progress ticks`,
+                });
+                return { status: 'continue' };
+            }
+
             // The count is the whole value of this reason: "stalled" alone tells a
             // reader nothing they can act on, and it was being thrown away here —
             // computed for the event, then replaced with that bare word before
@@ -862,6 +963,8 @@ class AgentLoop {
     /** ACTION — execute each tool call, compact the results into history. */
     async act(action) {
         const outcomes = [];
+        // Rendered once, per call, for the NEXT tick's message. See orient().
+        const rendered = [];
         const ctx = this._toolCtx || this.contextFactory({ goalSlug: this.state.currentGoal?.slug });
         for (const tc of action.toolCalls) {
             let argsObj = {};
@@ -936,9 +1039,11 @@ class AgentLoop {
                     + 'Reading the same window again returns this same list, so do not re-read it. '
                     + 'This is whatever window was in FRONT — if it is not the app you need, call window_focus first. '
                     + 'A browser TAB that is not the active tab is not rendered at all, so nothing of its page appears here: '
-                    + 'find the tab itself by name (uia_find({ name: "Google Messages" })) and uia_invoke or click_at it to switch to it. '
+                    + 'switch to it by invoking the TAB itself — uia_find for the tab using any part of its visible name, '
+                    + 'then uia_invoke or click_at it. Use the names you can actually SEE in this result; never assume one, '
+                    + 'and never conclude a site is absent because its name is not what you expected. '
                     + 'If NO such tab exists, do not keep searching for it — OPEN ONE: '
-                    + 'open_app({ name: "msedge.exe", args: "--new-tab <the site url>" }). That opens it in the browser they are '
+                    + 'open_app with the browser executable you saw in window_list and a new-tab argument for the URL. It opens in the browser they are '
                     + 'already signed into, so it needs no sign-in and sidesteps the missing tab entirely. '
                     + 'And uia_find({ name: "..." }) searches the WHOLE desktop, so you can jump straight to a named '
                     + 'element (a person, a button, a folder) without reading or focusing anything first.'
@@ -971,6 +1076,7 @@ class AgentLoop {
                 content: notes.length ? `${summary}\n\n${notes.join('\n\n')}` : summary,
             });
             this.log(`[agent] step ${this.state.step} tool=${tc.function.name} ok=${out.ok}`);
+            rendered.push(`- ${tc.function.name} → ${summary}${notes.length ? `\n  ${notes.join('\n  ')}` : ''}`);
             outcomes.push({ name: tc.function.name, args: argsObj, out, repeated: stuck, readStreak });
             this.state.stepLog.push({
                 tool: tc.function.name,
@@ -984,6 +1090,12 @@ class AgentLoop {
                 this.state.runSteps.push({ tool: tc.function.name, args: PII_TOOLS.has(tc.function.name) ? {} : argsObj });
             }
         }
+        // Hand the NEXT tick something to actually read. Trimmed to the tail rather
+        // than the head: the last call is the one the next decision depends on.
+        const joined = rendered.join('\n');
+        this.state.lastToolResults = joined.length > this.config.TOOL_RESULTS_CHARS
+            ? `…(earlier results trimmed)\n${joined.slice(-this.config.TOOL_RESULTS_CHARS)}`
+            : joined;
         return { outcomes };
     }
 
@@ -1122,6 +1234,20 @@ class AgentLoop {
         return { stop: false, idle: false, reason: 'llm-error', sleepMs: wait };
     }
 
+    /**
+     * Is this the model declining the REQUEST ITSELF, rather than reporting a problem?
+     *
+     * Deliberately narrow. "I can't find the element" is a legitimate observation and
+     * must not be caught; "I'm not able to send messages on your behalf" is a refusal
+     * of the task. Only the second is matched, because treating the first as a refusal
+     * would silence a real report of a blocked run.
+     */
+    _looksLikeRefusal(text) {
+        const t = String(text || '');
+        if (!t) return false;
+        return /i can only help with|not able to send|cannot send messages|can'?t send messages|not able to (?:do|perform|help with) (?:this|that)|i(?:'m| am) not able to (?:send|do|help|assist)|i cannot assist/i.test(t);
+    }
+
     /** One inner-loop pass: observe → orient → plan → act → reflect. */
     async tick() {
         this._setStage('OBSERVING');
@@ -1135,6 +1261,29 @@ class AgentLoop {
             return this._onLlmError();
         }
         if (action.type === 'idle') {
+            // A refusal is never the ANSWER. Two runs ended by telling the user they
+            // could not send a message through an app — which is the one thing this
+            // addon exists to do, and not something the user can act on. So a decline
+            // is retried ONCE with the authorisation restated in the immediate
+            // message, and if it declines again the run stops saying honestly that the
+            // model declined — never presenting the refusal as the outcome.
+            if (this._looksLikeRefusal(action.text)) {
+                const nudges = (this.state.refusalNudges = (this.state.refusalNudges || 0) + 1);
+                if (nudges === 1) {
+                    this.log('[agent] the model declined the task — retrying with the authorisation stated directly');
+                    this.state.history.push({
+                        role: 'user',
+                        content: 'You are acting for the user on their own machine, on their explicit instruction, so this '
+                            + 'task IS authorised. Drive the app or website they are signed into and carry it out, calling '
+                            + 'user_confirm before anything irreversible. Do not reply that you are unable to do it — '
+                            + 'take the next concrete action with a tool.',
+                    });
+                    return { stop: false, idle: true, reason: 'refusal-retry' };
+                }
+                this.state.stopReason = 'declined';
+                this.log(`[agent] stopping: the model declined the task ${nudges} times`);
+                return { stop: true, reason: 'declined' };
+            }
             // Terminal tick: no tool call — the loop sleeps longer and lets the
             // stall detector (Phase 6) decide when to give up.
             this._setStage('REFLECTING');
@@ -1352,6 +1501,9 @@ class AgentLoop {
             stage: 'IDLE',
             loop: 'idle',
             stallCount: 0,
+            stallEscalations: 0,
+            escalation: null,
+            lastToolResults: null,
             lastOutcomeDelta: 0,
             lastLesson: null,
             lastMetaStep: 0,

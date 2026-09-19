@@ -116,23 +116,25 @@ which combines:
 
 | Category | Default | Examples |
 |---|---|---|
-| `safe-read` | `allow` | `fs_read`, `fs_list`, `process_list`, `screen_capture`, `screen_ocr`, `screen_set_of_marks`, `uia_find`, `uia_get_text`, `uia_snapshot`, `perception_recent`, `browser_text`, `browser_screenshot`, `browser_status` |
-| `sandboxed-write` | `ask` | `fs_write`, `clipboard_write`, `browser_open`, `browser_goto`, `browser_click`, `browser_fill`, `browser_close` |
+| `safe-read` | `allow` | `fs_read`, `fs_list`, `process_list`, `screen_capture`, `screen_ocr`, `screen_set_of_marks`, `uia_find`, `uia_get_text`, `uia_snapshot`, `perception_recent` |
+| `sandboxed-write` | `ask` | `fs_write`, `clipboard_write` |
 | `system` | `ask` | `window_focus`, `uia_invoke`, `input_*` |
 | `destructive` | `ask` | `process_kill` |
-| `shell` | `ask` | `shell_run` (PowerShell), `browser_eval` (arbitrary JS in page) |
+| `shell` | `ask` | `shell_run` (PowerShell) |
 
-**Browser-specific notes:**
-- `browser_eval` is intentionally categorized as `shell` — it executes arbitrary
-  JavaScript in the page context, which can read DOM, cookies, and storage.
-- Browser sessions persist cookies/localStorage to
-  `<userData>/playwright-profiles/<profile>/`. Treat that directory like any
-  other site-credential store; back-up policy applies.
-- The browser launches without `--no-sandbox`, with `acceptDownloads=false`
-  and `ignoreHTTPSErrors=false` — same defaults as a paranoid Edge user.
-- We use `playwright-core` only and bind to the user's existing Edge/Chrome
-  binary, so the addon does NOT ship a bundled Chromium with its own update
-  cycle (one less attack surface to keep patched).
+**Web pages are driven NATIVELY — /net has no browser tool surface.**
+- The agent drives the window the user already has open: `window_focus` → `uia_*` →
+  `click_at` / `text_type` / `input_tap`. It therefore inherits the session they are
+  already signed into and asks nothing of them (no second browser, no debug port, no
+  extra sign-in).
+- A Chromium page frequently exposes NO accessibility tree — only its own chrome
+  (`Back`, `Refresh`, `Address and search bar`). That is normal, not a failure: read the
+  page with `screen_ocr` (visible text WITH coordinates) and `screen_set_of_marks`
+  (clickable elements), then act with `click_at`. Agent prompt rule 14 says this.
+- `playwright-core` is a **devDependency only** — kept for frontend debugging, NOT
+  packaged with the app, and unreachable from any agent tool. There is deliberately no
+  `browser_*` tool: the previous Playwright surface drove its own profile, so any site
+  the user was signed into showed a sign-in / QR-pairing wall instead of their session.
 
 **Recorder & skills notes:**
 - The demonstration recorder is exposed ONLY via `/api/recorder/*` HTTP routes,

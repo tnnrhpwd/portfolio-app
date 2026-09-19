@@ -19,8 +19,18 @@ Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 $root = [System.Windows.Automation.AutomationElement]::RootElement
 function Find-Elements($name, $autoId, $ctrl, $max) {
+    # ⚠️ The name argument is a case-insensitive SUBSTRING match, NOT an equality test.
+    #
+    # It used to be a UIA NameProperty condition, and UIA property conditions are exact
+    # equality. That makes the tool useless for exactly the elements worth finding, because
+    # an accessible name is often long and CHANGES: a browser tab is
+    # "Google Messages for web: Conversations - Memory usage - 316 MB". Asking for
+    # "Google Messages" returned nothing — so a real run could see the tab in a snapshot
+    # and still be unable to select it, and so could a human driving the same tools.
+    #
+    # Matched with Contains on lowercased strings rather than -like, so a name that
+    # happens to contain [ or * is matched literally instead of as a wildcard.
     $conds = New-Object System.Collections.ArrayList
-    if ($name)   { [void]$conds.Add((New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $name))) }
     if ($autoId) { [void]$conds.Add((New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $autoId))) }
     if ($ctrl)   {
         $ct = [System.Windows.Automation.ControlType]::$ctrl
@@ -30,10 +40,16 @@ function Find-Elements($name, $autoId, $ctrl, $max) {
     elseif ($conds.Count -eq 1) { $cond = $conds[0] }
     else { $cond = New-Object System.Windows.Automation.AndCondition($conds.ToArray([System.Windows.Automation.Condition])) }
     $found = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $cond)
+    $needle = if ($name) { $name.ToLower() } else { $null }
     $out = @()
-    for ($i = 0; $i -lt [Math]::Min($found.Count, $max); $i++) {
+    for ($i = 0; $i -lt $found.Count -and $out.Count -lt $max; $i++) {
         $e = $found[$i]
         try {
+            if ($needle) {
+                $n = $e.Current.Name
+                if (-not $n) { continue }
+                if (-not $n.ToLower().Contains($needle)) { continue }
+            }
             $bounds = $e.Current.BoundingRectangle
             $out += [pscustomobject]@{
                 name = $e.Current.Name
@@ -86,7 +102,26 @@ $r | ConvertTo-Json -Compress -Depth 4
         // as uia_snapshot already does below.
         const res = await runPsJsonFile(script);
         const arr = Array.isArray(res) ? res : (res ? [res] : []);
-        return { count: arr.length, elements: arr };
+        if (arr.length) return { count: arr.length, elements: arr };
+
+        // ⚠️ ZERO MATCHES IS A DEAD END THAT READS AS SUCCESS. `ok: true, count: 0` looks
+        // like the tool worked, so a run asked for the same name again, got 0 again, and
+        // never learned why — a real run searched `Dakota` twice on a live Google Messages
+        // page and then gave up and clicked a blind coordinate.
+        //
+        // The reason is structural, not a typo in the query: a Chromium page exposes NO
+        // accessibility tree through UIA. Its window tree is the browser chrome only
+        // (Back, Refresh, address bar, caption buttons), so any lookup for something
+        // INSIDE the page returns nothing — forever, however it is asked.
+        return {
+            count: 0,
+            elements: [],
+            hint: 'No element matched. If you are looking for something INSIDE a web page, this '
+                + 'cannot match: a Chromium page exposes no accessibility tree, only the browser '
+                + 'chrome around it. Read the page with screen_ocr (returns the visible text WITH '
+                + 'coordinates) or screen_set_of_marks (numbers every clickable element), then act '
+                + 'on those coordinates with click_at. Do not repeat this exact call.',
+        };
     },
 };
 
@@ -167,6 +202,20 @@ if (-not $text) { $text = $el.Current.Name }
     },
 };
 
+// A window's accessible name is NOT a string anything can retype. Edge's is
+// `... - Personal - Microsoft<U+200B> Edge`, so a model that copies the visible text
+// "Microsoft Edge" gets NO match — the zero-width space sits inside the word. That is
+// not hypothetical: `uia_snapshot({ windowName: "Microsoft Edge" })` failed exactly this
+// way after `window_focus` had already succeeded with the full title.
+//
+// ⚠️ Built from CODE POINTS, never written as a `\u200b` escape. An escape has to survive
+// a JS template literal and the script transport; when it did not, the over-escaped `\s`
+// arrived as a literal `s` inside the character class and deleted every letter `s` from
+// every title ("Simple" → "imple"). Real characters have no escaping to get wrong.
+const ZERO_WIDTH_CHARS = [0x200b, 0x200c, 0x200d, 0x2060, 0xfeff]
+    .map((c) => String.fromCharCode(c)).join('');
+const NAME_NORMALISE_CLASS = `[${ZERO_WIDTH_CHARS} ]+`;
+
 const uiaSnapshot = {
     name: 'uia_snapshot',
     category: 'safe-read',
@@ -198,15 +247,29 @@ const uiaSnapshot = {
         const script = `${UIA_PRELUDE}
 $ErrorActionPreference = 'SilentlyContinue'
 
+# Matching normalises BOTH sides, so a name that was typed cannot fail against a real
+# window name just because the real one contains an invisible character.
+$nameNormaliseClass = '${NAME_NORMALISE_CLASS}'
+function Normalise-Name([string]$s) {
+    if (-not $s) { return '' }
+    return ($s -replace $nameNormaliseClass, ' ').Trim().ToLower()
+}
+
 # Resolve target window
 $target = $null
 $windowName = ${quote(windowName)}
 if ($windowName) {
     $children = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
+    $wanted = Normalise-Name $windowName
     foreach ($w in $children) {
-        if ($w.Current.Name -and $w.Current.Name.ToLower().Contains($windowName.ToLower())) { $target = $w; break }
+        if ((Normalise-Name $w.Current.Name).Contains($wanted)) { $target = $w; break }
     }
-    if (-not $target) { Write-Error "no window matched: $windowName" -ErrorAction Stop }
+    if (-not $target) {
+        # Self-correcting failure: name the windows that DO exist, so the next call can
+        # succeed instead of being another blind guess (same obligation window_focus has).
+        $names = @($children | Where-Object { $_.Current.Name } | Select-Object -First 8 | ForEach-Object { '"' + (Normalise-Name $_.Current.Name) + '"' })
+        Write-Error "no window matched: $windowName - windows that exist: $($names -join ', ')" -ErrorAction Stop
+    }
 } else {
     # Walk up from the focused element to the nearest Window ancestor — pure UIA,
     # no P/Invoke required (avoids fragile here-string parsing over stdin pipes).

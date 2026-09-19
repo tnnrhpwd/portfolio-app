@@ -396,17 +396,17 @@ asyncTest('run: uia_invoke failure recovers via visual retarget before LLM amend
     fakeRegistry._registered = new Set();
 });
 
-asyncTest('run: browser_click failure recovers via visual retarget (`SIMPLE_MARKETPLACE_PLAN.md` broaden)', async () => {
+asyncTest('run: click_at failure recovers via visual retarget (`SIMPLE_MARKETPLACE_PLAN.md` broaden)', async () => {
     const llm = stubLlm('{"action":"abort","reason":"should not be needed"}');
     let visualCalls = 0;
-    fakeRegistry._registered = new Set(['browser_click', 'find_and_click_visual']);
+    fakeRegistry._registered = new Set(['click_at', 'find_and_click_visual']);
     fakeRegistry._handler = (name, args) => {
-        if (name === 'browser_click') return { ok: false, error: 'element not found' };
+        if (name === 'click_at') return { ok: false, error: 'element not found' };
         if (name === 'find_and_click_visual') { visualCalls++; return { ok: true, result: { clickedAt: [20, 20] } }; }
         if (name === 'uia_snapshot') return { ok: true, result: {} };
         return { ok: true, result: {} };
     };
-    const s = makeSkill('bretarget', [{ tool: 'browser_click', args: { selector: 'text=Submit' } }]);
+    const s = makeSkill('bretarget', [{ tool: 'click_at', args: { x: 10, y: 10 } }]);
     const out = await skillRun.run({ slug: 'bretarget', cache: s, stepDelayMs: 0 }, { llm });
     assert.strictEqual(out.failed, false);
     assert.strictEqual(visualCalls, 1);

@@ -44,11 +44,6 @@ function registerAllTools() {
     const screenRelay = require('../tools/screen-relay');
     const { screenOcr } = require('../tools/ocr');
     const { screenSetOfMarks } = require('../tools/set-of-marks');
-    const {
-        browserOpen, browserGoto, browserClick, browserFill,
-        browserPress,
-        browserText, browserEval, browserScreenshot, browserStatus, browserClose,
-    } = require('../tools/browser');
     const { uiaFind, uiaInvoke, uiaGetText, uiaSnapshot } = require('../tools/uia');
     const { perceptionRecent } = require('../perception');
     const { inputHold, inputTap, clickAt, mousePath, mouseDrag } = require('../tools/input');
@@ -58,10 +53,9 @@ function registerAllTools() {
     const all = [
         fsRead, fsList, windowList, processList, clipboardRead, screen, screenOcr, screenSetOfMarks,
         uiaFind, uiaGetText, uiaSnapshot, perceptionRecent,
-        browserOpen, browserGoto, browserText, browserScreenshot, browserStatus,
-        fsWrite, clipboardWrite, browserClick, browserFill, browserPress, browserClose,
+        fsWrite, clipboardWrite,
         windowFocus, uiaInvoke, inputHold, inputTap, clickAt, mousePath, mouseDrag,
-        processKill, shell, browserEval,
+        processKill, shell,
         skillRun, screenRelay, textType,
     ];
     for (const t of all) {

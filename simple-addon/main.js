@@ -1787,14 +1787,6 @@ app.on('before-quit', async (e) => {
     await server.stopServer();
   }
 
-  // Close any active Playwright browser session.
-  try {
-    const browser = require('./server/automation/tools/browser');
-    await browser._closeSession();
-  } catch (e) {
-    // Module may not have been loaded if browser tools were never used. Ignore.
-  }
-
   // Stop any active demonstration recording.
   try {
     const recorder = require('./server/automation/recorder');

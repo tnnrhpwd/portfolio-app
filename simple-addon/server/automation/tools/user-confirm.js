@@ -7,7 +7,7 @@
  *
  *   - `goal_ask_user` writes the question into the goal and marks it blocked, then
  *     RETURNS — the run continues without an answer, so it cannot gate anything;
- *   - the permission gate asks *"may I run browser_press?"*, which is a question
+ *   - the permission gate asks *"may I run uia_invoke?"*, which is a question
  *     about a TOOL, not about the content. It cannot show "about to send *I love
  *     you* to Dakota";
  *   - and there is no undo. A sent message is sent.
@@ -38,7 +38,7 @@ const userConfirm = {
         properties: {
             what: {
                 type: 'string',
-                description: 'One line naming the action, e.g. "Send a Google Messages message to Dakota".',
+                description: 'One line naming the action in the user\'s own terms, e.g. "Send a message to <recipient>" or "Delete <file>".',
             },
             details: {
                 type: 'string',

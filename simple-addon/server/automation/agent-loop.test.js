@@ -116,7 +116,11 @@ function newLoop(overrides = {}) {
         const sit = await loop.orient(frame);
         assert.ok(sit.systemPrompt.includes('== GOAL =='), 'system prompt includes GOAL block');
         assert.ok(sit.systemPrompt.includes('toolA'), 'system prompt lists tools');
-        assert.strictEqual(sit.userTick, 'Begin. What is your first action?');
+        // The tick also carries the authorisation now — the refusal that rule 19 in
+        // the system prompt did not prevent was answered from HERE, so assert the
+        // substance rather than the exact sentence.
+        assert.ok(sit.userTick.startsWith('Begin. What is your first action?'), `got: ${sit.userTick}`);
+        assert.ok(/this is authorised/i.test(sit.userTick), 'the first tick must state the authorisation');
     });
 
     await asyncTest('orient() uses the continue tick after step 1', async () => {
@@ -124,8 +128,7 @@ function newLoop(overrides = {}) {
         loop.state.currentGoal = { ...GOAL };
         loop.state.step = 3;
         const sit = await loop.orient({ toolNames: [], toolSchemas: [], wsContextString: '', skillHints: [], perceptionContext: null });
-        assert.ok(sit.userTick.includes('Continue.'), `got: ${sit.userTick}`);
-    });
+        assert.ok(sit.userTick.includes('Continue.'), `got: ${sit.userTick}`);    });
 
     // ── `BACKLOG.md`: semantic lesson recall (critic.recall wired into Orient) ────
     await asyncTest('_rankLessons ranks relevant first and backfills recent-first', async () => {
@@ -234,9 +237,59 @@ function newLoop(overrides = {}) {
         assert.strictEqual(decision.status, 'continue');
     });
 
-    await asyncTest('selectGoal() stops (without blocking) on stall when autoAbandon is false', async () => {
+    // ── stall escalation: a stall is a prompt to act, not a death sentence ──
+    //
+    // These replaced a pair of tests that pinned "stall → terminal". That contract
+    // was the bug: a real run stalled after six consecutive reads and was stopped at
+    // step 8 — killing it in the one turn where the directive to act had just been
+    // handed to the model, and (since tool results never reached the model before the
+    // results-channel fix) the first turn it could actually have read it.
+    await asyncTest('a stall ESCALATES with a directive to act instead of stopping', async () => {
+        const { loop } = newLoop();
+        loop.state.currentGoal = { ...GOAL };
+        loop.state.stallCount = 3; // >= STALL_THRESHOLD
+        const decision = await loop.selectGoal();
+        assert.strictEqual(decision.status, 'continue');
+        assert.match(String(loop.state.escalation), /STOP READING AND ACT/);
+        assert.match(String(loop.state.escalation), /NEXT call must be one that CHANGES what is on screen/);
+        // window_focus is deliberately absent: it was in the list, and a real run met the
+        // directive by re-focusing the window it was already reading, then resumed reading.
+        assert.ok(
+            !/CHANGES what is on screen:[^.]*window_focus/.test(String(loop.state.escalation)),
+            'focusing a window is a prerequisite, not an action that changes the screen'
+        );
+        // Reset, so the run gets a fresh budget to act in rather than tripping the
+        // threshold again on the very next tick.
+        assert.strictEqual(loop.state.stallCount, 0);
+    });
+
+    await asyncTest('a read-only stall says so explicitly, since nothing could have changed', async () => {
+        const { loop } = newLoop();
+        loop.state.currentGoal = { ...GOAL };
+        loop.state.stallCount = 3;
+        loop.state.consecutiveReads = 6; // every one of those calls was a read
+        await loop.selectGoal();
+        assert.match(String(loop.state.escalation), /nothing has been clicked, typed or opened yet/);
+    });
+
+    await asyncTest('the escalation is delivered once, in the message the model reads next', async () => {
+        const { loop } = newLoop();
+        loop.state.currentGoal = { ...GOAL };
+        loop.state.step = 4;
+        loop.state.stallCount = 3;
+        await loop.selectGoal();
+        const frame = { toolNames: [], toolSchemas: [], wsContextString: '', skillHints: [], perceptionContext: null };
+        const sit = await loop.orient(frame);
+        assert.match(sit.userTick, /STOP READING AND ACT/);
+        // Once: a directive re-sent every turn is noise the model learns to skip.
+        const again = await loop.orient(frame);
+        assert.ok(!/STOP READING AND ACT/.test(again.userTick), 'the escalation must not repeat every tick');
+    });
+
+    await asyncTest('a stall stops (without blocking) once the escalation budget is spent', async () => {
         const { loop, fakes } = newLoop();
         loop.state.currentGoal = { ...GOAL }; // no autoAbandon field
+        loop.state.stallEscalations = loop.config.STALL_ESCALATE_LIMIT;
         loop.state.stallCount = 3;
         const upserts = [];
         fakes.wsClient.upsertGoal = async (slug, patch) => { upserts.push({ slug, patch }); return {}; };
@@ -251,10 +304,11 @@ function newLoop(overrides = {}) {
         assert.strictEqual(upserts.length, 0, 'no blocked write without autoAbandon');
     });
 
-    await asyncTest('selectGoal() marks the goal blocked on stall when autoAbandon is true', async () => {
+    await asyncTest('a stall marks the goal blocked on autoAbandon, once the escalation budget is spent', async () => {
         const { loop, fakes } = newLoop();
         fakes.wsClient.getGoal = async (slug) => ({ ...GOAL, slug, autoAbandon: true });
         loop.state.currentGoal = { ...GOAL, autoAbandon: true };
+        loop.state.stallEscalations = loop.config.STALL_ESCALATE_LIMIT;
         loop.state.stallCount = 3;
         let blocked = false;
         fakes.wsClient.upsertGoal = async (slug, patch) => { if (patch.status === 'blocked') blocked = true; return {}; };
@@ -351,6 +405,40 @@ function newLoop(overrides = {}) {
         });
         assert.deepStrictEqual(outcome.outcomes.map((o) => o.name), ['toolA']);
         assert.deepStrictEqual(outcome.outcomes[0].args, { a: 1 });
+    });
+
+    await asyncTest('a tool result REACHES THE MODEL, via the tick message', async () => {
+        // ⚠️ This is the bug everything else was resting on.
+        //
+        // `llm-provider.js`'s backend-proxy `chat()` forwards ONLY 'user' and
+        // 'assistant' messages, so every `role: 'tool'` history entry — and all the
+        // HARNESS notes and digests written into it — was dropped before the request
+        // was built. The model never received one word from any tool. That is exactly
+        // what a blind agent looks like from the outside: a real run called
+        // `window_list` three times, then `perception_recent`, then `uia_snapshot`,
+        // never made an acting call, and stalled. It was not ignoring the screen; it
+        // had never been shown it.
+        const { loop } = newLoop();
+        loop.state.currentGoal = { ...GOAL };
+        loop.state.step = 1;
+        await loop.act({
+            type: 'response', text: '',
+            toolCalls: [{ id: 'c1', function: { name: 'toolA', arguments: '{"a":1}' } }],
+        });
+        assert.ok(
+            String(loop.state.lastToolResults).includes('toolA'),
+            'the result is carried forward rather than discarded with the tool history entry'
+        );
+
+        // Delivered in the message the model reads next — the only safe place for it:
+        // adding extra 'user' entries to history would leave two consecutive user
+        // turns, which backends that require role alternation (Bedrock Converse) reject.
+        loop.state.step = 2;
+        const sit = await loop.orient({
+            toolNames: [], toolSchemas: [], wsContextString: '', skillHints: [], perceptionContext: null,
+        });
+        assert.match(sit.userTick, /WHAT YOUR LAST TOOL CALLS RETURNED/);
+        assert.ok(sit.userTick.includes('toolA'), 'and the model is told what the tool actually returned');
     });
 
     // ── reflect() ────────────────────────────────────────────────────────
@@ -1062,6 +1150,49 @@ function newLoop(overrides = {}) {
             'and pre-empt the exact refusal wording that was produced'
         );
         assert.ok(/user_confirm/.test(prompt), 'while keeping user_confirm as the real control');
+    });
+
+    await asyncTest('a REFUSAL is not accepted as the answer', async () => {
+        // Two real runs ended by telling the user they could not send a message
+        // through an app — the one thing this addon exists to do, and not something
+        // the user can act on. A decline is retried once with the authorisation
+        // restated, and if it declines again the run says so honestly.
+        let calls = 0;
+        const fakes = makeFakes({
+            config: { IDLE_SLEEP_MS: 1, STALL_THRESHOLD: 99 },
+            llmClient: {
+                async chat() {
+                    calls++;
+                    return {
+                        text: "I appreciate the request, but I'm not able to send messages on your behalf. "
+                            + 'I can only help with actions on your Windows computer itself, not with sending '
+                            + 'messages through web services or apps.',
+                        toolCalls: [],
+                    };
+                },
+            },
+        });
+        const loop = new AgentLoop(fakes);
+        await loop.start({ goalSlug: 'g', skipPlanner: true });
+        await waitFor(() => loop.status().running === false, { label: 'refusal loop to stop', timeoutMs: 9000 });
+
+        const s = loop.status();
+        assert.strictEqual(s.stopReason, 'declined', `must name the decline, got ${s.stopReason}`);
+        // One automatic second chance, and no more — it must not nudge forever.
+        assert.strictEqual(calls, 2, `expected exactly one retry, got ${calls} calls`);
+        const nudge = loop.state.history.filter((m) => m.role === 'user').map((m) => String(m.content)).join('\n');
+        assert.ok(/authorised|authorized/i.test(nudge), 'the retry must restate the authorisation');
+        assert.ok(/user_confirm/.test(nudge), 'and keep the confirmation as the control');
+    });
+
+    await asyncTest('a legitimate "cannot find it" report is NOT treated as a refusal', async () => {
+        // The narrowness matters: silencing a real blocked-run report would hide the
+        // thing the user most needs to see.
+        const { loop } = newLoop();
+        assert.strictEqual(loop._looksLikeRefusal('I cannot find the element named Dakota on this screen.'), false);
+        assert.strictEqual(loop._looksLikeRefusal('The search box is not on screen; I cannot find it.'), false);
+        assert.strictEqual(loop._looksLikeRefusal('I can only help with actions on your Windows computer itself.'), true);
+        assert.strictEqual(loop._looksLikeRefusal("I'm not able to send messages on your behalf."), true);
     });
 
     // ── Summary ──────────────────────────────────────────────────────────
