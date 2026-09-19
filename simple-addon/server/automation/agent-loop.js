@@ -82,6 +82,9 @@ const DEFAULT_CONFIG = {
     // After a FAILED workspace context/skill fetch, wait this many steps before
     // trying again — a refused read must not be retried on every tick.
     CONTEXT_RETRY_STEPS: 10,
+    // Consecutive IDENTICAL calls (same tool, same args) after which the action is
+    // treated as no progress and the model is told outright. See act()/reflect().
+    REPEAT_ACTION_LIMIT: 3,
     SKILL_PROMOTE_MIN_REPEATS: 3, // n-gram repeats before a skill draft
 };
 
@@ -178,7 +181,9 @@ function buildSystemPrompt({ goal, workspaceContext, toolNames, skillHints, perc
         '4. If you are stuck or need a human decision, call goal_ask_user — do NOT keep retrying blindly.',
         '5. When the success criteria are satisfied, call goal_update with status="done" AND respond with the sentinel "<<GOAL_DONE>>" on its own line. The loop will stop.',
         '6. When you have done enough that the user should review, you may also stop with "<<GOAL_DONE>>".',
-        '7. Never call tools that you don\'t need. Avoid spamming screen_capture; capture only when vision is required.',
+        '7. Never call tools that you don\'t need. Avoid spamming screen_capture; capture only when vision is required. ' +
+            'Repeating the same call with the same arguments cannot make progress — it is not a way to look harder and not a way to wait. ' +
+            'The harness counts consecutive identical calls itself, tells you in the result, and stops the run if you carry on.',
         '8. If a RECORDED SKILL below matches this goal, PREFER skill_run({ slug: "..." }) over rederiving the steps. Skills are previously-validated demonstrations from the user.',
         '9. Use audio_transcribe if the goal involves spoken input. Use audio_speak to deliver voice assistant responses.',
         '10. Use webcam_capture with describe=true only when you need to understand the user\'s physical environment.',
@@ -819,6 +824,21 @@ class AgentLoop {
             try { argsObj = typeof tc.function.arguments === 'string' ? JSON.parse(tc.function.arguments) : (tc.function.arguments || {}); }
             catch { argsObj = {}; }
             const out = await this.registry.executeTool(tc.function.name, argsObj, ctx);
+
+            // ⚠️ A repeated identical action is NOT progress, and the critic cannot
+            // see that: it scores ok/error, and screen_capture returns ok every time.
+            // A real run called screen_capture TWENTY times in a row and ended on
+            // max-steps-reached, because all twenty looked like successes — the same
+            // blindness that let window_focus repeat three times earlier.
+            //
+            // Prompt rule 7 already said "Avoid spamming screen_capture". Prose was
+            // demonstrably not enough, so the loop notices mechanically — and, more
+            // importantly, says so IN THE RESULT the model reads next, at the moment
+            // it matters rather than as advice it has already forgotten.
+            const fingerprint = `${tc.function.name}:${JSON.stringify(argsObj)}`;
+            const repeats = this._countRepeats(fingerprint);
+            const stuck = repeats >= this.config.REPEAT_ACTION_LIMIT;
+
             // Compact tool result for next turn — full result already in action log
             const summary = JSON.stringify({
                 ok: out.ok,
@@ -829,10 +849,15 @@ class AgentLoop {
             this.state.history.push({
                 role: 'tool',
                 tool_call_id: tc.id || `${tc.function.name}_${this.state.step}`,
-                content: summary,
+                content: stuck
+                    ? `${summary}\n\nHARNESS: STOP — this is identical call ${repeats} to ${tc.function.name} in a row, and nothing changed as a result. `
+                        + 'Repeating it cannot make progress: it is not a way to look harder, and it is not a way to wait for something. '
+                        + 'Do something DIFFERENT now — act on what you have already seen (uia_invoke, click_at, text_type), '
+                        + 'use a different tool to get the information, or ask the user with goal_ask_user.'
+                    : summary,
             });
             this.log(`[agent] step ${this.state.step} tool=${tc.function.name} ok=${out.ok}`);
-            outcomes.push({ name: tc.function.name, args: argsObj, out });
+            outcomes.push({ name: tc.function.name, args: argsObj, out, repeated: stuck });
             this.state.stepLog.push({
                 tool: tc.function.name,
                 args: PII_TOOLS.has(tc.function.name) ? {} : argsObj,
@@ -863,7 +888,14 @@ class AgentLoop {
         const outcomes = outcome?.outcomes || [];
         const delta = this.critic.score({ predicted: action.expected, actual: outcomes.map((o) => o.out) });
         this.state.lastOutcomeDelta = delta;
-        if (delta <= 0) this.state.stallCount++;
+
+        // A repeated identical action is NO PROGRESS even when it "succeeded".
+        // The critic scores ok/error, and screen_capture always returns ok — so 20
+        // identical captures scored as 20 successes and stallCount stayed at 0. The
+        // detector was working; it was being told the run was fine. Counting the
+        // repeat here is what finally lets a mechanically-successful loop stop.
+        const repeated = outcomes.some((o) => o.repeated);
+        if (delta <= 0 || repeated) this.state.stallCount++;
         else this.state.stallCount = 0;
 
         // The critic writes one idempotent lesson per failing tick (Phase 4).
@@ -904,6 +936,21 @@ class AgentLoop {
         }
 
         return { stop: false };
+    }
+
+    /**
+     * How many times, consecutively, this exact action (tool + args) has now run.
+     *
+     * A ring of 6 is plenty — the limit is 3, and a longer window would let a
+     * repeat hide behind unrelated calls and never be seen as a repeat at all.
+     */
+    _countRepeats(fingerprint) {
+        const ring = this.state.recentFingerprints || (this.state.recentFingerprints = []);
+        ring.push(fingerprint);
+        if (ring.length > 6) ring.shift();
+        let n = 0;
+        for (let i = ring.length - 1; i >= 0 && ring[i] === fingerprint; i--) n++;
+        return n;
     }
 
     /**

@@ -64,8 +64,13 @@ module.exports = {
     name: 'screen_capture',
     category: 'safe-read',
     description:
-        'Capture a screenshot of the primary monitor (or a region). Returns base64 PNG, ' +
-        'width, and height. Use sparingly — payloads are large. Prefer narrow regions when targeting a UI element.',
+        'Capture a screenshot of the primary monitor (or a region) as a base64 PNG. ' +
+        '⚠️ You are a TEXT model: you CANNOT see this image. The base64 means nothing to you, so capturing ' +
+        'again will never show you anything new — a run really did call this 22 times in a row and learn ' +
+        'nothing from any of them. To actually READ the screen, use screen_ocr (words on screen), ' +
+        'uia_snapshot or uia_find (the accessibility tree: exact element names and states), or ' +
+        'screen_set_of_marks (numbered clickable regions), then act with click_at, uia_invoke or text_type. ' +
+        'Call this only when pixels are genuinely needed, e.g. to feed find_visual_target, and prefer a narrow region.',
     parameters: {
         type: 'object',
         properties: {

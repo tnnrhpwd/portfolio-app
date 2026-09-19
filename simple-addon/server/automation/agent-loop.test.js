@@ -777,7 +777,10 @@ function newLoop(overrides = {}) {
                 async chat() {
                     this.calls++;
                     if (this.calls >= 7) return { text: 'done <<GOAL_DONE>>', toolCalls: [] };
-                    return { text: '', toolCalls: [{ id: `c${this.calls}`, function: { name: 'toolA', arguments: '{}' } }] };
+                    // Args must VARY: an identical call repeated is now counted as no
+                    // progress (see the repeat tests below), and this test is about the
+                    // workspace backoff, so it must not trip that guard.
+                    return { text: '', toolCalls: [{ id: `c${this.calls}`, function: { name: 'toolA', arguments: JSON.stringify({ n: this.calls }) } }] };
                 },
             },
         });
@@ -797,6 +800,80 @@ function newLoop(overrides = {}) {
         assert.ok(
             contextCalls <= Math.ceil(steps / 2) + 1,
             `expected ~${Math.ceil(steps / 2) + 1} attempts, got ${contextCalls}`
+        );
+    });
+
+    // ── Repeated identical action = NO PROGRESS ──────────────────────────
+    //
+    // Regression tests for the second real loop: a run called `screen_capture`
+    // TWENTY times in a row and ended on `max-steps-reached (steps=60)`. Every call
+    // SUCCEEDED, and the critic scores ok/error, so twenty identical captures scored
+    // as twenty successes and stallCount never moved — the detector was working, it
+    // was being told the run was fine. Prompt rule 7 already said "Avoid spamming
+    // screen_capture", and prose alone was not enough.
+
+    await asyncTest('_countRepeats counts consecutive identical actions only', async () => {
+        const { loop } = newLoop();
+        assert.strictEqual(loop._countRepeats('capture:{}'), 1);
+        assert.strictEqual(loop._countRepeats('capture:{}'), 2, 'same action again');
+        assert.strictEqual(loop._countRepeats('capture:{}'), 3, 'and again');
+        assert.strictEqual(loop._countRepeats('click:{"x":1}'), 1, 'a DIFFERENT action resets the run');
+        assert.strictEqual(loop._countRepeats('capture:{}'), 1, 'so the count starts over');
+    });
+
+    await asyncTest('_countRepeats treats different arguments as different actions', async () => {
+        const { loop } = newLoop();
+        // Two captures at different coordinates are genuinely different attempts,
+        // so they must not be collapsed into "the same call three times".
+        loop._countRepeats('click_at:{"x":1}');
+        loop._countRepeats('click_at:{"x":2}');
+        assert.strictEqual(loop._countRepeats('click_at:{"x":2}'), 2, 'args are part of the identity');
+    });
+
+    await asyncTest('a repeated identical action counts as no progress even when it succeeds', async () => {
+        // The whole point: `ok: true` every time, and the run must still notice.
+        const fakes = makeFakes({
+            config: { IDLE_SLEEP_MS: 1, STALL_THRESHOLD: 3, REPEAT_ACTION_LIMIT: 3 },
+            // Always the same tool with the same (empty) args, forever.
+            llmClient: { async chat() { return { text: '', toolCalls: [{ id: 'c', function: { name: 'toolA', arguments: '{}' } }] }; } },
+        });
+        const loop = new AgentLoop(fakes);
+        await loop.start({ goalSlug: 'g', skipPlanner: true });
+        await waitFor(() => loop.status().running === false, { label: 'repeat loop to stop', timeoutMs: 9000 });
+
+        const s = loop.status();
+        assert.ok(s.step < 60, `must stop well before the budget, stopped at ${s.step}`);
+        assert.ok(
+            /stall/i.test(String(s.stopReason)),
+            `a mechanically-successful repeat loop must report a stall, got: ${s.stopReason}`
+        );
+    });
+
+    await asyncTest('the harness tells the model to stop repeating, in the result it reads next', async () => {
+        const fakes = makeFakes({
+            config: { IDLE_SLEEP_MS: 1, STALL_THRESHOLD: 99, REPEAT_ACTION_LIMIT: 2 },
+            llmClient: {
+                calls: 0,
+                async chat() {
+                    this.calls++;
+                    if (this.calls > 4) return { text: 'done <<GOAL_DONE>>', toolCalls: [] };
+                    return { text: '', toolCalls: [{ id: `c${this.calls}`, function: { name: 'toolA', arguments: '{}' } }] };
+                },
+            },
+        });
+        const loop = new AgentLoop(fakes);
+        await loop.start({ goalSlug: 'g', skipPlanner: true });
+        await waitFor(() => loop.status().running === false, { label: 'loop finish', timeoutMs: 9000 });
+
+        const toolMessages = loop.state.history.filter((m) => m.role === 'tool').map((m) => String(m.content));
+        assert.ok(toolMessages.length >= 3, 'the run made repeated calls');
+        assert.ok(
+            toolMessages[0].indexOf('HARNESS: STOP') === -1,
+            'the FIRST call is not a repeat and must not be told off'
+        );
+        assert.ok(
+            toolMessages.some((c) => c.includes('HARNESS: STOP') && /something DIFFERENT/i.test(c)),
+            'from the limit onward the model must be told, and told what to do instead'
         );
     });
 
