@@ -81,6 +81,7 @@ the AWS bootstrap credentials:
 {
   "JWT_SECRET": "...",
   "SECRETS_ENCRYPTION_KEY": "...",
+  "MESSAGE_ENCRYPTION_KEY": "...",
   "STRIPE_KEY": "sk_live_...",
   "STRIPE_WEBHOOK_SECRET": "whsec_...",
   "DEEPSEEK_API_KEY": "...",
@@ -115,15 +116,36 @@ $k = -join ($b | ForEach-Object { $_.ToString('x2') })
 node backend/scripts/put-secret.js -Name SECRETS_ENCRYPTION_KEY -Value $k
 ```
 
-⚠️ **Setting it is a one-way door for existing rows.** The key is an input to the
-per-record KDF, so changing it makes ciphertext written under the old value
-unreadable. Today only `githubToken` (`SENSITIVE_KEYS` in
-`backend/controllers/csimpleController.js`) is encrypted that way, and it is a
-retired field — but check for `enc:v1:` values before rotating, and re-encrypt
-rather than rotate if anything live is using it. `MESSAGE_ENCRYPTION_KEY` (see
-[`../implementation/TALK.md`](../implementation/TALK.md)) is a **separate** key
-with the same property, and rotating *that* one does make stored message bodies
-unreadable.
+⚠️ **Rotating the master secret was a one-way door; `secretCrypto` now reads across
+the transition.** The secret is the KDF's *input* (the per-record salt salts the
+KDF, it does not make the output independent of the secret), so a value written
+under one secret cannot be read with another. That is exactly what bit us when
+this key was first set on 2026-09-19: two stored `githubToken` values became
+unreadable and every settings read logged `[secretCrypto] Failed to decrypt
+value:` — with no reason attached, because a string passed as winston's second
+argument is dropped (fixed; the reason is now in the message).
+
+`decryptString` now tries the dedicated key and then falls back to the
+`JWT_SECRET`-derived secret (`getLegacySecret`), so those rows read again and
+everything written since uses the dedicated key only. Verified against the live
+rows: 2/2 `enc:v1:` values readable with the fallback, 0 readable with the new
+key alone. The same limit as the messenger applies — change *both* secrets and a
+row written under the old pair is unrecoverable — and the fallback can be deleted
+once no pre-rotation rows remain.
+
+Only `githubToken` (`SENSITIVE_KEYS` in
+`backend/controllers/csimpleController.js`) is encrypted this way, and it is a
+retired field (GitHub Models removed) — check for `enc:v1:` values before any
+further change.
+
+`MESSAGE_ENCRYPTION_KEY` (see [`../implementation/TALK.md`](../implementation/TALK.md))
+encrypts Talk message bodies and sidebar previews, and is **also set** — a second,
+independent key. Unlike `secretCrypto`, `backend/services/messageCrypto.js` *is*
+rotation-safe for reads: it tries the dedicated key and then falls back to the
+`JWT_SECRET`-derived key the pre-rotation rows were written with, so setting the
+variable does not orphan stored messages. New rows use the dedicated key only, and
+the fallback can be deleted once no older rows remain. Generate it the same way as
+above.
 
 #### `backend/.env` is just the AWS bootstrap credentials
 

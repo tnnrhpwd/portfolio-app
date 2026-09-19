@@ -80,4 +80,45 @@ describe('messageCrypto', () => {
         _resetKeyCache();
         expect(() => encrypt('nope', 'c')).toThrow(/No encryption key available/);
     });
+
+    test('reads bodies written before MESSAGE_ENCRYPTION_KEY was set', () => {
+        // The whole point of the fallback: switching the dedicated key on must
+        // not make stored messages unreadable.
+        delete process.env.MESSAGE_ENCRYPTION_KEY;
+        process.env.JWT_SECRET = 'a-jwt-secret';
+        _resetKeyCache();
+        const alreadyStored = encrypt('sent before the rotation', 'conv-1');
+
+        process.env.MESSAGE_ENCRYPTION_KEY = 'the-new-dedicated-key';
+        _resetKeyCache();
+
+        expect(decrypt(alreadyStored, 'conv-1')).toBe('sent before the rotation');
+        // Still bound to its conversation through the fallback path.
+        expect(decrypt(alreadyStored, 'conv-2')).toBeNull();
+    });
+
+    test('stops depending on JWT_SECRET once a dedicated key is set', () => {
+        process.env.JWT_SECRET = 'a-jwt-secret';
+        _resetKeyCache();
+        const writtenAfterRotation = encrypt('sent after the rotation', 'conv-1');
+
+        // Drop the dedicated key again: the old derivation alone must no longer
+        // read what the new key wrote, i.e. new bodies are off the JWT secret.
+        delete process.env.MESSAGE_ENCRYPTION_KEY;
+        _resetKeyCache();
+        expect(decrypt(writtenAfterRotation, 'conv-1')).toBeNull();
+    });
+
+    test('the fallback only accepts the key that was actually in use', () => {
+        // Rotating JWT_SECRET was, and remains, unrecoverable for old rows —
+        // the fallback reads the *previous* key, not any key.
+        process.env.JWT_SECRET = 'the-original-jwt-secret';
+        _resetKeyCache();
+        const alreadyStored = encrypt('older than the rotation', 'conv-1');
+
+        process.env.JWT_SECRET = 'a-completely-different-jwt-secret';
+        process.env.MESSAGE_ENCRYPTION_KEY = 'the-new-dedicated-key';
+        _resetKeyCache();
+        expect(decrypt(alreadyStored, 'conv-1')).toBeNull();
+    });
 });

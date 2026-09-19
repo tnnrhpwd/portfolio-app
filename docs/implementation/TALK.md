@@ -112,18 +112,30 @@ All in the `Simple` table (composite key `id` + `createdAt`):
 ### Encryption: in transit and at rest — NOT end-to-end
 
 The chosen model (asked, and answered): **the server holds the key**. `services/messageCrypto.js` is
-AES-256-GCM, key = HKDF(`MESSAGE_ENCRYPTION_KEY` ‖ `JWT_SECRET`, fixed salt/info), stored as
-`v1.<iv>.<tag>.<ciphertext>` base64url, with the **conversation id as AAD** so a blob cannot be moved
-into another conversation and decrypted there. `lastPreview` is encrypted the same way, so nothing
-readable is written to a row.
+AES-256-GCM, key = HKDF(secret, fixed salt/info) where the secret is `MESSAGE_ENCRYPTION_KEY` when it
+is set and `JWT_SECRET` only as the dev fallback — note it is *either/or*, not a concatenation of the
+two. Stored as `v1.<iv>.<tag>.<ciphertext>` base64url, with the **conversation id as AAD** so a blob
+cannot be moved into another conversation and decrypted there. `lastPreview` is encrypted the same way,
+so nothing readable is written to a row.
 
 - ✅ A dump of the table, a DynamoDB console session, an export, a log line, or a support engineer
   reading raw rows sees ciphertext. A pre-filter scan cannot match message text, because there is none.
 - ❌ The running server can decrypt anything, because it has to in order to display it.
-- **`MESSAGE_ENCRYPTION_KEY` is unset in this environment**, so the key is derived from `JWT_SECRET`
-  and the service logs a warning on first use. That is deliberate — dev and preview work with no new
-  configuration — but **setting the dedicated variable is the intended production state, and rotating
-  it makes previously stored messages undecryptable**.
+- ✅ **`MESSAGE_ENCRYPTION_KEY` is now set** (AWS Secrets Manager, 2026-09-19), so message
+  confidentiality no longer rides on the JWT signing key: rotating `JWT_SECRET` can no longer
+  invalidate a message written tomorrow. Where it is unset — local dev, preview — the key is derived
+  from `JWT_SECRET` and the service logs a warning on first use.
+- ✅ **Switching the dedicated key ON does not orphan history.** `decrypt` tries the dedicated key and
+  then falls back to the `JWT_SECRET`-derived one (`getLegacyKey`), because the blobs already on disk
+  were written with the latter. Verified against the live rows: all 10 stored blobs (6 bodies, 4
+  previews) still decrypt, and 0 of them are readable with the new key alone — i.e. the fallback is
+  what is reading them, not a coincidence. The fallback reads the key that was *actually in use*;
+  pointing `JWT_SECRET` at a different value remains unrecoverable for those rows. It exists only for
+  them and can be deleted once none remain.
+- ⚠️ **A further rotation of `MESSAGE_ENCRYPTION_KEY` itself is NOT covered by that fallback** — it
+  only bridges the `JWT_SECRET` → dedicated-key transition. Rotating the dedicated key to a new value
+  would orphan every row written since, until the same trick is repeated (keep the outgoing key as a
+  second fallback) or the rows are re-encrypted. Do one of those, not neither.
 - **Do not describe this as end-to-end** anywhere in the UI. `/talk` says "encrypted in transit and at
   rest"; it does not say "only you can read it".
 - ⚠️ **A message body must NOT go through the shared `sanitizeInput`.** That middleware calls
