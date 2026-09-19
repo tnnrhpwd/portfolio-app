@@ -34,6 +34,9 @@ const PLANE_LABEL = {
   addon: 'PC',
 };
 
+/** Monotonic, so two lists on screen never share an id (see `listId`). */
+let listSeq = 0;
+
 const GLYPH = {
   running: '•',
   ok: '✓',
@@ -74,6 +77,15 @@ function summarise(steps) {
 
 export default function StepList({ steps, onRetryStep }) {
   const [openIds, setOpenIds] = useState(() => new Set());
+  // The LIST folds as well as each row. It opens by default — the point of the
+  // list is that the user can SEE what ran, and a run in flight should show its
+  // rows as they arrive — so this is an affordance for folding a long turn away
+  // afterwards, not a drawer that hides the work.
+  const [collapsed, setCollapsed] = useState(false);
+  // Per-INSTANCE, because two lists can be on screen at once (a live one in the
+  // working bubble and a finished one in the message above it) and a duplicate
+  // id would point `aria-controls` at the wrong list.
+  const [listId] = useState(() => `steps-list-${(listSeq += 1)}`);
 
   if (!Array.isArray(steps) || steps.length === 0) return null;
 
@@ -88,8 +100,19 @@ export default function StepList({ steps, onRetryStep }) {
 
   return (
     <div className="steps" aria-label="Agent steps">
-      <div className="steps__summary">{summarise(steps)}</div>
-      <ol className="steps__list">
+      <button
+        type="button"
+        className="steps__summary steps__summary--toggle"
+        aria-expanded={!collapsed}
+        aria-controls={listId}
+        onClick={() => setCollapsed((prev) => !prev)}
+      >
+        <span className="steps__caret" aria-hidden="true">{collapsed ? '▸' : '▾'}</span>
+        {summarise(steps)}
+      </button>
+      {/* `hidden` needs the guard below it in the stylesheet: any class rule that
+          sets `display` beats the UA sheet's `[hidden] { display: none }`. */}
+      <ol className="steps__list" id={listId} hidden={collapsed}>
         {steps.map((step) => {
           const isOpen = openIds.has(step.id);
           const detailId = `step-detail-${step.id}`;

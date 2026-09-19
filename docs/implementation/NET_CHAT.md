@@ -234,9 +234,35 @@ noticed. Both paths now say what they are doing.
   (`since`) or a previous run's last tool flashes up as if it were happening now;
   and the subscription list, the URL's `types` filter and the wording all come from
   one exported constant, because a type handled but not listed never arrives.
+- **The step LIST, not just the current step (same date).** The note says what it is
+  doing NOW; a list says what it has DONE, which is the difference between watching
+  a spinner and watching work. Same events, so a second pure module accumulates
+  them: `utils/simpleAddon/agentSteps.js` folds `tool.start`/`tool.end` into exactly
+  the row shape the backend journal emits (`stepJournal.js` — id, tool, plane,
+  label, status, argsPreview, ms…), joined on `callId` so one call is one row that
+  is updated rather than appended, and with `Denied:`/`Cancelled:` mapped to
+  `denied` (the classifier's own rule). `reaskable` stays false: the addon's stream
+  does not carry it, and a "Try again" that cannot work is worse than none.
+  `upsertStep` returns the SAME array when an event changes nothing, so React skips
+  the render. Sharing that shape is what lets `StepList` — written for the cloud
+  path — render both planes: live inside the working bubble through `ChatWindow`'s
+  `steps` prop, then on the finished message from `message.steps`, so the list the
+  user watched is not replaced by a summary of itself. `StepList` gained a
+  list-level fold for a long turn (open by default — its whole point is that the
+  work is visible) and its rows are compact, because `index.css` floors every bare
+  button at 44px and a ten-step log would otherwise be 440px of chrome.
+- **Stop keeps the progress (same date).** A desktop run has no placeholder message
+  to keep, and the request being aborted may never come back, so `stopGeneration`
+  writes the run into the chat itself — `content: 'Stopped.'` plus the steps it had
+  reached — and sets a `stopped` flag so a late arrival cannot append a second
+  message beside it. Before this, everything the user had just watched vanished
+  with the working bubble.
 - **Tests:** `backend/__tests__/unit/toolProgress.test.js`; the progress order and
   labels in `llmServiceStreamingTools.test.js`; four render cases in
-  `frontend/src/components/SimpleAddon/MessageBubble.test.jsx`.
+  `frontend/src/components/SimpleAddon/MessageBubble.test.jsx`; the fold above in
+  `frontend/src/utils/simpleAddon/agentSteps.test.js` and
+  `agentProgress.test.js` (the `callId` join, the replay guard, the identity
+  return, the cap, the denial wording).
 
 Verified live: the SSE sequence is `progress → progress → tools → content` with
 labels `Looking into it` / `Reading GoalManager.jsx…`, and the desktop-agent note

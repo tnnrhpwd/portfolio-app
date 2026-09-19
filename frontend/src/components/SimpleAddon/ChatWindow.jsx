@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom';
 import MessageBubble from './MessageBubble';
 import ConfirmationPanel from './ConfirmationPanel';
+import StepList from './StepList';
 import BrandMark from '../BrandMark/BrandMark.jsx';
 import { goalSlugFromConversation } from '../../utils/simpleAddon/goalChat';
 import './ChatWindow.css';
@@ -64,7 +65,7 @@ function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-function ChatWindow({ conversation, isGenerating, progressNote, onSendMessage, onStopGeneration, onToggleSidebar, isOnline, agent, speech, sttEnabled, settings, pendingConfirmation, onConfirmOption, onDismissConfirmation, isConfirming, isAddonConnected, isAddonOutdated, onReportMessage, onCopyMessage, isSidebarOpen, onRetryStep }) {
+function ChatWindow({ conversation, isGenerating, progressNote, steps, onSendMessage, onStopGeneration, onToggleSidebar, isOnline, agent, speech, sttEnabled, settings, pendingConfirmation, onConfirmOption, onDismissConfirmation, isConfirming, isAddonConnected, isAddonOutdated, onReportMessage, onCopyMessage, isSidebarOpen, onRetryStep }) {
   const [input, setInput] = useState('');
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [dragActive, setDragActive] = useState(false);
@@ -324,6 +325,10 @@ function ChatWindow({ conversation, isGenerating, progressNote, onSendMessage, o
                   {progressNote}
                 </div>
               )}
+              {/* What it has actually DONE, not just what it is doing now. These
+                  are the same rows the finished message will carry, so the list
+                  the user watched does not get replaced by a summary of itself. */}
+              <StepList steps={steps} />
             </div>
           </div>
         )}

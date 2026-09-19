@@ -46,6 +46,7 @@ import {
   progressFromEvent,
   progressFromStatus,
 } from '../../utils/simpleAddon/agentProgress.js';
+import { upsertStep } from '../../utils/simpleAddon/agentSteps.js';
 import { createData } from '../../features/data/dataSlice';
 import { getUserIdentifier } from '../../utils/supportUtils';
 import { getEffectiveCloudModelId, resolveCloudModelProvider } from '../../utils/llmProviderOptions.js';
@@ -280,6 +281,15 @@ function SimpleChat({
   // Live "what is happening" line for the desktop-agent path, which has no
   // token stream to show (see the AGENT route branch in sendMessage).
   const [agentProgress, setAgentProgress] = useState(null);
+  // The desktop agent's steps for the run in flight — the rows the working
+  // bubble grows, and the rows the finished message keeps.
+  const [agentSteps, setAgentSteps] = useState([]);
+  // Mirrored for the two readers that must not see a stale closure: the message
+  // the steps are attached to, and the Stop handler.
+  const agentStepsRef = useRef([]);
+  // Is a desktop run in flight, and did the user stop it? A stop has to write the
+  // run into the chat here, because the request it aborts may never come back.
+  const agentRunRef = useRef({ live: false, stopped: false });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
@@ -1696,6 +1706,15 @@ function SimpleChat({
           // as the fallback for a stream that cannot connect.
           setAgentProgress('Working on it…');
           const progressStart = Date.now();
+          // A fresh run owns a fresh list — the previous run's rows must not sit
+          // in the working bubble while the new one starts.
+          agentStepsRef.current = [];
+          setAgentSteps([]);
+          // Identity, not a flag: a run the user stopped and then replaced with a
+          // new message settles LATER, and must not wipe the new run's note,
+          // steps or spinner when it does.
+          const myRun = { live: true, stopped: false };
+          agentRunRef.current = myRun;
           let liveEvents = false;
           let progressStream = null;
           try {
@@ -1713,6 +1732,14 @@ function SimpleChat({
               if (label) {
                 liveEvents = true;
                 setAgentProgress(label);
+              }
+              // The steps it has taken, built from the same events the note is.
+              // `upsertStep` returns the same array when an event changes
+              // nothing, so this re-renders only on a real change.
+              const next = upsertStep(agentStepsRef.current, ev, { since: progressStart });
+              if (next !== agentStepsRef.current) {
+                agentStepsRef.current = next;
+                setAgentSteps(next);
               }
             };
             for (const type of AGENT_PROGRESS_TYPES) {
@@ -1747,7 +1774,22 @@ function SimpleChat({
           } finally {
             clearInterval(progressPoll);
             try { progressStream?.close(); } catch { /* already gone */ }
-            setAgentProgress(null);
+            // Only the run that still OWNS the ref may clear the live view.
+            if (agentRunRef.current === myRun) {
+              setAgentProgress(null);
+              setAgentSteps([]);         // the message carries its own copy
+              agentRunRef.current.live = false;
+            }
+          }
+          // Superseded by a newer run: that one owns the note, the spinner and the
+          // chat from here on, so this answer belongs to nobody.
+          if (agentRunRef.current !== myRun) return;
+          // Stopped by hand: `stopGeneration` has already written the run into the
+          // chat, with the steps it had reached, so a late answer must not add a
+          // second message beside it.
+          if (agentRunRef.current.stopped) {
+            setIsGenerating(false);
+            return;
           }
           if (agentResult?.actionable) {
             const stepNote = typeof agentResult.steps === 'number'
@@ -1766,6 +1808,9 @@ function SimpleChat({
               role: 'assistant',
               content,
               timestamp: new Date().toISOString(),
+              // The rows the working bubble was showing, so nothing the user
+              // watched disappears when the answer lands.
+              ...(agentStepsRef.current.length ? { steps: agentStepsRef.current } : {}),
               agentRun: { goalSlug: agentResult.goalSlug || goalSlug, status: agentResult.status, steps: agentResult.steps },
             };
             setConversations(prev => prev.map(c => {
@@ -2427,6 +2472,24 @@ function SimpleChat({
     if (isAddonConnected) {
       try { await apiStopGeneration(); } catch {}
     }
+    // The desktop agent has no message to fall back on: its run lives only in the
+    // working bubble, and the request being aborted may never resolve. So the run
+    // is written into the chat HERE, with the steps it had reached — otherwise
+    // everything the user just watched disappears with the bubble.
+    if (agentRunRef.current.live && !agentRunRef.current.stopped) {
+      agentRunRef.current.stopped = true;
+      const steps = agentStepsRef.current;
+      const stoppedMessage = {
+        id: `stopped-${Date.now()}`,
+        role: 'assistant',
+        content: 'Stopped — this is how far it got.',
+        timestamp: new Date().toISOString(),
+        ...(steps.length ? { steps } : {}),
+      };
+      setConversations(prev => prev.map(c => (
+        c.id === activeConversationId ? { ...c, messages: [...c.messages, stoppedMessage] } : c
+      )));
+    }
     // The cloud turn keeps running unless it is told to stop — before this, the
     // Stop button only hid the tokens while the backend carried on making model
     // calls and running tools. Cooperative: it stops at the next safe boundary
@@ -2437,7 +2500,7 @@ function SimpleChat({
       activeRunIdRef.current = null;
     }
     setIsGenerating(false);
-  }, [isAddonConnected, onCancelTurn]);
+  }, [isAddonConnected, onCancelTurn, activeConversationId]);
 
   // ── Bug-report & copy handlers for message context menu ────────────────
   const handleReportMessage = useCallback((message) => {
@@ -2516,6 +2579,7 @@ function SimpleChat({
           conversation={activeConversation}
           isGenerating={isGenerating}
           progressNote={agentProgress}
+          steps={agentSteps}
           onSendMessage={sendMessage}
           onStopGeneration={stopGeneration}
           onToggleSidebar={() => setSidebarOpen(prev => !prev)}

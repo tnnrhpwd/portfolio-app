@@ -12,12 +12,53 @@
   overflow: hidden;
 }
 
+/* The summary is a TOGGLE for the whole list, and it is also a `<button>` — so
+   every property `index.css` gives a bare button has to be taken back here
+   (gradient fill, 44px min-height, its own padding, and on hover an inverted
+   colour that follows the SITE's mode while the chat may be the other one). */
 .steps__summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
   padding: 5px 10px;
+  min-height: 0;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--border);
   color: var(--text-muted, #718096);
+  font: inherit;
   font-size: 0.95em;
   letter-spacing: 0.01em;
-  border-bottom: 1px solid var(--border);
+  text-align: left;
+  cursor: pointer;
+}
+
+.steps .steps__summary:hover {
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  color: var(--text-muted, #718096);
+}
+
+.steps__summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Folded: the rule under the summary has nothing left to separate it from. */
+.steps__summary[aria-expanded='false'] {
+  border-bottom: 0;
+}
+
+.steps__caret {
+  flex: 0 0 auto;
+  opacity: 0.7;
+}
+
+/* ⚠️ `hidden` on the list is defeated by ANY class rule that sets `display` —
+   the UA sheet's `[hidden] { display: none }` loses the cascade — so the guard
+   is what actually folds it. */
+.steps__list[hidden] {
+  display: none;
 }
 
 .steps__list {
@@ -36,6 +77,9 @@
   gap: 8px;
   width: 100%;
   padding: 5px 10px;
+  /* `index.css` floors EVERY bare button at 44px; a step log is a scanned list,
+     so its rows take their height from the text, with a floor for touch. */
+  min-height: 28px;
   background: none;
   border: 0;
   color: inherit;
@@ -44,7 +88,10 @@
   cursor: pointer;
 }
 
-.steps__row:hover {
+/* Two class selectors, deliberately: `button:hover:not(:disabled)` in index.css
+   is (0,2,1) and would otherwise repaint the row as a solid accent pill in the
+   SITE's mode while the chat may be showing the other one. */
+.steps .steps__row:hover {
   background: color-mix(in srgb, var(--surface) 80%, transparent);
 }
 
