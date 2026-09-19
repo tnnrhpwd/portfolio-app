@@ -814,6 +814,24 @@
 			"type": "shell",
 			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add -A; git commit -F tmp-commit-msg.txt; Remove-Item -Force tmp-commit-msg.txt -ErrorAction SilentlyContinue; Write-Output '--- PUSH ---'; git push origin master; Write-Output '--- SYNC ---'; git rev-list --left-right --count origin/master...HEAD",
 			"group": "test"
+		},
+		{
+			"label": "remove-stray-file",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git rm --cached tmp-commit-msg.txt; git commit -m 'Remove stray temp commit-message file'; git push origin master; Write-Output '--- STATUS ---'; git status --short; Write-Output '--- LATEST ---'; git log --oneline -3",
+			"group": "test"
+		},
+		{
+			"label": "addon-release-native-first",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node release.js 2>&1 | Out-File -Encoding utf8 tmp-release.txt; Get-Content tmp-release.txt -Tail 25; Remove-Item -Force tmp-release.txt -ErrorAction SilentlyContinue",
+			"group": "test"
+		},
+		{
+			"label": "commit-then-release",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add .vscode/tasks.json; git commit -m 'Add verification task labels'; git push origin master; Remove-Item -Force simple-addon/tmp-release.txt -ErrorAction SilentlyContinue; Write-Output '--- STATUS ---'; git status --short; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js",
+			"group": "test"
 		}
 	]
 }
