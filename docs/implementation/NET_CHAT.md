@@ -213,9 +213,27 @@ noticed. Both paths now say what they are doing.
   (`progressNote`) and clears it on the first token → `MessageBubble` renders a
   pulsing `role="status"` line inside the bubble.
 - **Desktop-agent path:** no token stream exists there at all, so `SimpleChat`
-  polls `getAgentStatus()` every 2 s while the addon works and shows
-  "Step N — <tool>…" beside the typing dots (`ChatWindow`'s `progressNote` prop),
-  cleared in a `finally` when the run returns.
+  subscribes to the addon's event stream and shows what it is doing through
+  `ChatWindow`'s `progressNote` prop, cleared in a `finally` when the run returns.
+  **Updated 2026-09-18 — the status poll alone did not work.** It reports the
+  LOOP's own state, and while it reported nothing the note sat on "Working on it…"
+  until the answer arrived, so the only moment the line moved was the moment the
+  turn ended. The addon broadcasts better material: `tool-registry.js` publishes
+  `tool.start`/`tool.end` for every tool call, and `/api/agent/events` streams them
+  (that route's own comment says it exists so a UI can reconstruct a live,
+  step-by-step view of one run). So the chat subscribes FIRST —
+  `getAgentEventsUrl({ types })`, with one explicit `addEventListener` per type,
+  because named SSE events never reach `onmessage` — and the `getAgentStatus()`
+  poll is kept **only** as a fallback, skipped once a live event has moved the note
+  (its coarser "Step N" would be a downgrade).
+  `utils/simpleAddon/agentProgress.js` owns the wording, pure so it is testable:
+  `tool.start` → "Running screen capture…", `tool.end` → "shell run — done in
+  0.4s" or "uia invoke — element not found", `agent.thought` → "Next: repo search,
+  repo read file". Two things it has to get right on its own: the stream REPLAYS
+  its ring on subscribe, so anything older than the turn's start is dropped
+  (`since`) or a previous run's last tool flashes up as if it were happening now;
+  and the subscription list, the URL's `types` filter and the wording all come from
+  one exported constant, because a type handled but not listed never arrives.
 - **Tests:** `backend/__tests__/unit/toolProgress.test.js`; the progress order and
   labels in `llmServiceStreamingTools.test.js`; four render cases in
   `frontend/src/components/SimpleAddon/MessageBubble.test.jsx`.

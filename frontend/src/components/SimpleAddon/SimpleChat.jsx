@@ -35,11 +35,17 @@ import {
   startAgent,
   stopAgent,
   getAgentStatus,
+  getAgentEventsUrl,
   getAgentListener,
   setAgentListener,
   getAgentProposals,
 } from '../../services/simpleAddonApi';
 import { recordGoalAgentResult } from '../../services/goalAgentApi.js';
+import {
+  AGENT_PROGRESS_TYPES,
+  progressFromEvent,
+  progressFromStatus,
+} from '../../utils/simpleAddon/agentProgress.js';
 import { createData } from '../../features/data/dataSlice';
 import { getUserIdentifier } from '../../utils/supportUtils';
 import { getEffectiveCloudModelId, resolveCloudModelProvider } from '../../utils/llmProviderOptions.js';
@@ -1677,18 +1683,57 @@ function SimpleChat({
         );
         try {
           // The addon's local agent gives no token stream and can run for
-          // minutes, so poll its status and show which step it is on. Without
-          // this the chat is three dots — read as a freeze (observed 2026-09-14,
-          // when a stuck run took 56 screen captures before anyone noticed).
+          // minutes, so the chat has to say what it is doing — without this it is
+          // three dots, which read as a freeze (observed 2026-09-14, when a stuck
+          // run took 56 screen captures before anyone noticed).
+          //
+          // The status POLL alone was not enough. It reports the LOOP's own
+          // state, and while it said nothing the note sat on "Working on it…"
+          // until the answer arrived — so the only moment the line moved was the
+          // moment the turn ended. The addon broadcasts better material:
+          // `tool.start`/`tool.end` fire for every tool call (`tool-registry.js`),
+          // so subscribe FIRST and let the events drive the note, keeping the poll
+          // as the fallback for a stream that cannot connect.
           setAgentProgress('Working on it…');
-          const progressPoll = setInterval(async () => {
-            try {
-              const s = await getAgentStatus();
-              const lastTool = s?.stepLog?.[s.stepLog.length - 1]?.tool;
-              if (s?.running) {
-                const tool = lastTool ? ` — ${String(lastTool).replace(/_/g, ' ')}` : '';
-                setAgentProgress(`Step ${s.step ?? 0}${tool}…`);
+          const progressStart = Date.now();
+          let liveEvents = false;
+          let progressStream = null;
+          try {
+            // `getAgentEventsUrl` returns null when the addon is not connected —
+            // checked rather than letting the constructor throw on it.
+            const eventsUrl = getAgentEventsUrl({ types: AGENT_PROGRESS_TYPES.join(',') });
+            progressStream = eventsUrl ? new EventSource(eventsUrl) : null;
+            const onAgentEvent = (e) => {
+              let ev;
+              try { ev = JSON.parse(e.data); } catch { return; }
+              // `since` drops the stream's replay: the first events a subscriber
+              // receives are history, and a previous run's last tool must not
+              // appear as if it were happening now.
+              const label = progressFromEvent(ev, { since: progressStart });
+              if (label) {
+                liveEvents = true;
+                setAgentProgress(label);
               }
+            };
+            for (const type of AGENT_PROGRESS_TYPES) {
+              progressStream.addEventListener(type, onAgentEvent);
+            }
+            // Loopback-only and unauthenticated by design (an EventSource cannot
+            // send headers). If it cannot connect, stop retrying and let the poll
+            // carry the note.
+            progressStream.onerror = () => {
+              try { progressStream?.close(); } catch { /* already gone */ }
+              progressStream = null;
+            };
+          } catch { progressStream = null; }
+
+          // Fallback, and only a fallback: once a live event has moved the note,
+          // the poll's coarser "Step N" would be a downgrade.
+          const progressPoll = setInterval(async () => {
+            if (liveEvents) return;
+            try {
+              const label = progressFromStatus(await getAgentStatus());
+              if (label) setAgentProgress(label);
             } catch { /* addon unreachable mid-run — keep the last note */ }
           }, 2000);
           let agentResult;
@@ -1701,6 +1746,7 @@ function SimpleChat({
             });
           } finally {
             clearInterval(progressPoll);
+            try { progressStream?.close(); } catch { /* already gone */ }
             setAgentProgress(null);
           }
           if (agentResult?.actionable) {

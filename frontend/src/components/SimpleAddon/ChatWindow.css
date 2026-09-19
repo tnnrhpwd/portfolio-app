@@ -216,12 +216,32 @@
 /* Typing indicator */
 .chat-window__typing {
   display: flex;
-  align-items: center;
+  /* The avatar stays at the TOP, like a message row's (MessageBubble.css
+     `.message`), because the bubble beside it grows as the note updates. */
+  align-items: flex-start;
   gap: 12px;
   padding: 12px 24px;
   max-width: 800px;
   margin: 0 auto;
   width: 100%;
+}
+
+/* One bubble holds the dots AND the step line. As siblings they read as a
+   bubble with a stray caption beside it — and the note was pinned to a single
+   clipped line, so the one thing it exists to say could be cut off. */
+.chat-window__typing-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
+  background: var(--assistant-bubble);
+  /* The bubble carries the SAME surface as an assistant message, which is
+     invisible on a light ground (white on near-white). The theme's own border
+     ink gives it an edge in both modes without inventing a colour. */
+  border: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) var(--radius) 4px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .chat-window__typing-avatar {
@@ -257,17 +277,20 @@
 
 .chat-window__typing-dots {
   display: flex;
+  align-items: center;
   gap: 4px;
-  padding: 12px 16px;
-  background: var(--assistant-bubble);
-  border-radius: var(--radius) var(--radius) var(--radius) 4px;
+  /* The bubble above owns the padding, background and tail now. */
+  min-height: 8px;
 }
 
 .chat-window__typing-dots span {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--text-muted);
+  /* `--text-muted` is tuned for de-emphasised body ink; at 8px it left the three
+     dots reading as one faint mark. `--text-secondary` is visible on both
+     grounds and is the ink the cloud path's progress dots already use. */
+  background: var(--text-secondary, #a0aec0);
   animation: typing 1.4s infinite;
 }
 
@@ -280,24 +303,27 @@
 }
 
 @keyframes typing {
-  0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
+  /* Never fully off. At 0.3 for most of the cycle the row looked static, which
+     was most of why the working state read as broken rather than busy. */
+  0%, 60%, 100% { opacity: 0.5; transform: scale(0.85); }
   30% { opacity: 1; transform: scale(1); }
 }
 
-/* "What is happening" line for the desktop-agent path, next to the dots. */
+/* "What is happening" line for the desktop-agent path, under the dots. It moves
+   as the agent changes step, so it WRAPS rather than being clipped — a tool name
+   plus why it failed is the entire value of the line. */
 .chat-window__typing-note {
-  color: var(--text-muted);
+  color: var(--text-secondary, #a0aec0);
   font-size: 0.85rem;
   font-style: italic;
+  line-height: 1.35;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
-@media (max-width: 640px) {
-  /* Let the note wrap instead of being clipped on a phone. */
-  .chat-window__typing-note { white-space: normal; }
+/* The motion is decoration: static dots still read as "working". */
+@media (prefers-reduced-motion: reduce) {
+  .chat-window__typing-dots span { animation: none; opacity: 0.6; }
 }
 
 /* Input form */

@@ -309,18 +309,22 @@ function ChatWindow({ conversation, isGenerating, progressNote, onSendMessage, o
             ) : (
               <div className="chat-window__typing-avatar">{(agent?.name || 'C')[0]}</div>
             )}
-            <div className="chat-window__typing-dots">
-              <span />
-              <span />
-              <span />
-            </div>
-            {/* The desktop agent gives no token stream — name the step it is on
-                so a long run does not look like a frozen chat. */}
-            {progressNote && (
-              <div className="chat-window__typing-note" role="status" aria-live="polite">
-                {progressNote}
+            {/* The dots and the line naming the current step go in ONE bubble:
+                they describe one thing, and as siblings the note read as loose
+                text hanging off an unrelated bubble. The desktop agent gives no
+                token stream, so this is the only sign of life a long run gets. */}
+            <div className="chat-window__typing-bubble">
+              <div className="chat-window__typing-dots">
+                <span />
+                <span />
+                <span />
               </div>
-            )}
+              {progressNote && (
+                <div className="chat-window__typing-note" role="status" aria-live="polite">
+                  {progressNote}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

@@ -832,6 +832,40 @@
 			"type": "shell",
 			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add .vscode/tasks.json; git commit -m 'Add verification task labels'; git push origin master; Remove-Item -Force simple-addon/tmp-release.txt -ErrorAction SilentlyContinue; Write-Output '--- STATUS ---'; git status --short; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js",
 			"group": "test"
+		},
+		{
+			"label": "check-addon-ci",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; gh run list --repo tnnrhpwd/portfolio-app --workflow=build-addon.yml --limit 3",
+			"group": "test"
+		},
+		{
+			"label": "verify-agent-progress",
+			"type": "shell",
+			"command": "node node_modules/jest/bin/jest.js --config package.json frontend/src/utils/simpleAddon/agentProgress.test.js 2>&1 | Out-File -Encoding utf8 tmp-ap.txt; Select-String -Path tmp-ap.txt -Pattern 'Tests:|Suites:|✕|●' | Select-Object -First 25 | ForEach-Object { $_.Line }",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "verify-agent-progress-build",
+			"type": "shell",
+			"command": "$f='frontend/src/components/SimpleAddon/ChatWindow.css'; $c=Get-Content $f -Raw; 'braces {0}/{1}  comments {2}/{3}' -f ([regex]::Matches($c,'\\{')).Count,([regex]::Matches($c,'\\}')).Count,([regex]::Matches($c,'/\\*')).Count,([regex]::Matches($c,'\\*/')).Count; Set-Location frontend; npx vite build 2>&1 | Out-File -Encoding utf8 ..\\tmp-ap2.txt; Select-String -Path ..\\tmp-ap2.txt -Pattern 'transformed|built in|Build failed|error|Expected' | Select-Object -First 12 | ForEach-Object { $_.Line }",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "verify-agent-progress-final",
+			"type": "shell",
+			"command": "$f='frontend/src/components/SimpleAddon/ChatWindow.css'; $c=Get-Content $f -Raw; 'braces {0}/{1}  comments {2}/{3}' -f ([regex]::Matches($c,'\\{')).Count,([regex]::Matches($c,'\\}')).Count,([regex]::Matches($c,'/\\*')).Count,([regex]::Matches($c,'\\*/')).Count; Select-String -Path $f -Pattern 'typing-bubble|typing-note|prefers-reduced-motion' | ForEach-Object { $_.LineNumber.ToString() + ': ' + $_.Line.Trim() }; Set-Location frontend; npx vite build 2>&1 | Out-File -Encoding utf8 ..\\tmp-ap3.txt; Select-String -Path ..\\tmp-ap3.txt -Pattern 'transformed|built in|Build failed|Expected|error during' | Select-Object -First 10 | ForEach-Object { $_.Line }",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "verify-agent-progress-ship",
+			"type": "shell",
+			"command": "Set-Location frontend; npx vite build 2>&1 | Out-File -Encoding utf8 ..\\tmp-ap4.txt; Select-String -Path ..\\tmp-ap4.txt -Pattern 'transformed|built in|Build failed|Expected|error during' | Select-Object -First 10 | ForEach-Object { $_.Line }; Set-Location ..; node node_modules/jest/bin/jest.js --config package.json frontend/src/utils/simpleAddon/agentProgress.test.js 2>&1 | Out-File -Encoding utf8 tmp-ap5.txt; Select-String -Path tmp-ap5.txt -Pattern 'Test Suites:|Tests:' | ForEach-Object { $_.Line }; Remove-Item -Force tmp-ap4.txt,tmp-ap5.txt -ErrorAction SilentlyContinue",
+			"problemMatcher": [],
+			"group": "test"
 		}
 	]
 }
