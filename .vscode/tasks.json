@@ -1047,6 +1047,12 @@
 			"type": "shell",
 			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add simple-addon/server/automation/agent-loop.js simple-addon/server/automation/agent-loop.test.js .vscode/tasks.json docs/implementation/agent.md; git status --short; git commit -m 'Announce a truncated tool result instead of silently slicing it' -m 'A run read the screen 24 times over and never once acted: no click_at, no uia_invoke, no text_type. The cause was our own truncation - a whole UIA tree was sliced to 800 chars, usually mid-JSON so it could not be reasoned over, and every re-read produced the SAME 800 chars. The model kept reading, hoping for more.' -m 'A capped result now says it was capped, reports how much was dropped, says plainly that re-reading cuts in the same place and cannot show more, and names the narrower question to ask instead: uia_find for one element by name, a smaller region, or screen_ocr.' -m 'The repeat guard also fired in the field: this run stopped itself at 24 steps with stalled after 3 consecutive no-progress ticks, instead of running to 60.'; Write-Output '--- PUSH ---'; git push origin master; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js",
 			"group": "test"
+		},
+		{
+			"label": "stash-and-release-60",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add .vscode/tasks.json; git commit -m 'Track verification task labels'; git push origin master; git stash push -m 'parallel session WIP, restored immediately after release' -- docs/implementation/NET_CHAT.md frontend/src/components/SimpleAddon/ChatWindow.jsx frontend/src/components/SimpleAddon/SimpleChat.jsx frontend/src/components/SimpleAddon/StepList.css frontend/src/components/SimpleAddon/StepList.jsx; Write-Output '--- STATUS BEFORE RELEASE ---'; git status --short; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js; Set-Location ..; Write-Output '--- RESTORING WIP ---'; git stash pop; Write-Output '--- STATUS AFTER ---'; git status --short",
+			"group": "test"
 		}
 	]
 }
