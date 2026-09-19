@@ -477,6 +477,19 @@ async function main() {
     }
     console.log(`addon: ${base}`);
 
+    // WHICH BUILD is answering. This is the fact that decides whether a known fix is even
+    // in front of you — `screen_ocr`'s char-spread bug lived in an installed build for a
+    // whole session while the fix sat in the repo, and the tool surface alone does not
+    // reveal it (the broken build still had all 53 tools).
+    let installedVersion = 'unknown';
+    try {
+        const st = ((await request(base, 'GET', '/api/status')).body) || {};
+        installedVersion = st.currentVersion || st.version || 'unknown';
+        console.log(`       reported version: ${installedVersion}`);
+    } catch (e) {
+        console.log(`       reported version: unreadable (${e.message})`);
+    }
+
     if (opts.tools || opts.tool) {
         const code = await printToolCatalogue(base, opts.tool || null);
         if (code !== 0) process.exitCode = code;

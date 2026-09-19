@@ -1653,6 +1653,42 @@
 			"type": "shell",
 			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\ship-release2.ps1'",
 			"problemMatcher": []
+		},
+		{
+			"label": "walk-prompt-stages-0-4",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/eval/walkthrough.js --from 0 --to 4 --log \"$env:TEMP\\walk2.jsonl\" 2>&1 | Out-File -Encoding utf8 \"$env:TEMP\\walk2.txt\"; Write-Output ('exit: ' + $LASTEXITCODE)",
+			"problemMatcher": []
+		},
+		{
+			"label": "walk-fixed-lane2",
+			"type": "shell",
+			"command": "node \"C:\\Users\\tanne\\AppData\\Local\\Temp\\walk-fixed.cjs\" 2>&1 | Out-File -Encoding utf8 \"C:\\Users\\tanne\\AppData\\Local\\Temp\\walk-fixed.txt\"; Write-Output ('exit: ' + $LASTEXITCODE)",
+			"problemMatcher": []
+		},
+		{
+			"label": "walk-rcs-type",
+			"type": "shell",
+			"command": "node \"C:\\Users\\tanne\\AppData\\Local\\Temp\\walk-rcs-type.cjs\" 2>&1 | Out-File -Encoding utf8 \"C:\\Users\\tanne\\AppData\\Local\\Temp\\walk-rcs-type.txt\"; Write-Output ('exit: ' + $LASTEXITCODE)",
+			"problemMatcher": []
+		},
+		{
+			"label": "walk-final-state",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\walk-final-state.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "walk-commit-tidy",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\walk-commit-tidy.ps1'",
+			"problemMatcher": []
+		},
+		{
+			"label": "walk-commit-tidy2",
+			"type": "shell",
+			"command": "powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\\Users\\tanne\\AppData\\Local\\Temp\\walk-commit-tidy2.ps1'",
+			"problemMatcher": []
 		}
 	]
 }
