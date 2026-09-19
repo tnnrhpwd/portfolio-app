@@ -1119,6 +1119,30 @@
 			"type": "shell",
 			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Remove-Item -Force tmp-prompt.txt,tmp-prompt2.txt -ErrorAction SilentlyContinue; git add simple-addon/server/automation/agent-loop.js simple-addon/server/automation/eval/prompt-probe.js simple-addon/package.json .vscode/tasks.json; git stash push --keep-index -m 'parallel session WIP, restored right after release'; git status --short; git commit -m 'Add rule 18 - look then act - and a local prompt probe' -m 'The probe prints the EXACT system prompt and tool surface the agent gets, offline and without updating the installed app. Until now the only way to see the prompt was to release, update, run the real task and read main.log - a whole cycle per attempt, which is how one day produced five releases that each found one problem.' -m 'Running it answered the first question immediately: all 53 tools are offered and every acting tool (click_at, uia_invoke, text_type, input_tap, uia_find, screen_ocr, screen_set_of_marks) is present, so capability was never the blocker.' -m 'Reading the prompt showed the real gap. Rules 12-13 said HOW to act and rule 7 forbade repeating the same call, but nothing said that looking again is not progress - and a real run spent all 24 steps reading (uia_snapshot, perception_recent) without one action. Rule 18 now bounds it: after at most two looks, act on what you have; if the target truly cannot be found, ask a narrower question (uia_find by name, screen_ocr, a smaller region) or call goal_ask_user.'; git push origin master; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js; Set-Location ..; Write-Output '--- RESTORING WIP ---'; git stash pop; git status --short",
 			"group": "test"
+		},
+		{
+			"label": "dump-run-2301",
+			"type": "shell",
+			"command": "Set-Location 'C:\\Users\\tanne\\AppData\\Roaming\\simple-addon\\logs'; $lines = Get-Content main.log; $i = ($lines | Select-String 'start goal=' | Select-Object -Last 1).LineNumber; Write-Output ('run starts at line ' + $i + ' of ' + $lines.Count); $lines[($i-1)..($lines.Count-1)] | ForEach-Object { $_.Substring(0,[Math]::Min(130,$_.Length)) }",
+			"group": "test"
+		},
+		{
+			"label": "read-streak-tests",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon'; node server/automation/agent-loop.test.js 2>&1 | Out-File -Encoding utf8 ../tmp-l6.txt; Select-String -Path ../tmp-l6.txt -Pattern 'FAIL|READS|clears the read|passed,' -Context 0,2 | ForEach-Object { $_.Line; $_.Context.PostContext }",
+			"group": "test"
+		},
+		{
+			"label": "verify-act-block-and-chain",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; Write-Output '=== prompt check ==='; node simple-addon/server/automation/eval/prompt-probe.js --grep 'HOW TO ACT' 2>&1 | Select-Object -Last 4; Write-Output '=== tests ==='; Set-Location simple-addon; node server/automation/agent-loop.test.js 2>&1 | Select-Object -Last 2; Write-Output '=== chain ==='; Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; npm --prefix 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app\\simple-addon' run test:unit 2>&1 | Out-File -Encoding utf8 tmp-c2.txt; Write-Output '--- FAILS ---'; (Select-String -Path tmp-c2.txt -Pattern '  FAIL  ').Count; Get-Content tmp-c2.txt -Tail 2; Remove-Item -Force tmp-c2.txt,tmp-l6.txt -ErrorAction SilentlyContinue",
+			"group": "test"
+		},
+		{
+			"label": "release-63",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\tanne\\Documents\\Github\\portfolio-app'; git add simple-addon/server/automation/agent-loop.js simple-addon/server/automation/agent-loop.test.js .vscode/tasks.json; git commit -m 'Count a run of reads as no progress, and make the acting tools salient' -m 'Third real run to fail the same way, and every step was a READ: window_list, perception_recent, uia_snapshot x3, perception_recent x2, uia_snapshot x3, screen_capture x5, then stalled. Fifteen steps, zero acting calls, every one returning ok.' -m 'Rule 18 said look then act and was ignored, so prose is out as a control. act() now reads the tool category from the registry - no list of read tools to keep in sync - and counts consecutive safe-read calls with no acting call between them. Past READ_STREAK_LIMIT the result carries a HARNESS note saying a read changes nothing and to act now or ask the user what cannot be found, and reflect() counts the streak as no progress even when the delta is positive, so the stall detector stops it within a few more steps.' -m 'Second, the AVAILABLE TOOLS list is in registration order, so about 25 read tools preceded the first acting one - and four runs anchored on reading. The prompt now has a HOW TO ACT block naming click_at, uia_invoke, text_type, input_tap and window_focus at the point of choosing, rather than leaving them to be found at the end of a list of readers.'; git push origin master; git stash push -m 'parallel session WIP, restored right after release' -- docs/implementation/NET_CHAT.md frontend/src/components/SimpleAddon/ChatWindow.jsx frontend/src/components/SimpleAddon/SimpleChat.jsx frontend/src/components/SimpleAddon/StepList.css frontend/src/components/SimpleAddon/StepList.jsx; Write-Output '--- TREE BEFORE RELEASE ---'; git status --short; Write-Output '--- RELEASE ---'; Set-Location simple-addon; node release.js; Set-Location ..; Write-Output '--- RESTORING WIP ---'; git stash pop; git status --short",
+			"group": "test"
 		}
 	]
 }

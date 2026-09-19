@@ -946,6 +946,49 @@ function newLoop(overrides = {}) {
         assert.strictEqual(loop.state.step, 1, 'the step is refunded, not advanced');
     });
 
+    await asyncTest('a run of READS with no action is not progress', async () => {
+        // The real failure, third time of asking: 15 steps, all reads
+        // (window_list, perception_recent, uia_snapshot, screen_capture), zero
+        // acting calls, and every one of them returned ok. Rule 18 says "look, then
+        // act" — it was ignored, so the loop measures this instead.
+        let reads = 0;
+        const fakes = makeFakes({
+            config: { IDLE_SLEEP_MS: 1, STALL_THRESHOLD: 3, READ_STREAK_LIMIT: 2 },
+            llmClient: { async chat() { return { text: '', toolCalls: [{ id: 'c', function: { name: 'uia_snapshot', arguments: '{}' } }] }; } },
+        });
+        // A registry that reports categories, like the real one, and whose result
+        // SUCCEEDS every time — the whole point is that success is not progress.
+        const realCategories = { uia_snapshot: 'safe-read', click_at: 'system' };
+        fakes.registry.get = (n) => ({ name: n, category: realCategories[n] || 'safe-read' });
+        fakes.registry.executeTool = async (n) => { reads++; return { ok: true, result: 'ok', mode: 'allow', durationMs: 1 }; };
+        const loop = new AgentLoop(fakes);
+        await loop.start({ goalSlug: 'g', skipPlanner: true });
+        await waitFor(() => loop.status().running === false, { label: 'read-streak loop to stop', timeoutMs: 9000 });
+
+        const s = loop.status();
+        assert.ok(reads > 0, 'the run did read');
+        assert.ok(s.step < 60, `must stop long before the budget, stopped at ${s.step}`);
+        assert.ok(/stall/i.test(String(s.stopReason)), `a read-only dead end must report a stall, got: ${s.stopReason}`);
+    });
+
+    await asyncTest('an ACTING call clears the read streak', async () => {
+        const fakes = makeFakes({
+            config: { IDLE_SLEEP_MS: 1, READ_STREAK_LIMIT: 4 },
+        });
+        const realCategories = { uia_snapshot: 'safe-read', click_at: 'system' };
+        fakes.registry.get = (n) => ({ name: n, category: realCategories[n] });
+
+        // Two reads, one act, two reads: the streak is only 2 at the end.
+        const seq = ['uia_snapshot', 'uia_snapshot', 'click_at', 'uia_snapshot', 'uia_snapshot'];
+        let i = 0;
+        fakes.registry.executeTool = async (n) => ({ ok: true, result: 'ok', mode: 'allow', durationMs: 1 });
+        const loop = new AgentLoop(fakes);
+        for (const name of seq) {
+            await loop.act({ toolCalls: [{ id: `c${i++}`, function: { name, arguments: '{}' } }] });
+        }
+        assert.strictEqual(loop.state.consecutiveReads, 2, 'the acting call reset the streak');
+    });
+
     // ── Summary ──────────────────────────────────────────────────────────
     console.log(`\n${passed} passed, ${failed} failed`);
     process.exit(failed === 0 ? 0 : 1);

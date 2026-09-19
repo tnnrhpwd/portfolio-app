@@ -85,6 +85,10 @@ const DEFAULT_CONFIG = {
     // Consecutive IDENTICAL calls (same tool, same args) after which the action is
     // treated as no progress and the model is told outright. See act()/reflect().
     REPEAT_ACTION_LIMIT: 3,
+    // Consecutive READS (category `safe-read`) with no acting call at all, after
+    // which read-only progress stops counting. Reading is not progress: the screen
+    // cannot change until something acts on it. See act().
+    READ_STREAK_LIMIT: 4,
     // How much of a tool result the model actually sees. Anything longer is cut AND
     // announced (see act()) — a silent cut teaches the model nothing except to retry.
     RESULT_PREVIEW_CHARS: 800,
@@ -255,6 +259,17 @@ function buildSystemPrompt({ goal, workspaceContext, toolNames, skillHints, perc
             'the box you found. If you truly cannot find the target, ask a NARROWER question — uia_find ' +
             'for one element by name, screen_ocr for the words on screen, a smaller region — or call ' +
             'goal_ask_user. A run whose every step is a read is a failed run, however many steps it takes.',
+        '',
+        // The tools list below is in REGISTRATION order, which puts ~25 read tools
+        // before the first acting one — and four real runs in a row anchored on
+        // reading and never called an acting tool at all. This block exists so the
+        // ACTING tools are salient by name at the point of choosing, instead of
+        // something to be discovered at the end of a long list of readers.
+        '== HOW TO ACT ON THIS PC (reading changes nothing — only these change the screen) ==',
+        'click_at({x,y}) — click a real point.  uia_invoke({name}) — activate a named element.  ' +
+            'text_type({text, pressEnterAfter:true}) — type it and send it.  input_tap({keys:["enter"]}) — press a key.  ' +
+            'window_focus({processName|titleContains}) — bring a window forward.  ' +
+            'If you know roughly where the thing is, ACT; a coordinate that is close beats another read that shows you nothing new.',
         '',
         '== AVAILABLE TOOLS ==',
         toolNames.join(', '),
@@ -854,6 +869,20 @@ class AgentLoop {
             const repeats = this._countRepeats(fingerprint);
             const stuck = repeats >= this.config.REPEAT_ACTION_LIMIT;
 
+            // ⚠️ READING IS NOT PROGRESS — and this is the third time prose failed to
+            // establish that. Rule 18 says "look, then act", and a real run ignored it
+            // and spent ALL 15 steps reading (window_list, perception_recent,
+            // uia_snapshot, screen_capture) with no acting call in any of them, before
+            // the stall detector stopped it. The screen cannot change until something
+            // acts on it, so a run of reads is measured here rather than requested.
+            //
+            // Category comes from the registry, so this needs no list of read tools to
+            // keep in sync — a new read tool is covered the moment it is registered.
+            const category = this.registry.get?.(tc.function.name)?.category;
+            const isRead = category === 'safe-read';
+            this.state.consecutiveReads = isRead ? (this.state.consecutiveReads || 0) + 1 : 0;
+            const readStreak = this.state.consecutiveReads >= this.config.READ_STREAK_LIMIT;
+
             // Compact tool result for next turn — full result already in action log
             //
             // ⚠️ A truncation that is not ANNOUNCED is a trap. A real run read the
@@ -892,6 +921,13 @@ class AgentLoop {
                     + 'Do something DIFFERENT now — act on what you have already seen (uia_invoke, click_at, text_type), '
                     + 'use a different tool to get the information, or ask the user with goal_ask_user.'
                 );
+            } else if (readStreak) {
+                notes.push(
+                    `HARNESS: you have READ the screen ${this.state.consecutiveReads} times in a row without acting on it. `
+                    + 'That cannot succeed: the screen will not change until you change it. Act NOW on something you have already seen — '
+                    + 'click_at or uia_invoke on an element you found, or text_type into a box you found. '
+                    + 'If you genuinely cannot find the target, call goal_ask_user and say exactly what you cannot find.'
+                );
             }
             this.state.history.push({
                 role: 'tool',
@@ -899,7 +935,7 @@ class AgentLoop {
                 content: notes.length ? `${summary}\n\n${notes.join('\n\n')}` : summary,
             });
             this.log(`[agent] step ${this.state.step} tool=${tc.function.name} ok=${out.ok}`);
-            outcomes.push({ name: tc.function.name, args: argsObj, out, repeated: stuck });
+            outcomes.push({ name: tc.function.name, args: argsObj, out, repeated: stuck, readStreak });
             this.state.stepLog.push({
                 tool: tc.function.name,
                 args: PII_TOOLS.has(tc.function.name) ? {} : argsObj,
@@ -931,13 +967,13 @@ class AgentLoop {
         const delta = this.critic.score({ predicted: action.expected, actual: outcomes.map((o) => o.out) });
         this.state.lastOutcomeDelta = delta;
 
-        // A repeated identical action is NO PROGRESS even when it "succeeded".
-        // The critic scores ok/error, and screen_capture always returns ok — so 20
-        // identical captures scored as 20 successes and stallCount stayed at 0. The
-        // detector was working; it was being told the run was fine. Counting the
-        // repeat here is what finally lets a mechanically-successful loop stop.
+        // A repeated identical action, or a run of reads with no action, is NO
+        // PROGRESS even when every call "succeeded". The critic scores ok/error and
+        // every read returns ok — so 15 reads scored as 15 successes and stallCount
+        // stayed at 0. The detector was working; it was being told the run was fine.
         const repeated = outcomes.some((o) => o.repeated);
-        if (delta <= 0 || repeated) this.state.stallCount++;
+        const readStreak = outcomes.some((o) => o.readStreak);
+        if (delta <= 0 || repeated || readStreak) this.state.stallCount++;
         else this.state.stallCount = 0;
 
         // The critic writes one idempotent lesson per failing tick (Phase 4).
