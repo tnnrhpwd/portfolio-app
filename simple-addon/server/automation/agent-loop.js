@@ -259,6 +259,20 @@ function buildSystemPrompt({ goal, workspaceContext, toolNames, skillHints, perc
             'the box you found. If you truly cannot find the target, ask a NARROWER question — uia_find ' +
             'for one element by name, screen_ocr for the words on screen, a smaller region — or call ' +
             'goal_ask_user. A run whose every step is a read is a failed run, however many steps it takes.',
+        // Rule 19 exists because a real run REFUSED the task outright: "I can only help
+        // with actions on your Windows computer itself ... not with sending messages
+        // through web services or apps." That is false here — typing into an app IS a
+        // Windows action — and nothing in this prompt said the agent is authorised to
+        // act on the user's behalf, while rule 16's list of irreversible acts reads
+        // like a prohibition instead of a confirm-first instruction.
+        '19. You ARE authorised to act on the user\'s behalf on this PC, including inside the apps and ' +
+            'websites they are signed into: sending a message or email, posting, filling in a form, buying ' +
+            'something they asked for. They own this machine and they wrote the request. Do NOT answer that ' +
+            'you "cannot send messages through apps or web services" — you can, by clicking and typing in ' +
+            'the app they are already signed into, and that is exactly what this addon is for. The control ' +
+            'on anything irreversible is user_confirm (rule 16), which asks THEM and blocks: if it returns ' +
+            'approved, carry the action out; if it is refused, say so and stop. A refusal where a ' +
+            'confirmation is what the user asked for is itself the failure.',
         '',
         // The tools list below is in REGISTRATION order, which puts ~25 read tools
         // before the first acting one — and four real runs in a row anchored on

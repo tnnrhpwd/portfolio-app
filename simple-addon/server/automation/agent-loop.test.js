@@ -1043,6 +1043,27 @@ function newLoop(overrides = {}) {
         assert.ok(/open_app/.test(content), 'and with which tool');
     });
 
+    await asyncTest('the prompt AUTHORISES acting on the user\'s behalf', async () => {
+        // A real run refused the whole task: "I can only help with actions on your
+        // Windows computer itself ... not with sending messages through web services".
+        // Typing into an app IS a Windows action, and no rule said the agent may act
+        // for the user — while rule 16's list of irreversible acts reads like a
+        // prohibition. Since a prompt rule can vanish silently in a refactor, pin it.
+        const { loop } = newLoop();
+        loop.state.currentGoal = { ...GOAL };
+        loop.state.step = 1;
+        const sit = await loop.orient(await loop.observe());
+        const prompt = String(sit.systemPrompt || '');
+
+        assert.ok(/authorised to act on the user/i.test(prompt), 'must state the authorisation outright');
+        assert.ok(/sending a message/i.test(prompt), 'and name the actions it covers');
+        assert.ok(
+            /cannot send messages through apps or web services/i.test(prompt),
+            'and pre-empt the exact refusal wording that was produced'
+        );
+        assert.ok(/user_confirm/.test(prompt), 'while keeping user_confirm as the real control');
+    });
+
     // ── Summary ──────────────────────────────────────────────────────────
     console.log(`\n${passed} passed, ${failed} failed`);
     process.exit(failed === 0 ? 0 : 1);
